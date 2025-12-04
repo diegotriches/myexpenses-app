@@ -1,6 +1,8 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ============================================
+# My Expenses - .gitignore
+# ============================================
 
-# dependencies
+# === Dependencies ===
 /node_modules
 /.pnp
 .pnp.*
@@ -10,32 +12,123 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# === Next.js ===
 /.next/
 /out/
+next-env.d.ts
+.turbo
 
-# production
+# === Build ===
 /build
+/dist
+*.tsbuildinfo
+.pnpm-store
 
-# misc
-.DS_Store
-*.pem
+# === Testing ===
+/coverage
+*.lcov
 
-# debug
+# === Environment Variables ===
+# Ignora todos os .env exceto .env.example
+.env*
+!.env.example
+
+# === Logs ===
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# === OS Files ===
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
 
-# vercel
+# === IDEs ===
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# JetBrains (WebStorm, IntelliJ, etc)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# === Certificates ===
+*.pem
+*.key
+*.cert
+*.crt
+
+# === Deploy Platforms ===
 .vercel
+.netlify
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# === Database ===
+*.sqlite
+*.sqlite3
+*.db
+
+# === Docker ===
+# Não ignora docker-compose.yml e Dockerfile
+# Ignora apenas dados e logs locais
+docker-compose.override.yml
+*.log
+
+# === AI Assistants (Claude, Gemini, Cursor, etc) ===
+# Arquivos de configuração de assistentes de IA
+.claude/
+.gemini/
+.cursor/
+CLAUDE.md
+AGENTS.md
+claude.md
+agents.md
+
+# === Backups e Temporários ===
+*.bak
+*.backup
+*.tmp
+*.temp
+~$*
+
+# === Outros ===
+# Arquivos de lock temporários
+package-lock.json  # Se usa pnpm, não precisa do npm lock
+yarn.lock          # Se usa pnpm, não precisa do yarn lock
+
+# Drizzle Studio local cache
+.drizzle/
+
+# TypeScript cache
+.tsbuildinfo
+
+# Local development files
+.local/
+local/
+scratch/
+playground/
