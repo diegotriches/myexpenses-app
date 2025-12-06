@@ -1,5 +1,5 @@
-import db from "@/database/db";
-import { usuarios } from "@/database/schema/usuarios";
+import { db } from "@/db";
+import { usuarios } from "@/db/schema";
 import { NextResponse } from "next/server";
 
 // GET — Retorna o único usuário existente

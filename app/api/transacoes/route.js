@@ -1,6 +1,6 @@
-import db from "@/database/db";
-import { transacoes } from "@/database/schema/transacoes";
-import { cartoes } from "@/database/schema/cartoes";
+import { db } from "@/db";
+import { transacoes } from "@/db/schema";
+import { cartoes } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 

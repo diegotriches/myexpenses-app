@@ -1,5 +1,5 @@
-import db from "@/database/db";
-import { cartoes } from "@/database/schema/cartoes";
+import { db } from "@/db";
+import { cartoes } from "@/db/schema";
 import { NextResponse } from "next/server";
 
 // GET /api/cartoes
