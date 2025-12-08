@@ -1,4 +1,4 @@
-import db from "@/database/db";
+import db from "@/db";
 import { usuarios } from "@/database/schema/usuarios";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";

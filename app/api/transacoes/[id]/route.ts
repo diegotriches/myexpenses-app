@@ -1,4 +1,4 @@
-import db from "@/database/db";
+import db from "@/db";
 import { transacoes } from "@/database/schema/transacoes";
 import { cartoes } from "@/database/schema/cartoes";
 import { NextResponse } from "next/server";

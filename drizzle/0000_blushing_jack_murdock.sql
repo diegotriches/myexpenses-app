@@ -10,7 +10,8 @@ CREATE TABLE "cartoes" (
 CREATE TABLE "categorias" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"nome" varchar(100) NOT NULL,
-	"tipo" varchar(20) NOT NULL
+	"tipo" varchar(20) NOT NULL,
+	"icon" varchar(50) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "transacoes" (
@@ -26,6 +27,14 @@ CREATE TABLE "transacoes" (
 	"cartaoId" integer
 );
 --> statement-breakpoint
+CREATE TABLE "users" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"name" text NOT NULL,
+	"email" text NOT NULL,
+	"password" text NOT NULL,
+	CONSTRAINT "users_email_unique" UNIQUE("email")
+);
+--> statement-breakpoint
 CREATE TABLE "usuarios" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"nome" varchar(100) NOT NULL,
@@ -35,8 +44,4 @@ CREATE TABLE "usuarios" (
 	"foto" text
 );
 --> statement-breakpoint
-ALTER TABLE "users" ALTER COLUMN "name" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "users" ALTER COLUMN "name" SET NOT NULL;--> statement-breakpoint
-ALTER TABLE "users" ALTER COLUMN "email" SET DATA TYPE text;--> statement-breakpoint
-ALTER TABLE "transacoes" ADD CONSTRAINT "transacoes_cartaoId_cartoes_id_fk" FOREIGN KEY ("cartaoId") REFERENCES "public"."cartoes"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "users" DROP COLUMN "created_at";
+ALTER TABLE "transacoes" ADD CONSTRAINT "transacoes_cartaoId_cartoes_id_fk" FOREIGN KEY ("cartaoId") REFERENCES "public"."cartoes"("id") ON DELETE no action ON UPDATE no action;

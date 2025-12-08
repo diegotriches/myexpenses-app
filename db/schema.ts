@@ -21,7 +21,8 @@ export const usuarios = pgTable("usuarios", {
 export const categorias = pgTable("categorias", {
   id: serial("id").primaryKey(),
   nome: varchar("nome", { length: 100 }).notNull(),
-  tipo: varchar("tipo", { length: 20 }).notNull(), // "entrada" | "saida"
+  tipo: varchar("tipo", { length: 20 }).notNull(),
+  icon: varchar("icon", { length: 50 }).notNull(),
 });
 
 // CARTÕES
