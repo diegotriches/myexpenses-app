@@ -3,10 +3,11 @@ export interface Transacao {
     data: string;
     descricao: string;
     valor: number;
-    tipo: "Entrada" | "Saída";
+    tipo: "entrada" | "saida";
     categoria: string;
     parcela?: string;
     recorrente?: boolean;
+    repeticoes?: number;  // ← aqui adiciona o número de repetições
     formaPagamento: "dinheiro" | "pix" | "cartao";
     cartaoId?: number | null;
 }

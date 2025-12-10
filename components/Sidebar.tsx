@@ -7,11 +7,11 @@ import api from "@/services/api";
 import {
   BsHouse,
   BsArrowLeftRight,
-  BsBarChart,
+  BsBank,
   BsCashCoin,
   BsTags,
   BsCreditCard,
-  BsFillPersonFill,
+  BsFillGearFill,
 } from "react-icons/bs";
 
 interface SidebarProps {
@@ -50,7 +50,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       <div className="flex flex-col gap-4">
         <Link href="/dashboard" className="flex items-center gap-3 p-2 hover:bg-[#1565c0] rounded-md">
           <BsHouse size={20} />
-          {!isCollapsed && "Home"}
+          {!isCollapsed && "Dashboard"}
         </Link>
 
         <Link href="/movimentacao" className="flex items-center gap-3 p-2 hover:bg-[#1565c0] rounded-md">
@@ -68,22 +68,22 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           {!isCollapsed && "Cartões"}
         </Link>
 
-        <Link href="/relatorios" className="flex items-center gap-3 p-2 hover:bg-[#1565c0] rounded-md">
-          <BsBarChart size={20} />
-          {!isCollapsed && "Relatórios"}
+        <Link href="/contas" className="flex items-center gap-3 p-2 hover:bg-[#1565c0] rounded-md">
+          <BsBank size={20} />
+          {!isCollapsed && "Contas"}
         </Link>
 
-        <Link href="/perfil" className="flex items-center gap-3 p-2 hover:bg-[#1565c0] rounded-md">
+        <Link href="/ajustes" className="flex items-center gap-3 p-2 hover:bg-[#1565c0] rounded-md">
           {fotoPerfil ? (
             <img
               src={fotoPerfil}
-              alt="Perfil"
+              alt="Ajustes"
               className="w-[35px] h-[35px] rounded-full border-2 border-white object-cover"
             />
           ) : (
-            <BsFillPersonFill size={20} />
+            <BsFillGearFill size={20} />
           )}
-          {!isCollapsed && "Perfil"}
+          {!isCollapsed && "Ajustes"}
         </Link>
       </div>
     </nav>

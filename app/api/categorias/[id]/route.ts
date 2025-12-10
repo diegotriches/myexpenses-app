@@ -4,8 +4,11 @@ import { eq } from "drizzle-orm";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const params = await context.params;
+  const id = Number(params.id);
+
   try {
     const { nome, tipo, icon } = await req.json();
 
@@ -19,7 +22,7 @@ export async function PUT(
     const updated = await db
       .update(categorias)
       .set({ nome, tipo, icon })
-      .where(eq(categorias.id, Number(params.id)))
+      .where(eq(categorias.id, id))
       .returning();
 
     if (updated.length === 0) {
@@ -38,18 +41,36 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  console.log("DEBUG: context =", context);
-  console.log("DEBUG: params =", context?.params);
-  console.log("DEBUG: id =", context?.params?.id);
+  try {
+    const params = await context.params;
+    const id = Number(params.id);
 
-  return new Response(
-    JSON.stringify({
-      debugParams: context?.params,
-      idRecebido: context?.params?.id,
-      idConvertido: Number(context?.params?.id),
-    }),
-    { status: 200 }
-  );
+    if (Number.isNaN(id)) {
+      return new Response(
+        JSON.stringify({ erro: "ID inválido" }),
+        { status: 400 }
+      );
+    }
+
+    const deleted = await db
+      .delete(categorias)
+      .where(eq(categorias.id, id))
+      .returning();
+
+    if (deleted.length === 0) {
+      return new Response(
+        JSON.stringify({ erro: "Categoria não encontrada" }),
+        { status: 404 }
+      );
+    }
+
+    return Response.json({ mensagem: "Categoria removida com sucesso" });
+  } catch (err: any) {
+    console.error("DELETE /categorias/[id] ERROR:", err);
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+    });
+  }
 }

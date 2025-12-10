@@ -1,196 +1,240 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AxiosError } from "axios";
-import { useRouter } from "next/navigation";
-import api from "@/services/api";
+import { useState } from "react";
+import { useCartoes } from "@/hooks/useCartoes";
+import { Cartao, TipoCartao } from "@/types/cartao";
 
-import { BsPlusCircle, BsArrowLeft, BsTrash, BsPencil } from "react-icons/bs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
-interface Cartao {
-  id: number;
-  nome: string;
-  tipo: string; // "Crédito" | "Débito"
-  limite?: number | null;
-  diaFechamento?: number | null;
-  diaVencimento?: number | null;
-}
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
-export default function Cartoes() {
-  const [cartoes, setCartoes] = useState<Cartao[]>([]);
-  const [nome, setNome] = useState("");
-  const [tipo, setTipo] = useState("Crédito");
-  const [limite, setLimite] = useState<number | "">("");
-  const [diaFechamento, setDiaFechamento] = useState<number | "">("");
-  const [diaVencimento, setDiaVencimento] = useState<number | "">("");
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-  const [editandoId, setEditandoId] = useState<number | null>(null);
+import { BsPencil, BsTrash, BsCreditCard2Back } from "react-icons/bs";
+import { MdAdd } from "react-icons/md";
 
-  const router = useRouter();
+export default function CartoesPage() {
+  const { cartoes, loading, carregar } = useCartoes();
 
-  // Carregar cartões
-  useEffect(() => {
-    api.get<Cartao[]>("/cartoes")
-      .then(res => setCartoes(res.data))
-      .catch((err: AxiosError) => console.error("Erro ao carregar cartões:", err.message));
-  }, []);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [cartaoEditando, setCartaoEditando] = useState<Cartao | null>(null);
 
-  // Adicionar ou atualizar cartão
-  const salvarCartao = () => {
-    if (!nome) return alert("Digite um nome para o cartão");
+  const [form, setForm] = useState({
+    nome: "",
+    tipo: "credito" as TipoCartao,
+    bandeira: "",
+    limite: "",
+    limiteDisponivel: "",
+    diaFechamento: "",
+    diaVencimento: "",
+    cor: "#4F46E5",
+    icone: "credit-card",
+    ativo: true,
+    observacoes: "",
+  });
 
-    const novoCartao = {
-      nome,
-      tipo,
-      limite: tipo === "Crédito" ? Number(limite) : null,
-      diaFechamento: tipo === "Crédito" ? Number(diaFechamento) : null,
-      diaVencimento: tipo === "Crédito" ? Number(diaVencimento) : null,
+  function abrirNovo() {
+    setCartaoEditando(null);
+    setForm({
+      nome: "",
+      tipo: "credito",
+      bandeira: "",
+      limite: "",
+      limiteDisponivel: "",
+      diaFechamento: "",
+      diaVencimento: "",
+      cor: "#4F46E5",
+      icone: "credit-card",
+      ativo: true,
+      observacoes: "",
+    });
+    setModalOpen(true);
+  }
+
+  function abrirEdicao(c: Cartao) {
+    setCartaoEditando(c);
+    setForm({
+      nome: c.nome,
+      tipo: c.tipo,
+      bandeira: c.bandeira,
+      limite: c.limite?.toString() ?? "",
+      limiteDisponivel: c.limiteDisponivel?.toString() ?? "",
+      diaFechamento: c.diaFechamento?.toString() ?? "",
+      diaVencimento: c.diaVencimento?.toString() ?? "",
+      cor: c.cor,
+      icone: c.icone,
+      ativo: c.ativo,
+      observacoes: c.observacoes ?? "",
+    });
+    setModalOpen(true);
+  }
+
+  async function salvarCartao() {
+    const payload: Partial<Cartao> = {
+      nome: form.nome,
+      tipo: form.tipo,
+      bandeira: form.bandeira,
+      limite: form.tipo === "credito" ? Number(form.limite) : 0,
+      limiteDisponivel:
+        form.tipo === "credito" ? Number(form.limiteDisponivel) : 0,
+      diaFechamento:
+        form.tipo === "credito" ? Number(form.diaFechamento) : undefined,
+      diaVencimento:
+        form.tipo === "credito" ? Number(form.diaVencimento) : undefined,
+      cor: form.cor,
+      icone: form.icone,
+      ativo: form.ativo,
+      observacoes: form.observacoes,
     };
 
-    if (editandoId) {
-      // Atualizar
-      api.put<Cartao>(`/cartoes/${editandoId}`, novoCartao)
-        .then((res) => {
-          setCartoes(cartoes.map((c) => (c.id === editandoId ? res.data : c)));
-          resetForm();
-        })
-        .catch((err: AxiosError) => console.error("Erro ao editar cartão:", err.message));
+    if (cartaoEditando) {
+      await fetch(`/api/cartoes/${cartaoEditando.id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
     } else {
-      // Adicionar
-      api.post<Cartao>("/cartoes", novoCartao)
-        .then((res) => {
-          setCartoes([...cartoes, res.data]);
-          resetForm();
-        })
-        .catch((err: AxiosError) => console.error("Erro ao adicionar cartão:", err.message));
+      await fetch("/api/cartoes", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
     }
-  };
 
-  // Editar cartão
-  const editarCartao = (cartao: Cartao) => {
-    setEditandoId(cartao.id);
-    setNome(cartao.nome);
-    setTipo(cartao.tipo);
-    setLimite(cartao.limite ?? "");
-    setDiaFechamento(cartao.diaFechamento ?? "");
-    setDiaVencimento(cartao.diaVencimento ?? "");
-  };
+    await carregar();
+    setModalOpen(false);
+  }
 
-  // Excluir cartão
-  const excluirCartao = (id: number) => {
-    if (!window.confirm("Deseja realmente excluir este cartão?")) return;
+  async function excluirCartao(id: number) {
+    if (!window.confirm("Confirmar exclusão do cartão?")) return;
 
-    api.delete(`/cartoes/${id}`)
-      .then(() => {
-        setCartoes(cartoes.filter((c) => c.id !== id));
-      })
-      .catch((err: AxiosError) => console.error("Erro ao excluir cartão:", err.message));
-  };
-
-  // Resetar formulário
-  const resetForm = () => {
-    setEditandoId(null);
-    setNome("");
-    setTipo("Crédito");
-    setLimite("");
-    setDiaFechamento("");
-    setDiaVencimento("");
-  };
+    await fetch(`/api/cartoes/${id}`, { method: "DELETE" });
+    carregar();
+  }
 
   return (
-    <>
-      <div id="add-categoria">
-        <div id="top-btn">
-          <button onClick={() => router.push("/formmovimentacao")}>
-            <BsArrowLeft /> Voltar
-          </button>
-          <h3>Cadastro de Cartões</h3>
-        </div>
+  <div className="max-w-[900px] mx-auto p-6">
 
-        <div className="linha-1">
-          <input
-            type="text"
-            placeholder="Nome do cartão"
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-          />
-
-          <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
-            <option value="Crédito">Crédito</option>
-            <option value="Débito">Débito</option>
-          </select>
-        </div>
-        {tipo === "Crédito" && (
-          <div className="linha-1">
-            <input
-              type="number"
-              placeholder="Limite de crédito"
-              value={limite}
-              onChange={(e) =>
-                setLimite(
-                  e.target.value === "" ? "" : Number(e.target.value)
-                )
-              }
-            />
-            <input
-              type="number"
-              placeholder="Dia de fechamento"
-              value={diaFechamento}
-              onChange={(e) =>
-                setDiaFechamento(
-                  e.target.value === "" ? "" : Number(e.target.value)
-                )
-              }
-              min={1}
-              max={31}
-            />
-            <input
-              type="number"
-              placeholder="Dia de vencimento"
-              value={diaVencimento}
-              onChange={(e) =>
-                setDiaVencimento(
-                  e.target.value === "" ? "" : Number(e.target.value)
-                )
-              }
-              min={1}
-              max={31}
-            />
-          </div>
-        )}
-
-        <button onClick={salvarCartao}>
-          {editandoId ? "Salvar Edição" : <BsPlusCircle />}
-        </button>
-        {editandoId && (
-          <button onClick={resetForm} style={{ marginLeft: "10px" }}>
-            Cancelar
-          </button>
-        )}
+    {/* TÍTULO COM ÍCONE E DESCRIÇÃO */}
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <BsCreditCard2Back className="text-3xl text-blue-700" />
+        <h1 className="text-2xl font-bold text-gray-900">Cartões</h1>
       </div>
+      <p className="text-gray-600 mb-6">
+        Gerencie todos os seus cartões de crédito, débito ou múltiplos em um só lugar. 
+        Visualize informações como limite, vencimento e bandeira, e organize seus pagamentos de forma prática e segura.
+      </p>
+      <hr className="border-t border-gray-300 my-4" />
+    </div>
 
-      <div id="categoria-container">
-        <h3>Meus Cartões</h3>
-        <ul>
-          {cartoes.map((c) => (
-            <li key={c.id}>
-              {c.nome} - {c.tipo}
-              {c.tipo === "Crédito" && (
-                <span>
-                  {" "} | Limite: R$ {c.limite?.toFixed(2)} | Fechamento:{" "}
-                  {c.diaFechamento} | Vencimento: {c.diaVencimento}
-                </span>
+    {/* BOTÃO DE ADICIONAR NOVO CARTÃO */}
+    <div className="flex justify-end mb-6">
+      <Button onClick={abrirNovo} className="flex cursor-pointer items-center gap-2 bg-blue-700 text-white px-4 py-2 rounded-md hover:bg-blue-900 transition">
+        <MdAdd className="text-x1" /> Novo Cartão
+      </Button>
+    </div>
+
+    {/* CARDS DE CARTÕES */}
+    {loading ? (
+      <p className="text-gray-600">Carregando cartões...</p>
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {cartoes.map((c) => (
+          <Card key={c.id} className="shadow-sm rounded-xl overflow-hidden">
+            <CardHeader
+              style={{ backgroundColor: c.cor }}
+              className="text-white rounded-t-xl p-4"
+            >
+              <CardTitle className="text-lg font-bold">{c.nome}</CardTitle>
+              <p className="text-sm opacity-90">{c.bandeira}</p>
+            </CardHeader>
+
+            <CardContent className="space-y-2 p-4">
+              <p>Tipo: {c.tipo}</p>
+
+              {c.tipo === "credito" && (
+                <>
+                  <p>Limite: R$ {c.limite?.toFixed(2)}</p>
+                  <p>Disponível: R$ {c.limiteDisponivel?.toFixed(2)}</p>
+                  <p>Fechamento: {c.diaFechamento}</p>
+                  <p>Vencimento: {c.diaVencimento}</p>
+                </>
               )}
-              <button onClick={() => editarCartao(c)}>
-                <BsPencil />
-              </button>
-              <button onClick={() => excluirCartao(c.id)}>
-                <BsTrash />
-              </button>
-            </li>
-          ))}
-        </ul>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" onClick={() => abrirEdicao(c)} className="flex items-center gap-2">
+                  <BsPencil /> Editar
+                </Button>
+
+                <Button variant="destructive" onClick={() => excluirCartao(c.id)} className="flex items-center gap-2">
+                  <BsTrash /> Excluir
+                </Button>
+
+                {c.tipo === "credito" && (
+                  <Button onClick={() => (window.location.href = `/cartoes/${c.id}/fatura`)}>
+                    Ver Fatura
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
-    </>
-  );
+    )}
+
+    {/* MODAL */}
+    <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {cartaoEditando ? "Editar Cartão" : "Novo Cartão"}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <Input placeholder="Nome" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+          <Input placeholder="Bandeira" value={form.bandeira} onChange={(e) => setForm({ ...form, bandeira: e.target.value })} />
+
+          <Select value={form.tipo} onValueChange={(v: TipoCartao) => setForm({ ...form, tipo: v })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Tipo do cartão" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="credito">Crédito</SelectItem>
+              <SelectItem value="debito">Débito</SelectItem>
+              <SelectItem value="multiplo">Múltiplo</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {form.tipo === "credito" && (
+            <>
+              <Input type="number" placeholder="Limite" value={form.limite} onChange={(e) => setForm({ ...form, limite: e.target.value })} />
+              <Input type="number" placeholder="Limite disponível" value={form.limiteDisponivel} onChange={(e) => setForm({ ...form, limiteDisponivel: e.target.value })} />
+              <Input type="number" placeholder="Dia de fechamento" value={form.diaFechamento} onChange={(e) => setForm({ ...form, diaFechamento: e.target.value })} />
+              <Input type="number" placeholder="Dia de vencimento" value={form.diaVencimento} onChange={(e) => setForm({ ...form, diaVencimento: e.target.value })} />
+            </>
+          )}
+        </div>
+
+        <DialogFooter className="pt-4">
+          <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
+          <Button onClick={salvarCartao}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </div>
+);
 }

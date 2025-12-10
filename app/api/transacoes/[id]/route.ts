@@ -1,103 +1,122 @@
-import db from "@/db";
-import { transacoes } from "@/database/schema/transacoes";
-import { cartoes } from "@/database/schema/cartoes";
+import { db } from "@/db";
+import { transacoes, cartoes } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
-// PUT /api/transacoes/:id
-export async function PUT(req, { params }) {
-    try {
-        const id = Number(params.id);
-        const body = await req.json();
+export async function PUT(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  console.log("=== DEBUG PUT /api/transacoes/[id] ===");
 
-        let {
-            data,
-            tipo,
-            descricao,
-            valor,
-            categoria,
-            formaPagamento,
-            parcela,
-            recorrente,
-            cartaoId
-        } = body;
+  // await para desestruturar params corretamente
+  const { params } = context;
+  const { id } = await params;
+  console.log("ID recebido:", id);
 
-        // Validar forma de pagamento
-        const formasPermitidas = ["dinheiro", "pix", "cartao"];
-        if (!formasPermitidas.includes(formaPagamento)) {
-            formaPagamento = "dinheiro";
-        }
+  const numericId = Number(id);
+  if (isNaN(numericId)) {
+    return NextResponse.json({ error: "ID inválido." }, { status: 400 });
+  }
 
-        // Se não for cartão → remover cartaoId
-        if (formaPagamento !== "cartao") {
-            cartaoId = null;
-        }
+  try {
+    const body = await req.json();
+    console.log("BODY recebido:", body);
 
-        // Validar cartão se necessário
-        if (formaPagamento === "cartao" && cartaoId) {
-            const check = await db
-                .select()
-                .from(cartoes)
-                .where(eq(cartoes.id, Number(cartaoId)));
+    let {
+      data,
+      tipo,
+      descricao,
+      valor,
+      categoria,
+      formaPagamento,
+      parcela,
+      recorrente,
+      cartaoId,
+    } = body;
 
-            if (check.length === 0) {
-                return NextResponse.json(
-                    { error: "Cartão informado não existe." },
-                    { status: 400 }
-                );
-            }
-        }
-
-        const [atualizada] = await db
-            .update(transacoes)
-            .set({
-                data,
-                tipo,
-                descricao,
-                valor,
-                categoria,
-                formaPagamento,
-                parcela,
-                recorrente: recorrente ? true : false,
-                cartaoId: cartaoId ? Number(cartaoId) : null
-            })
-            .where(eq(transacoes.id, id))
-            .returning();
-
-        if (!atualizada) {
-            return NextResponse.json(
-                { error: "Transação não encontrada" },
-                { status: 404 }
-            );
-        }
-
-        return NextResponse.json(atualizada);
-
-    } catch (err) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    const formasPermitidas = ["dinheiro", "pix", "cartao"];
+    if (!formasPermitidas.includes(formaPagamento)) {
+      formaPagamento = "dinheiro";
     }
+
+    if (formaPagamento !== "cartao") {
+      cartaoId = null;
+    }
+
+    if (formaPagamento === "cartao" && cartaoId) {
+      const check = await db
+        .select()
+        .from(cartoes)
+        .where(eq(cartoes.id, Number(cartaoId)));
+
+      if (check.length === 0) {
+        return NextResponse.json(
+          { error: "Cartão informado não existe." },
+          { status: 400 }
+        );
+      }
+    }
+
+    const [atualizada] = await db
+      .update(transacoes)
+      .set({
+        data,
+        tipo,
+        descricao,
+        valor,
+        categoria,
+        formaPagamento,
+        parcela,
+        recorrente: !!recorrente,
+        cartaoId: cartaoId ? Number(cartaoId) : null,
+      })
+      .where(eq(transacoes.id, numericId))
+      .returning();
+
+    if (!atualizada) {
+      return NextResponse.json(
+        { error: "Transação não encontrada" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(atualizada);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erro desconhecido";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
-// DELETE /api/transacoes/:id
-export async function DELETE(req, { params }) {
-    try {
-        const id = Number(params.id);
+export async function DELETE(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { params } = context;
+    const { id } = await params;
+    console.log("ID recebido para DELETE:", id);
 
-        const [apagada] = await db
-            .delete(transacoes)
-            .where(eq(transacoes.id, id))
-            .returning({ id: transacoes.id });
-
-        if (!apagada) {
-            return NextResponse.json(
-                { error: "Transação não encontrada" },
-                { status: 404 }
-            );
-        }
-
-        return NextResponse.json({ sucesso: true, id: apagada.id });
-
-    } catch (err) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    const numericId = Number(id);
+    if (isNaN(numericId)) {
+      return NextResponse.json({ error: "ID inválido." }, { status: 400 });
     }
+
+    const [apagada] = await db
+      .delete(transacoes)
+      .where(eq(transacoes.id, numericId))
+      .returning({ id: transacoes.id });
+
+    if (!apagada) {
+      return NextResponse.json(
+        { error: "Transação não encontrada" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ sucesso: true, id: apagada.id });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erro desconhecido";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
