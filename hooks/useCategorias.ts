@@ -6,6 +6,7 @@ export interface Categoria {
   id: number;
   nome: string;
   tipo: "entrada" | "saida";
+  icon?: string;
 }
 
 export function useCategorias() {

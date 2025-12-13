@@ -8,16 +8,17 @@ import { BsArrowLeftRight } from "react-icons/bs";
 import FormMovimentacaoModal from "@/components/movimentacao/FormMovimentacaoModal";
 import MovimentacaoTabela from "@/components/movimentacao/MovimentacaoTabela";
 import ConfirmarExclusaoModal from "@/components/movimentacao/ConfirmarExclusaoModal";
+import PeriodoSelector from "@/components/PeriodoSelector";
+import { PeriodoProvider, usePeriodo } from '@/components/PeriodoContext';
 
 import { useMovimentacoes } from "@/hooks/useMovimentacoes";
 import { useCartoes } from "@/hooks/useCartoes";
 import { Transacao } from "@/types/transacao";
 
-export default function MovimentacoesPage() {
+export default function MovimentacoesConteudo() {
   const {
     movimentacoes,
     loading,
-    carregar,
     salvar,
     excluir,
   } = useMovimentacoes();
@@ -29,6 +30,17 @@ export default function MovimentacoesPage() {
 
   const [modalExcluir, setModalExcluir] = useState(false);
   const [itemExcluir, setItemExcluir] = useState<Transacao | null>(null);
+
+  const { mesSelecionado, anoSelecionado } = usePeriodo();
+
+  // ✅ filtro correto e estável
+  const movimentacoesFiltradas = movimentacoes.filter((mov) => {
+    if (!mov.data) return false;
+
+    const [ano, mes] = mov.data.split("T")[0].split("-").map(Number);
+
+    return mes - 1 === mesSelecionado && ano === anoSelecionado;
+  });
 
   function abrirNovo() {
     setEditando(null);
@@ -45,9 +57,12 @@ export default function MovimentacoesPage() {
     setModalExcluir(true);
   }
 
-  async function handleExcluir() {
+  async function handleExcluir(
+    tipo: "unica" | "todas_parcelas" | "toda_recorrencia"
+  ) {
     if (!itemExcluir) return;
     await excluir(itemExcluir.id);
+
     setModalExcluir(false);
     setItemExcluir(null);
   }
@@ -67,6 +82,11 @@ export default function MovimentacoesPage() {
         <hr className="border-t border-gray-300 my-4" />
       </div>
 
+      {/* Seletor de período */}
+      <div className="flex justify-end mb-6">
+        <PeriodoSelector />
+      </div>
+
       <div className="flex justify-end mb-6">
         <Button
           onClick={abrirNovo}
@@ -78,7 +98,7 @@ export default function MovimentacoesPage() {
       </div>
 
       <MovimentacaoTabela
-        movimentacoes={movimentacoes}
+        movimentacoes={movimentacoesFiltradas}
         loading={loading || loadingCartoes}
         cartoes={cartoes}
         onEditar={editarItem}

@@ -5,10 +5,16 @@ export interface Transacao {
     valor: number;
     tipo: "entrada" | "saida";
     categoria: string;
+    formaPagamento: "dinheiro" | "pix" | "cartao";
+    cartaoId?: number | null;
+
     recorrente?: boolean;
     repeticoes?: number;
     parcelado?: boolean;
     parcelas?: number;
-    formaPagamento: "dinheiro" | "pix" | "cartao";
-    cartaoId?: number | null;
+
+    parcelamentoId?: string;
+    parcelaAtual?: number;
+    totalParcelas?: number;
+    recorrenciaId?: string;
 }

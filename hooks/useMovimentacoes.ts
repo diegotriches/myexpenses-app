@@ -1,10 +1,15 @@
 import { useEffect, useState, useCallback } from "react";
 import { Transacao } from "@/types/transacao";
 
+type TipoExclusao = "unica" | "todas_parcelas" | "toda_recorrencia";
+
 export function useMovimentacoes() {
   const [movimentacoes, setMovimentacoes] = useState<Transacao[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // =========================
+  // Carregar movimentações
+  // =========================
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
@@ -19,11 +24,16 @@ export function useMovimentacoes() {
     }
   }, []);
 
+  // =========================
+  // Salvar (criar / editar)
+  // =========================
   const salvar = useCallback(
     async (dados: Transacao) => {
       try {
         const isUpdate = !!(dados.id && dados.id > 0);
-        const url = isUpdate ? `/api/transacoes/${dados.id}` : "/api/transacoes";
+        const url = isUpdate
+          ? `/api/transacoes/${dados.id}`
+          : "/api/transacoes";
         const method = isUpdate ? "PUT" : "POST";
 
         const res = await fetch(url, {
@@ -34,7 +44,9 @@ export function useMovimentacoes() {
 
         if (!res.ok) {
           const text = await res.text().catch(() => "");
-          throw new Error(`Falha ao salvar movimentação: ${res.status} ${text}`);
+          throw new Error(
+            `Falha ao salvar movimentação: ${res.status} ${text}`
+          );
         }
 
         await carregar();
@@ -46,24 +58,98 @@ export function useMovimentacoes() {
     [carregar]
   );
 
+  // =========================
+  // Função auxiliar: excluir por ID
+  // =========================
+  const excluirPorId = async (id: number) => {
+    const res = await fetch(`/api/transacoes/${id}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(
+        `Falha ao excluir movimentação: ${res.status} ${text}`
+      );
+    }
+  };
+
+  // =========================
+  // Exclusão única
+  // =========================
+  const excluirUnica = async (id: number) => {
+    await excluirPorId(id);
+    setMovimentacoes((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  // =========================
+  // Exclusão de todas as parcelas
+  // =========================
+  const excluirParcelamento = async (parcelamentoId: string) => {
+    const parcelas = movimentacoes.filter(
+      (m) => m.parcelamentoId === parcelamentoId
+    );
+
+    for (const parcela of parcelas) {
+      await excluirPorId(parcela.id);
+    }
+
+    setMovimentacoes((prev) =>
+      prev.filter((m) => m.parcelamentoId !== parcelamentoId)
+    );
+  };
+
+  // =========================
+  // Exclusão de toda recorrência
+  // =========================
+  const excluirRecorrencia = async (recorrenciaId: string) => {
+    const recorrentes = movimentacoes.filter(
+      (m) => m.recorrenciaId === recorrenciaId
+    );
+
+    for (const mov of recorrentes) {
+      await excluirPorId(mov.id);
+    }
+
+    setMovimentacoes((prev) =>
+      prev.filter((m) => m.recorrenciaId !== recorrenciaId)
+    );
+  };
+
+  // =========================
+  // Exclusão inteligente (pública)
+  // =========================
   const excluir = useCallback(
-    async (id: number) => {
+    async (id: number, tipo: TipoExclusao = "unica") => {
       try {
-        const res = await fetch(`/api/transacoes/${id}`, { method: "DELETE" });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(`Falha ao excluir movimentação: ${res.status} ${text}`);
+        const mov = movimentacoes.find((m) => m.id === id);
+        if (!mov) return;
+
+        if (tipo === "unica") {
+          await excluirUnica(id);
+          return;
         }
 
-        setMovimentacoes((prev) => prev.filter((m) => m.id !== id));
+        if (tipo === "todas_parcelas" && mov.parcelamentoId) {
+          await excluirParcelamento(mov.parcelamentoId);
+          return;
+        }
+
+        if (tipo === "toda_recorrencia" && mov.recorrenciaId) {
+          await excluirRecorrencia(mov.recorrenciaId);
+          return;
+        }
       } catch (err) {
         console.error("useMovimentacoes.excluir:", err);
         throw err;
       }
     },
-    []
+    [movimentacoes]
   );
 
+  // =========================
+  // Load inicial
+  // =========================
   useEffect(() => {
     carregar();
   }, [carregar]);

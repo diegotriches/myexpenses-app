@@ -1,5 +1,12 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Props {
   form: any;
@@ -13,14 +20,21 @@ export default function MovCamposBasicos({ form, update, campo }: Props) {
       return (
         <div>
           <Label>Tipo</Label>
-          <select
-            value={form.tipo}
-            onChange={(e) => update("tipo", e.target.value)}
-            className="w-full border rounded-md p-2"
-          >
-            <option value="entrada">Entrada</option>
-            <option value="saida">Saída</option>
-          </select>
+          <Select value={form.tipo} onValueChange={(v) => update("tipo", v)}>
+            <SelectTrigger className="w-full border rounded-md p-2">
+              <SelectValue placeholder="Selecione o tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="entrada" className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-green-500 rounded-full block" />
+                Entrada
+              </SelectItem>
+              <SelectItem value="saida" className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-red-500 rounded-full block" />
+                Saída
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       );
 
@@ -48,7 +62,7 @@ export default function MovCamposBasicos({ form, update, campo }: Props) {
             value={form.valor}
             onChange={(e) => update("valor", e.target.value)}
             className="w-full"
-            placeholder="0.00"
+            placeholder="R$ 0,00"
           />
         </div>
       );

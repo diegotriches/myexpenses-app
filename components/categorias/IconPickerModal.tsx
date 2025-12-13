@@ -1,5 +1,4 @@
 import { iconOptions } from "@/utils/iconOptions";
-import { useContext } from "react";
 
 export default function IconPickerModal({ aberto, onClose }: any) {
   if (!aberto) return null;

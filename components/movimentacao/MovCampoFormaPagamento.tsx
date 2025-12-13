@@ -2,11 +2,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { useCartoes } from "@/hooks/useCartoes";
 import { CartaoSelectItem } from "@/components/CartaoSelectItem";
+import { FaMoneyBill, FaCreditCard, FaDollarSign } from "react-icons/fa";
 
 interface Props {
   form: any;
   update: (k: string, v: any) => void;
 }
+
+// Definindo opções de forma de pagamento com ícones
+const formaPagamentoOptions = [
+  { value: "dinheiro", label: "Dinheiro", icon: FaMoneyBill },
+  { value: "pix", label: "Pix", icon: FaDollarSign },
+  { value: "cartao", label: "Cartão", icon: FaCreditCard },
+];
 
 export default function MovCampoFormaPagamento({ form, update }: Props) {
   const { cartoes, loading } = useCartoes();
@@ -19,14 +27,24 @@ export default function MovCampoFormaPagamento({ form, update }: Props) {
           value={form.formaPagamento}
           onValueChange={(v) => update("formaPagamento", v)}
         >
-          <SelectTrigger>
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Selecione" />
           </SelectTrigger>
 
           <SelectContent>
-            <SelectItem value="dinheiro">Dinheiro</SelectItem>
-            <SelectItem value="pix">Pix</SelectItem>
-            <SelectItem value="cartao">Cartão</SelectItem>
+            {formaPagamentoOptions.map((opt) => {
+              const IconComp = opt.icon;
+              return (
+                <SelectItem
+                  key={opt.value}
+                  value={opt.value}
+                  className="flex items-center gap-2"
+                >
+                  <IconComp size={16} />
+                  {opt.label}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>
@@ -44,7 +62,7 @@ export default function MovCampoFormaPagamento({ form, update }: Props) {
               value={form.cartaoId}
               onValueChange={(v) => update("cartaoId", v)}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione o cartão" />
               </SelectTrigger>
               <SelectContent>
