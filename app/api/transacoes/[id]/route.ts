@@ -9,7 +9,6 @@ export async function PUT(
 ) {
   console.log("=== DEBUG PUT /api/transacoes/[id] ===");
 
-  // await para desestruturar params corretamente
   const { params } = context;
   const { id } = await params;
   console.log("ID recebido:", id);

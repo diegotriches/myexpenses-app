@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, integer, boolean, date } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, text, integer, boolean, date, real } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -28,12 +28,19 @@ export const categorias = pgTable("categorias", {
 // CARTÕES
 export const cartoes = pgTable("cartoes", {
   id: serial("id").primaryKey(),
-  nome: varchar("nome", { length: 100 }).notNull(),
-  tipo: varchar("tipo", { length: 20 }).notNull(), // "credito" | "debito"
+  nome: text("nome").notNull(),
+  tipo: text("tipo").notNull(),
+  bandeira: text("bandeira"),
+  empresa: text("empresa"),
   limite: integer("limite"),
   diaFechamento: integer("diaFechamento"),
   diaVencimento: integer("diaVencimento"),
+  cor: text("cor"),
+  ativo: text("ativo"),
+  observacoes: text("observacoes"),
+  ultimosDigitos: integer("ultimosDigitos"),
 });
+
 
 // TRANSAÇÕES
 export const transacoes = pgTable("transacoes", {
@@ -42,7 +49,7 @@ export const transacoes = pgTable("transacoes", {
   data: date("data").notNull(),
   tipo: varchar("tipo", { length: 20 }).notNull(), // "entrada" | "saida"
   descricao: varchar("descricao", { length: 200 }),
-  valor: integer("valor").notNull(),
+  valor: real("valor").notNull(),
 
   categoria: varchar("categoria", { length: 100 }),
 

@@ -5,9 +5,10 @@ export interface Transacao {
     valor: number;
     tipo: "entrada" | "saida";
     categoria: string;
-    parcela?: string;
     recorrente?: boolean;
-    repeticoes?: number;  // ← aqui adiciona o número de repetições
+    repeticoes?: number;
+    parcelado?: boolean;
+    parcelas?: number;
     formaPagamento: "dinheiro" | "pix" | "cartao";
     cartaoId?: number | null;
 }

@@ -1,62 +1,56 @@
-import db from "@/db";
-import { cartoes } from "@/database/schema/cartoes";
-import { NextResponse } from "next/server";
+import { db } from "@/db";
+import { cartoes } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { NextResponse } from "next/server";
 
-// PUT /api/cartoes/:id
-export async function PUT(req, { params }) {
-    try {
-        const id = Number(params.id);
-        const body = await req.json();
+export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
+  console.log("=== DEBUG PUT /api/cartoes/[id] ===");
 
-        const { nome, tipo, limite, diaFechamento, diaVencimento } = body;
+  const { id } = await context.params;
 
-        const [atualizado] = await db
-            .update(cartoes)
-            .set({
-                nome,
-                tipo,
-                limite,
-                diaFechamento,
-                diaVencimento
-            })
-            .where(eq(cartoes.id, id))
-            .returning();
+  const body = await req.json();
 
-        if (!atualizado) {
-            return NextResponse.json(
-                { error: "Cartão não encontrado" },
-                { status: 404 }
-            );
-        }
+  console.log("id:", id);
+  console.log("body:", body);
 
-        return NextResponse.json(atualizado);
+  try {
+    await db.update(cartoes)
+      .set({
+        nome: body.nome,
+        tipo: body.tipo,
+        bandeira: body.bandeira,
+        empresa: body.empresa,
+        limite: body.limite,
+        limiteDisponivel: body.limiteDisponivel,
+        diaFechamento: body.diaFechamento,
+        diaVencimento: body.diaVencimento,
+        cor: body.cor,
+        ativo: body.ativo,
+        observacoes: body.observacoes,
+        ultimosDigitos: body.ultimosDigitos
+      })
+      .where(eq(cartoes.id, Number(id)));
 
-    } catch (err) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
-    }
+    return new Response(JSON.stringify({ message: "Cartão atualizado com sucesso" }), { status: 200 });
+  } catch (error) {
+    console.error(error);
+    return new Response(JSON.stringify({ error: "Erro ao atualizar cartão" }), { status: 500 });
+  }
 }
 
-// DELETE /api/cartoes/:id
-export async function DELETE(req, { params }) {
-    try {
-        const id = Number(params.id);
+export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await context.params;
 
-        const [excluido] = await db
-            .delete(cartoes)
-            .where(eq(cartoes.id, id))
-            .returning({ id: cartoes.id });
-
-        if (!excluido) {
-            return NextResponse.json(
-                { error: "Cartão não encontrado" },
-                { status: 404 }
-            );
-        }
-
-        return NextResponse.json({ sucesso: true, id: excluido.id });
-
-    } catch (err) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    if (!id) {
+      return NextResponse.json({ error: "ID não informado." }, { status: 400 });
     }
+
+    await db.delete(cartoes).where(eq(cartoes.id, Number(id)));
+
+    return NextResponse.json({ message: "Cartão deletado com sucesso." });
+  } catch (error) {
+    console.error("Erro ao deletar cartão:", error);
+    return NextResponse.json({ error: "Erro interno ao deletar cartão." }, { status: 500 });
+  }
 }

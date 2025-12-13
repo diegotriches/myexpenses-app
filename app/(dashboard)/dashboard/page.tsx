@@ -176,7 +176,7 @@ export default function Home({ transacoes }: Props) {
   return (
     <>
       <PeriodoSelector />
-      <div className="bg-white rounded-xl px-8 pt-1 pb-8 max-w-[1200px] mx-auto mt-4">
+      <div className="bg-white rounded-xl px-8 pt-1 pb-8 max-w-[1000px] mx-auto mt-4">
         <h1>Bem-vindo(a){nomeUsuario ? `, ${nomeUsuario}` : ""}!</h1>
         <h3>Gerencie suas finanças pessoais de forma prática e organizada.</h3>
         <div className="p-5 faturas-cartoes">

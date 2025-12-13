@@ -6,16 +6,18 @@ export interface Cartao {
   nome: string;
   bandeira: string;
   tipo: TipoCartao;
+  empresa?: string;
 
   limite: number;
   limiteDisponivel: number;
 
-  diaFechamento: number;
-  diaVencimento: number;
+  diaFechamento?: number;
+  diaVencimento?: number;
 
   cor: string;
-  icone: string;
 
   ativo: boolean;
   observacoes?: string;
+
+  ultimosDigitos?: string;
 }

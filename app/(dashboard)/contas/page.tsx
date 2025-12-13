@@ -28,7 +28,7 @@ export default function ContasPage() {
   }
 
   return (
-    <div className="max-w-[900px] mx-auto p-6 space-y-8">
+    <div className="max-w-[1000px] mx-auto p-6 space-y-8">
       <div className="flex items-center gap-2 mb-3">
         <BsBank className="text-3xl text-blue-700" />
         <h1 className="text-2xl font-bold text-gray-900">Contas</h1>

@@ -19,7 +19,6 @@ export function useMovimentacaoModal() {
 
   function fecharModal() {
     setModalOpen(false);
-    // opcional: limpar a transação quando fechar
     setTimeout(() => setTransacaoEdicao(null), 300);
   }
 
