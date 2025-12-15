@@ -7,9 +7,10 @@ import { BsArrowLeftRight } from "react-icons/bs";
 
 import FormMovimentacaoModal from "@/components/movimentacao/FormMovimentacaoModal";
 import MovimentacaoTabela from "@/components/movimentacao/MovimentacaoTabela";
+import ConfirmarEdicaoModal from "@/components/movimentacao/ConfirmarEdicaoModal";
 import ConfirmarExclusaoModal from "@/components/movimentacao/ConfirmarExclusaoModal";
 import PeriodoSelector from "@/components/PeriodoSelector";
-import { PeriodoProvider, usePeriodo } from '@/components/PeriodoContext';
+import { usePeriodo } from '@/components/PeriodoContext';
 
 import { useMovimentacoes } from "@/hooks/useMovimentacoes";
 import { useCartoes } from "@/hooks/useCartoes";
@@ -28,12 +29,23 @@ export default function MovimentacoesConteudo() {
   const [openModal, setOpenModal] = useState(false);
   const [editando, setEditando] = useState<Transacao | null>(null);
 
+  const [modalEdicao, setModalEdicao] = useState(false);
+  const [tipoEdicao, setTipoEdicao] =
+    useState<"unica" | "todas_parcelas" | "toda_recorrencia">("unica");
+
+  const todasParcelas = editando?.parcelamentoId
+    ? movimentacoes.filter(mov => mov.parcelamentoId === editando.parcelamentoId)
+    : [];
+
+  const todasRecorrencias = editando?.recorrenciaId
+    ? movimentacoes.filter(mov => mov.recorrenciaId === editando.recorrenciaId)
+    : [];
+
   const [modalExcluir, setModalExcluir] = useState(false);
   const [itemExcluir, setItemExcluir] = useState<Transacao | null>(null);
 
   const { mesSelecionado, anoSelecionado } = usePeriodo();
 
-  // ✅ filtro correto e estável
   const movimentacoesFiltradas = movimentacoes.filter((mov) => {
     if (!mov.data) return false;
 
@@ -48,8 +60,17 @@ export default function MovimentacoesConteudo() {
   }
 
   function editarItem(mov: Transacao) {
+    const isParcelada = !!mov.parcelamentoId;
+    const isRecorrente = !!mov.recorrenciaId;
+
     setEditando(mov);
-    setOpenModal(true);
+
+    if (isParcelada || isRecorrente) {
+      setModalEdicao(true);
+    } else {
+      setTipoEdicao("unica");
+      setOpenModal(true);
+    }
   }
 
   function confirmarExclusao(mov: Transacao) {
@@ -61,7 +82,8 @@ export default function MovimentacoesConteudo() {
     tipo: "unica" | "todas_parcelas" | "toda_recorrencia"
   ) {
     if (!itemExcluir) return;
-    await excluir(itemExcluir.id);
+
+    await excluir(itemExcluir.id, tipo);
 
     setModalExcluir(false);
     setItemExcluir(null);
@@ -109,6 +131,9 @@ export default function MovimentacoesConteudo() {
         open={openModal}
         onOpenChange={setOpenModal}
         transacaoEdicao={editando}
+        todasParcelas={todasParcelas}
+        todasRecorrencias={todasRecorrencias}
+        modoEdicao={tipoEdicao}
         salvar={async (d) => {
           await salvar(d);
           setOpenModal(false);
@@ -120,6 +145,17 @@ export default function MovimentacoesConteudo() {
         onClose={() => setModalExcluir(false)}
         transacao={itemExcluir}
         onConfirmar={handleExcluir}
+      />
+
+      <ConfirmarEdicaoModal
+        open={modalEdicao}
+        onClose={() => setModalEdicao(false)}
+        transacao={editando}
+        onConfirmar={(tipo) => {
+          setTipoEdicao(tipo);
+          setModalEdicao(false);
+          setOpenModal(true);
+        }}
       />
     </div>
   );

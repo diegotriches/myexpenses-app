@@ -43,6 +43,13 @@
       "when": 1765574975493,
       "tag": "0005_slimy_hannibal_king",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1765819564872,
+      "tag": "0006_gifted_carlie_cooper",
+      "breakpoints": true
     }
   ]
 }

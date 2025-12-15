@@ -2,14 +2,12 @@ import { useEffect, useState, useCallback } from "react";
 import { Transacao } from "@/types/transacao";
 
 type TipoExclusao = "unica" | "todas_parcelas" | "toda_recorrencia";
+type TipoEdicao = "unica" | "todas_parcelas" | "toda_recorrencia";
 
 export function useMovimentacoes() {
   const [movimentacoes, setMovimentacoes] = useState<Transacao[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
 
-  // =========================
-  // Carregar movimentações
-  // =========================
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
@@ -17,139 +15,101 @@ export function useMovimentacoes() {
       if (!res.ok) throw new Error("Falha ao carregar movimentações");
       const data = (await res.json()) as Transacao[];
       setMovimentacoes(data);
-    } catch (err) {
-      console.error("useMovimentacoes.carregar:", err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // =========================
-  // Salvar (criar / editar)
-  // =========================
   const salvar = useCallback(
     async (dados: Transacao) => {
-      try {
-        const isUpdate = !!(dados.id && dados.id > 0);
-        const url = isUpdate
-          ? `/api/transacoes/${dados.id}`
-          : "/api/transacoes";
-        const method = isUpdate ? "PUT" : "POST";
+      const isUpdate = !!(dados.id && dados.id > 0);
+      const url = isUpdate
+        ? `/api/transacoes/${dados.id}`
+        : "/api/transacoes";
 
-        const res = await fetch(url, {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(dados),
-        });
+      const res = await fetch(url, {
+        method: isUpdate ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados),
+      });
 
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(
-            `Falha ao salvar movimentação: ${res.status} ${text}`
-          );
-        }
-
-        await carregar();
-      } catch (err) {
-        console.error("useMovimentacoes.salvar:", err);
-        throw err;
+      if (!res.ok) {
+        throw new Error("Falha ao salvar movimentação");
       }
+
+      await carregar();
     },
     [carregar]
   );
 
-  // =========================
-  // Função auxiliar: excluir por ID
-  // =========================
-  const excluirPorId = async (id: number) => {
-    const res = await fetch(`/api/transacoes/${id}`, {
-      method: "DELETE",
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(
-        `Falha ao excluir movimentação: ${res.status} ${text}`
-      );
-    }
-  };
-
-  // =========================
-  // Exclusão única
-  // =========================
-  const excluirUnica = async (id: number) => {
-    await excluirPorId(id);
-    setMovimentacoes((prev) => prev.filter((m) => m.id !== id));
-  };
-
-  // =========================
-  // Exclusão de todas as parcelas
-  // =========================
-  const excluirParcelamento = async (parcelamentoId: string) => {
-    const parcelas = movimentacoes.filter(
-      (m) => m.parcelamentoId === parcelamentoId
-    );
-
-    for (const parcela of parcelas) {
-      await excluirPorId(parcela.id);
-    }
-
-    setMovimentacoes((prev) =>
-      prev.filter((m) => m.parcelamentoId !== parcelamentoId)
-    );
-  };
-
-  // =========================
-  // Exclusão de toda recorrência
-  // =========================
-  const excluirRecorrencia = async (recorrenciaId: string) => {
-    const recorrentes = movimentacoes.filter(
-      (m) => m.recorrenciaId === recorrenciaId
-    );
-
-    for (const mov of recorrentes) {
-      await excluirPorId(mov.id);
-    }
-
-    setMovimentacoes((prev) =>
-      prev.filter((m) => m.recorrenciaId !== recorrenciaId)
-    );
-  };
-
-  // =========================
-  // Exclusão inteligente (pública)
-  // =========================
-  const excluir = useCallback(
-    async (id: number, tipo: TipoExclusao = "unica") => {
-      try {
-        const mov = movimentacoes.find((m) => m.id === id);
-        if (!mov) return;
-
-        if (tipo === "unica") {
-          await excluirUnica(id);
-          return;
-        }
-
-        if (tipo === "todas_parcelas" && mov.parcelamentoId) {
-          await excluirParcelamento(mov.parcelamentoId);
-          return;
-        }
-
-        if (tipo === "toda_recorrencia" && mov.recorrenciaId) {
-          await excluirRecorrencia(mov.recorrenciaId);
-          return;
-        }
-      } catch (err) {
-        console.error("useMovimentacoes.excluir:", err);
-        throw err;
+  const editar = useCallback(
+    async (dados: Transacao, tipo: TipoEdicao) => {
+      if (tipo === "unica") {
+        await salvar(dados);
+        return;
       }
+
+      const baseData = new Date(dados.data);
+
+      const futuras = movimentacoes.filter((m) => {
+        if (tipo === "todas_parcelas") {
+          return (
+            m.parcelamentoId === dados.parcelamentoId &&
+            new Date(m.data) >= baseData
+          );
+        }
+
+        if (tipo === "toda_recorrencia") {
+          return (
+            m.recorrenciaId === dados.recorrenciaId &&
+            new Date(m.data) >= baseData
+          );
+        }
+
+        return false;
+      });
+
+      for (const mov of futuras) {
+        const res = await fetch(`/api/transacoes/${mov.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...mov,
+            descricao: dados.descricao,
+            categoria: dados.categoria,
+            valor: dados.valor,
+            formaPagamento: dados.formaPagamento,
+            cartaoId: dados.cartaoId,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Falha ao editar transação ${mov.id}`);
+        }
+      }
+
+      await carregar();
     },
-    [movimentacoes]
+    [movimentacoes, salvar, carregar]
   );
 
-  // =========================
-  // Load inicial
-  // =========================
+  const excluir = useCallback(
+    async (id: number, tipo: TipoExclusao = "unica") => {
+      const res = await fetch(
+        `/api/transacoes/${id}?tipo=${tipo}`,
+        { method: "DELETE" }
+      );
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Falha ao excluir: ${text}`);
+      }
+
+      await carregar();
+    },
+    [carregar]
+  );
+
   useEffect(() => {
     carregar();
   }, [carregar]);
@@ -159,6 +119,7 @@ export function useMovimentacoes() {
     loading,
     carregar,
     salvar,
+    editar,
     excluir,
   };
 }

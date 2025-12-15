@@ -7,20 +7,16 @@ export async function PUT(
   req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  console.log("=== DEBUG PUT /api/transacoes/[id] ===");
-
   const { params } = context;
   const { id } = await params;
-  console.log("ID recebido:", id);
 
   const numericId = Number(id);
-  if (isNaN(numericId)) {
+  if (Number.isNaN(numericId)) {
     return NextResponse.json({ error: "ID inválido." }, { status: 400 });
   }
 
   try {
     const body = await req.json();
-    console.log("BODY recebido:", body);
 
     let {
       data,
@@ -29,13 +25,19 @@ export async function PUT(
       valor,
       categoria,
       formaPagamento,
-      parcela,
-      recorrente,
       cartaoId,
+
+      parcelado,
+      parcelamentoId,
+      parcelas,
+      parcelaAtual,
+
+      recorrente,
+      recorrenciaId,
+      repeticoes,
     } = body;
 
-    const formasPermitidas = ["dinheiro", "pix", "cartao"];
-    if (!formasPermitidas.includes(formaPagamento)) {
+    if (!["dinheiro", "pix", "cartao"].includes(formaPagamento)) {
       formaPagamento = "dinheiro";
     }
 
@@ -63,12 +65,19 @@ export async function PUT(
         data,
         tipo,
         descricao,
-        valor,
+        valor: Number(valor),
         categoria,
         formaPagamento,
-        parcela,
-        recorrente: !!recorrente,
         cartaoId: cartaoId ? Number(cartaoId) : null,
+
+        parcelado: Boolean(parcelado),
+        parcelamentoId: parcelamentoId ?? null,
+        parcelas: parcelas ?? null,
+        parcelaAtual: parcelaAtual ?? null,
+
+        recorrente: Boolean(recorrente),
+        recorrenciaId: recorrenciaId ?? null,
+        repeticoes: repeticoes ?? null,
       })
       .where(eq(transacoes.id, numericId))
       .returning();
@@ -94,26 +103,47 @@ export async function DELETE(
   try {
     const { params } = context;
     const { id } = await params;
-    console.log("ID recebido para DELETE:", id);
 
     const numericId = Number(id);
-    if (isNaN(numericId)) {
+    if (Number.isNaN(numericId)) {
       return NextResponse.json({ error: "ID inválido." }, { status: 400 });
     }
 
-    const [apagada] = await db
-      .delete(transacoes)
-      .where(eq(transacoes.id, numericId))
-      .returning({ id: transacoes.id });
+    const { searchParams } = new URL(req.url);
+    const tipo = searchParams.get("tipo"); 
 
-    if (!apagada) {
+    const transacao = await db
+      .select()
+      .from(transacoes)
+      .where(eq(transacoes.id, numericId))
+      .limit(1);
+
+    if (!transacao.length) {
       return NextResponse.json(
         { error: "Transação não encontrada" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ sucesso: true, id: apagada.id });
+    const mov = transacao[0];
+
+    if (!tipo || tipo === "unica") {
+      await db.delete(transacoes).where(eq(transacoes.id, numericId));
+    }
+
+    else if (tipo === "todas_parcelas" && mov.parcelamentoId) {
+      await db
+        .delete(transacoes)
+        .where(eq(transacoes.parcelamentoId, mov.parcelamentoId));
+    }
+
+    else if (tipo === "toda_recorrencia" && mov.recorrenciaId) {
+      await db
+        .delete(transacoes)
+        .where(eq(transacoes.recorrenciaId, mov.recorrenciaId));
+    }
+
+    return NextResponse.json({ sucesso: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro desconhecido";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -5,13 +5,14 @@ import { useState, useEffect } from "react";
 import MovCamposBasicos from "@/components/movimentacao/MovCamposBasicos";
 import MovCampoCategoria from "@/components/movimentacao/MovCampoCategoria";
 import MovCampoFormaPagamento from "@/components/movimentacao/MovCampoFormaPagamento";
+import { buildTransacoesFromForm } from "@/lib/movimentacoes/buildTransacoesFromForm";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
 import { Transacao } from "@/types/transacao";
-import { v4 as uuidv4 } from "uuid";
 
 import { FaDonate, FaSyncAlt, FaSpinner } from "react-icons/fa";
 
@@ -19,6 +20,9 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   transacaoEdicao: Transacao | null;
+  todasParcelas?: Transacao[];
+  todasRecorrencias?: Transacao[];
+  modoEdicao?: "unica" | "todas_parcelas" | "toda_recorrencia";
   salvar: (dados: Transacao) => Promise<void>;
 }
 
@@ -26,7 +30,10 @@ export default function FormMovimentacaoModal({
   open,
   onOpenChange,
   transacaoEdicao,
+  modoEdicao,
   salvar,
+  todasParcelas = [],
+  todasRecorrencias = [],
 }: Props) {
 
   const isEdit = !!transacaoEdicao;
@@ -52,31 +59,10 @@ export default function FormMovimentacaoModal({
 
   const [form, setForm] = useState(initialForm);
 
-  useEffect(() => {
-    if (!transacaoEdicao) {
-      setForm(initialForm);
-      return;
-    }
-
-    setForm({
-      tipo: transacaoEdicao.tipo,
-      categoria: transacaoEdicao.categoria,
-      valor: String(transacaoEdicao.valor),
-      data: transacaoEdicao.data,
-      descricao: transacaoEdicao.descricao ?? "",
-      formaPagamento: transacaoEdicao.formaPagamento,
-      cartaoId: transacaoEdicao.cartaoId ? String(transacaoEdicao.cartaoId) : "",
-      tipoPagamento: transacaoEdicao.parcelado
-        ? "parcelado"
-        : transacaoEdicao.recorrente
-          ? "recorrente"
-          : "avista",
-      parcelas: transacaoEdicao.parcelas ?? 1,
-      repeticoes: transacaoEdicao.repeticoes ?? 1,
-    });
-  }, [transacaoEdicao, open]);
-
-  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+  function update<K extends keyof typeof form>(
+    key: K,
+    value: (typeof form)[K]
+  ) {
     setForm(prev => ({ ...prev, [key]: value }));
   }
 
@@ -84,90 +70,50 @@ export default function FormMovimentacaoModal({
     update(k as keyof typeof form, v);
   };
 
+  useEffect(() => {
+    if (!transacaoEdicao) {
+      setForm(initialForm);
+      return;
+    }
+
+    setForm({
+      ...initialForm,
+      ...transacaoEdicao,
+      tipoPagamento: transacaoEdicao.parcelado
+        ? "parcelado"
+        : transacaoEdicao.recorrente
+          ? "recorrente"
+          : "avista",
+      valor: String(transacaoEdicao.valor),
+      cartaoId: transacaoEdicao.cartaoId ? String(transacaoEdicao.cartaoId) : "",
+      parcelas: transacaoEdicao.parcelas ?? 1,
+      repeticoes: transacaoEdicao.repeticoes ?? 1,
+    });
+  }, [transacaoEdicao, open]);
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    // 🔹 À vista (comportamento atual)
-    if (form.tipoPagamento === "avista") {
-      const dados: Transacao = {
-        id: transacaoEdicao?.id ?? 0,
-        tipo: form.tipo,
-        categoria: form.categoria,
-        valor: Number(form.valor),
-        data: form.data,
-        descricao: form.descricao,
-        formaPagamento: form.formaPagamento,
-        cartaoId: form.formaPagamento === "cartao" ? Number(form.cartaoId) : null,
-        parcelado: false,
-        recorrente: false,
-      };
+    try {
+      const transacoes = buildTransacoesFromForm({
+        form,
+        transacaoEdicao,
+        todasParcelas,
+        todasRecorrencias,
+        modoEdicao,
+      });
 
-      await salvar(dados);
-    }
-
-    if (form.tipoPagamento === "parcelado") {
-      const parcelamentoId = uuidv4();
-      const totalParcelas = form.parcelas;
-      const dataBase = new Date(form.data);
-
-      for (let i = 0; i < totalParcelas; i++) {
-        const dataParcela = new Date(dataBase);
-        dataParcela.setMonth(dataBase.getMonth() + i);
-
-        const dados: Transacao = {
-          id: 0,
-          tipo: form.tipo,
-          categoria: form.categoria,
-          valor: Number(form.valor),
-          data: dataParcela.toISOString().split("T")[0],
-          descricao: form.descricao
-            ? `${form.descricao} (${i + 1}/${totalParcelas})`
-            : `Parcela ${i + 1}/${totalParcelas}`,
-          formaPagamento: form.formaPagamento,
-          cartaoId: form.formaPagamento === "cartao" ? Number(form.cartaoId) : null,
-
-          parcelado: true,
-          parcelas: totalParcelas,
-          parcelamentoId,
-          parcelaAtual: i + 1,
-          totalParcelas,
-        };
-
-        await salvar(dados);
+      for (const transacao of transacoes) {
+        await salvar(transacao);
       }
-    }
 
-    if (form.tipoPagamento === "recorrente") {
-      const recorrenciaId = uuidv4();
-      const total = form.repeticoes;
-      const dataBase = new Date(form.data);
+      onOpenChange(false);
 
-      for (let i = 0; i < total; i++) {
-        const dataMov = new Date(dataBase);
-        dataMov.setMonth(dataBase.getMonth() + i);
-
-        const dados: Transacao = {
-          id: 0,
-          tipo: form.tipo,
-          categoria: form.categoria,
-          valor: Number(form.valor),
-          data: dataMov.toISOString().split("T")[0],
-          descricao: form.descricao,
-          formaPagamento: form.formaPagamento,
-          cartaoId: form.formaPagamento === "cartao" ? Number(form.cartaoId) : null,
-
-          recorrente: true,
-          recorrenciaId,
-        };
-
-        await salvar(dados);
+      if (!transacaoEdicao) {
+        setForm(initialForm);
       }
-    }
-
-    onOpenChange(false);
-
-    if (!isEdit) {
-      setForm(initialForm);
+    } catch (error) {
+      console.error("Erro ao salvar a movimentação:", error);
     }
   }
 
@@ -181,7 +127,6 @@ export default function FormMovimentacaoModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-
           {/* Linha 1: Tipo + Categoria */}
           <div className="grid grid-cols-2 gap-4">
             <MovCamposBasicos form={form} update={updateAny} campo="tipo" />
@@ -199,7 +144,7 @@ export default function FormMovimentacaoModal({
             <MovCampoFormaPagamento form={form} update={updateAny} />
           </div>
 
-          {/* Linha 4: Tipo de Pagamento (À Vista, Parcelado, Recorrente) */}
+          {/* Linha 4: Tipo de Pagamento */}
           <div className="flex gap-4 items-center">
             <div className="flex-1">
               <Label>Tipo de Pagamento</Label>
