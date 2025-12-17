@@ -5,31 +5,22 @@ import { eq } from "drizzle-orm";
 
 export async function GET() {
   try {
-    console.log("=== DEBUG GET /api/cartoes ===");
-
-    // 1. Buscar todos os cartões
     const listaCartoes = await db.select().from(cartoes);
-    console.log("Registros encontrados:", listaCartoes.length);
-
-    // 2. Para cada cartão, calcular EM USO + DISPONÍVEL
+    
     const resultado = await Promise.all(
       listaCartoes.map(async (cartao) => {
-        // buscar transações deste cartão
         const transacoesCartao = await db
           .select()
           .from(transacoes)
           .where(eq(transacoes.cartaoId, cartao.id));
 
-        // somar gastos
         const emUso = transacoesCartao.reduce((total, t) => {
-          // Considere apenas SAÍDAS, se esse for seu modelo lógico
           if (t.tipo === "saida") {
             return total + Number(t.valor);
           }
           return total;
         }, 0);
 
-        // disponível = limite - emUso
         const disponivel = cartao.limite
           ? Number(cartao.limite) - emUso
           : 0;

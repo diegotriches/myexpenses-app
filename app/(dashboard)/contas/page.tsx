@@ -1,152 +1,148 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { Banknote, Pencil, Trash2 } from "lucide-react";
+import ContaModal from "@/components/contas/ContaModal";
+import ContaCard from "@/components/contas/ContaCard";
+import ConfirmDeleteModal from "@/components/contas/ConfirmDeleteModal";
+import { Conta, CreateContaDTO, UpdateContaDTO } from "@/types/conta";
+import { useContas } from "@/hooks/useContas";
+
 import { BsBank } from "react-icons/bs";
 
 export default function ContasPage() {
-  const [contas, setContas] = useState([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [novaConta, setNovaConta] = useState({
-    nome: "",
-    tipo: "corrente",
-    status: "ativo",
-    saldo: "",
-    icone: "default",
-  });
+  const {
+    contas,
+    loading,
+    error,
+    criarConta,
+    atualizarConta,
+    removerConta,
+  } = useContas();
 
-  function salvarConta() {
-    setContas([...contas, { ...novaConta, id: Date.now() }]);
-    setNovaConta({ nome: "", tipo: "corrente", status: "ativo", saldo: "", icone: "default" });
+  const [modalOpen, setModalOpen] = useState(false);
+  const [contaEdicao, setContaEdicao] = useState<Conta | null>(null);
+  const [contaParaExcluir, setContaParaExcluir] = useState<Conta | null>(null);
+
+  function abrirNovaConta() {
+    setContaEdicao(null);
+    setModalOpen(true);
+  }
+
+  async function salvarConta(data: CreateContaDTO | UpdateContaDTO) {
+    if (contaEdicao) {
+      await atualizarConta(contaEdicao.id, data as UpdateContaDTO);
+    } else {
+      await criarConta(data as CreateContaDTO);
+    }
+
     setModalOpen(false);
+    setContaEdicao(null);
+  }
+
+  function editarConta(conta: Conta) {
+    const dto: CreateContaDTO = {
+      nome: conta.nome,
+      tipo: conta.tipo,
+      ativo: conta.ativo,
+      banco: conta.banco,
+      observacoes: conta.observacoes,
+      saldoInicial: conta.saldoInicial,
+
+      bandeira: "bandeira" in conta ? conta.bandeira : undefined,
+      ultimosDigitos: "ultimosDigitos" in conta ? conta.ultimosDigitos : undefined,
+      limite: "limite" in conta ? conta.limite : undefined,
+      fechamentoFatura: "fechamentoFatura" in conta ? conta.fechamentoFatura : undefined,
+      vencimentoFatura: "vencimentoFatura" in conta ? conta.vencimentoFatura : undefined,
+    };
+
+    setContaEdicao({ ...conta, ...dto });
+    setModalOpen(true);
+  }
+
+  function solicitarExclusao(conta: Conta) {
+    setContaParaExcluir(conta);
+  }
+
+  async function confirmarExclusao() {
+    if (!contaParaExcluir) return;
+
+    await removerConta(contaParaExcluir.id);
+    setContaParaExcluir(null);
+  }
+
+  function cancelarExclusao() {
+    setContaParaExcluir(null);
   }
 
   return (
-    <div className="max-w-[1000px] mx-auto p-6 space-y-8">
-      <div className="flex items-center gap-2 mb-3">
-        <BsBank className="text-3xl text-blue-700" />
-        <h1 className="text-2xl font-bold text-gray-900">Contas</h1>
+    <div className="max-w-[1100px] mx-auto p-6 space-y-8">
+      {/* Cabeçalho */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <BsBank className="text-3xl text-blue-700" />
+          <h1 className="text-2xl font-bold text-gray-900">Contas</h1>
+        </div>
+
+        <p className="text-gray-600">
+          Registre e gerencie suas contas bancárias e cartões.
+        </p>
+
+        <hr className="border-t border-gray-300 my-4" />
       </div>
-      <p className="text-gray-600 mb-6">
-        Nesta página você pode registrar e gerenciar todas as suas contas bancárias. Adicione novas contas,
-        visualize saldos, tipos e status, além de editar ou remover quando necessário.
-      </p>
-      <hr className="border-t border-gray-300 my-4" />
 
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogTrigger asChild>
-          <Button className="flex cursor-pointer items-center gap-2 bg-blue-700 text-white px-4 py-2 rounded-md hover:bg-blue-900 transition">Adicionar Nova Conta</Button>
-        </DialogTrigger>
+      {/* Ações */}
+      <div className="flex justify-end">
+        <Button onClick={abrirNovaConta} className="bg-blue-700 hover:bg-blue-900">
+          Adicionar Nova Conta
+        </Button>
+      </div>
 
-        <DialogContent className="space-y-4">
-          <DialogHeader>
-            <DialogTitle>Registrar Nova Conta</DialogTitle>
-          </DialogHeader>
+      {/* Estados */}
+      {loading && (
+        <p className="text-sm text-gray-500">Carregando contas...</p>
+      )}
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Ícone do Banco</Label>
-              <Select
-                onValueChange={(v) => setNovaConta({ ...novaConta, icone: v })}
-                defaultValue="default"
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o ícone" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Padrão</SelectItem>
-                  <SelectItem value="bank1">Banco 1</SelectItem>
-                  <SelectItem value="bank2">Banco 2</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
 
-            <div className="space-y-2">
-              <Label>Nome da Conta</Label>
-              <Input
-                value={novaConta.nome}
-                onChange={(e) => setNovaConta({ ...novaConta, nome: e.target.value })}
-                placeholder="Ex: Nubank, Caixa, Carteira..."
-              />
-            </div>
+      {/* Lista de contas */}
+      {!loading && contas.length === 0 && (
+        <p className="text-sm text-gray-500">
+          Nenhuma conta cadastrada.
+        </p>
+      )}
 
-            <div className="space-y-2">
-              <Label>Tipo de Conta</Label>
-              <Select
-                onValueChange={(v) => setNovaConta({ ...novaConta, tipo: v })}
-                defaultValue="corrente"
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="corrente">Conta Corrente</SelectItem>
-                  <SelectItem value="poupanca">Poupança</SelectItem>
-                  <SelectItem value="salario">Conta Salário</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Status da Conta</Label>
-              <Select
-                onValueChange={(v) => setNovaConta({ ...novaConta, status: v })}
-                defaultValue="ativo"
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ativo">Ativo</SelectItem>
-                  <SelectItem value="inativo">Inativo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Saldo Inicial</Label>
-              <Input
-                type="number"
-                value={novaConta.saldo}
-                onChange={(e) => setNovaConta({ ...novaConta, saldo: e.target.value })}
-                placeholder="0.00"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={salvarConta}>Salvar Conta</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {contas.map((conta) => (
-          <Card key={conta.id} className="shadow-md">
-            <CardHeader className="flex items-center gap-2">
-              <Banknote />
-              <div className="font-semibold">{conta.nome}</div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p><strong>Saldo:</strong> R$ {conta.saldo}</p>
-              <p><strong>Tipo:</strong> {conta.tipo}</p>
-              <p><strong>Status:</strong> {conta.status}</p>
-
-              <div className="flex gap-2 pt-2">
-                <Button size="sm" variant="outline"><Pencil size={16} /></Button>
-                <Button size="sm" variant="destructive"><Trash2 size={16} /></Button>
-              </div>
-            </CardContent>
-          </Card>
+          <ContaCard
+            key={conta.id}
+            conta={conta}
+            onEditar={editarConta}
+            onExcluir={solicitarExclusao}
+            onExtrato={() => console.log("Extrato", conta)}
+            onTransferir={() => console.log("Transferir", conta)}
+          />
         ))}
       </div>
+
+      {/* Modal */}
+      <ContaModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        contaInicial={contaEdicao ?? undefined}
+        onSalvar={salvarConta}
+      />
+
+      <ConfirmDeleteModal
+        open={!!contaParaExcluir}
+        title="Excluir conta"
+        description={`Tem certeza que deseja excluir a conta "${contaParaExcluir?.nome}"?`}
+        onConfirm={confirmarExclusao}
+        onCancel={cancelarExclusao}
+      />
     </div>
   );
 }

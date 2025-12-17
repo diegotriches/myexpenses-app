@@ -3,15 +3,15 @@ export interface Transacao {
 
     data: string;
     tipo: "entrada" | "saida";
-    descricao: string;
+    descricao?: string | null;
     valor: number;
 
-    categoria: string;
+    categoria?: string | null;
 
-    formaPagamento: "dinheiro" | "pix" | "cartao";
-
+    formaPagamento?: "dinheiro" | "pix" | "cartao" | null;
+    
     cartaoId?: number | null;
-
+    
     recorrente?: boolean;
     recorrenciaId?: string;
     repeticoes?: number;
@@ -20,4 +20,7 @@ export interface Transacao {
     parcelamentoId?: string;
     parcelas?: number;
     parcelaAtual?: number;
+    
+    contaId: string;
+    transferenciaId?: string;
 }

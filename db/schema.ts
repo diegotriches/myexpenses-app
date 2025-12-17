@@ -1,4 +1,14 @@
-import { pgTable, serial, varchar, text, integer, boolean, date, real } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  serial,
+  varchar,
+  text,
+  integer,
+  boolean,
+  uuid,
+  numeric,
+  timestamp
+} from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -41,19 +51,24 @@ export const cartoes = pgTable("cartoes", {
   ultimosDigitos: integer("ultimosDigitos"),
 });
 
-
 // TRANSAÇÕES
 export const transacoes = pgTable("transacoes", {
   id: serial("id").primaryKey(),
 
-  data: date("data").notNull(),
+  data: timestamp("data", { withTimezone: true }).notNull(),
   tipo: varchar("tipo", { length: 20 }).notNull(), // "entrada" | "saida"
   descricao: varchar("descricao", { length: 200 }),
-  valor: real("valor").notNull(),
+  valor: numeric("valor", { precision: 14, scale: 2 }).notNull(),
 
   categoria: varchar("categoria", { length: 100 }),
 
   formaPagamento: varchar("formaPagamento", { length: 20 }).notNull(),
+
+  contaId: uuid("conta_id")
+    .notNull()
+    .references(() => contas.id),
+
+  transferenciaId: uuid("transferencia_id"),
 
   cartaoId: integer("cartaoId").references(() => cartoes.id),
 
@@ -65,4 +80,27 @@ export const transacoes = pgTable("transacoes", {
   parcelamentoId: varchar("parcelamentoId", { length: 36 }),
   parcelas: integer("parcelas"),
   parcelaAtual: integer("parcelaAtual"),
+});
+
+// CONTAS
+export const contas = pgTable("contas", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  nome: varchar("nome", { length: 150 }).notNull(),
+  tipo: varchar("tipo", { length: 20 }).notNull(),
+  ativo: boolean("ativo").default(true).notNull(),
+  observacoes: text("observacoes"),
+
+  saldoInicial: numeric("saldo_inicial", { precision: 14, scale: 2 }).notNull(),
+  saldoAtual: numeric("saldo_atual", { precision: 14, scale: 2 }).notNull(),
+
+  banco: varchar("banco", { length: 100 }),
+  bandeira: varchar("bandeira", { length: 50 }),
+  ultimosDigitos: varchar("ultimosDigitos", { length: 4 }),
+  limite: numeric("limite", { precision: 14, scale: 2 }),
+
+  fechamentoFatura: integer("fechamento_fatura"),
+  vencimentoFatura: integer("vencimento_fatura"),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

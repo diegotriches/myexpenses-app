@@ -8,7 +8,7 @@ import { empresaOptions, bandeiraOptions } from "@/utils/cartoes/cartaoOptions";
 
 interface Props {
   cartao: Cartao;
-  movimentacoes: { valor: number; cartaoId: number }[];
+  movimentacoes: { valor: number | string; cartaoId: number }[]; // aceita number ou string
   onEditar: (cartao: Cartao) => void;
   onExcluir: (id: number) => void;
   onFatura?: (cartaoId: number) => void;
@@ -24,25 +24,24 @@ export default function CartaoItem({
   movimentacoes = [],
   onEditar,
   onExcluir,
-  onFatura
+  onFatura,
 }: Props) {
-
   const empresaImg = getImgFromOption(empresaOptions, cartao.empresa ?? "");
   const bandeiraImg = getImgFromOption(bandeiraOptions, cartao.bandeira);
 
   const movsSeguros = Array.isArray(movimentacoes) ? movimentacoes : [];
 
-  // Cálculo de Em Uso
+  // Cálculo de Em Uso (garantindo número)
   const totalEmUso = movsSeguros
     .filter((mov) => mov.cartaoId === cartao.id)
-    .reduce((total, mov) => total + (mov.valor ?? 0), 0);
+    .reduce((total, mov) => total + Number(mov.valor ?? 0), 0);
 
   // Disponível
-  const limiteDisponivel = cartao.limite - totalEmUso;
+  const limiteTotal = Number(cartao.limite) || 0;
+  const limiteDisponivel = limiteTotal - totalEmUso;
 
   // Porcentagem do uso do limite
-  const porcentagemUso =
-    cartao.limite > 0 ? (totalEmUso / cartao.limite) * 100 : 0;
+  const porcentagemUso = limiteTotal > 0 ? (totalEmUso / limiteTotal) * 100 : 0;
 
   return (
     <Card className="p-4 space-y-4">
@@ -95,7 +94,7 @@ export default function CartaoItem({
         <div className="flex flex-col gap-1 text-sm text-gray-800">
           <span>
             <span className="font-medium">Limite total: </span>
-            R$ {cartao.limite.toFixed(2)}
+            R$ {limiteTotal.toFixed(2)}
           </span>
 
           <span>
@@ -110,7 +109,7 @@ export default function CartaoItem({
         </div>
       )}
 
-      {/* Barra de Progresso (incremento solicitado) */}
+      {/* Barra de Progresso */}
       {cartao.tipo === "credito" && (
         <div className="w-full space-y-1 mt-1">
           <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
