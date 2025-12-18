@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useContas } from "@/hooks/useContas";
+import { Conta } from "@/types/conta";
 import { useTransferencias } from "@/hooks/useTransferencias";
 import {
   Dialog,
@@ -21,11 +21,17 @@ import {
 interface ModalTransferenciaProps {
   open: boolean;
   onClose: () => void;
+  contas: Conta[];
+  contaOrigemInicialId?: string | null;
 }
 
-export function ModalTransferencia({ open, onClose }: ModalTransferenciaProps) {
-  const { contas } = useContas();
-  const { transferir, loading } = useTransferencias();
+export function ModalTransferencia({
+  open,
+  onClose,
+  contas,
+  contaOrigemInicialId,
+}: ModalTransferenciaProps) {
+  const { transferir, loading, error } = useTransferencias();
 
   const contasBancarias = contas.filter(
     (c) => c.tipo === "BANCARIA" && c.ativo
@@ -39,18 +45,26 @@ export function ModalTransferencia({ open, onClose }: ModalTransferenciaProps) {
     new Date().toISOString().substring(0, 10)
   );
 
-  // Resetar ao abrir/fechar
+  const resetForm = () => {
+    setContaOrigemId("");
+    setContaDestinoId("");
+    setValor("");
+    setDescricao("");
+    setData(new Date().toISOString().substring(0, 10));
+  };
+
   useEffect(() => {
     if (!open) {
-      setContaOrigemId("");
-      setContaDestinoId("");
-      setValor("");
-      setDescricao("");
-      setData(new Date().toISOString().substring(0, 10));
+      resetForm();
+      return;
     }
-  }, [open]);
 
-  const valorNumerico = Number(valor);
+    if (contaOrigemInicialId) {
+      setContaOrigemId(contaOrigemInicialId);
+    }
+  }, [open, contaOrigemInicialId]);
+
+  const valorNumerico = Number.parseFloat(valor);
   const formularioValido =
     contaOrigemId &&
     contaDestinoId &&
@@ -58,28 +72,39 @@ export function ModalTransferencia({ open, onClose }: ModalTransferenciaProps) {
     valorNumerico > 0;
 
   const handleSubmit = async () => {
-    if (!formularioValido) return;
+    if (!formularioValido || loading) return;
 
-    await transferir({
-      contaOrigemId,
-      contaDestinoId,
-      valor: valorNumerico,
-      descricao,
-      data,
-    });
+    try {
+      await transferir({
+        contaOrigemId,
+        contaDestinoId,
+        valor: valorNumerico,
+        descricao,
+        data,
+      });
 
-    onClose();
+      onClose();
+    } catch {
+      // erro já tratado no hook
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onClose();
+      }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Transferência entre contas</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          <Select value={contaOrigemId} onValueChange={setContaOrigemId}>
+          <Select
+            value={contaOrigemId}
+            onValueChange={setContaOrigemId}
+            disabled={loading}>
             <SelectTrigger>
               <SelectValue placeholder="Conta de origem" />
             </SelectTrigger>
@@ -92,7 +117,10 @@ export function ModalTransferencia({ open, onClose }: ModalTransferenciaProps) {
             </SelectContent>
           </Select>
 
-          <Select value={contaDestinoId} onValueChange={setContaDestinoId}>
+          <Select
+            value={contaDestinoId}
+            onValueChange={setContaDestinoId}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Conta de destino" />
             </SelectTrigger>
@@ -127,17 +155,25 @@ export function ModalTransferencia({ open, onClose }: ModalTransferenciaProps) {
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
           />
+
+          {error && (
+            <p className="text-sm text-red-600">{error}</p>
+          )}
         </div>
 
         <DialogFooter className="mt-6">
-          <Button variant="secondary" onClick={onClose}>
+          <Button
+            variant="secondary"
+            onClick={onClose}
+            disabled={loading}
+          >
             Cancelar
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!formularioValido || loading}
           >
-            Transferir
+            {loading ? "Transferindo..." : "Transferir"}
           </Button>
         </DialogFooter>
       </DialogContent>

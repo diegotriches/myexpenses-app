@@ -1,26 +1,37 @@
+export type TipoTransacao =
+  | "entrada"
+  | "saida";
+
+export type FormaPagamento =
+  | "dinheiro"
+  | "pix"
+  | "cartao"
+  | "transferencia";
+
 export interface Transacao {
-    id: number;
+  id: number;
 
-    data: string;
-    tipo: "entrada" | "saida";
-    descricao?: string | null;
-    valor: number;
+  data: string;
+  tipo: TipoTransacao;
 
-    categoria?: string | null;
+  descricao?: string | null;
+  valor: number;
 
-    formaPagamento?: "dinheiro" | "pix" | "cartao" | null;
-    
-    cartaoId?: number | null;
-    
-    recorrente?: boolean;
-    recorrenciaId?: string;
-    repeticoes?: number;
-    
-    parcelado?: boolean;
-    parcelamentoId?: string;
-    parcelas?: number;
-    parcelaAtual?: number;
-    
-    contaId: string;
-    transferenciaId?: string;
+  categoria?: string | null;
+
+  formaPagamento?: FormaPagamento | null;
+  cartaoId?: number | null;
+
+  recorrente?: boolean;
+  recorrenciaId?: string;
+  repeticoes?: number;
+
+  parcelado?: boolean;
+  parcelamentoId?: string;
+  parcelas?: number;
+  parcelaAtual?: number;
+
+  contaId: string;
+
+  transferenciaId?: string;
 }

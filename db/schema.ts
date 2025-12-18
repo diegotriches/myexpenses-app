@@ -10,21 +10,12 @@ import {
   timestamp
 } from "drizzle-orm/pg-core";
 
+// USUÁRIOS
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
-});
-
-// USUÁRIOS
-export const usuarios = pgTable("usuarios", {
-  id: serial("id").primaryKey(),
-  nome: varchar("nome", { length: 100 }).notNull(),
-  email: varchar("email", { length: 200 }).notNull(),
-  rendaMensal: integer("rendaMensal").default(0),
-  metaEconomia: integer("metaEconomia").default(0),
-  foto: text("foto"),
 });
 
 // CATEGORIAS
@@ -53,16 +44,14 @@ export const cartoes = pgTable("cartoes", {
 
 // TRANSAÇÕES
 export const transacoes = pgTable("transacoes", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").defaultRandom().primaryKey(),
 
   data: timestamp("data", { withTimezone: true }).notNull(),
-  tipo: varchar("tipo", { length: 20 }).notNull(), // "entrada" | "saida"
-  descricao: varchar("descricao", { length: 200 }),
+  tipo: text("tipo").notNull(),
+  descricao: text("descricao"),
   valor: numeric("valor", { precision: 14, scale: 2 }).notNull(),
-
-  categoria: varchar("categoria", { length: 100 }),
-
-  formaPagamento: varchar("formaPagamento", { length: 20 }).notNull(),
+  categoria: text("categoria"),
+  formaPagamento: text("formaPagamento"),
 
   contaId: uuid("conta_id")
     .notNull()

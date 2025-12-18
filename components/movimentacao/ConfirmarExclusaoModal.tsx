@@ -26,6 +26,7 @@ export default function ConfirmarExclusaoModal({
 }: Props) {
   const isParcelada = !!transacao?.parcelamentoId;
   const isRecorrente = !!transacao?.recorrenciaId;
+  const isTransferencia = !!transacao?.transferenciaId;
 
   const [tipoExclusao, setTipoExclusao] = useState<TipoExclusao>("unica");
 
@@ -42,57 +43,74 @@ export default function ConfirmarExclusaoModal({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Excluir Movimentação</DialogTitle>
+          <DialogTitle>
+            {isTransferencia ? "Excluir Transferência" : "Excluir Movimentação"}
+          </DialogTitle>
         </DialogHeader>
 
         <p className="text-gray-700 mb-3">
-          Tem certeza que deseja excluir:
-          <br />
-          <strong>{transacao?.descricao}</strong>?
+          {isTransferencia ? (
+            <>
+              Tem certeza que deseja excluir esta transferência?
+              <br />
+              <span className="text-sm text-gray-500">
+                A movimentação de saída e a de entrada serão removidas.
+              </span>
+            </>
+          ) : (
+            <>
+              Tem certeza que deseja excluir:
+              <br />
+              <strong>{transacao?.descricao || "(Sem descrição)"}</strong>?
+            </>
+          )}
         </p>
 
-        {isParcelada ? (
-          <div className="space-y-2 mb-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={tipoExclusao === "unica"}
-                onChange={() => setTipoExclusao("unica")}
-              />
-              Somente esta parcela
-            </label>
+        {!isTransferencia && (
+          <>
+            {isParcelada ? (
+              <div className="space-y-2 mb-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    checked={tipoExclusao === "unica"}
+                    onChange={() => setTipoExclusao("unica")}
+                  />
+                  Somente esta parcela
+                </label>
 
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={tipoExclusao === "todas_parcelas"}
-                onChange={() => setTipoExclusao("todas_parcelas")}
-              />
-              Todas as parcelas
-            </label>
-          </div>
-        ) : isRecorrente ? (
-          <div className="space-y-2 mb-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={tipoExclusao === "unica"}
-                onChange={() => setTipoExclusao("unica")}
-              />
-              Somente esta ocorrência
-            </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    checked={tipoExclusao === "todas_parcelas"}
+                    onChange={() => setTipoExclusao("todas_parcelas")}
+                  />
+                  Todas as parcelas
+                </label>
+              </div>
+            ) : isRecorrente ? (
+              <div className="space-y-2 mb-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    checked={tipoExclusao === "unica"}
+                    onChange={() => setTipoExclusao("unica")}
+                  />
+                  Somente esta ocorrência
+                </label>
 
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={tipoExclusao === "toda_recorrencia"}
-                onChange={() => setTipoExclusao("toda_recorrencia")}
-              />
-              Toda a recorrência
-            </label>
-          </div>
-        ) : null}
-
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    checked={tipoExclusao === "toda_recorrencia"}
+                    onChange={() => setTipoExclusao("toda_recorrencia")}
+                  />
+                  Toda a recorrência
+                </label>
+              </div>
+            ) : null}
+          </>
+        )}
 
         {/* Exclusão simples */}
         <div className="flex justify-end gap-3 mt-4">
@@ -102,8 +120,10 @@ export default function ConfirmarExclusaoModal({
 
           <Button
             className="bg-red-600 hover:bg-red-800"
-            disabled={!transacao || !tipoValido}
-            onClick={() => onConfirmar(tipoExclusao)}
+            disabled={!transacao || (!isTransferencia && !tipoValido)}
+            onClick={() =>
+              onConfirmar(isTransferencia ? "unica" : tipoExclusao)
+            }
           >
             Excluir
           </Button>

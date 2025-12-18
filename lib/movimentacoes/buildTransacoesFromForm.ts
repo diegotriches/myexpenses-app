@@ -18,12 +18,14 @@ interface FormMovimentacao {
 
 interface BuildTransacoesParams {
   form: FormMovimentacao;
+  contaId: string;
   transacaoEdicao: Transacao | null;
   modoEdicao?: ModoEdicao;
 }
 
 export function buildTransacoesFromForm({
   form,
+  contaId,
   transacaoEdicao,
   modoEdicao = "unica",
 }: BuildTransacoesParams): Transacao[] {
@@ -120,6 +122,7 @@ export function buildTransacoesFromForm({
     return [
       {
         id: 0,
+        contaId,
         tipo: form.tipo,
         categoria: form.categoria,
         valor: valorTotal,
@@ -132,6 +135,7 @@ export function buildTransacoesFromForm({
         recorrente: false,
       },
     ];
+
   }
 
   // Parcelado
@@ -147,6 +151,7 @@ export function buildTransacoesFromForm({
 
       return {
         id: 0,
+        contaId,
         tipo: form.tipo,
         categoria: form.categoria,
         valor: valorParcela,
@@ -176,6 +181,7 @@ export function buildTransacoesFromForm({
 
     return {
       id: 0,
+      contaId,
       tipo: form.tipo,
       categoria: form.categoria,
       valor: valorTotal,

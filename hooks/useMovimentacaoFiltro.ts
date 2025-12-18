@@ -18,12 +18,12 @@ export function useMovimentacaoFiltro(transacoes: Transacao[]) {
 
   const transacoesFiltradas = useMemo(() => {
     return transacoes.filter((t) => {
-      if (aba === "entrada" && t.tipo !== "Entrada") return false;
-      if (aba === "saida" && t.tipo !== "Saída") return false;
+      if (aba === "entrada" && t.tipo !== "entrada") return false;
+      if (aba === "saida" && t.tipo !== "saida") return false;
 
       if (categoria && t.categoria !== categoria) return false;
 
-      if (busca && !t.descricao.toLowerCase().includes(busca.toLowerCase()))
+      if (busca && !(t.descricao?.toLowerCase().includes(busca.toLowerCase()) ?? false))
         return false;
 
       if (valorMin !== null && t.valor < valorMin) return false;

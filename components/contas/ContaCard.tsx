@@ -11,7 +11,7 @@ interface Props {
   onEditar?: (conta: Conta) => void;
   onExcluir?: (conta: Conta) => void;
   onExtrato?: (conta: Conta) => void;
-  onTransferir?: (conta: Conta) => void;
+  onTransferir: (contaOrigemId: string) => void;
 }
 
 export default function ContaCard({
@@ -97,7 +97,7 @@ export default function ContaCard({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onTransferir(conta)}
+              onClick={() => onTransferir(conta.id)}
               title="Transferir"
             >
               <Repeat size={16} />

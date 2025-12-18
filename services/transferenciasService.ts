@@ -50,25 +50,21 @@ export class TransferenciasService {
         throw new Error("Saldo insuficiente na conta de origem");
       }
 
+      const transferenciaId = crypto.randomUUID();
+
       // Débito na conta de origem
-      await tx
-        .update(contas)
+      await tx.update(contas)
         .set({
           saldoAtual: sql`${contas.saldoAtual} - ${valor}`,
-          updatedAt: new Date(),
         })
         .where(eq(contas.id, contaOrigemId));
 
       // Crédito na conta de destino
-      await tx
-        .update(contas)
+      await tx.update(contas)
         .set({
           saldoAtual: sql`${contas.saldoAtual} + ${valor}`,
-          updatedAt: new Date(),
         })
         .where(eq(contas.id, contaDestinoId));
-
-      const transferenciaId = crypto.randomUUID();
 
       // Transação de saída
       await tx.insert(transacoes).values({
@@ -91,6 +87,51 @@ export class TransferenciasService {
         formaPagamento: "transferencia",
         transferenciaId,
       });
+    });
+  }
+
+  static async removerTransferencia(transferenciaId: string) {
+    await db.transaction(async (tx) => {
+      const transacoesTransferencia = await tx
+        .select()
+        .from(transacoes)
+        .where(eq(transacoes.transferenciaId, transferenciaId));
+
+      if (transacoesTransferencia.length !== 2) {
+        throw new Error("Transferência inválida ou inconsistente");
+      }
+
+      const saida = transacoesTransferencia.find(t => t.tipo === "saida");
+      const entrada = transacoesTransferencia.find(t => t.tipo === "entrada");
+
+      if (!saida || !entrada) {
+        throw new Error("Transferência inconsistente");
+      }
+
+      const valor = Number(saida.valor);
+
+      // Reverter saldo da conta de origem
+      await tx
+        .update(contas)
+        .set({
+          saldoAtual: sql`${contas.saldoAtual} + ${valor}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(contas.id, saida.contaId));
+
+      // Reverter saldo da conta de destino
+      await tx
+        .update(contas)
+        .set({
+          saldoAtual: sql`${contas.saldoAtual} - ${valor}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(contas.id, entrada.contaId));
+
+      // Excluir ambas as transações
+      await tx
+        .delete(transacoes)
+        .where(eq(transacoes.transferenciaId, transferenciaId));
     });
   }
 }

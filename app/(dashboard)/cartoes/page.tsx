@@ -10,7 +10,7 @@ import CartaoItem from "@/components/cartoes/CartaoItem";
 
 import { Cartao } from "@/types/cartao";
 import { cartaoService } from "@/services/cartaoService";
-import { useMovimentacoes } from "@/hooks/useMovimentacoes";
+import { useTransacoes } from "@/hooks/useTransacoes";
 import type { Transacao } from "@/types/transacao";
 
 
@@ -21,9 +21,9 @@ export default function CartoesPage() {
 
   // Hook oficial que você possui
   const {
-    movimentacoes,
+    transacoes,
     carregar: carregarMovimentacoes,
-  } = useMovimentacoes();
+  } = useTransacoes();
 
   const carregarCartoes = useCallback(async () => {
     try {
@@ -96,8 +96,8 @@ export default function CartoesPage() {
             key={cartao.id}
             cartao={cartao}
             movimentacoes={
-              Array.isArray(movimentacoes)
-                ? movimentacoes
+              Array.isArray(transacoes)
+                ? transacoes
                   .filter(
                     (mov): mov is Transacao & { cartaoId: number } =>
                       typeof mov.cartaoId === "number" && mov.cartaoId === cartao.id

@@ -27,12 +27,13 @@ interface Props {
 }
 
 const formaPagamentoIcons: Record<
-  "dinheiro" | "pix" | "cartao",
+  "dinheiro" | "pix" | "cartao" | "transferencia",
   React.ComponentType<{ size?: number; className?: string }>
 > = {
   dinheiro: FaMoneyBill,
   pix: FaDollarSign,
   cartao: FaCreditCard,
+  transferencia: FaExchangeAlt
 };
 
 export default function MovimentacaoLinha({
@@ -137,8 +138,8 @@ export default function MovimentacaoLinha({
               {mov.formaPagamento === "cartao"
                 ? "Cartão"
                 : mov.formaPagamento === "pix"
-                ? "Pix"
-                : "Dinheiro"}
+                  ? "Pix"
+                  : "Dinheiro"}
             </>
           )}
         </p>
@@ -191,12 +192,15 @@ export default function MovimentacaoLinha({
           <button className="p-2 rounded-full hover:bg-gray-100">
             <MdMoreVert size={22} />
           </button>
-        }
-      >
+        }>
         {!isTransferencia && (
-          <DropdownMenuItem onClick={onEditar}>Editar</DropdownMenuItem>
+          <DropdownMenuItem onClick={onEditar}>
+            Editar
+          </DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={onExcluir}>Excluir</DropdownMenuItem>
+        <DropdownMenuItem onClick={onExcluir}>
+          {isTransferencia ? "Excluir transferência" : "Excluir"}
+        </DropdownMenuItem>
       </DropdownMenu>
     </div>
   );

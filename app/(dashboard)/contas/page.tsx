@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import ContaModal from "@/components/contas/ContaModal";
 import ContaCard from "@/components/contas/ContaCard";
 import ConfirmDeleteModal from "@/components/contas/ConfirmDeleteModal";
+import { ModalTransferencia } from "@/components/transferencias/ModalTransferencia";
 import { Conta, CreateContaDTO, UpdateContaDTO } from "@/types/conta";
 import { useContas } from "@/hooks/useContas";
 
@@ -24,6 +25,8 @@ export default function ContasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [contaEdicao, setContaEdicao] = useState<Conta | null>(null);
   const [contaParaExcluir, setContaParaExcluir] = useState<Conta | null>(null);
+  const [modalTransferenciaOpen, setModalTransferenciaOpen] = useState(false);
+  const [contaOrigemSelecionada, setContaOrigemSelecionada] = useState<string | null>(null);
 
   function abrirNovaConta() {
     setContaEdicao(null);
@@ -76,6 +79,16 @@ export default function ContasPage() {
     setContaParaExcluir(null);
   }
 
+  const handleAbrirTransferencia = (contaOrigemId: string) => {
+    setContaOrigemSelecionada(contaOrigemId);
+    setModalTransferenciaOpen(true);
+  };
+
+  const handleFecharTransferencia = () => {
+    setModalTransferenciaOpen(false);
+    setContaOrigemSelecionada(null);
+  };
+
   return (
     <div className="max-w-[1100px] mx-auto p-6 space-y-8">
       {/* Cabeçalho */}
@@ -123,7 +136,7 @@ export default function ContasPage() {
             onEditar={editarConta}
             onExcluir={solicitarExclusao}
             onExtrato={() => console.log("Extrato", conta)}
-            onTransferir={() => console.log("Transferir", conta)}
+            onTransferir={handleAbrirTransferencia}
           />
         ))}
       </div>
@@ -134,6 +147,13 @@ export default function ContasPage() {
         onOpenChange={setModalOpen}
         contaInicial={contaEdicao ?? undefined}
         onSalvar={salvarConta}
+      />
+
+      <ModalTransferencia
+        open={modalTransferenciaOpen}
+        onClose={handleFecharTransferencia}
+        contas={contas}
+        contaOrigemInicialId={contaOrigemSelecionada}
       />
 
       <ConfirmDeleteModal

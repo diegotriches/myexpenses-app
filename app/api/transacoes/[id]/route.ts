@@ -3,6 +3,8 @@ import { transacoes, cartoes } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
+
+
 export async function PUT(
   req: Request,
   context: { params: Promise<{ id: string }> }
@@ -65,7 +67,7 @@ export async function PUT(
         data,
         tipo,
         descricao,
-        valor: Number(valor),
+        valor: valor.toString(),
         categoria,
         formaPagamento,
         cartaoId: cartaoId ? Number(cartaoId) : null,
@@ -110,7 +112,15 @@ export async function DELETE(
     }
 
     const { searchParams } = new URL(req.url);
-    const tipo = searchParams.get("tipo"); 
+    const tipo = searchParams.get("tipo");
+
+    const tiposPermitidos = ["unica", "todas_parcelas", "toda_recorrencia"];
+    if (tipo && !tiposPermitidos.includes(tipo)) {
+      return NextResponse.json(
+        { error: "Tipo de exclusão inválido." },
+        { status: 400 }
+      );
+    }
 
     const transacao = await db
       .select()
@@ -127,16 +137,25 @@ export async function DELETE(
 
     const mov = transacao[0];
 
+    // 🔒 Bloqueio de transferência
+    if (mov.transferenciaId) {
+      return NextResponse.json(
+        {
+          error:
+            "Esta transação faz parte de uma transferência. Utilize a exclusão de transferências."
+        },
+        { status: 400 }
+      );
+    }
+
     if (!tipo || tipo === "unica") {
       await db.delete(transacoes).where(eq(transacoes.id, numericId));
     }
-
     else if (tipo === "todas_parcelas" && mov.parcelamentoId) {
       await db
         .delete(transacoes)
         .where(eq(transacoes.parcelamentoId, mov.parcelamentoId));
     }
-
     else if (tipo === "toda_recorrencia" && mov.recorrenciaId) {
       await db
         .delete(transacoes)

@@ -1,23 +1,26 @@
 import { useEffect, useState, useCallback } from "react";
 import { Transacao } from "@/types/transacao";
 
+type TipoExclusao = "unica" | "todas_parcelas" | "toda_recorrencia" | "transferencia";
+type TipoEdicao = "unica" | "todas_parcelas" | "toda_recorrencia";
+
 export function useTransacoes() {
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
 
-  // Modal
-  const [modalOpen, setModalOpen] = useState<boolean>(false);
+  // UI / Controle
+  const [modalOpen, setModalOpen] = useState(false);
   const [idEdicao, setIdEdicao] = useState<number | null>(null);
-
-  // Exclusão
   const [idParaExcluir, setIdParaExcluir] = useState<number | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
 
-  // Buscar lista
-  const carregarTransacoes = useCallback(async () => {
+  // Carregar transações
+  const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const resp = await fetch("/api/transacoes");
-      const data = await resp.json();
+      const res = await fetch("/api/transacoes");
+      if (!res.ok) throw new Error("Falha ao carregar transações");
+      const data = (await res.json()) as Transacao[];
       setTransacoes(data);
     } finally {
       setLoading(false);
@@ -25,46 +28,130 @@ export function useTransacoes() {
   }, []);
 
   useEffect(() => {
-    carregarTransacoes();
-  }, [carregarTransacoes]);
+    carregar();
+  }, [carregar]);
 
-  // Adicionar
-  const adicionarTransacao = async (nova: Transacao) => {
-    const resp = await fetch("/api/transacoes", {
-      method: "POST",
-      body: JSON.stringify(nova),
-    });
+  // Criar / Atualizar
+  const salvar = useCallback(
+    async (dados: Transacao) => {
+      const isUpdate = !!dados.id;
+      const url = isUpdate
+        ? `/api/transacoes/${dados.id}`
+        : "/api/transacoes";
 
-    if (!resp.ok) throw new Error("Erro ao adicionar transação");
+      const res = await fetch(url, {
+        method: isUpdate ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados),
+      });
 
-    await carregarTransacoes();
-  };
+      if (!res.ok) {
+        throw new Error("Erro ao salvar transação");
+      }
 
-  // Editar
-  const editarTransacao = async (atualizada: Transacao) => {
-    const resp = await fetch(`/api/transacoes/${atualizada.id}`, {
-      method: "PUT",
-      body: JSON.stringify(atualizada),
-    });
+      await carregar();
+    },
+    [carregar]
+  );
 
-    if (!resp.ok) throw new Error("Erro ao editar transação");
+  // Edição avançada
+  const editar = useCallback(
+    async (dados: Transacao, tipo: TipoEdicao) => {
+      if (tipo === "unica") {
+        await salvar(dados);
+        return;
+      }
 
-    await carregarTransacoes();
-  };
+      const baseData = new Date(dados.data);
 
-  // Excluir
-  const excluirTransacao = async (id: number) => {
-    const resp = await fetch(`/api/transacoes/${id}`, {
-      method: "DELETE",
-    });
+      const futuras = transacoes.filter((t) => {
+        if (tipo === "todas_parcelas") {
+          return (
+            t.parcelamentoId === dados.parcelamentoId &&
+            new Date(t.data) >= baseData
+          );
+        }
 
-    if (!resp.ok) throw new Error("Erro ao excluir transação");
+        if (tipo === "toda_recorrencia") {
+          return (
+            t.recorrenciaId === dados.recorrenciaId &&
+            new Date(t.data) >= baseData
+          );
+        }
 
-    setIdParaExcluir(null);
-    await carregarTransacoes();
-  };
+        return false;
+      });
 
-  // Controle do modal
+      for (const t of futuras) {
+        const res = await fetch(`/api/transacoes/${t.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...t,
+            descricao: dados.descricao,
+            categoria: dados.categoria,
+            valor: dados.valor,
+            formaPagamento: dados.formaPagamento,
+            cartaoId: dados.cartaoId,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Erro ao editar transação ${t.id}`);
+        }
+      }
+
+      await carregar();
+    },
+    [transacoes, salvar, carregar]
+  );
+
+  // Exclusão (com bloqueio de transferência)
+  const excluir = useCallback(
+    async (id: number, tipo: TipoExclusao = "unica") => {
+      setErro(null);
+
+      const transacao = transacoes.find((t) => t.id === id);
+
+      if (!transacao) {
+        throw new Error("Transação não encontrada");
+      }
+
+      // Transferência: exclui sempre em conjunto
+      if (transacao.transferenciaId) {
+        const res = await fetch(
+          `/api/transferencias/${transacao.transferenciaId}`,
+          { method: "DELETE" }
+        );
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(text || "Erro ao excluir transferência");
+        }
+
+        setIdParaExcluir(null);
+        await carregar();
+        return;
+      }
+
+      // Transação comum
+      const res = await fetch(
+        `/api/transacoes/${id}?tipo=${tipo}`,
+        { method: "DELETE" }
+      );
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || "Erro ao excluir transação");
+      }
+
+      setIdParaExcluir(null);
+      await carregar();
+    },
+    [transacoes, carregar]
+  );
+
+  // Controle de Modal
   const abrirModalCriar = () => {
     setIdEdicao(null);
     setModalOpen(true);
@@ -83,20 +170,21 @@ export function useTransacoes() {
   return {
     transacoes,
     loading,
-    carregarTransacoes,
-    adicionarTransacao,
-    editarTransacao,
-    excluirTransacao,
+    erro,
 
-    // Exclusão
-    idParaExcluir,
-    setIdParaExcluir,
+    carregar,
+    salvar,
+    editar,
+    excluir,
 
-    // Modal + edição
+    // UI
     modalOpen,
     abrirModalCriar,
     abrirModalEditar,
     fecharModal,
+
     idEdicao,
+    idParaExcluir,
+    setIdParaExcluir,
   };
 }

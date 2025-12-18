@@ -19,6 +19,7 @@ import { FaDonate, FaSyncAlt, FaSpinner } from "react-icons/fa";
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  contaId: string;
   transacaoEdicao: Transacao | null;
   todasParcelas?: Transacao[];
   todasRecorrencias?: Transacao[];
@@ -29,11 +30,10 @@ interface Props {
 export default function FormMovimentacaoModal({
   open,
   onOpenChange,
+  contaId,
   transacaoEdicao,
   modoEdicao,
   salvar,
-  todasParcelas = [],
-  todasRecorrencias = [],
 }: Props) {
 
   const isEdit = !!transacaoEdicao;
@@ -77,15 +77,23 @@ export default function FormMovimentacaoModal({
     }
 
     setForm({
-      ...initialForm,
-      ...transacaoEdicao,
+      tipo: transacaoEdicao.tipo,
+      categoria: transacaoEdicao.categoria ?? "",
+      valor: String(transacaoEdicao.valor),
+      data: transacaoEdicao.data,
+      descricao: transacaoEdicao.descricao ?? "",
+      formaPagamento:
+        transacaoEdicao.formaPagamento === "dinheiro" ||
+          transacaoEdicao.formaPagamento === "pix" ||
+          transacaoEdicao.formaPagamento === "cartao"
+          ? transacaoEdicao.formaPagamento
+          : "dinheiro",
+      cartaoId: transacaoEdicao.cartaoId ? String(transacaoEdicao.cartaoId) : "",
       tipoPagamento: transacaoEdicao.parcelado
         ? "parcelado"
         : transacaoEdicao.recorrente
           ? "recorrente"
           : "avista",
-      valor: String(transacaoEdicao.valor),
-      cartaoId: transacaoEdicao.cartaoId ? String(transacaoEdicao.cartaoId) : "",
       parcelas: transacaoEdicao.parcelas ?? 1,
       repeticoes: transacaoEdicao.repeticoes ?? 1,
     });
@@ -98,8 +106,7 @@ export default function FormMovimentacaoModal({
       const transacoes = buildTransacoesFromForm({
         form,
         transacaoEdicao,
-        todasParcelas,
-        todasRecorrencias,
+        contaId,
         modoEdicao,
       });
 

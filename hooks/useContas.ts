@@ -2,9 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import { Conta, CreateContaDTO } from "@/types/conta";
 import api from "@/services/api";
 
-export type UpdateContaDTO = Partial<
-  Omit<Conta, "id" | "createdAt" | "updatedAt">
->;
+export type UpdateContaDTO = {
+  nome?: string;
+  tipo?: "BANCARIA" | "CARTAO";
+  ativo?: boolean;
+  observacoes?: string | null;
+  banco?: string | null;
+  bandeira?: string | null;
+  ultimosDigitos?: string | null;
+  limite?: number | null;
+  fechamentoFatura?: number | null;
+  vencimentoFatura?: number | null;
+};
 
 interface UseContasReturn {
   contas: Conta[];
@@ -26,8 +35,8 @@ export function useContas(): UseContasReturn {
     setError(null);
 
     try {
-      const response = await api.get<Conta[]>("/contas");
-      setContas(response.data);
+      const { data } = await api.get<Conta[]>("/contas");
+      setContas(data);
     } catch (err) {
       console.error(err);
       setError("Erro ao carregar contas");
@@ -43,14 +52,15 @@ export function useContas(): UseContasReturn {
     try {
       const payload: CreateContaDTO = {
         ...data,
-        banco: data.banco || undefined,
         saldoInicial: Number(data.saldoInicial) || 0,
       };
 
-      const response = await api.post<Conta>("/contas", payload);
+      const { data: contaCriada } = await api.post<Conta>(
+        "/contas",
+        payload
+      );
 
-      // mantém estado sincronizado com backend
-      setContas((prev) => [...prev, response.data]);
+      setContas((prev) => [...prev, contaCriada]);
     } catch (err) {
       console.error(err);
       setError("Erro ao criar conta");
@@ -65,8 +75,10 @@ export function useContas(): UseContasReturn {
       setError(null);
 
       try {
-        const response = await api.put<Conta>(`/contas/${id}`, data);
-        const contaAtualizada = response.data;
+        const { data: contaAtualizada } = await api.put<Conta>(
+          `/contas/${id}`,
+          data
+        );
 
         setContas((prev) =>
           prev.map((c) =>
@@ -84,21 +96,22 @@ export function useContas(): UseContasReturn {
   );
 
   const removerConta = useCallback(async (id: string) => {
-  setLoading(true);
-  setError(null);
+    setLoading(true);
+    setError(null);
 
-  try {
-    await api.delete(`/contas/${id}`);
-    setContas((prev) => prev.filter((c) => c.id !== id));
-  } catch (err: any) {
-    if (err.response?.status !== 404) {
-      setError("Erro ao remover conta");
-      throw err;
+    try {
+      await api.delete(`/contas/${id}`);
+      setContas((prev) => prev.filter((c) => c.id !== id));
+    } catch (err: any) {
+      if (err.response?.status !== 404) {
+        console.error(err);
+        setError("Erro ao remover conta");
+        throw err;
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-}, []);
+  }, []);
 
   useEffect(() => {
     carregarContas();

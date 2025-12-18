@@ -13,9 +13,25 @@ export async function POST(req: NextRequest) {
       data,
     } = body;
 
-    if (!contaOrigemId || !contaDestinoId || !valor || !data) {
+    if (!contaOrigemId || !contaDestinoId || data == null) {
       return NextResponse.json(
-        { error: "Dados obrigatórios ausentes" },
+        { message: "Dados obrigatórios ausentes" },
+        { status: 400 }
+      );
+    }
+
+    const valorNumerico = Number(valor);
+    if (Number.isNaN(valorNumerico) || valorNumerico <= 0) {
+      return NextResponse.json(
+        { message: "Valor da transferência inválido" },
+        { status: 400 }
+      );
+    }
+
+    const dataTransferencia = new Date(data);
+    if (isNaN(dataTransferencia.getTime())) {
+      return NextResponse.json(
+        { message: "Data inválida" },
         { status: 400 }
       );
     }
@@ -23,19 +39,24 @@ export async function POST(req: NextRequest) {
     await TransferenciasService.transferir({
       contaOrigemId,
       contaDestinoId,
-      valor: Number(valor),
+      valor: valorNumerico,
       descricao,
-      data: new Date(data),
+      data: dataTransferencia,
     });
 
     return NextResponse.json(
-      { success: true },
+      { message: "Transferência realizada com sucesso" },
       { status: 201 }
     );
   } catch (error: any) {
+    console.error(error);
+
     return NextResponse.json(
-      { error: error.message ?? "Erro ao realizar transferência" },
-      { status: 400 }
+      {
+        message:
+          error?.message || "Erro interno ao realizar transferência",
+      },
+      { status: 500 }
     );
   }
 }

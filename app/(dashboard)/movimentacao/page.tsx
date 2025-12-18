@@ -12,33 +12,35 @@ import ConfirmarExclusaoModal from "@/components/movimentacao/ConfirmarExclusaoM
 import PeriodoSelector from "@/components/PeriodoSelector";
 import { usePeriodo } from '@/components/PeriodoContext';
 
-import { useMovimentacoes } from "@/hooks/useMovimentacoes";
+import { useTransacoes } from "@/hooks/useTransacoes";
 import { useCartoes } from "@/hooks/useCartoes";
 import { Transacao } from "@/types/transacao";
 
 export default function MovimentacoesConteudo() {
   const {
-    movimentacoes,
+    transacoes,
     loading,
     salvar,
     excluir,
-  } = useMovimentacoes();
+  } = useTransacoes();
 
   const { cartoes, loading: loadingCartoes } = useCartoes();
 
   const [openModal, setOpenModal] = useState(false);
   const [editando, setEditando] = useState<Transacao | null>(null);
 
+  const [contaSelecionadaId, setContaSelecionadaId] = useState<string>("");
+
   const [modalEdicao, setModalEdicao] = useState(false);
   const [tipoEdicao, setTipoEdicao] =
     useState<"unica" | "todas_parcelas" | "toda_recorrencia">("unica");
 
   const todasParcelas = editando?.parcelamentoId
-    ? movimentacoes.filter(mov => mov.parcelamentoId === editando.parcelamentoId)
+    ? transacoes.filter(mov => mov.parcelamentoId === editando.parcelamentoId)
     : [];
 
   const todasRecorrencias = editando?.recorrenciaId
-    ? movimentacoes.filter(mov => mov.recorrenciaId === editando.recorrenciaId)
+    ? transacoes.filter(mov => mov.recorrenciaId === editando.recorrenciaId)
     : [];
 
   const [modalExcluir, setModalExcluir] = useState(false);
@@ -46,7 +48,7 @@ export default function MovimentacoesConteudo() {
 
   const { mesSelecionado, anoSelecionado } = usePeriodo();
 
-  const movimentacoesFiltradas = movimentacoes.filter((mov) => {
+  const movimentacoesFiltradas = transacoes.filter((mov) => {
     if (!mov.data) return false;
 
     const [ano, mes] = mov.data.split("T")[0].split("-").map(Number);
@@ -78,15 +80,32 @@ export default function MovimentacoesConteudo() {
     setModalExcluir(true);
   }
 
-  async function handleExcluir(
-    tipo: "unica" | "todas_parcelas" | "toda_recorrencia"
-  ) {
+  async function handleExcluir(tipo: "unica" | "todas_parcelas" | "toda_recorrencia") {
     if (!itemExcluir) return;
 
-    await excluir(itemExcluir.id, tipo);
+    try {
+      // CASO 1: Transferência
+      if (itemExcluir.transferenciaId) {
+        const res = await fetch(
+          `/api/transferencias/${itemExcluir.transferenciaId}`,
+          { method: "DELETE" }
+        );
 
-    setModalExcluir(false);
-    setItemExcluir(null);
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(text || "Erro ao excluir transferência");
+        }
+      }
+      // CASO 2: Transação normal
+      else {
+        await excluir(itemExcluir.id, tipo);
+      }
+
+      setModalExcluir(false);
+      setItemExcluir(null);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   return (
@@ -131,6 +150,7 @@ export default function MovimentacoesConteudo() {
         open={openModal}
         onOpenChange={setOpenModal}
         transacaoEdicao={editando}
+        contaId={contaSelecionadaId}
         todasParcelas={todasParcelas}
         todasRecorrencias={todasRecorrencias}
         modoEdicao={tipoEdicao}

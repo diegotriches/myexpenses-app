@@ -21,7 +21,6 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
         bandeira: body.bandeira,
         empresa: body.empresa,
         limite: body.limite,
-        limiteDisponivel: body.limiteDisponivel,
         diaFechamento: body.diaFechamento,
         diaVencimento: body.diaVencimento,
         cor: body.cor,

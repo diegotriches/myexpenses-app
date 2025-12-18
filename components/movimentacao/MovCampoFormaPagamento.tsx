@@ -1,7 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useCartoes } from "@/hooks/useCartoes";
-import { CartaoSelectItem } from "@/components/CartaoSelectItem";
+import { CartaoSelectItem } from "@/components/cartoes/CartaoSelectItem";
 import { FaMoneyBill, FaCreditCard, FaDollarSign } from "react-icons/fa";
 
 interface Props {

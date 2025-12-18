@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import { ContasService } from "@/services/contasService";
 
-interface Params {
-  params: {
-    id: string;
-  };
-}
-
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
