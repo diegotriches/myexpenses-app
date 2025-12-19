@@ -13,7 +13,8 @@ export function gerarParcelas(
 
     parcelas.push({
       ...base,
-      parcela: `${i}/${quantidade}`,
+      parcelas: quantidade,
+      parcelaAtual: i + 1,
       data: novaData.toISOString().split("T")[0],
       recorrente: false,
     });

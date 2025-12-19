@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { usePeriodo } from "@/components/PeriodoContext";
 import { Button } from "@/components/ui/button";
 import { BsCreditCard } from "react-icons/bs";
 import { MdAdd } from "react-icons/md";
@@ -18,8 +20,9 @@ export default function CartoesPage() {
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [cartaoEdicao, setCartaoEdicao] = useState<Cartao | null>(null);
+  const { mesSelecionado, anoSelecionado } = usePeriodo();
+  const router = useRouter();
 
-  // Hook oficial que você possui
   const {
     transacoes,
     carregar: carregarMovimentacoes,
@@ -34,10 +37,28 @@ export default function CartoesPage() {
     }
   }, []);
 
+  const transacoesPorCartao = useMemo(() => {
+    const map = new Map<number, { valor: number | string; cartaoId: number }[]>();
+
+    transacoes.forEach((t) => {
+      if (typeof t.cartaoId === "number") {
+        const lista = map.get(t.cartaoId) ?? [];
+
+        lista.push({
+          valor: t.valor,
+          cartaoId: t.cartaoId,
+        });
+
+        map.set(t.cartaoId, lista);
+      }
+    });
+
+    return map;
+  }, [transacoes]);
+
   useEffect(() => {
     carregarCartoes();
-    carregarMovimentacoes(); // agora usando o hook corretamente
-  }, [carregarCartoes, carregarMovimentacoes]);
+  }, [carregarCartoes]);
 
   const abrirNovo = () => {
     setCartaoEdicao(null);
@@ -63,6 +84,12 @@ export default function CartoesPage() {
 
     await cartaoService.remover(id);
     await carregarCartoes();
+  };
+
+  const abrirFatura = (cartaoId: number) => {
+    router.push(
+      `/cartoes/${cartaoId}/fatura/${anoSelecionado}/${mesSelecionado + 1}`
+    );
   };
 
   return (
@@ -95,17 +122,10 @@ export default function CartoesPage() {
           <CartaoItem
             key={cartao.id}
             cartao={cartao}
-            movimentacoes={
-              Array.isArray(transacoes)
-                ? transacoes
-                  .filter(
-                    (mov): mov is Transacao & { cartaoId: number } =>
-                      typeof mov.cartaoId === "number" && mov.cartaoId === cartao.id
-                  )
-                : []
-            }
+            movimentacoes={transacoesPorCartao.get(cartao.id) ?? []}
             onEditar={abrirEdicao}
             onExcluir={excluir}
+            onFatura={abrirFatura}
           />
         ))}
       </div>

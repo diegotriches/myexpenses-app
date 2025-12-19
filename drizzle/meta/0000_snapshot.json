@@ -1,5 +1,5 @@
 {
-  "id": "543eeeb9-e527-41b6-9df9-44c70060b293",
+  "id": "34748ce9-0efb-42dc-a921-29506b742883",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -16,15 +16,27 @@
         },
         "nome": {
           "name": "nome",
-          "type": "varchar(100)",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
         "tipo": {
           "name": "tipo",
-          "type": "varchar(20)",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "bandeira": {
+          "name": "bandeira",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "empresa": {
+          "name": "empresa",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "limite": {
           "name": "limite",
@@ -40,6 +52,30 @@
         },
         "diaVencimento": {
           "name": "diaVencimento",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cor": {
+          "name": "cor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observacoes": {
+          "name": "observacoes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ultimosDigitos": {
+          "name": "ultimosDigitos",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -90,19 +126,20 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.transacoes": {
-      "name": "transacoes",
+    "public.contas": {
+      "name": "contas",
       "schema": "",
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "gen_random_uuid()"
         },
-        "data": {
-          "name": "data",
-          "type": "date",
+        "nome": {
+          "name": "nome",
+          "type": "varchar(150)",
           "primaryKey": false,
           "notNull": true
         },
@@ -112,36 +149,154 @@
           "primaryKey": false,
           "notNull": true
         },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "observacoes": {
+          "name": "observacoes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "saldo_inicial": {
+          "name": "saldo_inicial",
+          "type": "numeric(14, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "saldo_atual": {
+          "name": "saldo_atual",
+          "type": "numeric(14, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "banco": {
+          "name": "banco",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bandeira": {
+          "name": "bandeira",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ultimosDigitos": {
+          "name": "ultimosDigitos",
+          "type": "varchar(4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "limite": {
+          "name": "limite",
+          "type": "numeric(14, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fechamento_fatura": {
+          "name": "fechamento_fatura",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vencimento_fatura": {
+          "name": "vencimento_fatura",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.transacoes": {
+      "name": "transacoes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "data": {
+          "name": "data",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "descricao": {
           "name": "descricao",
-          "type": "varchar(200)",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
         "valor": {
           "name": "valor",
-          "type": "integer",
+          "type": "numeric(14, 2)",
           "primaryKey": false,
           "notNull": true
         },
         "categoria": {
           "name": "categoria",
-          "type": "varchar(100)",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
         "formaPagamento": {
           "name": "formaPagamento",
-          "type": "varchar(20)",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "conta_id": {
+          "name": "conta_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "parcela": {
-          "name": "parcela",
+        "transferencia_id": {
+          "name": "transferencia_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cartaoId": {
+          "name": "cartaoId",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false,
-          "default": 1
+          "notNull": false
         },
         "recorrente": {
           "name": "recorrente",
@@ -150,8 +305,39 @@
           "notNull": false,
           "default": false
         },
-        "cartaoId": {
-          "name": "cartaoId",
+        "recorrenciaId": {
+          "name": "recorrenciaId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "repeticoes": {
+          "name": "repeticoes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parcelado": {
+          "name": "parcelado",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "parcelamentoId": {
+          "name": "parcelamentoId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parcelas": {
+          "name": "parcelas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parcelaAtual": {
+          "name": "parcelaAtual",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -159,6 +345,19 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "transacoes_conta_id_contas_id_fk": {
+          "name": "transacoes_conta_id_contas_id_fk",
+          "tableFrom": "transacoes",
+          "tableTo": "contas",
+          "columnsFrom": [
+            "conta_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "transacoes_cartaoId_cartoes_id_fk": {
           "name": "transacoes_cartaoId_cartoes_id_fk",
           "tableFrom": "transacoes",
@@ -220,57 +419,6 @@
           ]
         }
       },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.usuarios": {
-      "name": "usuarios",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "nome": {
-          "name": "nome",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "varchar(200)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "rendaMensal": {
-          "name": "rendaMensal",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "metaEconomia": {
-          "name": "metaEconomia",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "foto": {
-          "name": "foto",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

@@ -9,7 +9,6 @@ import FormMovimentacaoModal from "@/components/movimentacao/FormMovimentacaoMod
 import MovimentacaoTabela from "@/components/movimentacao/MovimentacaoTabela";
 import ConfirmarEdicaoModal from "@/components/movimentacao/ConfirmarEdicaoModal";
 import ConfirmarExclusaoModal from "@/components/movimentacao/ConfirmarExclusaoModal";
-import PeriodoSelector from "@/components/PeriodoSelector";
 import { usePeriodo } from '@/components/PeriodoContext';
 
 import { useTransacoes } from "@/hooks/useTransacoes";
@@ -121,11 +120,6 @@ export default function MovimentacoesConteudo() {
           entradas, saídas e pagamentos.
         </p>
         <hr className="border-t border-gray-300 my-4" />
-      </div>
-
-      {/* Seletor de período */}
-      <div className="flex justify-end mb-6">
-        <PeriodoSelector />
       </div>
 
       <div className="flex justify-end mb-6">

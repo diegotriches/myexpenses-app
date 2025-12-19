@@ -3,168 +3,77 @@ import { transacoes, cartoes } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
+export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
 
-
-export async function PUT(
-  req: Request,
-  context: { params: Promise<{ id: string }> }
-) {
-  const { params } = context;
-  const { id } = await params;
-
-  const numericId = Number(id);
-  if (Number.isNaN(numericId)) {
-    return NextResponse.json({ error: "ID inválido." }, { status: 400 });
-  }
+  if (!id) return NextResponse.json({ error: "ID inválido." }, { status: 400 });
 
   try {
     const body = await req.json();
+    let { formaPagamento, cartaoId, ...rest } = body;
 
-    let {
-      data,
-      tipo,
-      descricao,
-      valor,
-      categoria,
-      formaPagamento,
-      cartaoId,
+    // Validação formaPagamento
+    if (!["dinheiro", "pix", "cartao"].includes(formaPagamento)) formaPagamento = "dinheiro";
+    if (formaPagamento !== "cartao") cartaoId = null;
 
-      parcelado,
-      parcelamentoId,
-      parcelas,
-      parcelaAtual,
-
-      recorrente,
-      recorrenciaId,
-      repeticoes,
-    } = body;
-
-    if (!["dinheiro", "pix", "cartao"].includes(formaPagamento)) {
-      formaPagamento = "dinheiro";
-    }
-
-    if (formaPagamento !== "cartao") {
-      cartaoId = null;
-    }
-
+    // Validar se cartão existe
     if (formaPagamento === "cartao" && cartaoId) {
-      const check = await db
-        .select()
-        .from(cartoes)
-        .where(eq(cartoes.id, Number(cartaoId)));
-
-      if (check.length === 0) {
-        return NextResponse.json(
-          { error: "Cartão informado não existe." },
-          { status: 400 }
-        );
-      }
+      const check = await db.select().from(cartoes).where(eq(cartoes.id, cartaoId));
+      if (!check.length) return NextResponse.json({ error: "Cartão não existe." }, { status: 400 });
     }
 
     const [atualizada] = await db
       .update(transacoes)
       .set({
-        data,
-        tipo,
-        descricao,
-        valor: valor.toString(),
-        categoria,
+        ...rest,
         formaPagamento,
-        cartaoId: cartaoId ? Number(cartaoId) : null,
-
-        parcelado: Boolean(parcelado),
-        parcelamentoId: parcelamentoId ?? null,
-        parcelas: parcelas ?? null,
-        parcelaAtual: parcelaAtual ?? null,
-
-        recorrente: Boolean(recorrente),
-        recorrenciaId: recorrenciaId ?? null,
-        repeticoes: repeticoes ?? null,
+        cartaoId: cartaoId ?? null,
+        parcelado: Boolean(rest.parcelado),
+        recorrente: Boolean(rest.recorrente),
+        parcelamentoId: rest.parcelamentoId ?? null,
+        parcelas: rest.parcelas ?? null,
+        parcelaAtual: rest.parcelaAtual ?? null,
+        recorrenciaId: rest.recorrenciaId ?? null,
+        repeticoes: rest.repeticoes ?? null,
       })
-      .where(eq(transacoes.id, numericId))
+      .where(eq(transacoes.id, id))
       .returning();
 
-    if (!atualizada) {
-      return NextResponse.json(
-        { error: "Transação não encontrada" },
-        { status: 404 }
-      );
-    }
+    if (!atualizada) return NextResponse.json({ error: "Transação não encontrada" }, { status: 404 });
 
     return NextResponse.json(atualizada);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Erro desconhecido" }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  req: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const { params } = context;
-    const { id } = await params;
-
-    const numericId = Number(id);
-    if (Number.isNaN(numericId)) {
-      return NextResponse.json({ error: "ID inválido." }, { status: 400 });
-    }
+    const { id } = await context.params;
+    if (!id) return NextResponse.json({ error: "ID inválido." }, { status: 400 });
 
     const { searchParams } = new URL(req.url);
     const tipo = searchParams.get("tipo");
-
     const tiposPermitidos = ["unica", "todas_parcelas", "toda_recorrencia"];
-    if (tipo && !tiposPermitidos.includes(tipo)) {
-      return NextResponse.json(
-        { error: "Tipo de exclusão inválido." },
-        { status: 400 }
-      );
-    }
 
-    const transacao = await db
-      .select()
-      .from(transacoes)
-      .where(eq(transacoes.id, numericId))
-      .limit(1);
+    if (tipo && !tiposPermitidos.includes(tipo)) return NextResponse.json({ error: "Tipo inválido." }, { status: 400 });
 
-    if (!transacao.length) {
-      return NextResponse.json(
-        { error: "Transação não encontrada" },
-        { status: 404 }
-      );
-    }
+    const [mov] = await db.select().from(transacoes).where(eq(transacoes.id, id)).limit(1);
+    if (!mov) return NextResponse.json({ error: "Transação não encontrada" }, { status: 404 });
 
-    const mov = transacao[0];
-
-    // 🔒 Bloqueio de transferência
-    if (mov.transferenciaId) {
-      return NextResponse.json(
-        {
-          error:
-            "Esta transação faz parte de uma transferência. Utilize a exclusão de transferências."
-        },
-        { status: 400 }
-      );
-    }
+    // Bloqueio de transferência
+    if (mov.transferenciaId) return NextResponse.json({ error: "Esta transação faz parte de uma transferência. Use exclusão de transferências." }, { status: 400 });
 
     if (!tipo || tipo === "unica") {
-      await db.delete(transacoes).where(eq(transacoes.id, numericId));
-    }
-    else if (tipo === "todas_parcelas" && mov.parcelamentoId) {
-      await db
-        .delete(transacoes)
-        .where(eq(transacoes.parcelamentoId, mov.parcelamentoId));
-    }
-    else if (tipo === "toda_recorrencia" && mov.recorrenciaId) {
-      await db
-        .delete(transacoes)
-        .where(eq(transacoes.recorrenciaId, mov.recorrenciaId));
+      await db.delete(transacoes).where(eq(transacoes.id, id));
+    } else if (tipo === "todas_parcelas" && mov.parcelamentoId) {
+      await db.delete(transacoes).where(eq(transacoes.parcelamentoId, mov.parcelamentoId));
+    } else if (tipo === "toda_recorrencia" && mov.recorrenciaId) {
+      await db.delete(transacoes).where(eq(transacoes.recorrenciaId, mov.recorrenciaId));
     }
 
     return NextResponse.json({ sucesso: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Erro desconhecido" }, { status: 500 });
   }
 }

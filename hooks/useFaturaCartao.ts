@@ -1,33 +1,56 @@
-import { useEffect, useState } from "react";
-import { Transacao } from "@/types/transacao";
-import { Cartao } from "@/types/cartao";
+import { useState, useEffect } from "react";
+import axios from "axios";
+import type { Transacao } from "@/types/transacao";
 
-export function useFaturaCartao(cartaoId: number, referencia?: string) {
-  const [cartao, setCartao] = useState<Cartao | null>(null);
-  const [transacoes, setTransacoes] = useState<Transacao[]>([]);
-  const [loading, setLoading] = useState(true);
+interface Fatura {
+  transacoesDoMes: Transacao[];
+  total: number;
+  porCategoria: Record<string, number>;
+}
 
-  async function carregar() {
-    setLoading(true);
+interface UseFaturaCartaoProps {
+  cartaoId: string;
+  ano: number;
+  mes: number;
+}
 
-    try {
-      const url = referencia
-        ? `/api/cartoes/${cartaoId}/fatura?referencia=${referencia}`
-        : `/api/cartoes/${cartaoId}/fatura`;
-
-      const resp = await fetch(url);
-      const data = await resp.json();
-
-      setCartao(data.cartao);
-      setTransacoes(data.transacoes);
-    } finally {
-      setLoading(false);
-    }
-  }
+export function useFaturaCartao({ cartaoId, ano, mes }: UseFaturaCartaoProps) {
+  const [fatura, setFatura] = useState<Fatura | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    carregar();
-  }, [cartaoId, referencia]);
+    if (!cartaoId || !ano || !mes) return;
 
-  return { cartao, transacoes, loading, carregar };
+    const carregarFatura = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const res = await axios.get(`/api/cartoes/${cartaoId}/fatura`, {
+          params: { ano, mes },
+        });
+
+        const data = res.data ?? {};
+
+        setFatura({
+          transacoesDoMes: Array.isArray(data.transacoesDoMes)
+            ? data.transacoesDoMes
+            : [],
+          total: Number(data.total ?? 0),
+          porCategoria: data.porCategoria ?? {},
+        });
+      } catch (err) {
+        console.error(err);
+        setError("Erro ao carregar fatura");
+        setFatura(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    carregarFatura();
+  }, [cartaoId, ano, mes]);
+
+  return { fatura, loading, error };
 }

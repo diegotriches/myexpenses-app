@@ -23,7 +23,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
 
   useEffect(() => {
     api
-      .get("/usuarios")
+      .get("/users")
       .then((res) => {
         if (res.data && res.data.foto) {
           setFotoPerfil(`${res.config.baseURL}${res.data.foto}`);

@@ -1,15 +1,11 @@
-export type TipoTransacao =
-  | "entrada"
-  | "saida";
+export type TipoTransacao = | "entrada" | "saida";
 
-export type FormaPagamento =
-  | "dinheiro"
-  | "pix"
-  | "cartao"
-  | "transferencia";
+export type FormaPagamento = | "dinheiro" | "pix" | "cartao" | "transferencia";
+
+export type TipoPagamento = | "avista" | "parcelado" | "recorrente";
 
 export interface Transacao {
-  id: number;
+  id: string;
 
   data: string;
   tipo: TipoTransacao;

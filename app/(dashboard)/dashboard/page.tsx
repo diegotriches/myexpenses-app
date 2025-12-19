@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import api from "@/services/api";
 
 import type { Transacao } from "@/types/transacao";
-import PeriodoSelector from "@/components/PeriodoSelector";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 interface Props {
@@ -41,7 +40,7 @@ export default function Home({ transacoes }: Props) {
   useEffect(() => {
     const fetchUsuario = async () => {
       try {
-        const res = await api.get("/usuarios");
+        const res = await api.get("/users");
         if (res.data && res.data.nome) {
           setNomeUsuario(res.data.nome);
         } else if (Array.isArray(res.data) && res.data.length > 0) {
@@ -133,17 +132,17 @@ export default function Home({ transacoes }: Props) {
   });
 
   const totalEntradas = transacoesFiltradas
-    .filter((t) => t.tipo === "Entrada")
+    .filter((t) => t.tipo === "entrada")
     .reduce((acc, t) => acc + t.valor, 0);
 
   const totalSaidas = transacoesFiltradas
-    .filter((t) => t.tipo === "Saída")
+    .filter((t) => t.tipo === "saida")
     .reduce((acc, t) => acc + t.valor, 0);
 
   const saldo = totalEntradas - totalSaidas;
   const numeroTransacoes = transacoesFiltradas.length;
   const maiorGasto = transacoesFiltradas
-    .filter((t) => t.tipo === "Saída")
+    .filter((t) => t.tipo === "saida")
     .reduce((max, t) => (t.valor > max ? t.valor : max), 0);
 
   // Gráfico de Barras → Entradas x Saídas
@@ -157,7 +156,7 @@ export default function Home({ transacoes }: Props) {
   // Gráfico de Pizza → Gastos por categoria
   const totalPorCategoria: Record<string, number> = {};
   transacoesFiltradas
-    .filter((t) => t.tipo === "Saída")
+    .filter((t) => t.tipo === "saida")
     .forEach((t) => {
       totalPorCategoria[t.categoria] =
         (totalPorCategoria[t.categoria] || 0) + t.valor;
@@ -175,7 +174,6 @@ export default function Home({ transacoes }: Props) {
 
   return (
     <>
-      <PeriodoSelector />
       <div className="bg-white rounded-xl px-8 pt-1 pb-8 max-w-[1000px] mx-auto mt-4">
         <h1>Bem-vindo(a){nomeUsuario ? `, ${nomeUsuario}` : ""}!</h1>
         <h3>Gerencie suas finanças pessoais de forma prática e organizada.</h3>
