@@ -85,7 +85,7 @@ export default function CategoriaFormModal({
 
               <button
                 type="button"
-                className="px-3 py-2 border rounded hover:bg-gray-100"
+                className="px-3 py-2 border rounded hover:bg-gray-100 cursor-pointer"
                 onClick={() => setIconPickerOpen(true)}
               >
                 Selecionar Ícone
@@ -95,7 +95,7 @@ export default function CategoriaFormModal({
             <select
               value={tipo}
               onChange={e => setTipo(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-md w-full"
+              className="px-3 py-2 border border-gray-300 rounded-md w-full cursor-pointer"
             >
               <option value="entrada">Entrada</option>
               <option value="saida">Saída</option>
@@ -104,13 +104,13 @@ export default function CategoriaFormModal({
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={onClose}
-                className="px-4 py-2 border rounded hover:bg-gray-100"
+                className="px-4 py-2 border rounded hover:bg-gray-100 cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 onClick={salvar}
-                className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-900"
+                className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-900 cursor-pointer"
               >
                 Salvar
               </button>

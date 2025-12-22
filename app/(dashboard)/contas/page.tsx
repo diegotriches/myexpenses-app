@@ -11,6 +11,7 @@ import { Conta, CreateContaDTO, UpdateContaDTO } from "@/types/conta";
 import { useContas } from "@/hooks/useContas";
 
 import { BsBank } from "react-icons/bs";
+import { MdAdd } from "react-icons/md";
 
 export default function ContasPage() {
   const {
@@ -106,9 +107,10 @@ export default function ContasPage() {
       </div>
 
       {/* Ações */}
-      <div className="flex justify-end">
-        <Button onClick={abrirNovaConta} className="bg-blue-700 hover:bg-blue-900">
-          Adicionar Nova Conta
+      <div className="flex justify-end mb-6">
+        <Button onClick={abrirNovaConta} className="flex items-center gap-2 bg-blue-700 hover:bg-blue-900 text-white">
+          <MdAdd className="text-xl" />
+          Adicionar Conta
         </Button>
       </div>
 

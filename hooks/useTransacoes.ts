@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
-import { Transacao } from "@/types/transacao";
+import { buildUpdateTransacoesFromForm } from "@/lib/buildUpdateTransacoesFromForm";
+import { FormMovimentacao } from "@/lib/buildTransacoesFromForm";
+import { Transacao, TransacaoCreate, TransacaoUpdate } from "@/types/transacao";
 import { usePeriodo } from "@/components/PeriodoContext";
 
 type TipoExclusao = "unica" | "todas_parcelas" | "toda_recorrencia" | "transferencia";
@@ -10,7 +12,6 @@ export function useTransacoes() {
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // UI / Controle
   const [modalOpen, setModalOpen] = useState(false);
   const [idEdicao, setIdEdicao] = useState<string | null>(null);
   const [idParaExcluir, setIdParaExcluir] = useState<string | null>(null);
@@ -41,8 +42,8 @@ export function useTransacoes() {
 
   // Criar / Atualizar
   const salvar = useCallback(
-    async (dados: Transacao) => {
-      const isUpdate = !!dados.id;
+    async (dados: TransacaoCreate | TransacaoUpdate) => {
+      const isUpdate = "id" in dados;
 
       const url = isUpdate
         ? `/api/transacoes/${dados.id}`
@@ -50,21 +51,23 @@ export function useTransacoes() {
 
       if (!dados.contaId) throw new Error("Conta é obrigatória");
 
-      const payload = {
+      const payload: any = {
         ...(isUpdate ? { id: dados.id } : {}),
         tipo: dados.tipo,
         descricao: dados.descricao ?? null,
-        data: new Date(dados.data),
-        valor: String(dados.valor),
+        data: dados.data,
+        valor: Number(dados.valor),
         contaId: dados.contaId,
         cartaoId: dados.cartaoId ?? null,
         categoria: dados.categoria ?? null,
         formaPagamento: dados.formaPagamento ?? "dinheiro",
         parcelado: dados.parcelado ?? false,
-        recorrente: dados.recorrente ?? false,
-        parcelaAtual: dados.parcelaAtual ?? null,
         parcelamentoId: dados.parcelamentoId ?? null,
+        parcelas: dados.parcelas ?? null,
+        parcelaAtual: dados.parcelaAtual ?? null,
+        recorrente: dados.recorrente ?? false,
         recorrenciaId: dados.recorrenciaId ?? null,
+        repeticoes: dados.repeticoes ?? null,
       };
 
       const res = await fetch(url, {
@@ -90,40 +93,48 @@ export function useTransacoes() {
 
   // Edição avançada
   const editar = useCallback(
-    async (dados: Transacao, tipo: TipoEdicao) => {
-      if (tipo === "unica") {
-        await salvar(dados);
-        return;
-      }
+    async (
+      transacaoEdicao: Transacao,
+      form: FormMovimentacao,
+      modoEdicao: TipoEdicao = "unica"
+    ) => {
+      // Monta payload base comum a qualquer edição
+      const payload = {
+        tipo: form.tipo,
+        descricao: form.descricao,
+        data: form.data,
+        valor: Number(form.valor),
+        contaId: form.contaId,
+        categoria: form.categoria,
+        formaPagamento: form.formaPagamento,
+        cartaoId: form.formaPagamento === "cartao" ? Number(form.cartaoId) : null,
 
-      const baseData = new Date(dados.data);
+        parcelado: transacaoEdicao.parcelado,
+        parcelas: transacaoEdicao.parcelas,
+        parcelaAtual: transacaoEdicao.parcelaAtual,
+        parcelamentoId: transacaoEdicao.parcelamentoId,
 
-      const futuras = transacoes.filter((t) => {
-        if (tipo === "todas_parcelas") return t.parcelamentoId === dados.parcelamentoId && new Date(t.data) >= baseData;
-        if (tipo === "toda_recorrencia") return t.recorrenciaId === dados.recorrenciaId && new Date(t.data) >= baseData;
-        return false;
+        recorrente: transacaoEdicao.recorrente,
+        recorrenciaId: transacaoEdicao.recorrenciaId,
+        repeticoes: transacaoEdicao.repeticoes,
+
+        modoEdicao,
+      };
+
+      const res = await fetch(`/api/transacoes/${transacaoEdicao.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
-      for (const t of futuras) {
-        const res = await fetch(`/api/transacoes/${t.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...t,
-            descricao: dados.descricao,
-            categoria: dados.categoria,
-            valor: dados.valor,
-            formaPagamento: dados.formaPagamento,
-            cartaoId: dados.cartaoId,
-          }),
-        });
-
-        if (!res.ok) throw new Error(`Erro ao editar transação ${t.id}`);
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || "Erro ao editar transação");
       }
 
       await carregar();
     },
-    [transacoes, salvar, carregar]
+    [carregar]
   );
 
   // Exclusão

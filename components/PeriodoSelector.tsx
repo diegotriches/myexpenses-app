@@ -32,7 +32,7 @@ export default function PeriodoSelector() {
 
   return (
     <div className="flex w-[250px] ml-auto mr-12 justify-center items-center 
-         rounded-bl-3xl rounded-br-3xl gap-3 px-3 py-2.5 
+         rounded-bl-3xl rounded-3xl gap-3 px-3 py-2.5 
          bg-[#f1f1f1] text-[1.1rem]">
       <button className="bg-[#888] text-white rounded-full w-7 h-7 flex justify-center items-center 
          cursor-pointer transition-colors duration-200 hover:bg-[#555]" onClick={voltarMes}><BsCaretLeftFill /></button>

@@ -12,15 +12,16 @@ interface Props {
   form: any;
   update: (k: string, v: any) => void;
   campo: "tipo" | "data" | "valor" | "descricao";
+  disabled?: boolean;
 }
 
-export default function MovCamposBasicos({ form, update, campo }: Props) {
+export default function MovCamposBasicos({ form, update, campo, disabled }: Props) {
   switch (campo) {
     case "tipo":
       return (
         <div>
           <Label>Tipo</Label>
-          <Select value={form.tipo} onValueChange={(v) => update("tipo", v)}>
+          <Select value={form.tipo} onValueChange={(v) => update("tipo", v)} disabled={disabled}>
             <SelectTrigger className="w-full border rounded-md p-2">
               <SelectValue placeholder="Selecione o tipo" />
             </SelectTrigger>
@@ -47,6 +48,7 @@ export default function MovCamposBasicos({ form, update, campo }: Props) {
             value={form.data}
             onChange={(e) => update("data", e.target.value)}
             className="w-full"
+            disabled={disabled}
           />
         </div>
       );

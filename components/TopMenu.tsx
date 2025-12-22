@@ -21,7 +21,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
       {/* Botão da Sidebar */}
       <button
         onClick={toggleSidebar}
-        className="p-2 rounded hover:bg-gray-200 transition"
+        className="p-2 rounded hover:bg-gray-200 transition cursor-pointer"
       >
         {isCollapsed ? <BsList size={22} /> : <BsChevronLeft size={22} />}
       </button>

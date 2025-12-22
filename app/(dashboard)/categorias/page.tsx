@@ -79,12 +79,6 @@ export default function CategoriasPage() {
         onClose={() => setFormModalAberto(false)}
         categoria={categoriaEditando}
         refresh={fetchCategorias}
-        abrirIconPicker={() => setIconPickerAberto(true)}
-      />
-
-      <IconPickerModal
-        aberto={iconPickerAberto}
-        onClose={() => setIconPickerAberto(false)}
       />
 
       <ConfirmDeleteModal

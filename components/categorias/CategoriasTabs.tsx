@@ -29,8 +29,8 @@ export default function CategoriasTabs({ aba, setAba, onCriar }: Props) {
             onClick={() => setAba(tab.value as any)}
             className={`px-4 py-2 font-semibold ${
               aba === tab.value
-                ? "border-b-2 border-blue-700 text-blue-700"
-                : "text-gray-600 hover:text-gray-800"
+                ? "border-b-2 border-blue-700 text-blue-700 cursor-pointer"
+                : "text-gray-600 hover:text-gray-800 cursor-pointer"
             }`}
           >
             {tab.label}
@@ -41,7 +41,7 @@ export default function CategoriasTabs({ aba, setAba, onCriar }: Props) {
       <div className="flex justify-end mt-4">
         <button
           onClick={onCriar}
-          className="flex items-center gap-2 bg-blue-700 text-white px-4 py-2 rounded-md hover:bg-blue-900"
+          className="flex items-center gap-2 bg-blue-700 text-white px-4 py-2 rounded-md hover:bg-blue-900 cursor-pointer"
         >
           <MdAdd /> Nova Categoria
         </button>

@@ -38,7 +38,7 @@ export default function CategoriaCard({ categoria, onEditar, onExcluir }: Props)
         onClick={() => setMenuAberto(v => !v)}
         className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition"
       >
-        <BsThreeDotsVertical className="text-xl text-gray-600" />
+        <BsThreeDotsVertical className="text-xl text-gray-600 cursor-pointer" />
       </button>
 
       {menuAberto && (

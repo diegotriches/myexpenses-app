@@ -1,32 +1,63 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 import MovCamposBasicos from "@/components/movimentacao/MovCamposBasicos";
 import MovCampoCategoria from "@/components/movimentacao/MovCampoCategoria";
 import MovCampoFormaPagamento from "@/components/movimentacao/MovCampoFormaPagamento";
 import MovCampoConta from "@/components/movimentacao/MovCampoConta";
 
-import { buildTransacoesFromForm } from "@/lib/movimentacoes/buildTransacoesFromForm";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { buildTransacoesFromForm } from "@/lib/buildTransacoesFromForm";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-import { Transacao, TipoPagamento } from "@/types/transacao";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Transacao,
+  TransacaoCreate,
+  TransacaoUpdate,
+  TipoPagamento,
+} from "@/types/transacao";
+
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+
 import { FaMoneyBill, FaSpinner, FaSyncAlt } from "react-icons/fa";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  contaId: string;
   transacaoEdicao: Transacao | null;
-  todasParcelas?: Transacao[];
-  todasRecorrencias?: Transacao[];
   modoEdicao?: "unica" | "todas_parcelas" | "toda_recorrencia";
-  salvar: (dados: Transacao) => Promise<void>;
+  salvar: (dados: TransacaoCreate | TransacaoUpdate) => Promise<void>;
 }
 
-// Ícones para cada tipo de pagamento
+const initialForm = {
+  contaId: "",
+  tipo: "entrada" as "entrada" | "saida",
+  categoria: "",
+  valor: "",
+  data: "",
+  descricao: "",
+  formaPagamento: "dinheiro" as "dinheiro" | "pix" | "cartao",
+  cartaoId: "",
+  parcelado: false,
+  parcelas: 1,
+  recorrente: false,
+  repeticoes: 1,
+};
+
+type FormState = typeof initialForm;
+
 const tipoPagamentoIcons: Record<TipoPagamento, any> = {
   avista: FaMoneyBill,
   parcelado: FaSpinner,
@@ -40,37 +71,38 @@ export default function FormMovimentacaoModal({
   modoEdicao,
   salvar,
 }: Props) {
-  const isEdit = !!transacaoEdicao;
+  const isEdit = Boolean(transacaoEdicao);
+  const [form, setForm] = useState<FormState>(initialForm);
 
-  const initialForm = {
-    contaId: "",
-    tipo: "entrada" as "entrada" | "saida",
-    categoria: "",
-    valor: "",
-    data: "",
-    descricao: "",
-    formaPagamento: "dinheiro" as "dinheiro" | "pix" | "cartao",
-    cartaoId: "",
-    parcelado: false,
-    parcelas: 1,
-    recorrente: false,
-    repeticoes: 1,
+  const update = <K extends keyof FormState>(
+    key: K,
+    value: FormState[K]
+  ) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const [form, setForm] = useState(initialForm);
-
-  const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
-    setForm(prev => ({ ...prev, [key]: value }));
+  const updateAny = (key: string, value: any) => {
+    update(key as keyof FormState, value);
   };
 
-  const updateAny = (k: string, v: any) => update(k as keyof typeof form, v);
-
-  // Deriva o tipo de pagamento dinamicamente
-  const getTipoPagamento = (): TipoPagamento => {
+  const tipoPagamento = useMemo<TipoPagamento>(() => {
     if (form.parcelado) return "parcelado";
     if (form.recorrente) return "recorrente";
     return "avista";
-  };
+  }, [form.parcelado, form.recorrente]);
+
+  // Flags de bloqueio de campos ao editar todas parcelas / recorrência
+  const bloqueiaCampos = useMemo(() => {
+    if (!transacaoEdicao || !modoEdicao) return {};
+    const editarTodos = modoEdicao === "todas_parcelas" || modoEdicao === "toda_recorrencia";
+    return {
+      tipo: editarTodos,
+      data: editarTodos,
+      formaPagamento: editarTodos,
+      parcelas: transacaoEdicao.parcelado && modoEdicao === "todas_parcelas",
+      repeticoes: transacaoEdicao.recorrente && modoEdicao === "toda_recorrencia",
+    };
+  }, [transacaoEdicao, modoEdicao]);
 
   useEffect(() => {
     if (!transacaoEdicao) {
@@ -78,17 +110,24 @@ export default function FormMovimentacaoModal({
       return;
     }
 
+    const valorFormulario =
+      modoEdicao === "todas_parcelas" &&
+        transacaoEdicao.parcelado &&
+        transacaoEdicao.parcelas
+        ? Number(transacaoEdicao.valor) * transacaoEdicao.parcelas
+        : Number(transacaoEdicao.valor ?? "");
+
     setForm({
       contaId: transacaoEdicao.contaId ?? "",
       tipo: transacaoEdicao.tipo ?? "entrada",
       categoria: transacaoEdicao.categoria ?? "",
-      valor: String(transacaoEdicao.valor ?? ""),
+      valor: String(valorFormulario),
       data: transacaoEdicao.data ?? "",
       descricao: transacaoEdicao.descricao ?? "",
       formaPagamento: ["dinheiro", "pix", "cartao"].includes(transacaoEdicao.formaPagamento ?? "")
         ? (transacaoEdicao.formaPagamento as "dinheiro" | "pix" | "cartao")
         : "dinheiro",
-      cartaoId: transacaoEdicao.cartaoId != null ? String(transacaoEdicao.cartaoId) : "",
+      cartaoId: transacaoEdicao.cartaoId ? String(transacaoEdicao.cartaoId) : "",
       parcelado: transacaoEdicao.parcelado ?? false,
       parcelas: transacaoEdicao.parcelas ?? 1,
       recorrente: transacaoEdicao.recorrente ?? false,
@@ -106,18 +145,18 @@ export default function FormMovimentacaoModal({
 
     try {
       const transacoes = buildTransacoesFromForm({
-        form: { ...form },
+        form,
         transacaoEdicao,
         contaId: form.contaId,
-        modoEdicao,
       });
 
       for (const transacao of transacoes) {
+        console.log("Payload a ser enviado:", transacao);
         await salvar(transacao);
       }
 
       onOpenChange(false);
-      if (!transacaoEdicao) setForm(initialForm);
+      if (!isEdit) setForm(initialForm);
     } catch (error) {
       console.error("Erro ao salvar a movimentação:", error);
     }
@@ -127,59 +166,73 @@ export default function FormMovimentacaoModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar Movimentação" : "Nova Movimentação"}</DialogTitle>
+          <DialogTitle>
+            {isEdit ? "Editar Movimentação" : "Nova Movimentação"}
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Linha 1: Tipo + Categoria */}
           <div className="grid grid-cols-2 gap-4">
-            <MovCamposBasicos form={form} update={updateAny} campo="tipo" />
+            <MovCamposBasicos
+              form={form}
+              update={updateAny}
+              campo="tipo"
+              disabled={bloqueiaCampos.tipo}
+            />
             <MovCampoCategoria form={form} update={updateAny} />
           </div>
 
-          {/* Linha 2: Data + Valor */}
           <div className="grid grid-cols-2 gap-4">
-            <MovCamposBasicos form={form} update={updateAny} campo="data" />
+            <MovCamposBasicos
+              form={form}
+              update={updateAny}
+              campo="data"
+              disabled={bloqueiaCampos.data}
+            />
             <MovCamposBasicos form={form} update={updateAny} campo="valor" />
           </div>
 
-          {/* Linha 3: Forma de Pagamento + Conta */}
           <div className="grid grid-cols-2 gap-4">
-            <MovCampoFormaPagamento form={form} update={updateAny} />
+            <MovCampoFormaPagamento
+              form={form}
+              update={updateAny}
+            />
             <MovCampoConta form={form} update={updateAny} />
           </div>
 
-          {/* Linha 4: Tipo de Pagamento (Parcelas/Repetições) */}
           <div>
             <label className="block mb-1">Tipo de Pagamento</label>
             <div className="flex gap-4 items-center">
               <Select
-                value={getTipoPagamento()}
+                value={tipoPagamento}
                 onValueChange={(v: TipoPagamento) => {
                   update("parcelado", v === "parcelado");
                   update("recorrente", v === "recorrente");
-                  if (v === "avista") {
-                    update("parcelado", false);
-                    update("recorrente", false);
-                  }
                 }}
+                disabled={bloqueiaCampos.parcelas || bloqueiaCampos.repeticoes}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
 
                 <SelectContent>
-                  {(["avista", "parcelado", "recorrente"] as TipoPagamento[]).map((tipo) => {
-                    const Icon = tipoPagamentoIcons[tipo];
-                    const label = tipo === "avista" ? "À vista" : tipo === "parcelado" ? "Parcelado" : "Recorrente";
-
-                    return (
-                      <SelectItem key={tipo} value={tipo} className="flex items-center gap-2">
-                        <Icon size={16} />
-                        {label}
-                      </SelectItem>
-                    );
-                  })}
+                  {(Object.keys(tipoPagamentoIcons) as TipoPagamento[]).map(
+                    (tipo) => {
+                      const Icon = tipoPagamentoIcons[tipo];
+                      return (
+                        <SelectItem key={tipo} value={tipo}>
+                          <div className="flex gap-2 items-center">
+                            <Icon size={16} />
+                            {tipo === "avista"
+                              ? "À vista"
+                              : tipo === "parcelado"
+                                ? "Parcelado"
+                                : "Recorrente"}
+                          </div>
+                        </SelectItem>
+                      );
+                    }
+                  )}
                 </SelectContent>
               </Select>
 
@@ -190,31 +243,38 @@ export default function FormMovimentacaoModal({
                   value={form.parcelado ? form.parcelas : form.repeticoes}
                   onChange={(e) => {
                     const num = Number(e.target.value);
-                    if (form.parcelado) update("parcelas", num);
-                    else update("repeticoes", num);
+                    form.parcelado
+                      ? update("parcelas", num)
+                      : update("repeticoes", num);
                   }}
                   className="w-32 border rounded-md p-2"
+                  disabled={
+                    form.parcelado
+                      ? bloqueiaCampos.parcelas
+                      : bloqueiaCampos.repeticoes
+                  }
                 />
               )}
             </div>
           </div>
 
-          {/* Linha 5: Descrição */}
-          <MovCamposBasicos form={form} update={updateAny} campo="descricao" />
+          <MovCamposBasicos
+            form={form}
+            update={updateAny}
+            campo="descricao"
+          />
 
-          {/* Botões */}
           <div className="flex justify-end gap-3 pt-4">
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                onOpenChange(false);
-                if (!isEdit) setForm(initialForm);
-              }}
+              onClick={() => onOpenChange(false)}
             >
               Cancelar
             </Button>
-            <Button type="submit">{isEdit ? "Salvar Alterações" : "Adicionar"}</Button>
+            <Button type="submit">
+              {isEdit ? "Salvar Alterações" : "Adicionar"}
+            </Button>
           </div>
         </form>
       </DialogContent>
