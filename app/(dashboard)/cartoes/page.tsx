@@ -25,7 +25,6 @@ export default function CartoesPage() {
 
   const {
     transacoes,
-    carregar: carregarMovimentacoes,
   } = useTransacoes();
 
   const carregarCartoes = useCallback(async () => {
@@ -87,9 +86,7 @@ export default function CartoesPage() {
   };
 
   const abrirFatura = (cartaoId: number) => {
-    router.push(
-      `/cartoes/${cartaoId}/fatura/${anoSelecionado}/${mesSelecionado + 1}`
-    );
+    router.push(`/cartoes/${cartaoId}/fatura`);
   };
 
   return (
@@ -117,7 +114,7 @@ export default function CartoesPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-4xl mx-auto">
         {cartoes.map((cartao) => (
           <CartaoItem
             key={cartao.id}

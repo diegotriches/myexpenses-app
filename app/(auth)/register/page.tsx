@@ -62,90 +62,109 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4 bg-gray-100">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl">
-            Criar Conta
-          </CardTitle>
-        </CardHeader>
+        <main className="flex min-h-screen items-center justify-center bg-gradient-to-r from-blue-400 to-purple-500 p-4">
+            {/* Card flutuante */}
+            <Card className="w-full max-w-md shadow-lg rounded-2xl transform transition-all duration-700 ease-out ">
+                <CardHeader>
+                    <CardTitle className="text-center text-3xl md:text-4xl font-extrabold text-gray-900">
+                        Criar Conta
+                    </CardTitle>
+                </CardHeader>
 
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <CardContent>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 
-              {/* Nome */}
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="text"
-                        placeholder="Seu nome"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                            {/* Nome */}
+                            <FormField
+                                control={form.control}
+                                name="name"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Nome</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="text"
+                                                placeholder="Seu nome"
+                                                {...field}
+                                                className="border-gray-300 focus:border-blue-500 focus:ring focus:ring-blue-200"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-              {/* Email */}
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="seuemail@exemplo.com"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                            {/* Email */}
+                            <FormField
+                                control={form.control}
+                                name="email"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Email</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="email"
+                                                placeholder="seuemail@exemplo.com"
+                                                {...field}
+                                                className="border-gray-300 focus:border-blue-500 focus:ring focus:ring-blue-200"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-              {/* Senha */}
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Senha</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                            {/* Senha */}
+                            <FormField
+                                control={form.control}
+                                name="password"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Senha</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="password"
+                                                placeholder="••••••••"
+                                                {...field}
+                                                className="border-gray-300 focus:border-blue-500 focus:ring focus:ring-blue-200"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-              {/* Botão */}
-              <Button type="submit" className="w-full">
-                Criar conta
-              </Button>
-            </form>
-          </Form>
+                            {/* Botão Criar Conta */}
+                            <Button
+                                type="submit"
+                                className="w-full py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 text-white font-semibold shadow-md hover:shadow-lg transition-all"
+                            >
+                                Criar Conta
+                            </Button>
+                        </form>
+                    </Form>
 
-          <p className="text-sm text-center mt-4">
-            Já possui conta?{" "}
-            <Link href="/login" className="text-blue-600 hover:underline">
-              Fazer login
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
-    </main>
-  );
+                    {/* Link para login */}
+                    <p className="text-sm text-center mt-4 text-gray-700">
+                        Já possui conta?{" "}
+                        <Link href="/login" className="text-blue-600 hover:underline">
+                            Fazer login
+                        </Link>
+                    </p>
+                </CardContent>
+
+                {/* Animação fade-in */}
+                <style jsx>{`
+                    @keyframes fadeIn {
+                        from { opacity: 0; transform: translateY(20px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                    .animate-fadeIn {
+                        animation: fadeIn 0.7s forwards;
+                    }
+                `}</style>
+            </Card>
+        </main>
+    );
 }

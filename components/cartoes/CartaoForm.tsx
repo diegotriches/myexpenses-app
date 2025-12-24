@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 
 import { Cartao, TipoCartao } from "@/types/cartao";
-import { bandeiraOptions, empresaOptions } from "@/utils/cartoes/cartaoOptions";
+import { bandeiraOptions, empresaOptions } from "@/utils/cartaoOptions";
 import CampoSelect from "./CampoSelect";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";

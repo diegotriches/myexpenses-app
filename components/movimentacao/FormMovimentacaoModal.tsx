@@ -151,7 +151,6 @@ export default function FormMovimentacaoModal({
       });
 
       for (const transacao of transacoes) {
-        console.log("Payload a ser enviado:", transacao);
         await salvar(transacao);
       }
 

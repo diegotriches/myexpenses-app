@@ -1,13 +1,6 @@
 import {
-  pgTable,
-  serial,
-  varchar,
-  text,
-  integer,
-  boolean,
-  uuid,
-  numeric,
-  timestamp
+  pgTable, serial, varchar, text, integer, boolean,
+  uuid, numeric, timestamp, date, uniqueIndex, pgEnum
 } from "drizzle-orm/pg-core";
 
 // USUÁRIOS
@@ -92,4 +85,64 @@ export const contas = pgTable("contas", {
 
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// FATURAS
+export const faturas = pgTable("faturas", {
+    id: serial("id").primaryKey(),
+    cartaoId: integer("cartao_id")
+      .notNull()
+      .references(() => cartoes.id, { onDelete: "cascade" }),
+    mes: integer("mes").notNull(),
+    ano: integer("ano").notNull(),
+    total: numeric("total", { precision: 12, scale: 2 }).notNull(),
+    paga: boolean("paga").notNull().default(false),
+    dataPagamento: date("data_pagamento"),
+    contaPagamentoId: uuid("conta_pagamento_id").references(
+      () => contas.id
+    ),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    faturaUnica: uniqueIndex("faturas_cartao_mes_ano_idx").on(
+      table.cartaoId,
+      table.mes,
+      table.ano
+    ),
+  })
+);
+
+// EXTRATO
+
+/* Enum para tipo de movimentação */
+export const extratoTipoEnum = pgEnum("extrato_tipo", [
+  "entrada",
+  "saida",
+]);
+
+/* Enum para origem da movimentação */
+export const extratoOrigemEnum = pgEnum("extrato_origem", [
+  "TRANSACAO_MANUAL",
+  "PAGAMENTO_FATURA",
+  "TRANSFERENCIA",
+  "AJUSTE",
+  "ESTORNO",
+]);
+
+export const extratoConta = pgTable("extrato_conta", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  contaId: uuid("conta_id")
+    .notNull()
+    .references(() => contas.id, { onDelete: "cascade" }),
+  data: date("data").notNull(),
+  tipo: extratoTipoEnum("tipo").notNull(),
+  valor: numeric("valor", { precision: 12, scale: 2 }).notNull(),
+  descricao: text("descricao").notNull(),
+  saldoApos: numeric("saldo_apos", { precision: 12, scale: 2 }).notNull(),
+  origem: extratoOrigemEnum("origem").notNull(),
+
+  /* Referência opcional (ex: faturas.id) */
+  referenciaId: uuid("referencia_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });

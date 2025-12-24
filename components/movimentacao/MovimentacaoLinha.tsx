@@ -1,7 +1,7 @@
 import { Transacao } from "@/types/transacao";
 import { Cartao } from "@/types/cartao";
 import { iconOptions } from "@/utils/iconOptions";
-import { empresaOptions } from "@/utils/cartoes/cartaoOptions";
+import { empresaOptions } from "@/utils/cartaoOptions";
 
 import { useCategorias } from "@/hooks/useCategorias";
 import { useContas } from "@/hooks/useContas";

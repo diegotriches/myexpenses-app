@@ -65,7 +65,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loadingTransacoes ? skeleton : <CardResumo resumo={resumo!} />}
         {loadingTransacoes ? skeleton : <CardValores transacoes={transacoes!} />}
-        {loadingTransacoes ? skeleton : <CardFaturas transacoes={transacoes!} periodo={periodo} />}
+        {/*loadingTransacoes ? skeleton : <CardFaturas transacoes={transacoes!} periodo={periodo} />*/}
         {loadingTransacoes ? skeleton : <CardTransacoesRecentes transacoes={ultimas} />}
         {loadingTransacoes ? skeleton : <CardCondicoesPagamento dados={condicoes} />}
         {loadingTransacoes ? skeleton : <CardFormasPagamento dados={formas} />}

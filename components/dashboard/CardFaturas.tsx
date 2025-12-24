@@ -1,19 +1,30 @@
-import { Card } from '@/components/dashboard/Card';
-import { Transacao } from '@/types/transacao';
+import { DashboardCartao } from "@/types/dashboard";
 
-type Props = { transacoes: Transacao[], periodo: string }; // YYYY-MM
+interface Props {
+  cartao: DashboardCartao;
+}
 
-export function CardFaturas({ transacoes, periodo }: Props) {
-  const faturas = transacoes.filter(t => t.data.startsWith(periodo) && t.parcelado);
-  const totalFaturas = faturas.length;
-  const totalPago = faturas.filter(t => t.tipo === 'saida').reduce((acc, t) => acc + t.valor, 0);
-  const totalAberto = faturas.reduce((acc, t) => acc + t.valor, 0) - totalPago;
-
+export function CardFaturas({ cartao }: Props) {
   return (
-    <Card titulo="Faturas no Período">
-      <p>Total Faturas: {totalFaturas}</p>
-      <p>Total Pago: R$ {Number(totalPago).toFixed(2)}</p>
-      <p>Total Aberto: R$ {totalAberto.toFixed(2)}</p>
-    </Card>
+    <div className="border rounded-xl p-4 flex justify-between items-center">
+      <div>
+        <p className="font-medium">{cartao.nome}</p>
+        <p className="text-sm text-gray-500">
+          Fatura do mês
+        </p>
+      </div>
+
+      <div className="text-right">
+        <p className="font-semibold">
+          R$ {cartao.totalFatura.toFixed(2)}
+        </p>
+
+        {cartao.paga ? (
+          <span className="text-xs text-green-600">Paga</span>
+        ) : (
+          <span className="text-xs text-red-600">Em aberto</span>
+        )}
+      </div>
+    </div>
   );
 }

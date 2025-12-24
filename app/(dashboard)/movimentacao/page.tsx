@@ -144,9 +144,6 @@ export default function MovimentacoesConteudo() {
         open={openModal}
         onOpenChange={setOpenModal}
         transacaoEdicao={editando}
-        contaId={contaSelecionadaId}
-        todasParcelas={todasParcelas}
-        todasRecorrencias={todasRecorrencias}
         modoEdicao={tipoEdicao}
         salvar={async (d) => {
           await salvar(d);

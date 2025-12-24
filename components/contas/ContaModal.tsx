@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import CampoSelect from "@/components/cartoes/CampoSelect";
 import { Conta, CreateContaDTO, UpdateContaDTO } from "@/types/conta";
-import { empresaOptions } from "@/utils/cartoes/cartaoOptions";
+import { empresaOptions } from "@/utils/cartaoOptions";
 
 interface Props {
   open: boolean;

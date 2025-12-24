@@ -1,6 +1,6 @@
 import { SelectItem } from "@/components/ui/select";
 import { Cartao } from "@/types/cartao";
-import { empresaOptions } from "@/utils/cartoes/cartaoOptions";
+import { empresaOptions } from "@/utils/cartaoOptions";
 
 interface Props {
   cartao: Cartao;

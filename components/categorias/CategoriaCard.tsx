@@ -17,29 +17,37 @@ export default function CategoriaCard({ categoria, onEditar, onExcluir }: Props)
     iconOptions.find(i => i.name === categoria.icon)?.component || null;
 
   return (
-    <div className="relative bg-gray-100 p-4 rounded-lg shadow-sm flex flex-col items-center justify-center group">
-      <div className="text-4xl mb-2">
-        {IconComp ? <IconComp size={40} /> : "📁"}
-      </div>
+    <div className="relative bg-white border border-gray-200 p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 flex items-center group">
+  {/* Ícone à esquerda */}
+  <div className="flex-shrink-0 mr-4 flex items-center justify-center w-14 h-14 rounded-full bg-gray-50">
+    {IconComp ? <IconComp size={36} className="text-gray-700" /> : <span className="text-3xl">📁</span>}
+  </div>
 
-      <span className="font-medium">{categoria.nome}</span>
+  {/* Informações da categoria */}
+  <div className="flex-1">
+    {/* Nome da categoria */}
+    <span className="block text-lg font-semibold text-gray-800">{categoria.nome}</span>
 
+    {/* Badge com círculo */}
+    <div className="flex items-center mt-1">
       <span
-        className={`text-xs mt-1 px-2 py-1 rounded ${
-          categoria.tipo === "entrada"
-            ? "bg-green-200 text-green-800"
-            : "bg-red-200 text-red-800"
+        className={`w-3.5 h-3.5 rounded-full mr-2 flex-shrink-0 ${
+          categoria.tipo === "entrada" ? "bg-green-500" : "bg-red-500"
         }`}
-      >
-        {categoria.tipo === "entrada" ? "Entrada" : "Saída"}
+      />
+      <span className="text-xs text-gray-600 font-medium">
+        {categoria.tipo === "entrada" ? "Receita" : "Despesa"}
       </span>
+    </div>
+  </div>
 
-      <button
-        onClick={() => setMenuAberto(v => !v)}
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition"
-      >
-        <BsThreeDotsVertical className="text-xl text-gray-600 cursor-pointer" />
-      </button>
+  {/* Botão de menu */}
+  <button
+    onClick={() => setMenuAberto(v => !v)}
+    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+  >
+    <BsThreeDotsVertical className="text-xl text-gray-600 cursor-pointer" />
+  </button>
 
       {menuAberto && (
         <CategoriaMenu

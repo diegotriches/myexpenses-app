@@ -1,4 +1,5 @@
-import { Transacao, DashboardResumo, CondicaoPagamento, FormaPagamento } from './types';
+import { Transacao } from "@/types/transacao";
+import { DashboardResumo, CondicaoPagamento, FormaPagamento } from '@/types/dashboard';
 
 // Resumo geral
 export function calcularResumo(transacoes: Transacao[]): DashboardResumo {

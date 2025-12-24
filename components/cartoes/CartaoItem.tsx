@@ -5,14 +5,14 @@ import { Pencil, Trash2, FileText } from "lucide-react";
 import { Cartao } from "@/types/cartao";
 import { useRouter } from "next/navigation";
 
-import { empresaOptions, bandeiraOptions } from "@/utils/cartoes/cartaoOptions";
+import { empresaOptions, bandeiraOptions } from "@/utils/cartaoOptions";
 
 interface Props {
   cartao: Cartao;
   movimentacoes: { valor: number | string; cartaoId: number }[];
   onEditar: (cartao: Cartao) => void;
   onExcluir: (id: number) => void;
-  onFatura?: (cartaoId: number) => void; // continua opcional
+  onFatura?: (cartaoId: number) => void;
 }
 
 function getImgFromOption(options: any[], value: string) {
@@ -51,53 +51,69 @@ export default function CartaoItem({
   };
 
   return (
-    <Card className="p-4 space-y-4">
+    <Card className="p-6">
       <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3">
-          {empresaImg && <img src={empresaImg} alt={cartao.empresa || "Empresa"} className="h-10 w-10 rounded-md object-contain" />}
+        <div className="flex items-start gap-2">
+          {empresaImg && <img src={empresaImg} alt={cartao.empresa || "Empresa"} className="h-9 w-9 rounded-md object-contain" />}
           <div className="flex flex-col">
-            <span className="text-lg font-semibold">{cartao.nome}</span>
-            <span className={`text-sm ${cartao.ativo ? "text-green-600" : "text-red-600"}`}>
+            <span className="text-sm font-semibold">{cartao.nome}</span>
+            <span className={`text-xs ${cartao.ativo ? "text-green-600" : "text-red-600"}`}>
               {cartao.ativo ? "Ativo" : "Inativo"}
             </span>
           </div>
         </div>
-        {bandeiraImg && <img src={bandeiraImg} alt={cartao.bandeira} className="h-8 w-8 object-contain" />}
+        {bandeiraImg && <img src={bandeiraImg} alt={cartao.bandeira} className="h-9 w-9 object-contain" />}
       </div>
 
       {cartao.tipo === "credito" && (
         <>
-          <div className="flex items-center gap-6 text-sm text-gray-700">
-            <div><span className="font-medium">Fecha dia:</span> {cartao.diaFechamento}</div>
-            <div><span className="font-medium">Vence dia:</span> {cartao.diaVencimento}</div>
+          {/* Linha superior */}
+          <div className="border-t border-gray-300 -mb-3"></div>
+          
+          <div className="flex items-center justify-center gap-30 text-sm text-gray-700">
+            <div className="text-center"><span className="font-medium">Fecha dia:</span> {cartao.diaFechamento}</div>
+            <div className="text-center"><span className="font-medium">Vence dia:</span> {cartao.diaVencimento}</div>
           </div>
 
-          <div className="flex flex-col gap-1 text-sm text-gray-800">
-            <span><span className="font-medium">Limite total: </span>R$ {limiteTotal.toFixed(2)}</span>
-            <span><span className="font-medium">Em uso: </span>R$ {totalEmUso.toFixed(2)}</span>
-            <span><span className="font-medium">Disponível: </span>R$ {limiteDisponivel.toFixed(2)}</span>
+          {/* Linha inferior */}
+          <div className="border-t border-gray-300 -mt-3"></div>
+
+          {/* Limites em linha horizontal */}
+          <div className="flex items-center justify-around text-center text-sm">
+            <div className="flex flex-col gap-0.5">
+              <span className="font-medium text-gray-700">Limite total</span>
+              <span className="text-gray-800">R$ {limiteTotal.toFixed(2)}</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="font-medium text-gray-700">Em uso</span>
+              <span className="text-gray-800">R$ {totalEmUso.toFixed(2)}</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="font-medium text-gray-700">Disponível</span>
+              <span className="text-gray-800">R$ {limiteDisponivel.toFixed(2)}</span>
+            </div>
           </div>
 
-          <div className="w-full space-y-1 mt-1">
-            <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
+          <div className="w-full space-y-0.5">
+            <div className="w-full h-1.5 bg-gray-200 rounded overflow-hidden">
               <div className="h-full bg-green-500 transition-all duration-300" style={{ width: `${Math.min(porcentagemUso, 100)}%` }}></div>
             </div>
-            <span className="text-xs text-gray-600">{porcentagemUso.toFixed(1)}% do limite utilizado</span>
+            <span className="text-sm text-gray-600">{porcentagemUso.toFixed(1)}% do limite utilizado</span>
           </div>
         </>
       )}
 
-      <div className="flex justify-end gap-4 pt-2">
+      <div className="flex justify-end gap-3">
         <button onClick={() => onEditar(cartao)} className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1">
-          <Pencil size={16} /> Editar
+          <Pencil size={13} /> Editar
         </button>
 
         <button onClick={abrirFatura} className="text-purple-600 hover:text-purple-800 text-sm font-medium flex items-center gap-1">
-          <FileText size={16} /> Ver Fatura
+          <FileText size={13} /> Ver Fatura
         </button>
 
         <button onClick={() => onExcluir(cartao.id)} className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-1">
-          <Trash2 size={16} /> Remover
+          <Trash2 size={13} /> Remover
         </button>
       </div>
     </Card>

@@ -6,7 +6,6 @@ import api from "@/services/api";
 import CategoriasTabs from "@/components/categorias/CategoriasTabs";
 import CategoriaCard from "@/components/categorias/CategoriaCard";
 import CategoriaFormModal from "@/components/categorias/CategoriaFormModal";
-import IconPickerModal from "@/components/categorias/IconPickerModal";
 import ConfirmDeleteModal from "@/components/categorias/ConfirmDeleteModal";
 
 export type Categoria = {
@@ -22,7 +21,6 @@ export default function CategoriasPage() {
 
   // Modais
   const [formModalAberto, setFormModalAberto] = useState(false);
-  const [iconPickerAberto, setIconPickerAberto] = useState(false);
   const [deleteModalAberto, setDeleteModalAberto] = useState(false);
 
   // Edição
