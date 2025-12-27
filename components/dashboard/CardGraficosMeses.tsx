@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { DashboardGraficoMeses } from '@/types/dashboard';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 
 type Props = { dados: DashboardGraficoMeses };
@@ -20,13 +20,32 @@ export function CardGraficoMeses({ dados }: Props) {
 
   // Formata valores para tooltip
   const formatarMoeda = (value: number) => {
-    return `R$ ${value.toFixed(2)}`;
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2
+    }).format(value);
   };
+
+  // Formata o mês (YYYY-MM) para exibição
+  const formatarMes = (mes: string) => {
+    const [ano, mesNum] = mes.split('-');
+    const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    return `${meses[parseInt(mesNum) - 1]}/${ano.slice(2)}`;
+  };
+
+  // Prepara dados para o gráfico
+  const dadosGrafico = dadosValidos.map(item => ({
+    mes: formatarMes(item.mes),
+    Receitas: item.receitas,
+    Despesas: item.despesas,
+    Balanço: item.balanco
+  }));
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Receita/Despesa/Balanço - Últimos 6 Meses</CardTitle>
+        <CardTitle>Evolução Financeira - Últimos 6 Meses</CardTitle>
       </CardHeader>
       <CardContent>
         {dadosValidos.length === 0 ? (
@@ -39,7 +58,7 @@ export function CardGraficoMeses({ dados }: Props) {
                 <TrendingUp className="w-4 h-4 text-green-600 mb-1" />
                 <span className="text-xs text-gray-600 font-medium">Receitas</span>
                 <span className="text-sm font-bold text-green-700">
-                  R$ {totais.receitas.toFixed(2)}
+                  {formatarMoeda(totais.receitas)}
                 </span>
               </div>
               
@@ -47,7 +66,7 @@ export function CardGraficoMeses({ dados }: Props) {
                 <TrendingDown className="w-4 h-4 text-red-600 mb-1" />
                 <span className="text-xs text-gray-600 font-medium">Despesas</span>
                 <span className="text-sm font-bold text-red-700">
-                  R$ {totais.despesas.toFixed(2)}
+                  {formatarMoeda(totais.despesas)}
                 </span>
               </div>
               
@@ -63,54 +82,58 @@ export function CardGraficoMeses({ dados }: Props) {
                 <span className={`text-sm font-bold ${
                   totais.balanco >= 0 ? 'text-blue-700' : 'text-orange-700'
                 }`}>
-                  R$ {totais.balanco.toFixed(2)}
+                  {formatarMoeda(totais.balanco)}
                 </span>
               </div>
             </div>
 
             {/* Gráfico */}
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={dadosValidos}>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis 
                   dataKey="mes" 
-                  tick={{ fontSize: 12 }}
-                  stroke="#9ca3af"
+                  tick={{ fontSize: 11, fill: '#6b7280' }}
+                  stroke="#d1d5db"
                 />
                 <YAxis 
-                  tick={{ fontSize: 12 }}
-                  stroke="#9ca3af"
-                  tickFormatter={formatarMoeda}
+                  tick={{ fontSize: 11, fill: '#6b7280' }}
+                  stroke="#d1d5db"
+                  tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                  width={60}
                 />
                 <Tooltip 
-                  formatter={formatarMoeda}
+                  formatter={(value: number) => formatarMoeda(value)}
                   contentStyle={{
                     backgroundColor: '#fff',
                     border: '1px solid #e5e7eb',
                     borderRadius: '8px',
-                    fontSize: '12px'
+                    fontSize: '12px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                   }}
+                  labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}
                 />
                 <Legend 
-                  wrapperStyle={{ fontSize: '12px' }}
+                  wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
                   iconType="circle"
                 />
                 <Bar 
-                  dataKey="receitas" 
+                  dataKey="Receitas" 
                   fill="#16a34a" 
-                  name="Receitas"
                   radius={[4, 4, 0, 0]}
+                  maxBarSize={40}
                 />
                 <Bar 
-                  dataKey="despesas" 
-                  fill="#dc2626" 
-                  name="Despesas"
+                  dataKey="Despesas" 
+                  fill="#dc2626"
                   radius={[4, 4, 0, 0]}
+                  maxBarSize={40}
                 />
                 <Bar 
-                  dataKey="balanco" 
-                  fill="#2563eb" 
-                  name="Balanço"
+                  dataKey="Balanço" 
+                  fill="#2563eb"
                   radius={[4, 4, 0, 0]}
+                  maxBarSize={40}
                 />
               </BarChart>
             </ResponsiveContainer>

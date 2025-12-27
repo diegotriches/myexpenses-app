@@ -1,18 +1,50 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { DashboardCartao } from "@/types/dashboard";
-import { CreditCard, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Transacao } from "@/types/transacao";
+import { CreditCard, AlertCircle } from 'lucide-react';
+import { useMemo } from 'react';
 
 interface Props {
-  cartoes: DashboardCartao[];
+  transacoes: Transacao[];
+  periodo: string; // formato: YYYY-MM
 }
 
-export function CardFaturas({ cartoes }: Props) {
-  // Validação: garante que cartoes seja sempre um array
-  const cartoesValidos = cartoes || [];
-  
-  const totalFaturas = cartoesValidos.reduce((acc, c) => acc + c.totalFatura, 0);
-  const totalPagas = cartoesValidos.filter(c => c.paga).reduce((acc, c) => acc + c.totalFatura, 0);
-  const totalAbertas = cartoesValidos.filter(c => !c.paga).reduce((acc, c) => acc + c.totalFatura, 0);
+interface CartaoFatura {
+  cartaoId: number;
+  nome: string;
+  total: number;
+}
+
+export function CardFaturas({ transacoes, periodo }: Props) {
+  // Calcula faturas por cartão
+  const faturas = useMemo(() => {
+    const despesasCartao = transacoes.filter(
+      t => t.tipo === 'saida' && 
+           t.formaPagamento === 'cartao' && 
+           t.cartaoId &&
+           t.data.startsWith(periodo)
+    );
+
+    // Agrupa por cartão
+    const porCartao = new Map<number, number>();
+    
+    despesasCartao.forEach(t => {
+      if (t.cartaoId) {
+        const atual = porCartao.get(t.cartaoId) || 0;
+        porCartao.set(t.cartaoId, atual + Number(t.valor));
+      }
+    });
+
+    // Converte para array
+    const resultado: CartaoFatura[] = Array.from(porCartao.entries()).map(([id, total]) => ({
+      cartaoId: id,
+      nome: `Cartão ${id}`, // Idealmente buscar nome real do cartão
+      total,
+    }));
+
+    return resultado;
+  }, [transacoes, periodo]);
+
+  const totalGeral = faturas.reduce((acc, f) => acc + f.total, 0);
 
   return (
     <Card>
@@ -23,31 +55,27 @@ export function CardFaturas({ cartoes }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {cartoesValidos.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">Nenhuma fatura encontrada</p>
+        {faturas.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-4">
+            Nenhuma despesa com cartão neste período
+          </p>
         ) : (
           <div className="space-y-3">
             {/* Lista de cartões */}
             <div className="space-y-2">
-              {cartoesValidos.map((cartao) => (
+              {faturas.map((fatura) => (
                 <div 
-                  key={cartao.cartaoId}
+                  key={fatura.cartaoId}
                   className="flex items-center justify-between p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                    <div className={`p-1.5 rounded-full ${
-                      cartao.paga ? 'bg-green-100' : 'bg-red-100'
-                    }`}>
-                      {cartao.paga ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-600" />
-                      ) : (
-                        <AlertCircle className="w-4 h-4 text-red-600" />
-                      )}
+                    <div className="p-1.5 rounded-full bg-purple-100">
+                      <CreditCard className="w-4 h-4 text-purple-600" />
                     </div>
                     
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800 truncate">
-                        {cartao.nome}
+                        {fatura.nome}
                       </p>
                       <p className="text-xs text-gray-500">
                         Fatura do mês
@@ -57,32 +85,30 @@ export function CardFaturas({ cartoes }: Props) {
 
                   <div className="text-right ml-2">
                     <p className="text-sm font-bold text-gray-800 whitespace-nowrap">
-                      R$ {cartao.totalFatura.toFixed(2)}
+                      R$ {fatura.total.toFixed(2)}
                     </p>
-                    {cartao.paga ? (
-                      <span className="text-xs font-medium text-green-600">Paga</span>
-                    ) : (
-                      <span className="text-xs font-medium text-red-600">Em aberto</span>
-                    )}
+                    <span className="text-xs font-medium text-red-600">Em aberto</span>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Resumo */}
-            <div className="pt-2 border-t border-gray-200 space-y-1.5">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600">Total em faturas:</span>
-                <span className="font-bold text-gray-800">R$ {totalFaturas.toFixed(2)}</span>
+            {/* Total */}
+            <div className="pt-2 border-t border-gray-200">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-600">Total em faturas:</span>
+                <span className="text-base font-bold text-purple-600">
+                  R$ {totalGeral.toFixed(2)}
+                </span>
               </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600">Pagas:</span>
-                <span className="font-semibold text-green-600">R$ {totalPagas.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600">Em aberto:</span>
-                <span className="font-semibold text-red-600">R$ {totalAbertas.toFixed(2)}</span>
-              </div>
+            </div>
+
+            {/* Aviso */}
+            <div className="flex items-start gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800">
+                Despesas com cartão não impactam o saldo das contas até o pagamento da fatura.
+              </p>
             </div>
           </div>
         )}

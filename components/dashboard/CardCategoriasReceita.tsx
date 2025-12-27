@@ -1,13 +1,17 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Transacao } from '@/types/transacao';
-import { categoriasMais } from '@/utils/dashboard';
+import { categoriasReceita } from '@/utils/dashboard';
 import { TrendingUp } from 'lucide-react';
+import { useMemo } from 'react';
 
 type Props = { transacoes: Transacao[] };
 
 export function CardCategoriasReceita({ transacoes }: Props) {
-  const categorias = categoriasMais(transacoes, 'receita');
-  const totalReceitas = categorias.reduce((acc, c) => acc + Number(c.total), 0);
+  const categorias = useMemo(() => categoriasReceita(transacoes), [transacoes]);
+  const totalReceitas = useMemo(
+    () => categorias.reduce((acc, c) => acc + c.total, 0),
+    [categorias]
+  );
 
   return (
     <Card>
@@ -22,8 +26,8 @@ export function CardCategoriasReceita({ transacoes }: Props) {
           <p className="text-sm text-gray-500 text-center py-4">Nenhuma receita encontrada</p>
         ) : (
           <div className="space-y-2.5">
-            {categorias.map((c, index) => {
-              const porcentagem = totalReceitas > 0 ? (Number(c.total) / totalReceitas) * 100 : 0;
+            {categorias.slice(0, 5).map((c, index) => {
+              const porcentagem = totalReceitas > 0 ? (c.total / totalReceitas) * 100 : 0;
               
               return (
                 <div 
@@ -40,7 +44,7 @@ export function CardCategoriasReceita({ transacoes }: Props) {
                         {c.categoria}
                       </span>
                       <span className="text-sm font-bold text-green-600 ml-2 whitespace-nowrap">
-                        R$ {Number(c.total).toFixed(2)}
+                        R$ {c.total.toFixed(2)}
                       </span>
                     </div>
                     
@@ -55,6 +59,10 @@ export function CardCategoriasReceita({ transacoes }: Props) {
                         {porcentagem.toFixed(1)}%
                       </span>
                     </div>
+                    
+                    <p className="text-xs text-gray-500 mt-1">
+                      {c.quantidade} lançamento(s)
+                    </p>
                   </div>
                 </div>
               );

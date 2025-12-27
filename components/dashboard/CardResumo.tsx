@@ -1,63 +1,103 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { DashboardResumo } from '@/types/dashboard';
-import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
-type Props = { resumo: DashboardResumo };
+interface DashboardResumo {
+  totalReceitas: number;
+  totalDespesas: number;
+  saldo: number;
+  quantidadeReceitas: number;
+  quantidadeDespesas: number;
+}
 
-export function CardResumo({ resumo }: Props) {
-  const isPositivo = resumo.balanco >= 0;
-  
+interface Props {
+  resumo: DashboardResumo;
+  saldoContas?: number;
+  quantidadeContas?: number;
+}
+
+export function CardResumo({ resumo, saldoContas, quantidadeContas }: Props) {
+  const formatarMoeda = (valor: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(valor);
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Resumo Financeiro</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-3 gap-4">
-        {/* Receitas */}
-        <div className="flex flex-col items-center p-3 bg-green-50 rounded-lg border border-green-200">
-          <div className="p-2 bg-green-100 rounded-full mb-2">
-            <TrendingUp className="w-5 h-5 text-green-600" />
-          </div>
-          <p className="text-xs text-gray-600 font-medium mb-1">Receitas</p>
-          <p className="text-xl font-bold text-green-700">
-            R$ {resumo.receitas.toFixed(2)}
-          </p>
-        </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Saldo Total em Contas */}
+      {saldoContas !== undefined && (
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Saldo em Contas</CardTitle>
+            <Wallet className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {formatarMoeda(saldoContas)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {quantidadeContas || 0} conta(s) ativa(s)
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
-        {/* Despesas */}
-        <div className="flex flex-col items-center p-3 bg-red-50 rounded-lg border border-red-200">
-          <div className="p-2 bg-red-100 rounded-full mb-2">
-            <TrendingDown className="w-5 h-5 text-red-600" />
+      {/* Receitas do Mês */}
+      <Card className="border-l-4 border-l-blue-500">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Receitas</CardTitle>
+          <TrendingUp className="h-4 w-4 text-blue-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-blue-600">
+            {formatarMoeda(resumo.totalReceitas)}
           </div>
-          <p className="text-xs text-gray-600 font-medium mb-1">Despesas</p>
-          <p className="text-xl font-bold text-red-700">
-            R$ {resumo.despesas.toFixed(2)}
+          <p className="text-xs text-muted-foreground mt-1">
+            {resumo.quantidadeReceitas} lançamento(s)
           </p>
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Balanço */}
-        <div className={`flex flex-col items-center p-3 rounded-lg border ${
-          isPositivo 
-            ? 'bg-blue-50 border-blue-200' 
-            : 'bg-orange-50 border-orange-200'
-        }`}>
-          <div className={`p-2 rounded-full mb-2 ${
-            isPositivo ? 'bg-blue-100' : 'bg-orange-100'
-          }`}>
-            <DollarSign className={`w-5 h-5 ${
-              isPositivo ? 'text-blue-600' : 'text-orange-600'
-            }`} />
+      {/* Despesas do Mês */}
+      <Card className="border-l-4 border-l-red-500">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Despesas</CardTitle>
+          <TrendingDown className="h-4 w-4 text-red-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-red-600">
+            {formatarMoeda(resumo.totalDespesas)}
           </div>
-          <p className="text-xs text-gray-600 font-medium mb-1">Balanço</p>
-          <p className={`text-xl font-bold ${
-            isPositivo ? 'text-blue-700' : 'text-orange-700'
-          }`}>
-            R$ {resumo.balanco.toFixed(2)}
+          <p className="text-xs text-muted-foreground mt-1">
+            {resumo.quantidadeDespesas} lançamento(s)
           </p>
-        </div>
-      </div>
-    </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Saldo do Mês */}
+      <Card className={`border-l-4 ${resumo.saldo >= 0 ? 'border-l-green-500' : 'border-l-red-500'}`}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Saldo do Mês</CardTitle>
+          <DollarSign className={`h-4 w-4 ${resumo.saldo >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+        </CardHeader>
+        <CardContent>
+          <div className={`text-2xl font-bold ${resumo.saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {formatarMoeda(resumo.saldo)}
+          </div>
+          <div className="flex items-center gap-1 mt-1">
+            {resumo.saldo >= 0 ? (
+              <ArrowUpRight className="h-3 w-3 text-green-600" />
+            ) : (
+              <ArrowDownRight className="h-3 w-3 text-red-600" />
+            )}
+            <p className="text-xs text-muted-foreground">
+              {resumo.saldo >= 0 ? 'Positivo' : 'Negativo'}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

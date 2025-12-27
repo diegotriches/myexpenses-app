@@ -1,81 +1,86 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { FormaPagamento } from '@/types/dashboard';
-import { DollarSign, Calendar, Repeat } from 'lucide-react';
+import { DollarSign, Layers, Repeat } from 'lucide-react';
 
-type Props = { dados: Record<FormaPagamento, number> };
+interface FormasPagamento {
+  aVista: number;
+  parcelado: number;
+  recorrente: number;
+}
+
+type Props = { dados: FormasPagamento };
 
 export function CardFormasPagamento({ dados }: Props) {
-  // Filtra apenas formas válidas
-  const formasValidas = Object.entries(dados).filter(([forma]) => 
-    ['aVista', 'parcelado', 'recorrente'].includes(forma)
-  );
+  const total = dados.aVista + dados.parcelado + dados.recorrente;
   
-  const total = formasValidas.reduce((acc, [, val]) => acc + val, 0);
-  
-  const formaConfig: Record<FormaPagamento, {
-    label: string;
-    icon: any;
-    color: string;
-    bg: string;
-    border: string;
-    iconBg: string;
-  }> = {
-    aVista: {
+  const formas = [
+    {
+      key: 'aVista',
       label: 'À Vista',
+      valor: dados.aVista,
       icon: DollarSign,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
       border: 'border-blue-200',
-      iconBg: 'bg-blue-100'
+      iconBg: 'bg-blue-100',
+      barColor: 'bg-blue-500'
     },
-    parcelado: {
+    {
+      key: 'parcelado',
       label: 'Parcelado',
-      icon: Calendar,
+      valor: dados.parcelado,
+      icon: Layers,
       color: 'text-orange-600',
       bg: 'bg-orange-50',
       border: 'border-orange-200',
-      iconBg: 'bg-orange-100'
+      iconBg: 'bg-orange-100',
+      barColor: 'bg-orange-500'
     },
-    recorrente: {
+    {
+      key: 'recorrente',
       label: 'Recorrente',
+      valor: dados.recorrente,
       icon: Repeat,
       color: 'text-purple-600',
       bg: 'bg-purple-50',
       border: 'border-purple-200',
-      iconBg: 'bg-purple-100'
+      iconBg: 'bg-purple-100',
+      barColor: 'bg-purple-500'
     }
-  };
+  ];
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Formas de Pagamento</CardTitle>
+        <CardTitle>Tipos de Pagamento</CardTitle>
       </CardHeader>
       <CardContent>
-        {formasValidas.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">Nenhuma transação encontrada</p>
+        {total === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-4">
+            Nenhuma transação encontrada
+          </p>
         ) : (
           <div className="space-y-2.5">
-            {formasValidas.map(([forma, valor]) => {
-              const config = formaConfig[forma as FormaPagamento];
-              const Icon = config.icon;
-              const porcentagem = total > 0 ? (valor / total) * 100 : 0;
+            {formas.map((forma) => {
+              const Icon = forma.icon;
+              const porcentagem = total > 0 ? (forma.valor / total) * 100 : 0;
               
               return (
                 <div 
-                  key={forma}
-                  className={`flex items-center justify-between p-2.5 rounded-lg border ${config.bg} ${config.border}`}
+                  key={forma.key}
+                  className={`flex items-center justify-between p-2.5 rounded-lg border ${forma.bg} ${forma.border}`}
                 >
                   <div className="flex items-center gap-2.5 flex-1">
-                    <div className={`p-1.5 rounded-full ${config.iconBg}`}>
-                      <Icon className={`w-4 h-4 ${config.color}`} />
+                    <div className={`p-1.5 rounded-full ${forma.iconBg}`}>
+                      <Icon className={`w-4 h-4 ${forma.color}`} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">{config.label}</p>
+                      <p className="text-sm font-medium text-gray-800">
+                        {forma.label}
+                      </p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                           <div 
-                            className={`h-full ${config.color.replace('text', 'bg')} transition-all duration-300`}
+                            className={`h-full ${forma.barColor} transition-all duration-300`}
                             style={{ width: `${porcentagem}%` }}
                           />
                         </div>
@@ -85,8 +90,8 @@ export function CardFormasPagamento({ dados }: Props) {
                       </div>
                     </div>
                   </div>
-                  <span className={`text-base font-bold ${config.color} ml-2`}>
-                    {valor}
+                  <span className={`text-base font-bold ${forma.color} ml-2`}>
+                    {forma.valor}
                   </span>
                 </div>
               );
@@ -94,7 +99,9 @@ export function CardFormasPagamento({ dados }: Props) {
             
             {/* Total */}
             <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-600">Total de transações:</span>
+              <span className="text-sm font-medium text-gray-600">
+                Total de transações:
+              </span>
               <span className="text-base font-bold text-gray-800">{total}</span>
             </div>
           </div>
