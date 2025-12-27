@@ -58,7 +58,7 @@ export default function CategoriasPage() {
   const categoriasFiltradas = categorias.filter(c => c.tipo === aba);
 
   return (
-    <div className="max-w-[1000px] mx-auto p-6">
+    <div className="max-w-[1100px] mx-auto p-6">
       <CategoriasTabs aba={aba} setAba={setAba} onCriar={abrirCriacao} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">

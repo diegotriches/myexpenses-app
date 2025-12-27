@@ -28,7 +28,7 @@ export interface FormMovimentacao {
 
 interface BuildTransacoesParams {
   form: FormMovimentacao;
-  contaId: string;
+  contaId?: string;
   transacaoEdicao: Transacao | null;
 }
 
@@ -46,9 +46,13 @@ export function buildTransacoesFromForm({
     });
   }
 
-  // CRIAÇÃO
+  // CRIAÇÃO - Validar se contaId existe
+  if (!contaId) {
+    throw new Error('contaId é obrigatório para criar uma nova transação');
+  }
+
   return buildCreateTransacoesFromForm({
     form,
-    contaId,
+    contaId, // Agora TypeScript sabe que não é undefined
   });
 }

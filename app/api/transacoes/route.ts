@@ -1,13 +1,36 @@
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes } from "@/db/schema";
-import { NextResponse } from "next/server";
-import { TransacaoCreate } from "@/types/transacao";
+import { TransacoesService } from "@/services/transacoesService";
+import { sql } from "drizzle-orm";
 
-export async function GET(_req: Request) {
+// GET - Listar transações
+export async function GET(req: NextRequest) {
   try {
-    const result = await db.select().from(transacoes);
+    const { searchParams } = new URL(req.url);
+    const ano = searchParams.get("ano");
+    const mes = searchParams.get("mes");
+
+    let query = db.select().from(transacoes);
+
+    // Se tiver filtro de período, aplica
+    if (ano && mes) {
+      const anoNum = parseInt(ano);
+      const mesNum = parseInt(mes);
+      
+      const inicioMes = new Date(anoNum, mesNum - 1, 1);
+      const fimMes = new Date(anoNum, mesNum, 1);
+
+      query = query.where(
+        sql`${transacoes.data} >= ${inicioMes} AND ${transacoes.data} < ${fimMes}`
+      ) as any;
+    }
+
+    const result = await query;
+    
     return NextResponse.json(result);
   } catch (err: any) {
+    console.error("Erro ao buscar transações:", err);
     return NextResponse.json(
       { error: "Erro ao buscar transações: " + err.message },
       { status: 500 }
@@ -15,96 +38,67 @@ export async function GET(_req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const json = await req.json();
-    console.log("JSON recebido pelo backend:", json);
+    console.log("📥 JSON recebido:", json);
 
-    // Conversões básicas
-    const parsed = {
-      ...json,
-      valor: Number(json.valor),
-      cartaoId: json.cartaoId ?? null,
-      parcelaAtual: json.parcelaAtual ?? null,
-      parcelas: json.parcelas ?? null,
-      parcelamentoId: json.parcelamentoId ?? null,
-      recorrenciaId: json.recorrenciaId ?? null,
-      repeticoes: json.repeticoes ?? null,
-    };
-
-    // Validações
-    if (!parsed.tipo || !["entrada", "saida"].includes(parsed.tipo)) {
+    // Validações básicas
+    if (!json.tipo || !["entrada", "saida"].includes(json.tipo)) {
       return NextResponse.json(
         { error: "Tipo de transação inválido" },
         { status: 400 }
       );
     }
 
-    if (!parsed.contaId) {
+    if (json.tipo === "entrada" && !json.contaId) {
       return NextResponse.json(
-        { error: "contaId é obrigatório" },
+        { error: "Conta é obrigatória para receitas" },
         { status: 400 }
       );
     }
 
-    if (!parsed.data || isNaN(new Date(parsed.data).getTime())) {
+    if (json.tipo === "saida" && json.formaPagamento !== "cartao" && !json.contaId) {
+      return NextResponse.json(
+        { error: "Conta é obrigatória para despesas com dinheiro/PIX" },
+        { status: 400 }
+      );
+    }
+
+    if (!json.data || isNaN(new Date(json.data).getTime())) {
       return NextResponse.json(
         { error: "Data inválida" },
         { status: 400 }
       );
     }
 
-    if (parsed.formaPagamento === "cartao" && parsed.cartaoId == null) {
+    if (json.formaPagamento === "cartao" && !json.cartaoId) {
       return NextResponse.json(
-        { error: "cartaoId é obrigatório quando formaPagamento for 'cartao'" },
+        { error: "Cartão é obrigatório quando forma de pagamento for 'cartao'" },
         { status: 400 }
       );
     }
 
-    if (parsed.parcelado && (parsed.parcelas == null || parsed.parcelaAtual == null)) {
-      return NextResponse.json(
-        { error: "parcelas e parcelaAtual são obrigatórios quando parcelado" },
-        { status: 400 }
-      );
-    }
+    // USA O SERVICE (que agora busca conta automaticamente)
+    const transacao = await TransacoesService.criar({
+      contaId: json.contaId || undefined,
+      tipo: json.tipo,
+      valor: Number(json.valor),
+      data: new Date(json.data),
+      descricao: json.descricao || null,
+      categoria: json.categoria || null,
+      formaPagamento: json.formaPagamento || "dinheiro",
+      cartaoId: json.cartaoId ? Number(json.cartaoId) : null,
+    });
 
-    if (parsed.recorrente && parsed.repeticoes == null) {
-      return NextResponse.json(
-        { error: "repeticoes é obrigatório quando recorrente" },
-        { status: 400 }
-      );
-    }
+    console.log("✅ Transação criada:", transacao);
 
-    // Preparar valores para inserção
-    const values: typeof transacoes.$inferInsert = {
-      data: new Date(parsed.data),
-      tipo: parsed.tipo,
-      descricao: parsed.descricao ?? null,
-      valor: parsed.valor!,
-      categoria: parsed.categoria ?? null,
-      formaPagamento: parsed.formaPagamento ?? "dinheiro",
-      contaId: parsed.contaId,
-      cartaoId: parsed.formaPagamento === "cartao" ? parsed.cartaoId : null,
-      parcelado: parsed.parcelado ?? false,
-      parcelamentoId: parsed.parcelamentoId ?? null,
-      parcelas: parsed.parcelas ?? null,
-      parcelaAtual: parsed.parcelaAtual ?? null,
-      recorrente: parsed.recorrente ?? false,
-      recorrenciaId: parsed.recorrenciaId ?? null,
-      repeticoes: parsed.repeticoes ?? null,
-      transferenciaId: parsed.transferenciaId ?? null,
-    };
-
-    const [nova] = await db
-      .insert(transacoes)
-      .values(values)
-      .returning();
-
-    return NextResponse.json(nova, { status: 201 });
+    return NextResponse.json(transacao, { status: 201 });
+    
   } catch (err: any) {
-    console.error("Erro ao criar transação:", err);
+    console.error("❌ Erro ao criar transação:", err);
     return NextResponse.json(
-      { error: "Erro ao criar transação: " + (err.message || err) },
+      { error: err.message || "Erro ao criar transação" },
       { status: 500 }
     );
   }

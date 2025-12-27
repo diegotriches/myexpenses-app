@@ -5,15 +5,50 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1766520904967,
-      "tag": "0000_watery_stephen_strange",
+      "when": 1766773607839,
+      "tag": "0000_cooing_joseph",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1766578323320,
-      "tag": "0001_dizzy_the_fallen",
+      "when": 1766774389747,
+      "tag": "0001_heavy_purple_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766776084967,
+      "tag": "0002_misty_talisman",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1766786376322,
+      "tag": "0003_high_scarlet_spider",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1766786790125,
+      "tag": "0004_petite_leo",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1766836782125,
+      "tag": "0005_military_wolf_cub",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1766836818648,
+      "tag": "0006_nifty_newton_destine",
       "breakpoints": true
     }
   ]

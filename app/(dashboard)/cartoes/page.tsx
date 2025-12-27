@@ -2,30 +2,38 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { usePeriodo } from "@/components/PeriodoContext";
 import { Button } from "@/components/ui/button";
 import { BsCreditCard } from "react-icons/bs";
 import { MdAdd } from "react-icons/md";
 
 import CartaoFormModal from "@/components/cartoes/CartaoFormModal";
 import CartaoItem from "@/components/cartoes/CartaoItem";
+import { CartaoExclusaoModal } from "@/components/cartoes/CartaoExclusaoModal";
+
 
 import { Cartao } from "@/types/cartao";
 import { cartaoService } from "@/services/cartaoService";
 import { useTransacoes } from "@/hooks/useTransacoes";
-import type { Transacao } from "@/types/transacao";
 
 
 export default function CartoesPage() {
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [cartaoEdicao, setCartaoEdicao] = useState<Cartao | null>(null);
-  const { mesSelecionado, anoSelecionado } = usePeriodo();
+  const [modalExclusaoOpen, setModalExclusaoOpen] = useState(false);
+  const [cartaoParaExcluir, setCartaoParaExcluir] = useState<Cartao | null>(null);
+
   const router = useRouter();
 
   const {
     transacoes,
   } = useTransacoes();
+
+  // Função para checar se o cartão tem transações ou faturas
+  const possuiDependencias = (cartaoId: number) => {
+    const temTransacoes = transacoes.some(t => t.cartaoId === cartaoId);
+    return temTransacoes;
+  };
 
   const carregarCartoes = useCallback(async () => {
     try {
@@ -69,6 +77,24 @@ export default function CartoesPage() {
     setModalOpen(true);
   };
 
+  const abrirExclusao = (cartao: Cartao) => {
+    setCartaoParaExcluir(cartao);
+    setModalExclusaoOpen(true);
+  };
+
+  const confirmarExclusao = async () => {
+    if (!cartaoParaExcluir) return;
+
+    try {
+      await cartaoService.remover(cartaoParaExcluir.id);
+      await carregarCartoes();
+      setModalExclusaoOpen(false);
+      setCartaoParaExcluir(null);
+    } catch (error) {
+      console.error("Erro ao excluir cartão:", error);
+    }
+  };
+
   const salvar = async (dados: Cartao) => {
     if (cartaoEdicao) {
       await cartaoService.atualizar(cartaoEdicao.id, dados);
@@ -78,19 +104,12 @@ export default function CartoesPage() {
     await carregarCartoes();
   };
 
-  const excluir = async (id: number) => {
-    if (!confirm("Tem certeza que deseja excluir este cartão?")) return;
-
-    await cartaoService.remover(id);
-    await carregarCartoes();
-  };
-
   const abrirFatura = (cartaoId: number) => {
     router.push(`/cartoes/${cartaoId}/fatura`);
   };
 
   return (
-    <div className="max-w-[1000px] mx-auto p-6 space-y-8">
+    <div className="max-w-[1100px] mx-auto p-6 space-y-8">
       <header>
         <div className="flex items-center gap-2 mb-3">
           <BsCreditCard className="text-3xl text-blue-700" />
@@ -107,7 +126,7 @@ export default function CartoesPage() {
       <div className="flex justify-end mb-6">
         <Button
           onClick={abrirNovo}
-          className="flex items-center gap-2 bg-blue-700 text-white px-4 py-2 hover:bg-blue-900"
+          className="flex items-center gap-2 bg-blue-700 text-white px-4 py-2 hover:bg-blue-900 cursor-pointer"
         >
           <MdAdd className="text-xl" />
           Adicionar Cartão
@@ -121,7 +140,7 @@ export default function CartoesPage() {
             cartao={cartao}
             movimentacoes={transacoesPorCartao.get(cartao.id) ?? []}
             onEditar={abrirEdicao}
-            onExcluir={excluir}
+            onExcluir={abrirExclusao}
             onFatura={abrirFatura}
           />
         ))}
@@ -133,6 +152,19 @@ export default function CartoesPage() {
         cartaoEdicao={cartaoEdicao}
         salvar={salvar}
       />
+
+      {
+        cartaoParaExcluir && (
+          <CartaoExclusaoModal
+            isOpen={modalExclusaoOpen}
+            onClose={() => setModalExclusaoOpen(false)}
+            onConfirm={confirmarExclusao}
+            cardName={cartaoParaExcluir.nome}
+            possuiDependencias={possuiDependencias(cartaoParaExcluir.id)}
+          />
+        )
+      }
     </div>
   );
+
 }

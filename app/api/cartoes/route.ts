@@ -1,34 +1,72 @@
 import { db } from "@/db";
-import { cartoes, transacoes } from "@/db/schema";
+import { cartoes, faturas } from "@/db/schema";
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export async function GET() {
   try {
+    const hoje = new Date();
+    const anoAtual = hoje.getFullYear();
+    const mesAtual = hoje.getMonth() + 1;
+
     const listaCartoes = await db.select().from(cartoes);
-    
+
     const resultado = await Promise.all(
       listaCartoes.map(async (cartao) => {
-        const transacoesCartao = await db
+        const limite = Number(cartao.limite ?? 0);
+        const disponivel = Number(cartao.limiteDisponivel ?? 0);
+        const emUso = limite - disponivel;
+
+        /* Buscar fatura atual */
+        const [faturaAtual] = await db
           .select()
-          .from(transacoes)
-          .where(eq(transacoes.cartaoId, cartao.id));
+          .from(faturas)
+          .where(
+            and(
+              eq(faturas.cartaoId, cartao.id),
+              eq(faturas.ano, anoAtual),
+              eq(faturas.mes, mesAtual)
+            )
+          );
 
-        const emUso = transacoesCartao.reduce((total, t) => {
-          if (t.tipo === "saida") {
-            return total + Number(t.valor);
+        let faturaInfo = null;
+
+        if (faturaAtual) {
+          const diaVencimento = cartao.diaVencimento ?? 1;
+
+          const vencimento = new Date(
+            faturaAtual.ano,
+            faturaAtual.mes - 1,
+            diaVencimento
+          );
+
+          let status: "PAGA" | "EM_ABERTO" | "ATRASADA";
+
+          if (faturaAtual.paga) {
+            status = "PAGA";
+          } else if (hoje > vencimento) {
+            status = "ATRASADA";
+          } else {
+            status = "EM_ABERTO";
           }
-          return total;
-        }, 0);
 
-        const disponivel = cartao.limite
-          ? Number(cartao.limite) - emUso
-          : 0;
+          faturaInfo = {
+            ano: faturaAtual.ano,
+            mes: faturaAtual.mes,
+            total: Number(faturaAtual.total),
+            paga: faturaAtual.paga,
+            dataVencimento: vencimento.toISOString().split("T")[0],
+            status,
+          };
+        }
 
         return {
           ...cartao,
+          limite,
+          limiteDisponivel: disponivel,
           emUso,
-          disponivel,
+          faturaAtual: faturaInfo,
+          contaVinculadaId: cartao.contaVinculadaId ?? null, // ✅ Retorna conta vinculada
         };
       })
     );
@@ -43,10 +81,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    console.log("=== DEBUG POST /api/cartoes ===");
-
     const body = await req.json();
-    console.log("Body recebido:", body);
 
     const {
       nome,
@@ -56,10 +91,9 @@ export async function POST(req: Request) {
       limite,
       diaFechamento,
       diaVencimento,
-      cor,
       ativo,
       observacoes,
-      ultimosDigitos,
+      contaVinculadaId, // ✅ NOVO CAMPO
     } = body;
 
     if (!nome || !tipo) {
@@ -69,25 +103,82 @@ export async function POST(req: Request) {
       );
     }
 
+    if (tipo !== "credito" && tipo !== "debito") {
+      return NextResponse.json(
+        { error: "Tipo de cartão inválido" },
+        { status: 400 }
+      );
+    }
+
+    const isCartaoCredito = tipo === "credito";
+
+    let limiteNum = 0;
+
+    if (isCartaoCredito) {
+      limiteNum = Number(limite);
+
+      if (!Number.isFinite(limiteNum) || limiteNum <= 0) {
+        return NextResponse.json(
+          { error: "Limite válido é obrigatório para cartão de crédito" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const fechamentoNum =
+      isCartaoCredito && diaFechamento !== undefined
+        ? Number(diaFechamento)
+        : undefined;
+
+    const vencimentoNum =
+      isCartaoCredito && diaVencimento !== undefined
+        ? Number(diaVencimento)
+        : undefined;
+
+    if (
+      isCartaoCredito &&
+      ((fechamentoNum !== undefined && !Number.isFinite(fechamentoNum)) ||
+        (vencimentoNum !== undefined && !Number.isFinite(vencimentoNum)))
+    ) {
+      return NextResponse.json(
+        { error: "Dias de fechamento/vencimento inválidos" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Validação opcional da conta vinculada
+    if (contaVinculadaId && typeof contaVinculadaId !== "string") {
+      return NextResponse.json(
+        { error: "Conta vinculada inválida" },
+        { status: 400 }
+      );
+    }
+
     const novoCartao = {
       nome,
       tipo,
-      bandeira: bandeira ?? null,
-      empresa: empresa ?? null,
-      limite: limite ? Number(limite) : null,
-      diaFechamento: diaFechamento ? Number(diaFechamento) : null,
-      diaVencimento: diaVencimento ? Number(diaVencimento) : null,
-      cor: cor ?? "#4F46E5",
+
+      ...(bandeira && { bandeira }),
+      ...(empresa && { empresa }),
+
+      limite: limiteNum,
+      limiteDisponivel: limiteNum,
+
+      ...(fechamentoNum !== undefined && { diaFechamento: fechamentoNum }),
+      ...(vencimentoNum !== undefined && { diaVencimento: vencimentoNum }),
+
       ativo: ativo ?? true,
-      observacoes: observacoes ?? null,
-      ultimosDigitos: ultimosDigitos ?? null,
+
+      ...(observacoes && { observacoes }),
+      
+      // ✅ NOVO CAMPO
+      ...(contaVinculadaId && { contaVinculadaId }),
     };
 
-    console.log("Inserindo no banco:", novoCartao);
-
-    const [novo] = await db.insert(cartoes).values(novoCartao).returning();
-
-    console.log("Criado:", novo);
+    const [novo] = await db
+      .insert(cartoes)
+      .values(novoCartao)
+      .returning();
 
     return NextResponse.json(novo, { status: 201 });
   } catch (err) {

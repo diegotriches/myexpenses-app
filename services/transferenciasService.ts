@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { db } from "@/db";
-import { contas, transacoes } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { contas, extratoConta } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 interface TransferenciaInput {
   contaOrigemId: string;
@@ -23,7 +23,8 @@ export class TransferenciasService {
       throw new Error("Valor da transferência deve ser maior que zero");
     }
 
-    await db.transaction(async (tx) => {
+    return await db.transaction(async (tx) => {
+      // 1. Buscar contas
       const [origem] = await tx
         .select()
         .from(contas)
@@ -46,63 +47,88 @@ export class TransferenciasService {
         throw new Error("Conta inativa não pode participar de transferência");
       }
 
-      if (Number(origem.saldoAtual) < valor) {
+      const saldoOrigemAtual = Number(origem.saldoAtual);
+      
+      if (saldoOrigemAtual < valor) {
         throw new Error("Saldo insuficiente na conta de origem");
       }
 
-      const transferenciaId = crypto.randomUUID();
+      // 2. Calcular novos saldos
+      const novoSaldoOrigem = saldoOrigemAtual - valor;
+      const novoSaldoDestino = Number(destino.saldoAtual) + valor;
 
-      // Débito na conta de origem
-      await tx.update(contas)
+      // 3. ID único para vincular as duas movimentações
+      const transferenciaId = crypto.randomUUID();
+      const dataFormatada = data.toISOString().split('T')[0];
+
+      const descricaoTransferencia = descricao || "Transferência entre contas";
+
+      // 4. Registrar SAÍDA no extrato da conta de origem
+      await tx.insert(extratoConta).values({
+        contaId: contaOrigemId,
+        data: dataFormatada,
+        tipo: "saida",
+        valor: valor.toString(),
+        descricao: `${descricaoTransferencia} → ${destino.nome}`,
+        saldoApos: novoSaldoOrigem.toString(),
+        origem: "TRANSFERENCIA",
+        referenciaId: transferenciaId,
+      });
+
+      // 5. Registrar ENTRADA no extrato da conta de destino
+      await tx.insert(extratoConta).values({
+        contaId: contaDestinoId,
+        data: dataFormatada,
+        tipo: "entrada",
+        valor: valor.toString(),
+        descricao: `${descricaoTransferencia} ← ${origem.nome}`,
+        saldoApos: novoSaldoDestino.toString(),
+        origem: "TRANSFERENCIA",
+        referenciaId: transferenciaId, // ✅ Mesmo ID vincula as duas
+      });
+
+      // 6. Atualizar saldos das contas
+      await tx
+        .update(contas)
         .set({
-          saldoAtual: sql`${contas.saldoAtual} - ${valor}`,
+          saldoAtual: novoSaldoOrigem.toString(),
+          updatedAt: new Date(),
         })
         .where(eq(contas.id, contaOrigemId));
 
-      // Crédito na conta de destino
-      await tx.update(contas)
+      await tx
+        .update(contas)
         .set({
-          saldoAtual: sql`${contas.saldoAtual} + ${valor}`,
+          saldoAtual: novoSaldoDestino.toString(),
+          updatedAt: new Date(),
         })
         .where(eq(contas.id, contaDestinoId));
 
-      // Transação de saída
-      await tx.insert(transacoes).values({
-        contaId: contaOrigemId,
-        tipo: "saida",
-        valor: valor.toString(),
-        descricao: descricao ?? "Transferência enviada",
-        data,
-        formaPagamento: "transferencia",
+      return {
         transferenciaId,
-      });
-
-      // Transação de entrada
-      await tx.insert(transacoes).values({
-        contaId: contaDestinoId,
-        tipo: "entrada",
-        valor: valor.toString(),
-        descricao: descricao ?? "Transferência recebida",
-        data,
-        formaPagamento: "transferencia",
-        transferenciaId,
-      });
+        contaOrigem: origem.nome,
+        contaDestino: destino.nome,
+        valor,
+        novoSaldoOrigem,
+        novoSaldoDestino,
+      };
     });
   }
 
   static async removerTransferencia(transferenciaId: string) {
-    await db.transaction(async (tx) => {
-      const transacoesTransferencia = await tx
+    return await db.transaction(async (tx) => {
+      // 1. Buscar as duas movimentações no extrato
+      const movimentacoes = await tx
         .select()
-        .from(transacoes)
-        .where(eq(transacoes.transferenciaId, transferenciaId));
+        .from(extratoConta)
+        .where(eq(extratoConta.referenciaId, transferenciaId));
 
-      if (transacoesTransferencia.length !== 2) {
+      if (movimentacoes.length !== 2) {
         throw new Error("Transferência inválida ou inconsistente");
       }
 
-      const saida = transacoesTransferencia.find(t => t.tipo === "saida");
-      const entrada = transacoesTransferencia.find(t => t.tipo === "entrada");
+      const saida = movimentacoes.find(m => m.tipo === "saida");
+      const entrada = movimentacoes.find(m => m.tipo === "entrada");
 
       if (!saida || !entrada) {
         throw new Error("Transferência inconsistente");
@@ -110,28 +136,78 @@ export class TransferenciasService {
 
       const valor = Number(saida.valor);
 
-      // Reverter saldo da conta de origem
+      // 2. Buscar saldos atuais das contas
+      const [contaOrigem] = await tx
+        .select({ saldoAtual: contas.saldoAtual, nome: contas.nome })
+        .from(contas)
+        .where(eq(contas.id, saida.contaId));
+
+      const [contaDestino] = await tx
+        .select({ saldoAtual: contas.saldoAtual, nome: contas.nome })
+        .from(contas)
+        .where(eq(contas.id, entrada.contaId));
+
+      if (!contaOrigem || !contaDestino) {
+        throw new Error("Contas não encontradas");
+      }
+
+      // 3. Calcular novos saldos após reversão
+      const novoSaldoOrigem = Number(contaOrigem.saldoAtual) + valor;
+      const novoSaldoDestino = Number(contaDestino.saldoAtual) - valor;
+
+      // 4. Registrar estornos no extrato
+      const dataAtual = new Date();
+      const dataFormatada = dataAtual.toISOString().split('T')[0];
+      const estornoId = crypto.randomUUID();
+
+      // Estorno na conta de origem (reverter saída = entrada)
+      await tx.insert(extratoConta).values({
+        contaId: saida.contaId,
+        data: dataFormatada,
+        tipo: "entrada",
+        valor: valor.toString(),
+        descricao: `Estorno de transferência para ${contaDestino.nome}`,
+        saldoApos: novoSaldoOrigem.toString(),
+        origem: "ESTORNO",
+        referenciaId: estornoId,
+      });
+
+      // Estorno na conta de destino (reverter entrada = saída)
+      await tx.insert(extratoConta).values({
+        contaId: entrada.contaId,
+        data: dataFormatada,
+        tipo: "saida",
+        valor: valor.toString(),
+        descricao: `Estorno de transferência de ${contaOrigem.nome}`,
+        saldoApos: novoSaldoDestino.toString(),
+        origem: "ESTORNO",
+        referenciaId: estornoId,
+      });
+
+      // 5. Atualizar saldos das contas
       await tx
         .update(contas)
         .set({
-          saldoAtual: sql`${contas.saldoAtual} + ${valor}`,
+          saldoAtual: novoSaldoOrigem.toString(),
           updatedAt: new Date(),
         })
         .where(eq(contas.id, saida.contaId));
 
-      // Reverter saldo da conta de destino
       await tx
         .update(contas)
         .set({
-          saldoAtual: sql`${contas.saldoAtual} - ${valor}`,
+          saldoAtual: novoSaldoDestino.toString(),
           updatedAt: new Date(),
         })
         .where(eq(contas.id, entrada.contaId));
 
-      // Excluir ambas as transações
-      await tx
-        .delete(transacoes)
-        .where(eq(transacoes.transferenciaId, transferenciaId));
+      return {
+        transferenciaId,
+        estornoId,
+        valor,
+        contaOrigem: contaOrigem.nome,
+        contaDestino: contaDestino.nome,
+      };
     });
   }
 }

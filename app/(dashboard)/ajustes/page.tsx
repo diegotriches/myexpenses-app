@@ -48,7 +48,7 @@ export default function Ajustes() {
   };
 
   return (
-    <div className="max-w-[1000px] mx-auto p-6">
+    <div className="max-w-[1100px] mx-auto p-6">
       <AjustesTabs
         abas={[
           { label: "Dados Pessoais", value: "dados" },

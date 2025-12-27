@@ -20,19 +20,26 @@ export const categorias = pgTable("categorias", {
 });
 
 // CARTÕES
+
+/* Enum para tipo de cartão */
+export const cartaoTipoEnum = pgEnum("cartao_tipo", [
+  "credito",
+  "debito",
+]);
+
 export const cartoes = pgTable("cartoes", {
   id: serial("id").primaryKey(),
   nome: text("nome").notNull(),
   tipo: text("tipo").notNull(),
-  bandeira: text("bandeira"),
-  empresa: text("empresa"),
-  limite: integer("limite"),
-  diaFechamento: integer("diaFechamento"),
-  diaVencimento: integer("diaVencimento"),
-  cor: text("cor"),
-  ativo: text("ativo"),
+  bandeira: text("bandeira").notNull(),
+  empresa: text("empresa").notNull(),
+  limite: integer("limite").notNull(),
+  limiteDisponivel: integer("limite_disponivel").notNull(),
+  diaFechamento: integer("dia_fechamento"),
+  diaVencimento: integer("dia_vencimento"),
+  ativo: boolean("ativo").default(true).notNull(),
   observacoes: text("observacoes"),
-  ultimosDigitos: integer("ultimosDigitos"),
+  contaVinculadaId: uuid("conta_vinculada_id").references(() => contas.id),
 });
 
 // TRANSAÇÕES
@@ -46,9 +53,7 @@ export const transacoes = pgTable("transacoes", {
   categoria: text("categoria"),
   formaPagamento: text("formaPagamento"),
 
-  contaId: uuid("conta_id")
-    .notNull()
-    .references(() => contas.id),
+  contaId: uuid("conta_id").references(() => contas.id),
 
   transferenciaId: uuid("transferencia_id"),
 
@@ -71,18 +76,9 @@ export const contas = pgTable("contas", {
   tipo: varchar("tipo", { length: 20 }).notNull(),
   ativo: boolean("ativo").default(true).notNull(),
   observacoes: text("observacoes"),
-
   saldoInicial: numeric("saldo_inicial", { precision: 14, scale: 2 }).notNull(),
   saldoAtual: numeric("saldo_atual", { precision: 14, scale: 2 }).notNull(),
-
   banco: varchar("banco", { length: 100 }),
-  bandeira: varchar("bandeira", { length: 50 }),
-  ultimosDigitos: varchar("ultimosDigitos", { length: 4 }),
-  limite: numeric("limite", { precision: 14, scale: 2 }),
-
-  fechamentoFatura: integer("fechamento_fatura"),
-  vencimentoFatura: integer("vencimento_fatura"),
-
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -143,6 +139,6 @@ export const extratoConta = pgTable("extrato_conta", {
   origem: extratoOrigemEnum("origem").notNull(),
 
   /* Referência opcional (ex: faturas.id) */
-  referenciaId: uuid("referencia_id"),
+  referenciaId: varchar("referencia_id", { length: 36 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

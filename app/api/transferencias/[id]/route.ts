@@ -2,33 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { TransferenciasService } from "@/services/transferenciasService";
 
 export async function DELETE(
-  _req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
-        { error: "ID da transferência não informado" },
+        { error: "ID da transferência é obrigatório" },
         { status: 400 }
       );
     }
 
     await TransferenciasService.removerTransferencia(id);
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error(error);
-
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao excluir transferência",
-      },
-      { status: 400 }
+      { message: "Transferência removida com sucesso" },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("Erro ao remover transferência:", error);
+    return NextResponse.json(
+      { error: error.message || "Erro ao remover transferência" },
+      { status: 500 }
     );
   }
 }

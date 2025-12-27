@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { contas, transacoes } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { contas, extratoConta } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 interface CriarContaInput {
   nome: string;
@@ -62,19 +62,20 @@ export class ContasService {
         })
         .returning();
 
-      if (saldoInicial > 0) {
-        await tx.insert(transacoes).values({
+      // REGISTRA APENAS NO EXTRATO
+      if (saldoInicial !== 0) {
+        const dataAtual = new Date();
+        const dataFormatada = dataAtual.toISOString().split('T')[0]; // YYYY-MM-DD
+
+        await tx.insert(extratoConta).values({
           contaId: conta.id,
-          tipo: "entrada",
-          valor: saldoInicial.toString(),
-          data: new Date(),
-
+          data: dataFormatada, // date type
+          tipo: saldoInicial >= 0 ? "entrada" : "saida",
+          valor: Math.abs(saldoInicial).toString(),
           descricao: "Saldo inicial da conta",
-          categoria: "Saldo inicial",
-          formaPagamento: "ajuste",
-
-          parcelado: false,
-          recorrente: false,
+          saldoApos: saldoInicial.toString(),
+          origem: "AJUSTE",
+          // createdAt é defaultNow()
         });
       }
 
@@ -143,7 +144,7 @@ export class ContasService {
     }
   }
 
-  /* SALDO */
+  /* AJUSTAR SALDO */
   static async ajustarSaldo({
     contaId,
     valor,
@@ -154,28 +155,49 @@ export class ContasService {
     descricao: string;
   }) {
     return db.transaction(async (tx) => {
-      await tx.insert(transacoes).values({
+      // 1. Buscar saldo atual antes do ajuste
+      const [contaAtual] = await tx
+        .select({ saldoAtual: contas.saldoAtual })
+        .from(contas)
+        .where(eq(contas.id, contaId));
+
+      if (!contaAtual) {
+        throw new Error("Conta não encontrada");
+      }
+
+      const saldoAnterior = Number(contaAtual.saldoAtual);
+      const novoSaldo = saldoAnterior + valor;
+
+      // 2. REGISTRAR APENAS NO EXTRATO
+      const dataAtual = new Date();
+      const dataFormatada = dataAtual.toISOString().split('T')[0]; // Formato: YYYY-MM-DD
+
+      await tx.insert(extratoConta).values({
         contaId: contaId,
+        data: dataFormatada, // date type
         tipo: valor >= 0 ? "entrada" : "saida",
         valor: Math.abs(valor).toString(),
-        data: new Date(),
-
-        descricao: descricao ?? "Ajuste de saldo",
-        categoria: "Ajuste",
-        formaPagamento: "ajuste",
-
-        parcelado: false,
-        recorrente: false,
+        descricao: descricao || "Ajuste de saldo",
+        saldoApos: novoSaldo.toString(),
+        origem: "AJUSTE",
+        // createdAt é defaultNow(), não precisa passar
       });
 
-
+      // 3. Atualizar saldo da conta
       await tx
         .update(contas)
         .set({
-          saldoAtual: sql`${contas.saldoAtual} + ${valor}`,
+          saldoAtual: novoSaldo.toString(),
           updatedAt: new Date(),
         })
         .where(eq(contas.id, contaId));
+
+      return {
+        contaId,
+        saldoAnterior,
+        novoSaldo,
+        ajuste: valor,
+      };
     });
   }
 }

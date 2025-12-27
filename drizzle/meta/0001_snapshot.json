@@ -1,6 +1,6 @@
 {
-  "id": "cd59937d-3bb4-4724-976c-be65e81a707b",
-  "prevId": "9564889e-dd5e-4652-91f4-5fbe18acd3c9",
+  "id": "a4c4c7ab-1465-44d7-b156-bf082b8ad945",
+  "prevId": "3ba4a800-ec29-49d3-8a5d-722ae4b84d22",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -30,53 +30,48 @@
           "name": "bandeira",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "empresa": {
           "name": "empresa",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "limite": {
           "name": "limite",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
+        },
+        "limite_disponivel": {
+          "name": "limite_disponivel",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
         },
         "diaFechamento": {
           "name": "diaFechamento",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "diaVencimento": {
           "name": "diaVencimento",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
-        },
-        "cor": {
-          "name": "cor",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "ativo": {
           "name": "ativo",
-          "type": "text",
+          "type": "boolean",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": true
         },
         "observacoes": {
           "name": "observacoes",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ultimosDigitos": {
-          "name": "ultimosDigitos",
-          "type": "integer",
           "primaryKey": false,
           "notNull": false
         }
@@ -290,7 +285,7 @@
         },
         "referencia_id": {
           "name": "referencia_id",
-          "type": "uuid",
+          "type": "varchar(36)",
           "primaryKey": false,
           "notNull": false
         },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import ContaModal from "@/components/contas/ContaModal";
@@ -22,6 +23,8 @@ export default function ContasPage() {
     atualizarConta,
     removerConta,
   } = useContas();
+
+  const router = useRouter();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [contaEdicao, setContaEdicao] = useState<Conta | null>(null);
@@ -137,7 +140,7 @@ export default function ContasPage() {
             conta={conta}
             onEditar={editarConta}
             onExcluir={solicitarExclusao}
-            onExtrato={() => console.log("Extrato", conta)}
+            onExtrato={(c) => router.push(`/contas/${c.id}/extrato`)}
             onTransferir={handleAbrirTransferencia}
           />
         ))}

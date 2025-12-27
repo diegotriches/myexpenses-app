@@ -35,7 +35,7 @@ export const cartaoService = {
     return res.json();
   },
 
-  // ✅ Nova função para fatura
+  // Nova função para fatura
   async fatura(cartaoId: number | string, ano: number, mes: number) {
     const res = await fetch(
       `/api/cartoes/${cartaoId}/fatura?ano=${ano}&mes=${mes}`

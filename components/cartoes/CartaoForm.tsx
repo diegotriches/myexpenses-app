@@ -16,8 +16,10 @@ import CampoSelect from "./CampoSelect";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useContas } from "@/hooks/useContas";
+import { Info } from "lucide-react";
 
-export interface CartaoFormValues extends Partial<Cartao> {}
+export interface CartaoFormValues extends Partial<Cartao> { }
 
 interface Props {
     initialValues: Cartao | null;
@@ -26,19 +28,19 @@ interface Props {
 }
 
 export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props) {
+    const { contas } = useContas();
+
     const [form, setForm] = useState({
         nome: "",
         tipo: "credito" as TipoCartao,
         bandeira: "",
         empresa: "",
         limite: "",
-        limiteDisponivel: "",
         diaFechamento: "",
         diaVencimento: "",
-        cor: "#4F46E5",
         ativo: true,
         observacoes: "",
-        ultimosDigitos: "",
+        contaVinculadaId: "none", // ✅ Usa "none" ao invés de ""
     });
 
     useEffect(() => {
@@ -49,13 +51,11 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                 bandeira: initialValues.bandeira,
                 empresa: initialValues.empresa || "",
                 limite: initialValues.limite?.toString() ?? "",
-                limiteDisponivel: initialValues.limiteDisponivel?.toString() ?? "",
                 diaFechamento: initialValues.diaFechamento?.toString() ?? "",
                 diaVencimento: initialValues.diaVencimento?.toString() ?? "",
-                cor: initialValues.cor || "#4F46E5",
                 ativo: initialValues.ativo,
                 observacoes: initialValues.observacoes ?? "",
-                ultimosDigitos: initialValues.ultimosDigitos ?? "",
+                contaVinculadaId: initialValues.contaVinculadaId ?? "none", // ✅ Usa "none"
             });
         }
     }, [initialValues]);
@@ -65,23 +65,69 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
     }
 
     async function handleSubmit() {
+        if (!form.nome?.trim()) {
+            alert("Informe o nome do cartão");
+            return;
+        }
+
+        if (!form.tipo) {
+            alert("Informe o tipo do cartão");
+            return;
+        }
+
+        if (!form.bandeira) {
+            alert("Informe a bandeira do cartão");
+            return;
+        }
+
+        if (!form.empresa) {
+            alert("Informe a empresa do cartão");
+            return;
+        }
+
+        if (form.tipo === "credito") {
+            const limite = Number(form.limite);
+
+            if (!Number.isFinite(limite) || limite <= 0) {
+                alert("Informe um limite válido para o cartão de crédito");
+                return;
+            }
+
+            if (!form.diaFechamento) {
+                alert("Informe o dia de fechamento da fatura");
+                return;
+            }
+
+            if (!form.diaVencimento) {
+                alert("Informe o dia de vencimento da fatura");
+                return;
+            }
+        }
+
         const payload: CartaoFormValues = {
-            ...form,
+            nome: form.nome,
+            tipo: form.tipo,
+            bandeira: form.bandeira || undefined,
+            empresa: form.empresa || undefined,
             limite: form.tipo === "credito" ? Number(form.limite) : 0,
-            limiteDisponivel:
-                form.tipo === "credito" ? Number(form.limiteDisponivel) : 0,
             diaFechamento:
                 form.tipo === "credito" ? Number(form.diaFechamento) : undefined,
             diaVencimento:
                 form.tipo === "credito" ? Number(form.diaVencimento) : undefined,
+            ativo: form.ativo,
+            observacoes: form.observacoes || undefined,
+            // ✅ Converte "none" para null/undefined
+            contaVinculadaId: form.contaVinculadaId === "none" ? null : form.contaVinculadaId,
         };
 
         await onSubmit(payload);
     }
 
+    // Filtrar apenas contas bancárias ativas
+    const contasBancarias = contas.filter(c => c.tipo === "BANCARIA" && c.ativo);
+
     return (
         <div className="space-y-3">
-
             {/* Descrição do modal */}
             <p className="text-gray-600 text-sm">
                 Preencha os dados abaixo para cadastrar ou editar um cartão.
@@ -110,30 +156,8 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                         <SelectContent>
                             <SelectItem value="credito">Crédito</SelectItem>
                             <SelectItem value="debito">Débito</SelectItem>
-                            <SelectItem value="multiplo">Múltiplo</SelectItem>
                         </SelectContent>
                     </Select>
-                </div>
-            </div>
-
-            {/* Cor (na posição antiga do Tipo) + Ativo */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                <div>
-                    <p className="text-sm font-medium mb-1">Cor do cartão</p>
-                    <input
-                        type="color"
-                        value={form.cor}
-                        onChange={(e) => handleChange("cor", e.target.value)}
-                        className="h-10 w-20 rounded cursor-pointer border border-gray-300"
-                    />
-                </div>
-
-                <div className="flex items-center gap-3 pt-2">
-                    <p className="text-sm font-medium">Ativo</p>
-                    <Switch
-                        checked={form.ativo}
-                        onCheckedChange={(v) => handleChange("ativo", v)}
-                    />
                 </div>
             </div>
 
@@ -153,21 +177,38 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                 />
             </div>
 
-            {/* Últimos dígitos + Limite */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Conta Vinculada (só para crédito) */}
+            {form.tipo === "credito" && (
                 <div>
-                    <p className="text-sm font-medium mb-1">Últimos 4 dígitos</p>
-                    <Input
-                        placeholder="1234"
-                        maxLength={4}
-                        value={form.ultimosDigitos}
-                        onChange={(e) => {
-                            const v = e.target.value.replace(/\D/g, "").slice(0, 4);
-                            handleChange("ultimosDigitos", v);
-                        }}
-                    />
+                    <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm font-medium">Conta para pagamento da fatura</p>
+                        <Info className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <Select
+                        value={form.contaVinculadaId}
+                        onValueChange={(v) => handleChange("contaVinculadaId", v)}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma conta (opcional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {/* ✅ Usa "none" ao invés de "" */}
+                            <SelectItem value="none">Nenhuma (definir depois)</SelectItem>
+                            {contasBancarias.map(conta => (
+                                <SelectItem key={conta.id} value={conta.id}>
+                                    {conta.nome} - R$ {Number(conta.saldoAtual).toFixed(2)}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500 mt-1">
+                        💡 Esta conta será usada como padrão para pagar a fatura do cartão
+                    </p>
                 </div>
+            )}
 
+            {/* Limite e Ativo */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                 {form.tipo === "credito" && (
                     <div>
                         <p className="text-sm font-medium mb-1">Limite (R$)</p>
@@ -179,6 +220,13 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                         />
                     </div>
                 )}
+                <div className="flex items-center gap-3 pt-2">
+                    <p className="text-sm font-medium">Ativo</p>
+                    <Switch
+                        checked={form.ativo}
+                        onCheckedChange={(v) => handleChange("ativo", v)}
+                    />
+                </div>
             </div>
 
             {/* Fechamento e Vencimento */}

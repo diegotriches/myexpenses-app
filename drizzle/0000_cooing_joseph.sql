@@ -1,14 +1,16 @@
+CREATE TYPE "public"."extrato_origem" AS ENUM('TRANSACAO_MANUAL', 'PAGAMENTO_FATURA', 'TRANSFERENCIA', 'AJUSTE', 'ESTORNO');--> statement-breakpoint
+CREATE TYPE "public"."extrato_tipo" AS ENUM('entrada', 'saida');--> statement-breakpoint
 CREATE TABLE "cartoes" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"nome" text NOT NULL,
 	"tipo" text NOT NULL,
-	"bandeira" text,
-	"empresa" text,
-	"limite" integer,
-	"diaFechamento" integer,
-	"diaVencimento" integer,
-	"cor" text,
-	"ativo" text,
+	"bandeira" text NOT NULL,
+	"empresa" text NOT NULL,
+	"limite" integer NOT NULL,
+	"limite_disponivel" integer NOT NULL,
+	"diaFechamento" integer NOT NULL,
+	"diaVencimento" integer NOT NULL,
+	"ativo" boolean DEFAULT true NOT NULL,
 	"observacoes" text,
 	"ultimosDigitos" integer
 );
@@ -36,6 +38,19 @@ CREATE TABLE "contas" (
 	"vencimento_fatura" integer,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "extrato_conta" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"conta_id" uuid NOT NULL,
+	"data" date NOT NULL,
+	"tipo" "extrato_tipo" NOT NULL,
+	"valor" numeric(12, 2) NOT NULL,
+	"descricao" text NOT NULL,
+	"saldo_apos" numeric(12, 2) NOT NULL,
+	"origem" "extrato_origem" NOT NULL,
+	"referencia_id" varchar(36),
+	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "faturas" (
@@ -79,6 +94,7 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
+ALTER TABLE "extrato_conta" ADD CONSTRAINT "extrato_conta_conta_id_contas_id_fk" FOREIGN KEY ("conta_id") REFERENCES "public"."contas"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "faturas" ADD CONSTRAINT "faturas_cartao_id_cartoes_id_fk" FOREIGN KEY ("cartao_id") REFERENCES "public"."cartoes"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "faturas" ADD CONSTRAINT "faturas_conta_pagamento_id_contas_id_fk" FOREIGN KEY ("conta_pagamento_id") REFERENCES "public"."contas"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "transacoes" ADD CONSTRAINT "transacoes_conta_id_contas_id_fk" FOREIGN KEY ("conta_id") REFERENCES "public"."contas"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint

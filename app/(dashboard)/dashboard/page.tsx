@@ -47,25 +47,14 @@ export default function Dashboard() {
 
   return (
     <div>
-      {/* Filtro de período */}
-      <div className="mb-4 flex items-center space-x-2">
-        <label htmlFor="periodo" className="font-medium">Período:</label>
-        <select
-          id="periodo"
-          value={periodo}
-          onChange={handlePeriodoChange}
-          className="border rounded px-2 py-1"
-        >
-          <option value="2025-12">Dezembro/2025</option>
-          <option value="2025-11">Novembro/2025</option>
-          <option value="2025-10">Outubro/2025</option>
-        </select>
+      <div className="mb-4">
+        {loadingTransacoes ? skeleton : <CardResumo resumo={resumo!} />}
       </div>
 
+      {/* Grid com os outros cards - 3 por linha */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loadingTransacoes ? skeleton : <CardResumo resumo={resumo!} />}
         {loadingTransacoes ? skeleton : <CardValores transacoes={transacoes!} />}
-        {/*loadingTransacoes ? skeleton : <CardFaturas transacoes={transacoes!} periodo={periodo} />*/}
+        {loadingTransacoes ? skeleton : <CardFaturas transacoes={transacoes!} periodo={periodo} />}
         {loadingTransacoes ? skeleton : <CardTransacoesRecentes transacoes={ultimas} />}
         {loadingTransacoes ? skeleton : <CardCondicoesPagamento dados={condicoes} />}
         {loadingTransacoes ? skeleton : <CardFormasPagamento dados={formas} />}

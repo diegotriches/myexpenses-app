@@ -11,7 +11,7 @@ interface Props {
   cartao: Cartao;
   movimentacoes: { valor: number | string; cartaoId: number }[];
   onEditar: (cartao: Cartao) => void;
-  onExcluir: (id: number) => void;
+  onExcluir: (cartao: Cartao) => void;
   onFatura?: (cartaoId: number) => void;
 }
 
@@ -70,7 +70,7 @@ export default function CartaoItem({
           {/* Linha superior */}
           <div className="border-t border-gray-300 -mb-3"></div>
           
-          <div className="flex items-center justify-center gap-30 text-sm text-gray-700">
+          <div className="flex items-center justify-center gap-27 text-sm text-gray-700">
             <div className="text-center"><span className="font-medium">Fecha dia:</span> {cartao.diaFechamento}</div>
             <div className="text-center"><span className="font-medium">Vence dia:</span> {cartao.diaVencimento}</div>
           </div>
@@ -104,15 +104,15 @@ export default function CartaoItem({
       )}
 
       <div className="flex justify-end gap-3">
-        <button onClick={() => onEditar(cartao)} className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1">
+        <button onClick={() => onEditar(cartao)} className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1 cursor-pointer">
           <Pencil size={13} /> Editar
         </button>
 
-        <button onClick={abrirFatura} className="text-purple-600 hover:text-purple-800 text-sm font-medium flex items-center gap-1">
+        <button onClick={abrirFatura} className="text-purple-600 hover:text-purple-800 text-sm font-medium flex items-center gap-1 cursor-pointer">
           <FileText size={13} /> Ver Fatura
         </button>
 
-        <button onClick={() => onExcluir(cartao.id)} className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-1">
+        <button onClick={() => onExcluir(cartao)} className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-1 cursor-pointer">
           <Trash2 size={13} /> Remover
         </button>
       </div>

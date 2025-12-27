@@ -2,22 +2,32 @@ import { Transacao } from "@/types/transacao";
 import { Cartao } from "@/types/cartao";
 import { iconOptions } from "@/utils/iconOptions";
 import { empresaOptions } from "@/utils/cartaoOptions";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { useCategorias } from "@/hooks/useCategorias";
 import { useContas } from "@/hooks/useContas";
 
-import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-
-import { MdMoreVert } from "react-icons/md";
-import {
-  FaMoneyBill,
-  FaCreditCard,
-  FaDollarSign,
-  FaSyncAlt,
-  FaDonate,
-  FaSpinner,
-  FaExchangeAlt,
-} from "react-icons/fa";
+import { 
+  MoreVertical, 
+  Edit, 
+  Trash2,
+  ArrowUpCircle, 
+  ArrowDownCircle,
+  Repeat,
+  Calendar,
+  DollarSign,
+  Banknote,
+  Smartphone,
+  CreditCard,
+  ArrowLeftRight,
+} from "lucide-react";
 
 interface Props {
   mov: Transacao;
@@ -26,14 +36,11 @@ interface Props {
   onExcluir: () => void;
 }
 
-const formaPagamentoIcons: Record<
-  "dinheiro" | "pix" | "cartao" | "transferencia",
-  React.ComponentType<{ size?: number; className?: string }>
-> = {
-  dinheiro: FaMoneyBill,
-  pix: FaDollarSign,
-  cartao: FaCreditCard,
-  transferencia: FaExchangeAlt
+const formaPagamentoConfig = {
+  dinheiro: { icon: Banknote, label: "Dinheiro" },
+  pix: { icon: Smartphone, label: "PIX" },
+  cartao: { icon: CreditCard, label: "Cartão" },
+  transferencia: { icon: ArrowLeftRight, label: "Transferência" },
 };
 
 export default function MovimentacaoLinha({
@@ -46,7 +53,6 @@ export default function MovimentacaoLinha({
   const { contas } = useContas();
 
   const isTransferencia = !!mov.transferenciaId;
-
   const contaAtual = contas.find((c) => c.id === mov.contaId);
 
   const descricaoTransferencia =
@@ -54,154 +60,155 @@ export default function MovimentacaoLinha({
       ? `Transferência enviada${contaAtual ? ` (${contaAtual.nome})` : ""}`
       : `Transferência recebida${contaAtual ? ` (${contaAtual.nome})` : ""}`;
 
-  const formatarValor = (valor: number) =>
-    valor.toFixed(2).replace(".", ",");
-
   const condicao = (() => {
-    if (mov.recorrente) return "Recorrente";
-    if (mov.parcelas && mov.parcelas > 1) return "Parcelado";
-    return "À Vista";
+    if (mov.recorrente) return { label: "Recorrente", icon: Repeat };
+    if (mov.parcelas && mov.parcelas > 1) 
+      return { 
+        label: `${mov.parcelaAtual}/${mov.parcelas}`, 
+        icon: Calendar 
+      };
+    return { label: "À Vista", icon: DollarSign };
   })();
-
-  const CondicaoIconComp = (() => {
-    if (condicao === "Recorrente") return FaSyncAlt;
-    if (condicao === "Parcelado") return FaSpinner;
-    return FaDonate;
-  })();
-
-  const corTipo = mov.tipo === "entrada" ? "bg-green-500" : "bg-red-500";
 
   const categoriaObj = categorias.find((c) => c.nome === mov.categoria);
   const CategoriaIconComp = categoriaObj
     ? iconOptions.find((i) => i.name === categoriaObj.icon)?.component
     : null;
 
-  const PagamentoIconComp =
-    !isTransferencia && mov.formaPagamento
-      ? formaPagamentoIcons[mov.formaPagamento]
-      : null;
+  const formaPagamento = formaPagamentoConfig[mov.formaPagamento as keyof typeof formaPagamentoConfig];
+  const FormaPagamentoIcon = formaPagamento?.icon;
+  const CondicaoIcon = condicao.icon;
 
   return (
-    <div className="border rounded-xl p-4 flex justify-between items-center shadow-sm bg-white">
-      <div className="grid grid-cols-8 gap-3 w-full text-sm text-gray-800 items-center">
-        {/* Data */}
-        <p>{new Date(mov.data).toLocaleDateString()}</p>
+    <tr className={`hover:bg-gray-50 transition-colors ${
+      mov.tipo === "entrada" ? "bg-green-50/30" : "bg-red-50/30"
+    }`}>
+      {/* Data */}
+      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+        {new Date(mov.data).toLocaleDateString("pt-BR")}
+      </td>
 
-        {/* Descrição */}
-        <p>
+      {/* Descrição */}
+      <td className="px-4 py-3 text-sm text-gray-900">
+        <div className="max-w-xs truncate">
           {isTransferencia
             ? descricaoTransferencia
             : mov.descricao || "(Sem descrição)"}
-        </p>
+        </div>
+      </td>
 
-        {/* Tipo */}
-        <p className="flex items-center gap-1">
-          {isTransferencia ? (
-            <>
-              <FaExchangeAlt className="text-blue-600" />
-              Transferência
-            </>
-          ) : (
-            <>
-              <span className={`w-3 h-3 rounded-full ${corTipo}`}></span>
-              {mov.tipo === "entrada" ? "Entrada" : "Saída"}
-            </>
-          )}
-        </p>
-
-        {/* Categoria */}
-        <p className="flex items-center gap-2">
-          {isTransferencia ? (
-            "—"
-          ) : (
-            <>
-              {CategoriaIconComp && (
-                <CategoriaIconComp size={16} className="text-gray-700" />
-              )}
-              {mov.categoria}
-            </>
-          )}
-        </p>
-
-        {/* Valor */}
-        <p>R$ {formatarValor(Number(mov.valor))}</p>
-
-        {/* Forma de pagamento */}
-        <p className="flex items-center gap-1">
-          {isTransferencia ? (
-            "Conta bancária"
-          ) : (
-            <>
-              {PagamentoIconComp && (
-                <PagamentoIconComp size={16} className="text-gray-700" />
-              )}
-              {mov.formaPagamento === "cartao"
-                ? "Cartão"
-                : mov.formaPagamento === "pix"
-                  ? "Pix"
-                  : "Dinheiro"}
-            </>
-          )}
-        </p>
-
-        {/* Condição */}
-        <p className="flex items-center gap-1">
-          {isTransferencia ? (
-            "—"
-          ) : (
-            <>
-              {CondicaoIconComp && (
-                <CondicaoIconComp size={16} className="text-gray-700" />
-              )}
-              {condicao}
-            </>
-          )}
-        </p>
-
-        {/* Cartão */}
-        <p className="flex items-center gap-2">
-          {isTransferencia ? (
-            "—"
-          ) : mov.formaPagamento === "cartao" && cartao ? (
-            <>
-              {empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc && (
-                <img
-                  src={
-                    empresaOptions.find((e) => e.value === cartao.empresa)
-                      ?.imgSrc
-                  }
-                  alt={cartao.empresa}
-                  className="w-6 h-6 object-contain"
-                />
-              )}
-              <span>{cartao.nome}</span>
-            </>
-          ) : mov.formaPagamento === "cartao" ? (
-            <span className="flex items-center gap-1">
-              <FaCreditCard size={16} className="text-gray-700" />
-              Cartão
-            </span>
-          ) : (
-            "-"
-          )}
-        </p>
-      </div>
-
-      <DropdownMenu
-        trigger={
-          <button className="p-2 rounded-full hover:bg-gray-100">
-            <MdMoreVert size={22} />
-          </button>
-        }>
-        {!isTransferencia && (
-          <DropdownMenuItem onClick={onEditar}>
-            Editar
-          </DropdownMenuItem>
+      {/* Tipo */}
+      <td className="px-4 py-3 text-center">
+        {mov.tipo === "entrada" ? (
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            <ArrowUpCircle className="w-3 h-3 mr-1" />
+            Receita
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+            <ArrowDownCircle className="w-3 h-3 mr-1" />
+            Despesa
+          </Badge>
         )}
-        <DropdownMenuItem onClick={onExcluir}>
-          {isTransferencia ? "Excluir transferência" : "Excluir"}
-        </DropdownMenuItem>
-      </DropdownMenu>
-    </div>
+      </td>
+
+      {/* Categoria */}
+      <td className="px-4 py-3 text-sm text-gray-700">
+        {isTransferencia ? (
+          <span className="text-gray-400">—</span>
+        ) : (
+          <div className="flex items-center gap-2">
+            {CategoriaIconComp && (
+              <CategoriaIconComp size={16} className="text-gray-600 flex-shrink-0" />
+            )}
+            <span className="truncate max-w-[150px]">{mov.categoria}</span>
+          </div>
+        )}
+      </td>
+
+      {/* Valor */}
+      <td className="px-4 py-3 text-right text-sm font-semibold">
+        <span className={mov.tipo === "entrada" ? "text-green-600" : "text-red-600"}>
+          {mov.tipo === "entrada" ? "+" : "-"} R$ {Number(mov.valor).toFixed(2)}
+        </span>
+      </td>
+
+      {/* Forma de pagamento */}
+      <td className="px-4 py-3 text-sm text-gray-700">
+        {isTransferencia ? (
+          <div className="flex items-center gap-1.5">
+            <ArrowLeftRight className="w-4 h-4 text-blue-600" />
+            <span className="text-blue-600">Transferência</span>
+          </div>
+        ) : FormaPagamentoIcon ? (
+          <div className="flex items-center gap-1.5">
+            <FormaPagamentoIcon className="w-4 h-4 text-gray-600" />
+            <span>{formaPagamento.label}</span>
+          </div>
+        ) : (
+          <span className="text-gray-400">—</span>
+        )}
+      </td>
+
+      {/* Condição */}
+      <td className="px-4 py-3 text-sm text-gray-700">
+        {isTransferencia ? (
+          <span className="text-gray-400">—</span>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <CondicaoIcon className="w-4 h-4 text-gray-600" />
+            <span>{condicao.label}</span>
+          </div>
+        )}
+      </td>
+
+      {/* Cartão */}
+      <td className="px-4 py-3 text-sm text-gray-700">
+        {isTransferencia ? (
+          <span className="text-gray-400">—</span>
+        ) : mov.formaPagamento === "cartao" && cartao ? (
+          <div className="flex items-center gap-2">
+            {empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc && (
+              <img
+                src={empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc}
+                alt={cartao.empresa}
+                className="w-5 h-5 object-contain flex-shrink-0"
+              />
+            )}
+            <span className="truncate max-w-[100px]">{cartao.nome}</span>
+          </div>
+        ) : mov.formaPagamento === "cartao" ? (
+          <span className="text-gray-500">Cartão</span>
+        ) : (
+          <span className="text-gray-400">—</span>
+        )}
+      </td>
+
+      {/* Ações */}
+      <td className="px-4 py-3 text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {!isTransferencia && (
+              <DropdownMenuItem onClick={onEditar} className="cursor-pointer">
+                <Edit className="w-4 h-4 mr-2" />
+                Editar
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem 
+              onClick={onExcluir} 
+              className="cursor-pointer text-red-600 focus:text-red-600"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {isTransferencia ? "Excluir transferência" : "Excluir"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </td>
+    </tr>
   );
 }

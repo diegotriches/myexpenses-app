@@ -1,0 +1,2 @@
+ALTER TABLE "cartoes" ADD COLUMN "conta_vinculada_id" uuid;--> statement-breakpoint
+ALTER TABLE "cartoes" ADD CONSTRAINT "cartoes_conta_vinculada_id_contas_id_fk" FOREIGN KEY ("conta_vinculada_id") REFERENCES "public"."contas"("id") ON DELETE no action ON UPDATE no action;

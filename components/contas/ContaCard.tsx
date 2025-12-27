@@ -50,8 +50,8 @@ export default function ContaCard({
       {/* Conteúdo */}
       <CardContent className="space-y-3 text-sm">
         <div>
-          <span className="text-gray-500">Saldo Total</span>
-          <div className="text-lg font-semibold">
+          <span className="text-gray-500">Saldo</span>
+          <div className="text-2xl font-semibold">
             R$ {conta.saldoAtual.toFixed(2)}
           </div>
         </div>
