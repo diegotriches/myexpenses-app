@@ -50,6 +50,13 @@
       "when": 1766836818648,
       "tag": "0006_nifty_newton_destine",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1766858657288,
+      "tag": "0007_redundant_jack_flag",
+      "breakpoints": true
     }
   ]
 }

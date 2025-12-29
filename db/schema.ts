@@ -1,5 +1,5 @@
 import {
-  pgTable, serial, varchar, text, integer, boolean,
+  pgTable, serial, varchar, text, integer, boolean, jsonb,
   uuid, numeric, timestamp, date, uniqueIndex, pgEnum
 } from "drizzle-orm/pg-core";
 
@@ -9,6 +9,16 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  foto: text("foto"),
+  preferencias: jsonb("preferencias").$type<{
+    tema?: "light" | "dark" | "system";
+    idioma?: string;
+    moeda?: string;
+    notificacoes?: boolean;
+    notificacoesEmail?: boolean;
+    formatoData?: "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD";
+    inicioSemana?: "domingo" | "segunda";
+  }>(),
 });
 
 // CATEGORIAS
@@ -85,21 +95,21 @@ export const contas = pgTable("contas", {
 
 // FATURAS
 export const faturas = pgTable("faturas", {
-    id: serial("id").primaryKey(),
-    cartaoId: integer("cartao_id")
-      .notNull()
-      .references(() => cartoes.id, { onDelete: "cascade" }),
-    mes: integer("mes").notNull(),
-    ano: integer("ano").notNull(),
-    total: numeric("total", { precision: 12, scale: 2 }).notNull(),
-    paga: boolean("paga").notNull().default(false),
-    dataPagamento: date("data_pagamento"),
-    contaPagamentoId: uuid("conta_pagamento_id").references(
-      () => contas.id
-    ),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
+  id: serial("id").primaryKey(),
+  cartaoId: integer("cartao_id")
+    .notNull()
+    .references(() => cartoes.id, { onDelete: "cascade" }),
+  mes: integer("mes").notNull(),
+  ano: integer("ano").notNull(),
+  total: numeric("total", { precision: 12, scale: 2 }).notNull(),
+  paga: boolean("paga").notNull().default(false),
+  dataPagamento: date("data_pagamento"),
+  contaPagamentoId: uuid("conta_pagamento_id").references(
+    () => contas.id
+  ),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+},
   (table) => ({
     faturaUnica: uniqueIndex("faturas_cartao_mes_ano_idx").on(
       table.cartaoId,

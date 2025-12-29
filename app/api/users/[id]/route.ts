@@ -1,45 +1,87 @@
-import db from "@/db";
-import { usuarios } from "@/database/schema/usuarios";
-import { NextResponse } from "next/server";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { getUserId } from "@/lib/auth";
 
-// Atualizar usuário
-export async function PUT(req, { params }) {
-    try {
-        const id = Number(params.id);
-        const body = await req.json();
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const id = Number(params.id);
+    const body = await req.json();
 
-        const {
-            nome,
-            email,
-            rendaMensal,
-            metaEconomia
-        } = body;
+    const { name, email, rendaMensal, metaEconomia } = body;
 
-        const [atualizado] = await db
-            .update(usuarios)
-            .set({
-                nome,
-                email,
-                rendaMensal: rendaMensal || 0,
-                metaEconomia: metaEconomia || 0,
-            })
-            .where(eq(usuarios.id, id))
-            .returning();
+    // Verifica se email já existe (para outro usuário)
+    if (email) {
+      const emailExistente = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
 
-        if (!atualizado) {
-            return NextResponse.json(
-                { error: "Usuário não encontrado." },
-                { status: 404 }
-            );
-        }
-
-        return NextResponse.json(atualizado);
-
-    } catch (err) {
+      if (emailExistente.length > 0 && emailExistente[0].id !== id) {
         return NextResponse.json(
-            { error: err.message },
-            { status: 500 }
+          { message: "Este email já está em uso" },
+          { status: 400 }
         );
+      }
     }
+
+    const [atualizado] = await db
+      .update(users)
+      .set({
+        name: name || undefined,
+        email: email || undefined,
+      })
+      .where(eq(users.id, id))
+      .returning();
+
+    if (!atualizado) {
+      return NextResponse.json(
+        { message: "Usuário não encontrado" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(atualizado);
+  } catch (err: any) {
+    console.error("Erro ao atualizar usuário:", err);
+    return NextResponse.json(
+      { message: err.message || "Erro ao atualizar usuário" },
+      { status: 500 }
+    );
+  }
+}
+
+// Deletar usuário
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const id = Number(params.id);
+
+    const [deletado] = await db
+      .delete(users)
+      .where(eq(users.id, id))
+      .returning();
+
+    if (!deletado) {
+      return NextResponse.json(
+        { message: "Usuário não encontrado" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ message: "Usuário deletado com sucesso" });
+  } catch (err: any) {
+    console.error("Erro ao deletar usuário:", err);
+    return NextResponse.json(
+      { message: err.message || "Erro ao deletar usuário" },
+      { status: 500 }
+    );
+  }
 }

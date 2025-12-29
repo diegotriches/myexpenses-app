@@ -16,7 +16,6 @@ export function CardParcelados({ transacoes }: Props) {
     parceladas.forEach(t => {
       if (t.parcelamentoId) {
         if (!mapa.has(t.parcelamentoId)) {
-          // Primeira parcela encontrada - calcula valor total da compra
           const valorParcela = Number(t.valor);
           const totalCompra = t.parcelas ? valorParcela * t.parcelas : valorParcela;
           
@@ -26,7 +25,6 @@ export function CardParcelados({ transacoes }: Props) {
           });
         }
       } else {
-        // Transação parcelada sem ID de grupo (caso isolado)
         const valorParcela = Number(t.valor);
         const totalCompra = t.parcelas ? valorParcela * t.parcelas : valorParcela;
         
@@ -54,13 +52,13 @@ export function CardParcelados({ transacoes }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Layers className="w-5 h-5 text-orange-600" />
+          <Layers className="w-5 h-5 text-orange-600 dark:text-orange-400" />
           Compras Parceladas
         </CardTitle>
       </CardHeader>
       <CardContent>
         {comprasParceladas.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
             Nenhuma compra parcelada encontrada
           </p>
         ) : (
@@ -73,35 +71,35 @@ export function CardParcelados({ transacoes }: Props) {
               return (
                 <div 
                   key={t.parcelamentoId || t.id}
-                  className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 >
-                  <div className="p-1.5 rounded-full bg-orange-100 flex-shrink-0">
-                    <CreditCard className="w-4 h-4 text-orange-600" />
+                  <div className="p-1.5 rounded-full bg-orange-100 dark:bg-orange-900/30 flex-shrink-0">
+                    <CreditCard className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-800 truncate">
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                         {t.descricao || 'Compra parcelada'}
                       </span>
-                      <span className="text-sm font-bold text-orange-600 ml-2 whitespace-nowrap">
+                      <span className="text-sm font-bold text-orange-600 dark:text-orange-400 ml-2 whitespace-nowrap">
                         R$ {t.totalCompra.toFixed(2)}
                       </span>
                     </div>
                     
                     <div className="flex items-center gap-2 mb-1">
-                      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-orange-500 transition-all duration-300"
                           style={{ width: `${porcentagem}%` }}
                         />
                       </div>
-                      <span className="text-xs text-gray-500 font-medium whitespace-nowrap">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap">
                         {porcentagem.toFixed(1)}%
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                    <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                       {t.data && (
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
@@ -109,7 +107,7 @@ export function CardParcelados({ transacoes }: Props) {
                         </div>
                       )}
                       {t.parcelas && (
-                        <div className="flex items-center gap-1 font-medium text-orange-600">
+                        <div className="flex items-center gap-1 font-medium text-orange-600 dark:text-orange-400">
                           <Layers className="w-3 h-3" />
                           {t.parcelas}x de R$ {Number(t.valor).toFixed(2)}
                         </div>
@@ -121,22 +119,22 @@ export function CardParcelados({ transacoes }: Props) {
             })}
             
             {/* Total e Resumo */}
-            <div className="pt-2 border-t border-gray-200 space-y-1">
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-600">Total em compras parceladas:</span>
-                <span className="text-base font-bold text-orange-600">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total em compras parceladas:</span>
+                <span className="text-base font-bold text-orange-600 dark:text-orange-400">
                   R$ {totalParcelado.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-500">Número de compras:</span>
-                <span className="text-sm font-semibold text-gray-700">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Número de compras:</span>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   {comprasParceladas.length}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-500">Total de parcelas:</span>
-                <span className="text-sm font-semibold text-gray-700">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Total de parcelas:</span>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   {parceladas.length}
                 </span>
               </div>

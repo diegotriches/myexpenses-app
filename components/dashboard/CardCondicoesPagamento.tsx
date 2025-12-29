@@ -18,10 +18,10 @@ export function CardCondicoesPagamento({ dados }: Props) {
       label: 'Dinheiro',
       valor: dados.dinheiro,
       icon: Banknote,
-      color: 'text-green-600',
-      bg: 'bg-green-50',
-      border: 'border-green-200',
-      iconBg: 'bg-green-100',
+      color: 'text-green-600 dark:text-green-400',
+      bg: 'bg-green-50 dark:bg-green-950/30',
+      border: 'border-green-200 dark:border-green-800',
+      iconBg: 'bg-green-100 dark:bg-green-900/50',
       barColor: 'bg-green-500'
     },
     {
@@ -29,10 +29,10 @@ export function CardCondicoesPagamento({ dados }: Props) {
       label: 'PIX',
       valor: dados.pix,
       icon: Smartphone,
-      color: 'text-teal-600',
-      bg: 'bg-teal-50',
-      border: 'border-teal-200',
-      iconBg: 'bg-teal-100',
+      color: 'text-teal-600 dark:text-teal-400',
+      bg: 'bg-teal-50 dark:bg-teal-950/30',
+      border: 'border-teal-200 dark:border-teal-800',
+      iconBg: 'bg-teal-100 dark:bg-teal-900/50',
       barColor: 'bg-teal-500'
     },
     {
@@ -40,10 +40,10 @@ export function CardCondicoesPagamento({ dados }: Props) {
       label: 'Cartão',
       valor: dados.cartao,
       icon: CreditCard,
-      color: 'text-purple-600',
-      bg: 'bg-purple-50',
-      border: 'border-purple-200',
-      iconBg: 'bg-purple-100',
+      color: 'text-purple-600 dark:text-purple-400',
+      bg: 'bg-purple-50 dark:bg-purple-950/30',
+      border: 'border-purple-200 dark:border-purple-800',
+      iconBg: 'bg-purple-100 dark:bg-purple-900/50',
       barColor: 'bg-purple-500'
     }
   ];
@@ -55,7 +55,7 @@ export function CardCondicoesPagamento({ dados }: Props) {
       </CardHeader>
       <CardContent>
         {total === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
             Nenhuma transação encontrada
           </p>
         ) : (
@@ -74,17 +74,17 @@ export function CardCondicoesPagamento({ dados }: Props) {
                       <Icon className={`w-4 h-4 ${condicao.color}`} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
                         {condicao.label}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                           <div 
                             className={`h-full ${condicao.barColor} transition-all duration-300`}
                             style={{ width: `${porcentagem}%` }}
                           />
                         </div>
-                        <span className="text-xs text-gray-500 font-medium whitespace-nowrap">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap">
                           {porcentagem.toFixed(0)}%
                         </span>
                       </div>
@@ -98,11 +98,11 @@ export function CardCondicoesPagamento({ dados }: Props) {
             })}
             
             {/* Total */}
-            <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-600">
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                 Total de transações:
               </span>
-              <span className="text-base font-bold text-gray-800">{total}</span>
+              <span className="text-base font-bold text-gray-800 dark:text-gray-200">{total}</span>
             </div>
           </div>
         )}

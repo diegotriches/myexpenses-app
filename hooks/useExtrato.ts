@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect } from "react";
-import { usePeriodo } from "@/components/PeriodoContext";
+import { usePeriodo } from "@/contexts/PeriodoContext";
 
 export interface MovimentacaoExtrato {
   id: string;

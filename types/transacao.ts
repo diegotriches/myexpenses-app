@@ -3,8 +3,7 @@ export type TipoTransacao = "entrada" | "saida";
 export type FormaPagamento =
   | "dinheiro"
   | "pix"
-  | "cartao"
-  | "transferencia";
+  | "cartao";
 
 export type TipoPagamento = "avista" | "parcelado" | "recorrente";
 
@@ -12,26 +11,19 @@ export type TipoPagamento = "avista" | "parcelado" | "recorrente";
 export interface TransacaoBase {
   data: string;
   tipo: TipoTransacao;
-
   descricao?: string | null;
   valor: string;
-
   categoria?: string | null;
-
   formaPagamento?: FormaPagamento | null;
   cartaoId?: number | null;
-
   recorrente?: boolean;
   recorrenciaId?: string;
   repeticoes?: number;
-
   parcelado?: boolean;
   parcelamentoId?: string;
   parcelas?: number;
   parcelaAtual?: number;
-
   contaId: string;
-
   transferenciaId?: string;
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { FormMovimentacao } from "@/lib/buildTransacoesFromForm";
 import { Transacao, TransacaoCreate, TransacaoUpdate } from "@/types/transacao";
-import { usePeriodo } from "@/components/PeriodoContext";
+import { usePeriodo } from "@/contexts/PeriodoContext";
 
 type TipoExclusao = "unica" | "todas_parcelas" | "toda_recorrencia";
 type TipoEdicao = "unica" | "todas_parcelas" | "toda_recorrencia";

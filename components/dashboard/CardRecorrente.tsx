@@ -16,7 +16,6 @@ export function CardRecorrentes({ transacoes }: Props) {
     recorrentes.forEach(t => {
       if (t.recorrenciaId) {
         if (!mapa.has(t.recorrenciaId)) {
-          // Primeira ocorrência encontrada
           const valorMensal = Number(t.valor);
           const totalRecorrencia = t.repeticoes ? valorMensal * t.repeticoes : valorMensal;
           const quantidadeParcelas = t.repeticoes || 1;
@@ -28,7 +27,6 @@ export function CardRecorrentes({ transacoes }: Props) {
           });
         }
       } else {
-        // Transação recorrente sem ID de grupo (caso isolado)
         const valorMensal = Number(t.valor);
         const totalRecorrencia = t.repeticoes ? valorMensal * t.repeticoes : valorMensal;
         const quantidadeParcelas = t.repeticoes || 1;
@@ -44,7 +42,6 @@ export function CardRecorrentes({ transacoes }: Props) {
     return Array.from(mapa.values());
   }, [recorrentes]);
   
-  // Separa receitas e despesas
   const receitas = useMemo(
     () => recorrenciasAgrupadas.filter(t => t.tipo === 'entrada'),
     [recorrenciasAgrupadas]
@@ -76,13 +73,13 @@ export function CardRecorrentes({ transacoes }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Repeat className="w-5 h-5 text-purple-600" />
+          <Repeat className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           Transações Recorrentes
         </CardTitle>
       </CardHeader>
       <CardContent>
         {recorrenciasAgrupadas.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
             Nenhuma transação recorrente encontrada
           </p>
         ) : (
@@ -96,32 +93,36 @@ export function CardRecorrentes({ transacoes }: Props) {
               return (
                 <div 
                   key={t.recorrenciaId || t.id}
-                  className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 >
                   <div className={`p-1.5 rounded-full flex-shrink-0 ${
-                    isReceita ? 'bg-green-100' : 'bg-red-100'
+                    isReceita 
+                      ? 'bg-green-100 dark:bg-green-900/30' 
+                      : 'bg-red-100 dark:bg-red-900/30'
                   }`}>
                     {isReceita ? (
-                      <ArrowUpCircle className="w-4 h-4 text-green-600" />
+                      <ArrowUpCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                     ) : (
-                      <ArrowDownCircle className="w-4 h-4 text-red-600" />
+                      <ArrowDownCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
                     )}
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-800 truncate">
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                         {t.descricao || (isReceita ? 'Receita recorrente' : 'Despesa recorrente')}
                       </span>
                       <span className={`text-sm font-bold ml-2 whitespace-nowrap ${
-                        isReceita ? 'text-green-600' : 'text-red-600'
+                        isReceita 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : 'text-red-600 dark:text-red-400'
                       }`}>
                         {isReceita ? '+' : '-'} R$ {Number(t.valor).toFixed(2)}
                       </span>
                     </div>
                     
                     <div className="flex items-center gap-2 mb-1">
-                      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div 
                           className={`h-full transition-all duration-300 ${
                             isReceita ? 'bg-green-500' : 'bg-red-500'
@@ -129,12 +130,12 @@ export function CardRecorrentes({ transacoes }: Props) {
                           style={{ width: `${porcentagem}%` }}
                         />
                       </div>
-                      <span className="text-xs text-gray-500 font-medium whitespace-nowrap">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap">
                         {porcentagem.toFixed(1)}%
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                    <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                       {t.data && (
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
@@ -142,7 +143,7 @@ export function CardRecorrentes({ transacoes }: Props) {
                         </div>
                       )}
                       {t.quantidadeParcelas > 1 && (
-                        <div className="flex items-center gap-1 font-medium text-purple-600">
+                        <div className="flex items-center gap-1 font-medium text-purple-600 dark:text-purple-400">
                           <Repeat className="w-3 h-3" />
                           {t.quantidadeParcelas} meses
                         </div>
@@ -154,32 +155,34 @@ export function CardRecorrentes({ transacoes }: Props) {
             })}
             
             {/* Total e Resumo */}
-            <div className="pt-2 border-t border-gray-200 space-y-1.5">
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1.5">
               <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600">Receitas mensais:</span>
-                <span className="font-semibold text-green-600">
+                <span className="text-gray-600 dark:text-gray-400">Receitas mensais:</span>
+                <span className="font-semibold text-green-600 dark:text-green-400">
                   R$ {totalReceitas.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600">Despesas mensais:</span>
-                <span className="font-semibold text-red-600">
+                <span className="text-gray-600 dark:text-gray-400">Despesas mensais:</span>
+                <span className="font-semibold text-red-600 dark:text-red-400">
                   R$ {totalDespesas.toFixed(2)}
                 </span>
               </div>
-              <div className="flex justify-between items-center pt-1 border-t border-gray-100">
-                <span className="text-sm font-medium text-gray-600">Impacto mensal:</span>
+              <div className="flex justify-between items-center pt-1 border-t border-gray-100 dark:border-gray-800">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Impacto mensal:</span>
                 <span className={`text-base font-bold ${
-                  (totalReceitas - totalDespesas) >= 0 ? 'text-green-600' : 'text-red-600'
+                  (totalReceitas - totalDespesas) >= 0 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : 'text-red-600 dark:text-red-400'
                 }`}>
                   {(totalReceitas - totalDespesas) >= 0 ? '+' : '-'} R$ {Math.abs(totalReceitas - totalDespesas).toFixed(2)}
                 </span>
               </div>
-              <div className="flex justify-between items-center text-xs text-gray-500">
+              <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
                 <span>Total de recorrências:</span>
                 <span className="font-semibold">{recorrenciasAgrupadas.length}</span>
               </div>
-              <div className="flex justify-between items-center text-xs text-gray-500">
+              <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
                 <span>Total de lançamentos:</span>
                 <span className="font-semibold">{recorrentes.length}</span>
               </div>

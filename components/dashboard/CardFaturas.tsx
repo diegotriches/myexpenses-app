@@ -50,13 +50,13 @@ export function CardFaturas({ transacoes, periodo }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CreditCard className="w-5 h-5 text-purple-600" />
+          <CreditCard className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           Faturas de Cartões
         </CardTitle>
       </CardHeader>
       <CardContent>
         {faturas.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
             Nenhuma despesa com cartão neste período
           </p>
         ) : (
@@ -66,47 +66,47 @@ export function CardFaturas({ transacoes, periodo }: Props) {
               {faturas.map((fatura) => (
                 <div 
                   key={fatura.cartaoId}
-                  className="flex items-center justify-between p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-between p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 >
                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                    <div className="p-1.5 rounded-full bg-purple-100">
-                      <CreditCard className="w-4 h-4 text-purple-600" />
+                    <div className="p-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30">
+                      <CreditCard className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                         {fatura.nome}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
                         Fatura do mês
                       </p>
                     </div>
                   </div>
 
                   <div className="text-right ml-2">
-                    <p className="text-sm font-bold text-gray-800 whitespace-nowrap">
+                    <p className="text-sm font-bold text-gray-800 dark:text-gray-200 whitespace-nowrap">
                       R$ {fatura.total.toFixed(2)}
                     </p>
-                    <span className="text-xs font-medium text-red-600">Em aberto</span>
+                    <span className="text-xs font-medium text-red-600 dark:text-red-400">Em aberto</span>
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Total */}
-            <div className="pt-2 border-t border-gray-200">
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-600">Total em faturas:</span>
-                <span className="text-base font-bold text-purple-600">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total em faturas:</span>
+                <span className="text-base font-bold text-purple-600 dark:text-purple-400">
                   R$ {totalGeral.toFixed(2)}
                 </span>
               </div>
             </div>
 
             {/* Aviso */}
-            <div className="flex items-start gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-800">
+            <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 dark:text-amber-300">
                 Despesas com cartão não impactam o saldo das contas até o pagamento da fatura.
               </p>
             </div>

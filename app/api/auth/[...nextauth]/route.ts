@@ -1,11 +1,11 @@
 import NextAuth, { AuthOptions, User } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { db } from "@/db";           // seu pool ou cliente Drizzle
-import { users } from "@/db/schema"; // sua tabela usuários do Drizzle
+import { db } from "@/db";
+import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
-const handler = NextAuth({
+export const authOptions: AuthOptions = {
   session: {
     strategy: "jwt",
   },
@@ -42,6 +42,7 @@ const handler = NextAuth({
           id: String(user.id),
           name: user.name || "",
           email: user.email,
+          image: user.foto || null, // Adiciona foto
         };
       },
     }),
@@ -51,13 +52,15 @@ const handler = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.email = user.email || ""; // Adicione fallback
       }
       return token;
     },
 
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id;
+        session.user.id = token.id as string;
+        session.user.email = token.email as string;
       }
       return session;
     },
@@ -66,6 +69,8 @@ const handler = NextAuth({
   pages: {
     signIn: "/login",
   },
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };

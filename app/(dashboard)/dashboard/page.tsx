@@ -7,13 +7,10 @@ import 'react-loading-skeleton/dist/skeleton.css';
 
 import { Transacao } from '@/types/transacao';
 import {
-  calcularResumo,
-  ultimasTransacoes,
-  contarCondicoes,
-  contarFormas,
-  calcularGraficoMeses
+  calcularResumo, ultimasTransacoes,
+  contarCondicoes, contarFormas, calcularGraficoMeses
 } from '@/utils/dashboard';
-import { usePeriodo } from '@/components/PeriodoContext';
+import { usePeriodo } from '@/contexts/PeriodoContext';
 
 import { CardResumo } from '@/components/dashboard/CardResumo';
 import { CardTransacoesRecentes } from '@/components/dashboard/CardTransacoesRecentes';
@@ -32,17 +29,8 @@ import { CardFaturas } from '@/components/dashboard/CardFaturas';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Wallet,
-  CreditCard,
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  PieChart,
-  BarChart3,
-  ArrowUpRight,
-  ArrowDownRight
-} from 'lucide-react';
+import { Wallet, CreditCard, DollarSign, PieChart, BarChart3, } from 'lucide-react';
+import { BsHouse } from "react-icons/bs";
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -116,11 +104,17 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-[1200px] mx-auto p-6 space-y-6">
       {/* Header simples */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Visão geral das suas finanças</p>
+        <div className="flex items-center gap-2 mb-3">
+          <BsHouse className="text-3xl text-blue-700 dark:text-blue-500" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        </div>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          Visão geral das suas finanças
+        </p>
+        <hr className="border-t border-gray-300 dark:border-gray-700" />
       </div>
 
       {/* Cards de resumo principal - agora usando CardResumo */}
@@ -145,26 +139,26 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Limite Total de Crédito</CardTitle>
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
+              <CreditCard className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">
                 {formatarMoeda(totais?.limiteTotal || 0)}
               </div>
               <div className="mt-3 space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Disponível:</span>
-                  <span className="font-medium text-green-600">
+                  <span className="text-muted-foreground dark:text-gray-400">Disponível:</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">
                     {formatarMoeda(totais?.limiteDisponivel || 0)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Usado:</span>
-                  <span className="font-medium text-red-600">
+                  <span className="text-muted-foreground dark:text-gray-400">Usado:</span>
+                  <span className="font-medium text-red-600 dark:text-red-400">
                     {formatarMoeda(totais?.limiteUsado || 0)}
                   </span>
                 </div>
-                <div className="w-full bg-muted rounded-full h-2 mt-2">
+                <div className="w-full bg-muted dark:bg-gray-700 rounded-full h-2 mt-2">
                   <div
                     className={`h-2 rounded-full transition-all ${(totais?.percentualUso || 0) > 80
                       ? 'bg-red-500'
@@ -175,7 +169,7 @@ export default function Dashboard() {
                     style={{ width: `${totais?.percentualUso || 0}%` }}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground text-right">
+                <p className="text-xs text-muted-foreground dark:text-gray-400 text-right">
                   {(totais?.percentualUso || 0).toFixed(1)}% utilizado
                 </p>
               </div>
@@ -201,19 +195,21 @@ export default function Dashboard() {
                 .map((conta) => (
                   <div
                     key={conta.id}
-                    className="flex items-center justify-between p-2 rounded-md bg-muted/50"
+                    className="flex items-center justify-between p-2 rounded-md bg-muted/50 dark:bg-gray-800/50"
                   >
                     <div className="flex items-center gap-2">
-                      <Wallet className="h-4 w-4 text-muted-foreground" />
+                      <Wallet className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
                       <div>
-                        <p className="text-sm font-medium">{conta.nome}</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{conta.nome}</p>
                         {conta.banco && (
-                          <p className="text-xs text-muted-foreground">{conta.banco}</p>
+                          <p className="text-xs text-muted-foreground dark:text-gray-400">{conta.banco}</p>
                         )}
                       </div>
                     </div>
                     <span
-                      className={`text-sm font-semibold ${conta.saldoAtual >= 0 ? 'text-green-600' : 'text-red-600'
+                      className={`text-sm font-semibold ${conta.saldoAtual >= 0 
+                        ? 'text-green-600 dark:text-green-400' 
+                        : 'text-red-600 dark:text-red-400'
                         }`}
                     >
                       {formatarMoeda(conta.saldoAtual)}
@@ -221,7 +217,7 @@ export default function Dashboard() {
                   </div>
                 ))}
               {(contas?.filter(c => c.tipo === 'BANCARIA').length || 0) === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
+                <p className="text-sm text-muted-foreground dark:text-gray-400 text-center py-4">
                   Nenhuma conta cadastrada
                 </p>
               )}

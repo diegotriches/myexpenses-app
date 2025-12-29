@@ -49,38 +49,42 @@ export function CardGraficoMeses({ dados }: Props) {
       </CardHeader>
       <CardContent>
         {dadosValidos.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">Nenhum dado disponível</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Nenhum dado disponível</p>
         ) : (
           <div className="space-y-4">
             {/* Cards de resumo */}
             <div className="grid grid-cols-3 gap-2">
-              <div className="flex flex-col items-center p-2 bg-green-50 rounded-lg border border-green-200">
-                <TrendingUp className="w-4 h-4 text-green-600 mb-1" />
-                <span className="text-xs text-gray-600 font-medium">Receitas</span>
-                <span className="text-sm font-bold text-green-700">
+              <div className="flex flex-col items-center p-2 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400 mb-1" />
+                <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Receitas</span>
+                <span className="text-sm font-bold text-green-700 dark:text-green-400">
                   {formatarMoeda(totais.receitas)}
                 </span>
               </div>
               
-              <div className="flex flex-col items-center p-2 bg-red-50 rounded-lg border border-red-200">
-                <TrendingDown className="w-4 h-4 text-red-600 mb-1" />
-                <span className="text-xs text-gray-600 font-medium">Despesas</span>
-                <span className="text-sm font-bold text-red-700">
+              <div className="flex flex-col items-center p-2 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+                <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400 mb-1" />
+                <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Despesas</span>
+                <span className="text-sm font-bold text-red-700 dark:text-red-400">
                   {formatarMoeda(totais.despesas)}
                 </span>
               </div>
               
               <div className={`flex flex-col items-center p-2 rounded-lg border ${
                 totais.balanco >= 0 
-                  ? 'bg-blue-50 border-blue-200' 
-                  : 'bg-orange-50 border-orange-200'
+                  ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' 
+                  : 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800'
               }`}>
                 <DollarSign className={`w-4 h-4 mb-1 ${
-                  totais.balanco >= 0 ? 'text-blue-600' : 'text-orange-600'
+                  totais.balanco >= 0 
+                    ? 'text-blue-600 dark:text-blue-400' 
+                    : 'text-orange-600 dark:text-orange-400'
                 }`} />
-                <span className="text-xs text-gray-600 font-medium">Balanço</span>
+                <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Balanço</span>
                 <span className={`text-sm font-bold ${
-                  totais.balanco >= 0 ? 'text-blue-700' : 'text-orange-700'
+                  totais.balanco >= 0 
+                    ? 'text-blue-700 dark:text-blue-400' 
+                    : 'text-orange-700 dark:text-orange-400'
                 }`}>
                   {formatarMoeda(totais.balanco)}
                 </span>
@@ -90,22 +94,24 @@ export function CardGraficoMeses({ dados }: Props) {
             {/* Gráfico */}
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
                 <XAxis 
                   dataKey="mes" 
                   tick={{ fontSize: 11, fill: '#6b7280' }}
                   stroke="#d1d5db"
+                  className="dark:stroke-gray-600"
                 />
                 <YAxis 
                   tick={{ fontSize: 11, fill: '#6b7280' }}
                   stroke="#d1d5db"
+                  className="dark:stroke-gray-600"
                   tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
                   width={60}
                 />
                 <Tooltip 
                   formatter={(value: number) => formatarMoeda(value)}
                   contentStyle={{
-                    backgroundColor: '#fff',
+                    backgroundColor: 'var(--tooltip-bg, #fff)',
                     border: '1px solid #e5e7eb',
                     borderRadius: '8px',
                     fontSize: '12px',
