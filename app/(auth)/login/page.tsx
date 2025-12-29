@@ -93,7 +93,7 @@ export default function LoginPage() {
                         </h1>
 
                         <p className="text-xl text-blue-100 leading-relaxed">
-                            Continue gerenciando suas finanças com inteligência. 
+                            Continue gerenciando suas finanças com inteligência.
                             Seus dados estão seguros e prontos para você.
                         </p>
 
@@ -183,7 +183,7 @@ export default function LoginPage() {
                                                         <button
                                                             type="button"
                                                             onClick={() => setShowPassword(!showPassword)}
-                                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
                                                         >
                                                             {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
                                                         </button>
@@ -208,7 +208,7 @@ export default function LoginPage() {
                                     <Button
                                         type="submit"
                                         disabled={isLoading}
-                                        className="w-full h-12 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                                        className="w-full h-12 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer"
                                     >
                                         {isLoading ? (
                                             <div className="flex items-center gap-2">
@@ -216,7 +216,7 @@ export default function LoginPage() {
                                                 Entrando...
                                             </div>
                                         ) : (
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 cursor-pointer">
                                                 <FiLogIn size={20} />
                                                 Entrar
                                             </div>
@@ -243,7 +243,7 @@ export default function LoginPage() {
                                 variant="outline"
                                 onClick={handleGoogleLogin}
                                 disabled={isLoading}
-                                className="w-full h-12 border-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 font-medium"
+                                className="w-full h-12 border-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 font-medium cursor-pointer"
                             >
                                 <FcGoogle size={24} className="mr-2" />
                                 Entrar com Google
