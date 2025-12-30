@@ -6,16 +6,35 @@ import bcrypt from "bcryptjs";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> } // Promise
 ) {
   try {
+    // AWAIT nos params
+    const params = await context.params;
     const id = Number(params.id);
+
+    // Validar ID
+    if (isNaN(id) || id <= 0) {
+      return NextResponse.json(
+        { message: "ID inválido" },
+        { status: 400 }
+      );
+    }
+
     const body = await req.json();
     const { senhaAtual, novaSenha } = body;
 
     if (!senhaAtual || !novaSenha) {
       return NextResponse.json(
         { message: "Senha atual e nova senha são obrigatórias" },
+        { status: 400 }
+      );
+    }
+
+    // Validação adicional da nova senha
+    if (novaSenha.length < 6) {
+      return NextResponse.json(
+        { message: "A nova senha deve ter no mínimo 6 caracteres" },
         { status: 400 }
       );
     }
