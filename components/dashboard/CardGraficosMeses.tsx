@@ -109,7 +109,7 @@ export function CardGraficoMeses({ dados }: Props) {
                   width={60}
                 />
                 <Tooltip 
-                  formatter={(value: number) => formatarMoeda(value)}
+                  formatter={(value: number | undefined) => value !== undefined ? formatarMoeda(value) : 'R$ 0,00'}
                   contentStyle={{
                     backgroundColor: 'var(--tooltip-bg, #fff)',
                     border: '1px solid #e5e7eb',

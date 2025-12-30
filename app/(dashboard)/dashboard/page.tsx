@@ -199,7 +199,7 @@ export default function Dashboard() {
             <CardHeader>
               <CardTitle className="text-sm font-medium flex items-center justify-between">
                 Minhas Contas
-                <Badge variant="secondary">
+                <Badge>
                   {totais?.quantidadeContas || 0}
                 </Badge>
               </CardTitle>
