@@ -8,7 +8,7 @@ interface TransferenciaInput {
   contaDestinoId: string;
   valor: number;
   descricao?: string;
-  data: Date;
+  data: string; // Formato: YYYY-MM-DD
 }
 
 export class TransferenciasService {
@@ -39,10 +39,6 @@ export class TransferenciasService {
         throw new Error("Conta de origem ou destino não encontrada");
       }
 
-      if (origem.tipo !== "BANCARIA" || destino.tipo !== "BANCARIA") {
-        throw new Error("Transferências só são permitidas entre contas bancárias");
-      }
-
       if (!origem.ativo || !destino.ativo) {
         throw new Error("Conta inativa não pode participar de transferência");
       }
@@ -59,7 +55,11 @@ export class TransferenciasService {
 
       // 3. ID único para vincular as duas movimentações
       const transferenciaId = crypto.randomUUID();
-      const dataFormatada = data.toISOString().split('T')[0];
+      
+      // Garantir formato de data correto (YYYY-MM-DD)
+      const dataFormatada = typeof data === 'string' 
+        ? data 
+        : new Date(data).toISOString().split('T')[0];
 
       const descricaoTransferencia = descricao || "Transferência entre contas";
 
@@ -84,7 +84,7 @@ export class TransferenciasService {
         descricao: `${descricaoTransferencia} ← ${origem.nome}`,
         saldoApos: novoSaldoDestino.toString(),
         origem: "TRANSFERENCIA",
-        referenciaId: transferenciaId, // ✅ Mesmo ID vincula as duas
+        referenciaId: transferenciaId, // Mesmo ID vincula as duas
       });
 
       // 6. Atualizar saldos das contas

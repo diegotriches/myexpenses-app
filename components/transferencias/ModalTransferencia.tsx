@@ -33,9 +33,8 @@ export function ModalTransferencia({
 }: ModalTransferenciaProps) {
   const { transferir, loading, error } = useTransferencias();
 
-  const contasBancarias = contas.filter(
-    (c) => c.tipo === "BANCARIA" && c.ativo
-  );
+  // Filtrar apenas contas ativas
+  const contasAtivas = contas.filter((c) => c.ativo);
 
   const [contaOrigemId, setContaOrigemId] = useState("");
   const [contaDestinoId, setContaDestinoId] = useState("");
@@ -101,63 +100,146 @@ export function ModalTransferencia({
         </DialogHeader>
 
         <div className="space-y-4">
-          <Select
-            value={contaOrigemId}
-            onValueChange={setContaOrigemId}
-            disabled={loading}>
-            <SelectTrigger>
-              <SelectValue placeholder="Conta de origem" />
-            </SelectTrigger>
-            <SelectContent>
-              {contasBancarias.map((conta) => (
-                <SelectItem key={conta.id} value={conta.id}>
-                  {conta.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div>
+            <label className="text-sm font-medium mb-1 block">Conta de origem</label>
+            <Select
+              value={contaOrigemId}
+              onValueChange={setContaOrigemId}
+              disabled={loading}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a conta de origem" />
+              </SelectTrigger>
+              <SelectContent>
+                {contasAtivas.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    Nenhuma conta cadastrada
+                  </div>
+                ) : (
+                  contasAtivas.map((conta) => (
+                    <SelectItem key={conta.id} value={conta.id}>
+                      <div className="flex items-center justify-between w-full gap-3">
+                        <span>{conta.nome}</span>
+                        <span className={`text-xs font-medium ${
+                          Number(conta.saldoAtual) >= 0 
+                            ? 'text-green-600 dark:text-green-400' 
+                            : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL'
+                          }).format(Number(conta.saldoAtual))}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select
-            value={contaDestinoId}
-            onValueChange={setContaDestinoId}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Conta de destino" />
-            </SelectTrigger>
-            <SelectContent>
-              {contasBancarias
-                .filter((c) => c.id !== contaOrigemId)
-                .map((conta) => (
-                  <SelectItem key={conta.id} value={conta.id}>
-                    {conta.nome}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
+          <div>
+            <label className="text-sm font-medium mb-1 block">Conta de destino</label>
+            <Select
+              value={contaDestinoId}
+              onValueChange={setContaDestinoId}
+              disabled={loading || !contaOrigemId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a conta de destino" />
+              </SelectTrigger>
+              <SelectContent>
+                {contasAtivas
+                  .filter((c) => c.id !== contaOrigemId)
+                  .map((conta) => (
+                    <SelectItem key={conta.id} value={conta.id}>
+                      <div className="flex items-center justify-between w-full gap-3">
+                        <span>{conta.nome}</span>
+                        <span className={`text-xs font-medium ${
+                          Number(conta.saldoAtual) >= 0 
+                            ? 'text-green-600 dark:text-green-400' 
+                            : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL'
+                          }).format(Number(conta.saldoAtual))}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="Valor"
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-          />
+          <div>
+            <label className="text-sm font-medium mb-1 block">Valor</label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="R$ 0,00"
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              disabled={loading}
+            />
+          </div>
 
-          <Input
-            type="date"
-            value={data}
-            onChange={(e) => setData(e.target.value)}
-          />
+          <div>
+            <label className="text-sm font-medium mb-1 block">Data</label>
+            <Input
+              type="date"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              disabled={loading}
+            />
+          </div>
 
-          <Input
-            placeholder="Descrição (opcional)"
-            value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
-          />
+          <div>
+            <label className="text-sm font-medium mb-1 block">Descrição (opcional)</label>
+            <Input
+              placeholder="Ex: Transferência para poupança"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              disabled={loading}
+            />
+          </div>
 
           {error && (
-            <p className="text-sm text-red-600">{error}</p>
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            </div>
+          )}
+
+          {/* Resumo da transferência */}
+          {contaOrigemId && contaDestinoId && valorNumerico > 0 && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3 space-y-2">
+              <p className="text-xs font-medium text-blue-900 dark:text-blue-300">
+                📋 Resumo da transferência
+              </p>
+              <div className="space-y-1 text-xs text-blue-800 dark:text-blue-400">
+                <div className="flex justify-between">
+                  <span>De:</span>
+                  <span className="font-medium">
+                    {contasAtivas.find(c => c.id === contaOrigemId)?.nome}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Para:</span>
+                  <span className="font-medium">
+                    {contasAtivas.find(c => c.id === contaDestinoId)?.nome}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Valor:</span>
+                  <span className="font-semibold">
+                    {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL'
+                    }).format(valorNumerico)}
+                  </span>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
@@ -173,7 +255,7 @@ export function ModalTransferencia({
             onClick={handleSubmit}
             disabled={!formularioValido || loading}
           >
-            {loading ? "Transferindo..." : "Transferir"}
+            {loading ? "Transferindo..." : "Confirmar Transferência"}
           </Button>
         </DialogFooter>
       </DialogContent>

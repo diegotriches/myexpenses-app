@@ -78,7 +78,6 @@ export const transacoes = pgTable("transacoes", {
 export const contas = pgTable("contas", {
   id: uuid("id").defaultRandom().primaryKey(),
   nome: varchar("nome", { length: 150 }).notNull(),
-  tipo: varchar("tipo", { length: 20 }).notNull(),
   ativo: boolean("ativo").default(true).notNull(),
   observacoes: text("observacoes"),
   saldoInicial: numeric("saldo_inicial", { precision: 14, scale: 2 }).notNull(),

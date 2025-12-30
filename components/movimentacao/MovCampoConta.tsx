@@ -25,10 +25,10 @@ interface Props {
 export default function MovCampoConta({ form, update }: Props) {
   const { contas, loading, error } = useContas();
 
-  // Filtrar apenas contas bancárias (não cartões de crédito)
-  const contasBancarias = contas.filter((c) => c.tipo === "BANCARIA");
+  // Filtrar apenas contas ativas
+  const contasAtivas = contas.filter((c) => c.ativo);
 
-  const contaSelecionada = contasBancarias.find((c) => c.id === form.contaId);
+  const contaSelecionada = contasAtivas.find((c) => c.id === form.contaId);
   
   // Obtém o saldo da conta
   const saldoAtual = contaSelecionada?.saldoAtual ?? 0;
@@ -58,7 +58,7 @@ export default function MovCampoConta({ form, update }: Props) {
     return (
       <div>
         <Label>Conta</Label>
-        <div className="h-10 bg-gray-100 rounded-md animate-pulse" />
+        <div className="h-10 bg-gray-100 dark:bg-gray-800 rounded-md animate-pulse" />
       </div>
     );
   }
@@ -101,7 +101,7 @@ export default function MovCampoConta({ form, update }: Props) {
                     {contaSelecionada.nome}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {formatarMoeda(saldoAtual)}
+                    {formatarMoeda(Number(saldoAtual))}
                   </span>
                 </div>
               </div>
@@ -110,12 +110,12 @@ export default function MovCampoConta({ form, update }: Props) {
         </SelectTrigger>
 
         <SelectContent>
-          {contasBancarias.length === 0 ? (
+          {contasAtivas.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              Nenhuma conta bancária cadastrada
+              Nenhuma conta cadastrada
             </div>
           ) : (
-            contasBancarias.map((conta) => {
+            contasAtivas.map((conta) => {
               const bancoImg = getBancoImg(conta.banco);
               
               return (
@@ -151,10 +151,10 @@ export default function MovCampoConta({ form, update }: Props) {
                         )}
                         <span
                           className={`text-xs font-medium ${
-                            conta.saldoAtual >= 0 ? "text-green-600" : "text-red-600"
+                            Number(conta.saldoAtual) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                           }`}
                         >
-                          {formatarMoeda(conta.saldoAtual)}
+                          {formatarMoeda(Number(conta.saldoAtual))}
                         </span>
                       </div>
                     </div>
@@ -172,22 +172,22 @@ export default function MovCampoConta({ form, update }: Props) {
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Saldo atual:</span>
             <span className="font-medium">
-              {formatarMoeda(saldoAtual)}
+              {formatarMoeda(Number(saldoAtual))}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-1 text-muted-foreground">
               {form.tipo === "entrada" ? (
-                <TrendingUp className="h-3 w-3 text-green-600" />
+                <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
               ) : (
-                <TrendingDown className="h-3 w-3 text-red-600" />
+                <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
               )}
               <span>{form.tipo === "entrada" ? "Receita" : "Despesa"}:</span>
             </div>
             <span
               className={`font-medium ${
-                form.tipo === "entrada" ? "text-green-600" : "text-red-600"
+                form.tipo === "entrada" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
               }`}
             >
               {form.tipo === "entrada" ? "+" : "-"}
@@ -199,7 +199,7 @@ export default function MovCampoConta({ form, update }: Props) {
             <span className="text-sm font-medium">Saldo projetado:</span>
             <span
               className={`font-semibold ${
-                saldoProjetado! >= 0 ? "text-green-600" : "text-red-600"
+                saldoProjetado! >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
               }`}
             >
               {formatarMoeda(saldoProjetado!)}
@@ -208,9 +208,9 @@ export default function MovCampoConta({ form, update }: Props) {
 
           {/* Alerta se o saldo ficar negativo */}
           {saldoProjetado! < 0 && form.tipo === "saida" && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2 flex items-start gap-2">
-              <Wallet className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-              <span className="text-xs text-yellow-800">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-2 flex items-start gap-2">
+              <Wallet className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+              <span className="text-xs text-yellow-800 dark:text-yellow-300">
                 Esta transação deixará sua conta com saldo negativo
               </span>
             </div>

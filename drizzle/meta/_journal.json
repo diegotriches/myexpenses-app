@@ -57,6 +57,13 @@
       "when": 1766858657288,
       "tag": "0007_redundant_jack_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1767135403671,
+      "tag": "0008_low_marten_broadcloak",
+      "breakpoints": true
     }
   ]
 }

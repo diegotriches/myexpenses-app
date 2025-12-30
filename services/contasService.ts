@@ -4,17 +4,11 @@ import { eq } from "drizzle-orm";
 
 interface CriarContaInput {
   nome: string;
-  tipo: "BANCARIA" | "CARTAO";
   ativo?: boolean;
   saldoInicial: number;
   saldoAtual?: number;
   observacoes?: string | null;
   banco?: string | null;
-  bandeira?: string | null;
-  ultimosDigitos?: string | null;
-  limite?: number | null;
-  fechamentoFatura?: number | null;
-  vencimentoFatura?: number | null;
 }
 
 type AtualizarContaInput = Partial<CriarContaInput>;
@@ -28,9 +22,6 @@ export class ContasService {
       ...c,
       saldoInicial: Number(c.saldoInicial),
       saldoAtual: Number(c.saldoAtual),
-      limite: c.limite !== null ? Number(c.limite) : null,
-      fechamentoFatura: c.fechamentoFatura,
-      vencimentoFatura: c.vencimentoFatura,
     }));
   }
 
@@ -43,7 +34,6 @@ export class ContasService {
         .insert(contas)
         .values({
           nome: data.nome,
-          tipo: data.tipo,
           ativo: data.ativo ?? true,
 
           saldoInicial: saldoInicial.toString(),
@@ -51,11 +41,6 @@ export class ContasService {
 
           observacoes: data.observacoes ?? null,
           banco: data.banco ?? null,
-          bandeira: data.bandeira ?? null,
-          ultimosDigitos: data.ultimosDigitos ?? null,
-          limite: data.limite != null ? data.limite.toString() : null,
-          fechamentoFatura: data.fechamentoFatura ?? null,
-          vencimentoFatura: data.vencimentoFatura ?? null,
 
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -75,7 +60,6 @@ export class ContasService {
           descricao: "Saldo inicial da conta",
           saldoApos: saldoInicial.toString(),
           origem: "AJUSTE",
-          // createdAt é defaultNow()
         });
       }
 
@@ -83,7 +67,6 @@ export class ContasService {
         ...conta,
         saldoInicial,
         saldoAtual: saldoInicial,
-        limite: conta.limite !== null ? Number(conta.limite) : null,
       };
     });
   }
@@ -95,24 +78,10 @@ export class ContasService {
     };
 
     if (data.nome !== undefined) updatedData.nome = data.nome;
-    if (data.tipo !== undefined) updatedData.tipo = data.tipo;
     if (data.ativo !== undefined) updatedData.ativo = data.ativo;
     if (data.observacoes !== undefined)
       updatedData.observacoes = data.observacoes;
-
-    if (data.limite !== undefined) {
-      updatedData.limite =
-        data.limite !== null ? data.limite.toString() : null;
-    }
-
     if (data.banco !== undefined) updatedData.banco = data.banco;
-    if (data.bandeira !== undefined) updatedData.bandeira = data.bandeira;
-    if (data.ultimosDigitos !== undefined)
-      updatedData.ultimosDigitos = data.ultimosDigitos;
-    if (data.fechamentoFatura !== undefined)
-      updatedData.fechamentoFatura = data.fechamentoFatura;
-    if (data.vencimentoFatura !== undefined)
-      updatedData.vencimentoFatura = data.vencimentoFatura;
 
     const [conta] = await db
       .update(contas)
@@ -128,7 +97,6 @@ export class ContasService {
       ...conta,
       saldoInicial: Number(conta.saldoInicial),
       saldoAtual: Number(conta.saldoAtual),
-      limite: conta.limite != null ? Number(conta.limite) : null,
     };
   }
 
@@ -180,7 +148,6 @@ export class ContasService {
         descricao: descricao || "Ajuste de saldo",
         saldoApos: novoSaldo.toString(),
         origem: "AJUSTE",
-        // createdAt é defaultNow(), não precisa passar
       });
 
       // 3. Atualizar saldo da conta

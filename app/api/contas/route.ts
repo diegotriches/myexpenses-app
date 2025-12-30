@@ -9,7 +9,6 @@ export async function GET() {
       ...conta,
       saldoInicial: Number(conta.saldoInicial),
       saldoAtual: Number(conta.saldoAtual),
-      limite: conta.limite !== null ? Number(conta.limite) : null,
     }));
 
     return NextResponse.json(normalizadas);
@@ -26,16 +25,10 @@ export async function POST(req: Request) {
   try {
     const data = await req.json();
 
-    if (!data.nome || !data.tipo) {
+    // Validação básica
+    if (!data.nome) {
       return NextResponse.json(
-        { message: "Nome e tipo são obrigatórios" },
-        { status: 400 }
-      );
-    }
-
-    if (!["BANCARIA", "CARTAO"].includes(data.tipo)) {
-      return NextResponse.json(
-        { message: "Tipo de conta inválido" },
+        { message: "Nome é obrigatório" },
         { status: 400 }
       );
     }
@@ -49,31 +42,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validação específica por tipo
-    if (data.tipo === "CARTAO") {
-      if (!data.banco || !data.limite) {
-        return NextResponse.json(
-          { message: "Cartão exige banco e limite" },
-          { status: 400 }
-        );
-      }
-    }
-
     const conta = await ContasService.criar({
       nome: data.nome,
-      tipo: data.tipo,
       ativo: data.ativo ?? true,
       observacoes: data.observacoes ?? null,
-
       saldoInicial,
       saldoAtual: saldoInicial,
-
       banco: data.banco ?? null,
-      bandeira: data.bandeira ?? null,
-      ultimosDigitos: data.ultimosDigitos ?? null,
-      limite: data.limite != null ? Number(data.limite) : null,
-      fechamentoFatura: data.fechamentoFatura ?? null,
-      vencimentoFatura: data.vencimentoFatura ?? null,
     });
 
     return NextResponse.json(conta, { status: 201 });

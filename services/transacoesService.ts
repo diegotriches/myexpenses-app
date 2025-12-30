@@ -95,8 +95,8 @@ export class TransacoesService {
                         ? saldoAtual + valor
                         : saldoAtual - valor;
 
-                    // Validação de saldo insuficiente
-                    if (conta.tipo === "BANCARIA" && tipo === "saida" && saldoAtual < valor) {
+                    // Validação de saldo insuficiente (removida validação de tipo)
+                    if (tipo === "saida" && saldoAtual < valor) {
                         throw new Error("Saldo insuficiente");
                     }
                 }

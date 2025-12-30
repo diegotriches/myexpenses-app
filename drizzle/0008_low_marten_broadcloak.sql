@@ -1,0 +1,1 @@
+ALTER TABLE "contas" DROP COLUMN "tipo";

@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
 
     // Converte para array e formata
     const transferencias = Array.from(transferenciasMap.values())
-      .filter(t => t.origem && t.destino) // Garante que tem ambas as partes
+      .filter(t => t.origem && t.destino)
       .map(t => ({
         id: t.id,
         contaOrigemId: t.origem.contaId,
@@ -133,13 +133,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Normalizar data para formato YYYY-MM-DD
+    const dataFormatada = data.includes('T') 
+      ? new Date(data).toISOString().split('T')[0]
+      : data;
+
     // Executa transferência
     const resultado = await TransferenciasService.transferir({
       contaOrigemId,
       contaDestinoId,
       valor: Number(valor),
       descricao: descricao || undefined,
-      data: new Date(data),
+      data: dataFormatada,
     });
 
     return NextResponse.json(resultado, { status: 201 });

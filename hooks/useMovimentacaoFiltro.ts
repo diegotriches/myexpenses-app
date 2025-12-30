@@ -18,16 +18,22 @@ export function useMovimentacaoFiltro(transacoes: Transacao[]) {
 
   const transacoesFiltradas = useMemo(() => {
     return transacoes.filter((t) => {
+      // Filtro por tipo (aba)
       if (aba === "entrada" && t.tipo !== "entrada") return false;
       if (aba === "saida" && t.tipo !== "saida") return false;
 
+      // Filtro por categoria
       if (categoria && t.categoria !== categoria) return false;
 
+      // Filtro por busca na descrição
       if (busca && !(t.descricao?.toLowerCase().includes(busca.toLowerCase()) ?? false))
         return false;
 
-      if (valorMin !== null && t.valor < valorMin) return false;
-      if (valorMax !== null && t.valor > valorMax) return false;
+      // Filtro por valor mínimo - converter string para number
+      if (valorMin !== null && Number(t.valor) < valorMin) return false;
+      
+      // Filtro por valor máximo - converter string para number
+      if (valorMax !== null && Number(t.valor) > valorMax) return false;
 
       return true;
     });
