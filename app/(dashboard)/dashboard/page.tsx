@@ -37,9 +37,9 @@ const fetcher = (url: string) => fetch(url).then(res => res.json());
 interface Conta {
   id: string;
   nome: string;
-  tipo: string;
   saldoAtual: number;
   banco?: string;
+  ativo: boolean;
 }
 
 interface Cartao {
@@ -49,6 +49,7 @@ interface Cartao {
   limite: number;
   limiteDisponivel: number;
   bandeira: string;
+  ativo: boolean;
 }
 
 export default function Dashboard() {
@@ -63,6 +64,7 @@ export default function Dashboard() {
   );
   const { data: contas, isLoading: loadingContas } = useSWR<Conta[]>('/api/contas', fetcher);
   const { data: cartoes, isLoading: loadingCartoes } = useSWR<Cartao[]>('/api/cartoes', fetcher);
+  
   const graficoMeses = useMemo(() => {
     if (!transacoes) return [];
     return calcularGraficoMeses(transacoes, 6);
@@ -77,20 +79,28 @@ export default function Dashboard() {
   const totais = useMemo(() => {
     if (!contas || !cartoes) return null;
 
-    const contasBancarias = contas.filter(c => c.tipo === 'BANCARIA');
-    const cartoesCredito = cartoes.filter(c => c.tipo === 'credito');
+    // Total de todas as contas ativas
+    const contasAtivas = contas.filter(c => c.ativo);
+    const totalContas = contasAtivas.reduce((acc, c) => acc + Number(c.saldoAtual), 0);
 
-    const totalContas = contasBancarias.reduce((acc, c) => acc + Number(c.saldoAtual), 0);
-    const limiteTotal = cartoesCredito.reduce((acc, c) => acc + c.limite, 0);
-    const limiteDisponivel = cartoesCredito.reduce((acc, c) => acc + c.limiteDisponivel, 0);
+    // Cartões de crédito ativos
+    const cartoesCredito = cartoes.filter(c => c.tipo === 'credito' && c.ativo);
+    const limiteTotal = cartoesCredito.reduce((acc, c) => acc + Number(c.limite), 0);
+
+    // Calcular limite usado: soma dos gastos já feitos em cada cartão
+    // O limiteDisponivel vem da API e já foi calculado considerando as transações
+    const limiteDisponivel = cartoesCredito.reduce((acc, c) => acc + Number(c.limiteDisponivel), 0);
     const limiteUsado = limiteTotal - limiteDisponivel;
+    const percentualUso = limiteTotal > 0 ? (limiteUsado / limiteTotal) * 100 : 0;
 
     return {
       totalContas,
       limiteTotal,
-      limiteDisponivel,
-      limiteUsado,
-      percentualUso: limiteTotal > 0 ? (limiteUsado / limiteTotal) * 100 : 0
+      limiteDisponivel: Math.max(0, limiteDisponivel),
+      limiteUsado: Math.max(0, limiteUsado),
+      percentualUso: Math.max(0, percentualUso),
+      quantidadeContas: contasAtivas.length,
+      quantidadeCartoes: cartoesCredito.length
     };
   }, [contas, cartoes]);
 
@@ -117,7 +127,7 @@ export default function Dashboard() {
         <hr className="border-t border-gray-300 dark:border-gray-700" />
       </div>
 
-      {/* Cards de resumo principal - agora usando CardResumo */}
+      {/* Cards de resumo principal */}
       {loadingTransacoes || loadingContas ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
@@ -128,14 +138,14 @@ export default function Dashboard() {
         <CardResumo
           resumo={resumo!}
           saldoContas={totais?.totalContas}
-          quantidadeContas={contas?.filter(c => c.tipo === 'BANCARIA').length}
+          quantidadeContas={totais?.quantidadeContas}
         />
       )}
 
       {/* Cards de Cartões - 2 colunas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Limite Total de Crédito */}
-        {loadingCartoes ? skeleton : (
+        {loadingCartoes || loadingTransacoes ? skeleton : (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Limite Total de Crédito</CardTitle>
@@ -160,19 +170,25 @@ export default function Dashboard() {
                 </div>
                 <div className="w-full bg-muted dark:bg-gray-700 rounded-full h-2 mt-2">
                   <div
-                    className={`h-2 rounded-full transition-all ${(totais?.percentualUso || 0) > 80
-                      ? 'bg-red-500'
-                      : (totais?.percentualUso || 0) > 50
+                    className={`h-2 rounded-full transition-all ${
+                      (totais?.percentualUso || 0) > 80
+                        ? 'bg-red-500'
+                        : (totais?.percentualUso || 0) > 50
                         ? 'bg-yellow-500'
                         : 'bg-green-500'
-                      }`}
-                    style={{ width: `${totais?.percentualUso || 0}%` }}
+                    }`}
+                    style={{ width: `${Math.min(totais?.percentualUso || 0, 100)}%` }}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground dark:text-gray-400 text-right">
                   {(totais?.percentualUso || 0).toFixed(1)}% utilizado
                 </p>
               </div>
+              {totais?.quantidadeCartoes === 0 && (
+                <p className="text-xs text-muted-foreground dark:text-gray-400 text-center mt-4">
+                  Nenhum cartão de crédito cadastrado
+                </p>
+              )}
             </CardContent>
           </Card>
         )}
@@ -184,13 +200,13 @@ export default function Dashboard() {
               <CardTitle className="text-sm font-medium flex items-center justify-between">
                 Minhas Contas
                 <Badge variant="secondary">
-                  {contas?.filter(c => c.tipo === 'BANCARIA').length || 0}
+                  {totais?.quantidadeContas || 0}
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {contas
-                ?.filter(c => c.tipo === 'BANCARIA')
+                ?.filter(c => c.ativo)
                 .slice(0, 3)
                 .map((conta) => (
                   <div
@@ -207,18 +223,24 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <span
-                      className={`text-sm font-semibold ${conta.saldoAtual >= 0 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : 'text-red-600 dark:text-red-400'
-                        }`}
+                      className={`text-sm font-semibold ${
+                        conta.saldoAtual >= 0 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : 'text-red-600 dark:text-red-400'
+                      }`}
                     >
                       {formatarMoeda(conta.saldoAtual)}
                     </span>
                   </div>
                 ))}
-              {(contas?.filter(c => c.tipo === 'BANCARIA').length || 0) === 0 && (
+              {(totais?.quantidadeContas || 0) === 0 && (
                 <p className="text-sm text-muted-foreground dark:text-gray-400 text-center py-4">
                   Nenhuma conta cadastrada
+                </p>
+              )}
+              {(totais?.quantidadeContas || 0) > 3 && (
+                <p className="text-xs text-muted-foreground dark:text-gray-400 text-center pt-2">
+                  + {(totais?.quantidadeContas || 0) - 3} contas
                 </p>
               )}
             </CardContent>

@@ -62,17 +62,12 @@ export const transacoes = pgTable("transacoes", {
   valor: numeric("valor", { precision: 14, scale: 2 }).notNull(),
   categoria: text("categoria"),
   formaPagamento: text("formaPagamento"),
-
   contaId: uuid("conta_id").references(() => contas.id),
-
   transferenciaId: uuid("transferencia_id"),
-
   cartaoId: integer("cartaoId").references(() => cartoes.id),
-
   recorrente: boolean("recorrente").default(false),
   recorrenciaId: varchar("recorrenciaId", { length: 36 }),
   repeticoes: integer("repeticoes"),
-
   parcelado: boolean("parcelado").default(false),
   parcelamentoId: varchar("parcelamentoId", { length: 36 }),
   parcelas: integer("parcelas"),

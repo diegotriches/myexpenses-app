@@ -14,8 +14,29 @@ export async function GET() {
     const resultado = await Promise.all(
       listaCartoes.map(async (cartao) => {
         const limite = Number(cartao.limite ?? 0);
-        const disponivel = Number(cartao.limiteDisponivel ?? 0);
-        const emUso = limite - disponivel;
+
+        // Calcular limite disponível baseado nas transações reais do cartão
+        let limiteUsado = 0;
+
+        if (cartao.tipo === 'credito') {
+          // Buscar faturas não pagas do cartão
+          const faturasNaoPagas = await db
+            .select()
+            .from(faturas)
+            .where(
+              and(
+                eq(faturas.cartaoId, cartao.id),
+                eq(faturas.paga, false)
+              )
+            );
+
+          // Somar o valor de todas as faturas em aberto
+          limiteUsado = faturasNaoPagas.reduce((acc, f) => {
+            return acc + Number(f.total);
+          }, 0);
+        }
+
+        const limiteDisponivel = Math.max(0, limite - limiteUsado);
 
         /* Buscar fatura atual */
         const [faturaAtual] = await db
@@ -63,10 +84,10 @@ export async function GET() {
         return {
           ...cartao,
           limite,
-          limiteDisponivel: disponivel,
-          emUso,
+          limiteDisponivel,
+          emUso: limiteUsado,
           faturaAtual: faturaInfo,
-          contaVinculadaId: cartao.contaVinculadaId ?? null, // ✅ Retorna conta vinculada
+          contaVinculadaId: cartao.contaVinculadaId ?? null,
         };
       })
     );
@@ -93,7 +114,7 @@ export async function POST(req: Request) {
       diaVencimento,
       ativo,
       observacoes,
-      contaVinculadaId, // ✅ NOVO CAMPO
+      contaVinculadaId,
     } = body;
 
     if (!nome || !tipo) {
@@ -146,7 +167,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Validação opcional da conta vinculada
+    // Validação opcional da conta vinculada
     if (contaVinculadaId && typeof contaVinculadaId !== "string") {
       return NextResponse.json(
         { error: "Conta vinculada inválida" },
@@ -171,7 +192,7 @@ export async function POST(req: Request) {
 
       ...(observacoes && { observacoes }),
       
-      // ✅ NOVO CAMPO
+      // NOVO CAMPO
       ...(contaVinculadaId && { contaVinculadaId }),
     };
 

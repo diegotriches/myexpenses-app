@@ -40,7 +40,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
         diaVencimento: "",
         ativo: true,
         observacoes: "",
-        contaVinculadaId: "none", // ✅ Usa "none" ao invés de ""
+        contaVinculadaId: "none",
     });
 
     useEffect(() => {
@@ -55,7 +55,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                 diaVencimento: initialValues.diaVencimento?.toString() ?? "",
                 ativo: initialValues.ativo,
                 observacoes: initialValues.observacoes ?? "",
-                contaVinculadaId: initialValues.contaVinculadaId ?? "none", // ✅ Usa "none"
+                contaVinculadaId: initialValues.contaVinculadaId ?? "none",
             });
         }
     }, [initialValues]);
@@ -116,20 +116,19 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                 form.tipo === "credito" ? Number(form.diaVencimento) : undefined,
             ativo: form.ativo,
             observacoes: form.observacoes || undefined,
-            // ✅ Converte "none" para null/undefined
             contaVinculadaId: form.contaVinculadaId === "none" ? null : form.contaVinculadaId,
         };
 
         await onSubmit(payload);
     }
 
-    // Filtrar apenas contas bancárias ativas
-    const contasBancarias = contas.filter(c => c.tipo === "BANCARIA" && c.ativo);
+    // Filtrar apenas contas ativas
+    const contasAtivas = contas.filter(c => c.ativo);
 
     return (
         <div className="space-y-3">
             {/* Descrição do modal */}
-            <p className="text-gray-600 text-sm">
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
                 Preencha os dados abaixo para cadastrar ou editar um cartão.
             </p>
 
@@ -192,16 +191,22 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                             <SelectValue placeholder="Selecione uma conta (opcional)" />
                         </SelectTrigger>
                         <SelectContent>
-                            {/* ✅ Usa "none" ao invés de "" */}
                             <SelectItem value="none">Nenhuma (definir depois)</SelectItem>
-                            {contasBancarias.map(conta => (
-                                <SelectItem key={conta.id} value={conta.id}>
-                                    {conta.nome} - R$ {Number(conta.saldoAtual).toFixed(2)}
+                            {contasAtivas.length > 0 ? (
+                                contasAtivas.map(conta => (
+                                    <SelectItem key={conta.id} value={conta.id}>
+                                        {conta.nome} - R$ {Number(conta.saldoAtual).toFixed(2)}
+                                        {conta.banco && ` (${conta.banco})`}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <SelectItem value="no-accounts" disabled>
+                                    Nenhuma conta cadastrada
                                 </SelectItem>
-                            ))}
+                            )}
                         </SelectContent>
                     </Select>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         💡 Esta conta será usada como padrão para pagar a fatura do cartão
                     </p>
                 </div>

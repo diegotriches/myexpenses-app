@@ -30,7 +30,7 @@ export async function PUT(
     let novoLimiteDisponivel = cartaoAtual.limiteDisponivel ?? 0;
 
     // Regra para cartão de crédito
-    if (tipo === "credito") { // ✅ Corrigido de "CARTAO" para "credito"
+    if (tipo === "credito") {
       if (body.limite !== undefined) {
         const limiteNum = Number(body.limite);
 
@@ -56,7 +56,7 @@ export async function PUT(
       novoLimiteDisponivel = 0;
     }
 
-    // ✅ Validação da conta vinculada
+    // Validação da conta vinculada
     if (body.contaVinculadaId !== undefined) {
       if (body.contaVinculadaId !== null && typeof body.contaVinculadaId !== "string") {
         return NextResponse.json(
@@ -92,7 +92,6 @@ export async function PUT(
         ultimosDigitos: Number(body.ultimosDigitos),
       }),
 
-      // ✅ NOVO CAMPO - Permite null para remover vinculação
       ...(body.contaVinculadaId !== undefined && {
         contaVinculadaId: body.contaVinculadaId,
       }),
