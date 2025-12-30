@@ -95,7 +95,7 @@ export default function PeriodoSelector() {
           variant="ghost"
           size="icon"
           onClick={voltarMes}
-          className="h-8 w-8 text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-700"
+          className="h-8 w-8 text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer"
           title="Mês anterior (Ctrl + ←)"
         >
           <ChevronLeft size={18} />
@@ -112,7 +112,7 @@ export default function PeriodoSelector() {
                   ? 'text-blue-600 dark:text-blue-400' 
                   : 'text-gray-900 dark:text-white'
                 }
-                hover:bg-gray-100 dark:hover:bg-gray-700
+                hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer
               `}
             >
               <Calendar size={16} className="mr-2" />
@@ -135,7 +135,7 @@ export default function PeriodoSelector() {
                     variant="outline"
                     size="sm"
                     onClick={voltarParaHoje}
-                    className="h-7 text-xs"
+                    className="h-7 text-xs cursor-pointer"
                   >
                     <Home size={12} className="mr-1" />
                     Hoje
@@ -201,7 +201,7 @@ export default function PeriodoSelector() {
           variant="ghost"
           size="icon"
           onClick={avancarMes}
-          className="h-8 w-8 text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-700"
+          className="h-8 w-8 text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer"
           title="Próximo mês (Ctrl + →)"
         >
           <ChevronRight size={18} />
@@ -213,7 +213,7 @@ export default function PeriodoSelector() {
             variant="outline"
             size="sm"
             onClick={voltarParaHoje}
-            className="ml-2 h-8 text-xs"
+            className="ml-2 h-8 text-xs cursor-pointer"
             title="Voltar para o mês atual"
           >
             <Home size={14} className="mr-1" />

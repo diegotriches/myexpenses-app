@@ -39,25 +39,46 @@ export default function PerfilPage() {
       setLoading(true);
       setError(null);
 
+      console.log("🔄 Carregando dados do usuário...");
+      
+      // ✅ CORRIGIDO: Endpoint correto
       const resUsuario = await api.get("/users/me");
+      
+      console.log("📦 Resposta da API:", resUsuario.data);
+
       if (resUsuario.data) {
-        setUsuario({
+        const dadosUsuario = {
           id: resUsuario.data.id,
-          nome: resUsuario.data.name || resUsuario.data.nome,
+          // Aceita tanto 'nome' quanto 'name'
+          nome: resUsuario.data.nome || resUsuario.data.name || "",
           email: resUsuario.data.email,
           foto: resUsuario.data.foto || null,
-          createdAt: resUsuario.data.createdAt,
-        });
+          createdAt: resUsuario.data.createdAt || resUsuario.data.created_at,
+        };
+
+        console.log("✅ Dados processados:", dadosUsuario);
+        setUsuario(dadosUsuario);
       }
     } catch (err: any) {
-      console.error("Erro ao carregar dados:", err);
-      setError(err.response?.data?.message || "Erro ao carregar dados. Tente novamente.");
+      console.error("❌ Erro ao carregar dados:", err);
+      console.error("❌ Detalhes:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
+      
+      setError(
+        err.response?.data?.message || 
+        err.response?.data?.error ||
+        "Erro ao carregar dados. Tente novamente."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const atualizarUsuario = (dados: Partial<Usuario>) => {
+    console.log("🔄 Atualizando usuário local:", dados);
     setUsuario((prev) => ({ ...prev, ...dados }));
   };
 
@@ -65,13 +86,13 @@ export default function PerfilPage() {
   const SkeletonCard = () => (
     <Card>
       <CardHeader>
-        <div className="h-6 bg-gray-200 rounded w-1/3 mb-2 animate-pulse" />
-        <div className="h-4 bg-gray-200 rounded w-2/3 animate-pulse" />
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2 animate-pulse" />
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 animate-pulse" />
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="h-10 bg-gray-200 rounded animate-pulse" />
-        <div className="h-10 bg-gray-200 rounded animate-pulse" />
-        <div className="h-10 bg-gray-200 rounded animate-pulse" />
+        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
       </CardContent>
     </Card>
   );
@@ -87,10 +108,10 @@ export default function PerfilPage() {
     return (
       <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-6">
         <div className="space-y-2">
-          <div className="h-8 bg-gray-200 rounded w-48 animate-pulse" />
-          <div className="h-4 bg-gray-200 rounded w-96 animate-pulse" />
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 animate-pulse" />
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse" />
         </div>
-        <div className="h-12 bg-gray-200 rounded animate-pulse" />
+        <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         <SkeletonCard />
       </div>
     );
@@ -101,7 +122,7 @@ export default function PerfilPage() {
       {/* Cabeçalho */}
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <UserCircle className="text-2xl md:text-3xl text-blue-700" size={32} />
+          <UserCircle className="text-2xl md:text-3xl text-blue-700 dark:text-blue-500" size={32} />
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
               Meu Perfil
@@ -127,12 +148,22 @@ export default function PerfilPage() {
         </Alert>
       )}
 
+      {/* Debug Info (remover depois) */}
+      {process.env.NODE_ENV === "development" && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-xs font-mono">
+            Debug: ID={usuario.id}, Nome={usuario.nome}, Email={usuario.email}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Tabs */}
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto gap-2 bg-transparent p-0">
           <TabsTrigger
             value="dados"
-            className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white cursor-pointer"
           >
             <User size={16} />
             <span className="hidden sm:inline">Dados Pessoais</span>
@@ -141,7 +172,7 @@ export default function PerfilPage() {
           
           <TabsTrigger
             value="foto"
-            className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white cursor-pointer"
           >
             <Image size={16} />
             <span>Foto</span>
@@ -149,7 +180,7 @@ export default function PerfilPage() {
           
           <TabsTrigger
             value="senha"
-            className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white cursor-pointer"
           >
             <Lock size={16} />
             <span>Segurança</span>
@@ -157,7 +188,7 @@ export default function PerfilPage() {
           
           <TabsTrigger
             value="conta"
-            className="flex items-center gap-2 data-[state=active]:bg-red-600 data-[state=active]:text-white"
+            className="flex items-center gap-2 data-[state=active]:bg-red-600 data-[state=active]:text-white cursor-pointer"
           >
             <Trash2 size={16} />
             <span className="hidden sm:inline">Deletar Conta</span>
@@ -170,7 +201,7 @@ export default function PerfilPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <User size={20} className="text-blue-600" />
+                <User size={20} className="text-blue-600 dark:text-blue-400" />
                 Informações Pessoais
               </CardTitle>
               <CardDescription>
@@ -191,7 +222,7 @@ export default function PerfilPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Image size={20} className="text-blue-600" />
+                <Image size={20} className="text-blue-600 dark:text-blue-400" />
                 Foto de Perfil
               </CardTitle>
               <CardDescription>
@@ -212,7 +243,7 @@ export default function PerfilPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Lock size={20} className="text-blue-600" />
+                <Lock size={20} className="text-blue-600 dark:text-blue-400" />
                 Segurança da Conta
               </CardTitle>
               <CardDescription>

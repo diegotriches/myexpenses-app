@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { Providers } from "./providers";
 import { PeriodoProvider } from "@/contexts/PeriodoContext";
-import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ToastProvider } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import Sidebar from "@/components/common/Sidebar";
@@ -24,8 +24,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="pt-br" suppressHydrationWarning>
-      <body className="flex">
-        <ThemeProvider>
+      <body className="flex bg-gray-50 dark:bg-gray-950">
+        {/* next-themes como provider mais externo */}
+        <NextThemesProvider 
+          attribute="class" 
+          defaultTheme="system" 
+          enableSystem
+          disableTransitionOnChange={false}
+        >
           <Providers>
             <ToastProvider>
               <PeriodoProvider>
@@ -34,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 )}
 
                 <div
-                  className="flex-1 min-h-screen transition-all duration-300"
+                  className="flex-1 min-h-screen transition-all duration-300 bg-white dark:bg-gray-900"
                   style={{
                     marginLeft: esconderNavbar
                       ? 0
@@ -65,7 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </PeriodoProvider>
             </ToastProvider>
           </Providers>
-        </ThemeProvider>
+        </NextThemesProvider>
       </body>
     </html>
   );

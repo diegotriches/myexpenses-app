@@ -185,7 +185,7 @@ export default function DeletarContaCard({ usuario }: Props) {
         <DialogTrigger asChild>
           <Button 
             variant="destructive" 
-            className="w-full"
+            className="cursor-pointer"
             size="lg"
           >
             <Trash2 size={18} className="mr-2" />
