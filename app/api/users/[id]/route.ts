@@ -6,12 +6,22 @@ import { getUserId } from "@/lib/auth";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> } // Promise
 ) {
   try {
+    // AWAIT nos params
+    const params = await context.params;
     const id = Number(params.id);
-    const body = await req.json();
 
+    // Validar ID
+    if (isNaN(id) || id <= 0) {
+      return NextResponse.json(
+        { message: "ID inválido" },
+        { status: 400 }
+      );
+    }
+
+    const body = await req.json();
     const { name, email, rendaMensal, metaEconomia } = body;
 
     // Verifica se email já existe (para outro usuário)
@@ -59,10 +69,20 @@ export async function PUT(
 // Deletar usuário
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> } // ✅ Promise
 ) {
   try {
+    // ✅ AWAIT nos params
+    const params = await context.params;
     const id = Number(params.id);
+
+    // Validar ID
+    if (isNaN(id) || id <= 0) {
+      return NextResponse.json(
+        { message: "ID inválido" },
+        { status: 400 }
+      );
+    }
 
     const [deletado] = await db
       .delete(users)

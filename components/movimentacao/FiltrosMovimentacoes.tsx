@@ -42,23 +42,23 @@ export default function FiltrosMovimentacoes({
   const limparFiltros = () => {
     onFiltrosChange({
       tipo: "todas",
-      categoria: "",
-      formaPagamento: "",
+      categoria: "all", // ✅ Mudado de "" para "all"
+      formaPagamento: "all", // ✅ Mudado de "" para "all"
       busca: "",
     });
   };
 
   const temFiltrosAtivos = 
     filtros.tipo !== "todas" ||
-    filtros.categoria !== "" ||
-    filtros.formaPagamento !== "" ||
+    (filtros.categoria !== "" && filtros.categoria !== "all") || // ✅ Verifica também "all"
+    (filtros.formaPagamento !== "" && filtros.formaPagamento !== "all") || // ✅ Verifica também "all"
     filtros.busca !== "";
 
   const contarFiltrosAtivos = () => {
     let count = 0;
     if (filtros.tipo !== "todas") count++;
-    if (filtros.categoria) count++;
-    if (filtros.formaPagamento) count++;
+    if (filtros.categoria && filtros.categoria !== "all") count++; // ✅ Verifica também "all"
+    if (filtros.formaPagamento && filtros.formaPagamento !== "all") count++; // ✅ Verifica também "all"
     if (filtros.busca) count++;
     return count;
   };
@@ -140,14 +140,14 @@ export default function FiltrosMovimentacoes({
                 Categoria
               </label>
               <Select
-                value={filtros.categoria}
-                onValueChange={(v) => updateFiltro("categoria", v)}
+                value={filtros.categoria || "all"} // ✅ Fallback para "all"
+                onValueChange={(v) => updateFiltro("categoria", v === "all" ? "" : v)} // ✅ Converte "all" para ""
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem> {/* ✅ Mudado de "" para "all" */}
                   {categorias.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
@@ -163,14 +163,14 @@ export default function FiltrosMovimentacoes({
                 Forma de Pagamento
               </label>
               <Select
-                value={filtros.formaPagamento}
-                onValueChange={(v) => updateFiltro("formaPagamento", v)}
+                value={filtros.formaPagamento || "all"} // ✅ Fallback para "all"
+                onValueChange={(v) => updateFiltro("formaPagamento", v === "all" ? "" : v)} // ✅ Converte "all" para ""
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem> {/* ✅ Mudado de "" para "all" */}
                   {formasPagamento.map((forma) => (
                     <SelectItem key={forma} value={forma}>
                       {forma === "dinheiro" ? "Dinheiro" : 
@@ -195,7 +195,7 @@ export default function FiltrosMovimentacoes({
                   />
                 </Badge>
               )}
-              {filtros.categoria && (
+              {filtros.categoria && filtros.categoria !== "all" && ( // ✅ Verifica também "all"
                 <Badge variant="secondary" className="gap-1">
                   Categoria: {filtros.categoria}
                   <X
@@ -204,7 +204,7 @@ export default function FiltrosMovimentacoes({
                   />
                 </Badge>
               )}
-              {filtros.formaPagamento && (
+              {filtros.formaPagamento && filtros.formaPagamento !== "all" && ( // ✅ Verifica também "all"
                 <Badge variant="secondary" className="gap-1">
                   Pagamento: {filtros.formaPagamento}
                   <X
