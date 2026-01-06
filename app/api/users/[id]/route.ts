@@ -1,38 +1,65 @@
+
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import { getUserId } from "@/lib/auth";
 
 export async function PUT(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> } // Promise
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // AWAIT nos params
-    const params = await context.params;
-    const id = Number(params.id);
-
-    // Validar ID
-    if (isNaN(id) || id <= 0) {
+    // ✅ 1. CRÍTICO: Verificar autenticação
+    const userId = await getUserId();
+    
+    if (!userId) {
       return NextResponse.json(
-        { message: "ID inválido" },
-        { status: 400 }
+        { message: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
+    // ✅ 2. Obter ID da URL
+    const params = await context.params;
+    const targetId = params.id;
+
+    // ✅ 3. CRÍTICO: Verificar se o usuário está editando seu próprio perfil
+    if (userId !== targetId) {
+      return NextResponse.json(
+        { message: "Você não tem permissão para editar outro usuário" },
+        { status: 403 }
       );
     }
 
     const body = await req.json();
-    const { name, email, rendaMensal, metaEconomia } = body;
+    const { name, email } = body;
 
-    // Verifica se email já existe (para outro usuário)
+    // ✅ 4. Validar entrada
+    if (!name || name.trim().length < 2) {
+      return NextResponse.json(
+        { message: "Nome deve ter ao menos 2 caracteres" },
+        { status: 400 }
+      );
+    }
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json(
+        { message: "Email inválido" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ 5. Verificar se email já existe (para outro usuário)
     if (email) {
-      const emailExistente = await db
+      const [emailExistente] = await db
         .select()
         .from(users)
         .where(eq(users.email, email))
         .limit(1);
 
-      if (emailExistente.length > 0 && emailExistente[0].id !== id) {
+      if (emailExistente && emailExistente.id !== userId) {
         return NextResponse.json(
           { message: "Este email já está em uso" },
           { status: 400 }
@@ -40,14 +67,21 @@ export async function PUT(
       }
     }
 
+    // ✅ 6. Atualizar apenas campos permitidos
     const [atualizado] = await db
       .update(users)
       .set({
-        name: name || undefined,
-        email: email || undefined,
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
       })
-      .where(eq(users.id, id))
-      .returning();
+      .where(eq(users.id, userId))
+      .returning({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        image: users.image,
+        createdAt: users.createdAt,
+      });
 
     if (!atualizado) {
       return NextResponse.json(
@@ -60,47 +94,104 @@ export async function PUT(
   } catch (err: any) {
     console.error("Erro ao atualizar usuário:", err);
     return NextResponse.json(
-      { message: err.message || "Erro ao atualizar usuário" },
+      { message: "Erro ao atualizar usuário" },
       { status: 500 }
     );
   }
 }
 
-// Deletar usuário
+// ✅ Deletar usuário (deletar própria conta)
 export async function DELETE(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> } // ✅ Promise
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ AWAIT nos params
-    const params = await context.params;
-    const id = Number(params.id);
-
-    // Validar ID
-    if (isNaN(id) || id <= 0) {
+    // ✅ 1. CRÍTICO: Verificar autenticação
+    const userId = await getUserId();
+    
+    if (!userId) {
       return NextResponse.json(
-        { message: "ID inválido" },
+        { message: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
+    // ✅ 2. Obter ID da URL
+    const params = await context.params;
+    const targetId = params.id;
+
+    // ✅ 3. CRÍTICO: Verificar se o usuário está deletando sua própria conta
+    if (userId !== targetId) {
+      return NextResponse.json(
+        { message: "Você não tem permissão para deletar outro usuário" },
+        { status: 403 }
+      );
+    }
+
+    // ✅ 4. OPCIONAL: Pedir confirmação de senha antes de deletar
+    const body = await req.json();
+    const { password } = body;
+
+    if (!password) {
+      return NextResponse.json(
+        { message: "Senha é obrigatória para confirmar exclusão da conta" },
         { status: 400 }
       );
     }
 
-    const [deletado] = await db
-      .delete(users)
-      .where(eq(users.id, id))
-      .returning();
+    // ✅ 5. Verificar senha antes de deletar
+    const [usuario] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
 
-    if (!deletado) {
+    if (!usuario) {
       return NextResponse.json(
         { message: "Usuário não encontrado" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ message: "Usuário deletado com sucesso" });
+    // Se usuário tem senha (não é OAuth only)
+    if (usuario.password) {
+      const senhaValida = await bcrypt.compare(password, usuario.password);
+      if (!senhaValida) {
+        return NextResponse.json(
+          { message: "Senha incorreta" },
+          { status: 401 }
+        );
+      }
+    }
+
+    // ✅ 6. IMPORTANTE: Deletar dados relacionados primeiro (cascade)
+    // TODO: Adicionar deleção de:
+    // - contas
+    // - cartoes
+    // - transacoes
+    // - transferencias
+    // - etc.
+
+    // ✅ 7. Deletar usuário
+    const [deletado] = await db
+      .delete(users)
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (!deletado) {
+      return NextResponse.json(
+        { message: "Erro ao deletar usuário" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ 
+      message: "Conta deletada com sucesso" 
+    });
   } catch (err: any) {
     console.error("Erro ao deletar usuário:", err);
     return NextResponse.json(
-      { message: err.message || "Erro ao deletar usuário" },
+      { message: "Erro ao deletar usuário" },
       { status: 500 }
     );
   }

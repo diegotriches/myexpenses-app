@@ -20,7 +20,7 @@ export default function MovimentacoesConteudo() {
   const {
     transacoes,
     loading,
-    salvar,
+    criar,        // ✅ Função única para criar qualquer tipo de transação
     excluir,
   } = useTransacoes();
 
@@ -137,6 +137,26 @@ export default function MovimentacoesConteudo() {
     }
   }
 
+  // ✅ Função unificada para salvar (criar ou editar)
+  async function handleSalvar(dados: any) {
+    try {
+      if (editando) {
+        // ✅ Modo edição: excluir antiga e criar nova
+        await excluir(editando.id, tipoEdicao);
+        await criar(dados); // ✅ criar() lida com todos os tipos (dinheiro, pix, cartão)
+      } else {
+        // ✅ Modo criação: criar nova transação
+        await criar(dados); // ✅ criar() lida com todos os tipos
+      }
+      
+      setOpenModal(false);
+      setEditando(null);
+    } catch (error) {
+      console.error("Erro ao salvar transação:", error);
+      // Aqui você pode adicionar um toast/alert se quiser
+    }
+  }
+
   return (
     <div className="max-w-[1200px] mx-auto p-6 space-y-6">
       {/* Header */}
@@ -188,10 +208,7 @@ export default function MovimentacoesConteudo() {
         onOpenChange={setOpenModal}
         transacaoEdicao={editando}
         modoEdicao={tipoEdicao}
-        salvar={async (d) => {
-          await salvar(d);
-          setOpenModal(false);
-        }}
+        salvar={handleSalvar}
       />
 
       <ConfirmarExclusaoModal

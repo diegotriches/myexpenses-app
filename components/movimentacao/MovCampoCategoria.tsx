@@ -39,7 +39,7 @@ export default function MovCampoCategoria({ form, update }: Props) {
 
           <SelectContent>
             {categoriasFiltradas.map((c) => {
-              const Icon = getIconComponent(c.icon);
+              const Icon = getIconComponent(c.icone);
               return (
                 <SelectItem
                   key={c.id}

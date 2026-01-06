@@ -1,1 +1,0 @@
-ALTER TABLE "contas" DROP COLUMN "bandeira";

@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 
-// GET - Buscar preferências
 export async function GET(req: NextRequest) {
   try {
     const userId = await getUserId();
@@ -50,7 +49,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PUT - Atualizar preferências
 export async function PUT(req: NextRequest) {
   try {
     const userId = await getUserId();

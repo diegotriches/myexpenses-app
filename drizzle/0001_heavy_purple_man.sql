@@ -1,1 +1,0 @@
-ALTER TABLE "cartoes" DROP COLUMN "ultimosDigitos";

@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { users, categorias } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { v4 as uuidv4 } from "uuid";
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(),
@@ -109,61 +110,79 @@ export const authOptions: NextAuthOptions = {
 
 // Função auxiliar para criar categorias padrão
 async function criarCategoriasIniciaisSeNecessario(userId: string) {
-  // Verificar se já tem categorias
-  const categoriasExistentes = await db
-    .select()
-    .from(categorias)
-    .where(eq(categorias.userId, userId))
-    .limit(1);
+  try {
+    // Verificar se já tem categorias
+    const categoriasExistentes = await db
+      .select()
+      .from(categorias)
+      .where(eq(categorias.userId, userId))
+      .limit(1);
 
-  if (categoriasExistentes.length > 0) {
-    return; // Já tem categorias
+    if (categoriasExistentes.length > 0) {
+      return; // Já tem categorias
+    }
+
+    // ✅ CORREÇÃO: Usar 'icone' ao invés de 'icon'
+    // Categorias padrão de ENTRADA
+    const categoriasEntrada = [
+      { nome: "Salário", icone: "FaWallet" },
+      { nome: "Freelance", icone: "FaBriefcase" },
+      { nome: "Investimentos", icone: "FaPiggyBank" },
+      { nome: "Vendas", icone: "FaShoppingBag" },
+      { nome: "Aluguel recebido", icone: "FaHome" },
+      { nome: "Reembolso", icone: "FaFileInvoiceDollar" },
+      { nome: "Prêmios", icone: "FaGift" },
+      { nome: "Saldo inicial", icone: "FaMoneyBill" },
+      { nome: "Transferência interna", icone: "FaRegCreditCard" },
+      { nome: "Outras receitas", icone: "FaMoneyBill" },
+    ];
+
+    // Categorias padrão de SAÍDA
+    const categoriasSaida = [
+      { nome: "Alimentação", icone: "FaUtensils" },
+      { nome: "Assinaturas", icone: "FaRegCreditCard" },
+      { nome: "Compras", icone: "FaShoppingCart" },
+      { nome: "Delivery", icone: "MdFastfood" },
+      { nome: "Educação", icone: "FaBook" },
+      { nome: "Energia e água", icone: "FaBolt" },
+      { nome: "Internet", icone: "FaPhoneAlt" },
+      { nome: "Lazer", icone: "FaGamepad" },
+      { nome: "Mercado", icone: "MdLocalGroceryStore" },
+      { nome: "Moradia", icone: "FaHome" },
+      { nome: "Outras despesas", icone: "FaRegSmile" },
+      { nome: "Pagamentos", icone: "FaFileInvoiceDollar" },
+      { nome: "Pets", icone: "MdPets" },
+      { nome: "Presentes", icone: "FaGift" },
+      { nome: "Restaurantes", icone: "MdRestaurant" },
+      { nome: "Saúde", icone: "FaHeart" },
+      { nome: "Transporte", icone: "FaCar" },
+      { nome: "Vestuário", icone: "FaTshirt" },
+      { nome: "Viagem", icone: "FaPlane" },
+    ];
+
+    // ✅ Inserir todas de uma vez COM UUID e userId
+    const todasCategorias = [
+      ...categoriasEntrada.map(cat => ({
+        id: uuidv4(),
+        userId,
+        nome: cat.nome,
+        tipo: "entrada",
+        icone: cat.icone,
+      })),
+      ...categoriasSaida.map(cat => ({
+        id: uuidv4(),
+        userId,
+        nome: cat.nome,
+        tipo: "saida",
+        icone: cat.icone,
+      })),
+    ];
+
+    await db.insert(categorias).values(todasCategorias);
+
+    console.log(`✅ Categorias padrão criadas para usuário ${userId}`);
+  } catch (error) {
+    console.error(`❌ Erro ao criar categorias para usuário ${userId}:`, error);
+    // Não lançar erro para não bloquear o login/registro
   }
-
-  // Categorias padrão de ENTRADA
-  const categoriasEntrada = [
-    { nome: "Salário", icon: "FaWallet" },
-    { nome: "Freelance", icon: "FaBriefcase" },
-    { nome: "Investimentos", icon: "FaPiggyBank" },
-    { nome: "Vendas", icon: "FaShoppingBag" },
-    { nome: "Aluguel recebido", icon: "FaHome" },
-    { nome: "Reembolso", icon: "FaFileInvoiceDollar" },
-    { nome: "Prêmios", icon: "FaGift" },
-    { nome: "Saldo inicial", icon: "FaMoneyBill" },
-    { nome: "Transferência interna", icon: "FaRegCreditCard" },
-    { nome: "Outras receitas", icon: "FaMoneyBill" },
-  ];
-
-  // Categorias padrão de SAÍDA
-  const categoriasSaida = [
-    { nome: "Alimentação", icon: "FaUtensils" },
-    { nome: "Assinaturas", icon: "FaRegCreditCard" },
-    { nome: "Compras", icon: "FaShoppingCart" },
-    { nome: "Delivery", icon: "MdFastfood" },
-    { nome: "Educação", icon: "FaBook" },
-    { nome: "Energia e água", icon: "FaBolt" },
-    { nome: "Internet", icon: "FaPhoneAlt" },
-    { nome: "Lazer", icon: "FaGamepad" },
-    { nome: "Mercado", icon: "MdLocalGroceryStore" },
-    { nome: "Moradia", icon: "FaHome" },
-    { nome: "Outras despesas", icon: "FaRegSmile" },
-    { nome: "Pagamentos", icon: "FaFileInvoiceDollar" },
-    { nome: "Pets", icon: "MdPets" },
-    { nome: "Presentes", icon: "FaGift" },
-    { nome: "Restaurantes", icon: "MdRestaurant" },
-    { nome: "Saúde", icon: "FaHeart" },
-    { nome: "Transporte", icon: "FaCar" },
-    { nome: "Vestuário", icon: "FaTshirt" },
-    { nome: "Viagem", icon: "FaPlane" },
-  ];
-
-  // Inserir todas de uma vez
-  const todasCategorias = [
-    ...categoriasEntrada.map(cat => ({ ...cat, tipo: "entrada", userId })),
-    ...categoriasSaida.map(cat => ({ ...cat, tipo: "saida", userId })),
-  ];
-
-  await db.insert(categorias).values(todasCategorias);
-
-  console.log(`✅ Categorias padrão criadas para usuário ${userId}`);
 }

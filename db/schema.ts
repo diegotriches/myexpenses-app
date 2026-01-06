@@ -11,8 +11,8 @@ export const users = pgTable("users", {
   name: text("name"),
   email: text("email").notNull().unique(),
   emailVerified: timestamp("emailVerified", { mode: 'date' }), // Para NextAuth
-  image: text("image"), // Para foto do Google/OAuth
-  password: text("password"), // Opcional (só para login email/senha)
+  image: text("image"),
+  password: text("password"),
   preferencias: jsonb("preferencias").$type<{
     tema?: "light" | "dark" | "system";
     idioma?: string;
@@ -61,11 +61,11 @@ export const verificationTokens = pgTable("verification_tokens", {
 // CATEGORIAS (Isoladas por usuário)
 // ========================================
 export const categorias = pgTable("categorias", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   nome: varchar("nome", { length: 100 }).notNull(),
   tipo: varchar("tipo", { length: 20 }).notNull(), // "entrada" ou "saida"
-  icon: varchar("icon", { length: 50 }).notNull(),
+  icone: varchar("icone", { length: 50 }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

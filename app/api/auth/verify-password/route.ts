@@ -1,58 +1,46 @@
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import bcrypt from "bcrypt";
 import { getUserId } from "@/lib/auth";
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     const userId = await getUserId();
     
     if (!userId) {
       return NextResponse.json(
-        { message: "Não autenticado" },
+        { error: "Não autenticado. Faça login para acessar esta rota." },
         { status: 401 }
       );
     }
 
-    const body = await req.json();
-    const { password } = body;
-
-    if (!password) {
-      return NextResponse.json(
-        { message: "Senha é obrigatória" },
-        { status: 400 }
-      );
-    }
-
     const [usuario] = await db
-      .select()
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        image: users.image,
+        createdAt: users.createdAt,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
 
     if (!usuario) {
       return NextResponse.json(
-        { message: "Usuário não encontrado" },
+        { error: "Usuário não encontrado" },
         { status: 404 }
       );
     }
 
-    const senhaValida = await bcrypt.compare(password, usuario.password);
+    return NextResponse.json(usuario);
 
-    if (!senhaValida) {
-      return NextResponse.json(
-        { message: "Senha incorreta" },
-        { status: 401 }
-      );
-    }
+  } catch (error) {
+    console.error("Erro ao buscar usuário:", error);
 
-    return NextResponse.json({ valid: true });
-  } catch (err: any) {
-    console.error("Erro ao verificar senha:", err);
     return NextResponse.json(
-      { message: err.message || "Erro ao verificar senha" },
+      { error: "Erro ao buscar usuário" },
       { status: 500 }
     );
   }

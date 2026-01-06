@@ -1,1 +1,0 @@
-ALTER TABLE "transacoes" ALTER COLUMN "conta_id" DROP NOT NULL;

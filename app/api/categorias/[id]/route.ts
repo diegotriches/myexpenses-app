@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { categorias } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getUserIdFromSession } from "@/lib/auth/helpers";
+import { getUserId } from "@/lib/auth";
 
 // GET - Buscar categoria específica
 export async function GET(
@@ -11,7 +11,15 @@ export async function GET(
 ) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     // 🔐 Buscar categoria do usuário
@@ -20,7 +28,7 @@ export async function GET(
       .from(categorias)
       .where(
         and(
-          eq(categorias.id, Number(id)),
+          eq(categorias.id, id),
           eq(categorias.userId, userId)
         )
       )
@@ -37,13 +45,6 @@ export async function GET(
   } catch (err: any) {
     console.error("Erro ao buscar categoria:", err);
 
-    if (err instanceof Error && err.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
     return NextResponse.json(
       { error: err.message || "Erro ao buscar categoria" },
       { status: 500 }
@@ -58,13 +59,21 @@ export async function PUT(
 ) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
-    const { id } = await params;
+    const userId = await getUserId();
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
 
-    const { nome, tipo, icon } = await req.json();
+    const { id } = await params;
+    const body = await req.json();
+    const { nome, tipo, icone } = body;
 
     // Validações
-    if (!nome || !tipo || !icon) {
+    if (!nome || !tipo || !icone) {
       return NextResponse.json(
         { error: "Nome, tipo e ícone são obrigatórios" },
         { status: 400 }
@@ -72,9 +81,9 @@ export async function PUT(
     }
 
     // Validar tipo
-    if (tipo !== "entrada" && tipo !== "saida") {
+    if (tipo !== "entrada" && tipo !== "saida" && tipo !== "ambos") {
       return NextResponse.json(
-        { error: "Tipo deve ser 'entrada' ou 'saida'" },
+        { error: "Tipo deve ser 'entrada', 'saida' ou 'ambos'" },
         { status: 400 }
       );
     }
@@ -85,12 +94,11 @@ export async function PUT(
       .set({
         nome,
         tipo,
-        icon,
-        updatedAt: new Date(),
+        icone,
       })
       .where(
         and(
-          eq(categorias.id, Number(id)),
+          eq(categorias.id, id),
           eq(categorias.userId, userId) // 🔐 Verificar ownership
         )
       )
@@ -107,13 +115,6 @@ export async function PUT(
   } catch (err: any) {
     console.error("Erro ao atualizar categoria:", err);
 
-    if (err instanceof Error && err.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
     return NextResponse.json(
       { error: err.message || "Erro ao atualizar categoria" },
       { status: 500 }
@@ -128,22 +129,23 @@ export async function DELETE(
 ) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
-    const { id } = await params;
-
-    if (Number.isNaN(Number(id))) {
+    const userId = await getUserId();
+    
+    if (!userId) {
       return NextResponse.json(
-        { error: "ID inválido" },
-        { status: 400 }
+        { error: "Não autenticado" },
+        { status: 401 }
       );
     }
+
+    const { id } = await params;
 
     // 🔐 Deletar APENAS se pertencer ao usuário
     const [deleted] = await db
       .delete(categorias)
       .where(
         and(
-          eq(categorias.id, Number(id)),
+          eq(categorias.id, id),
           eq(categorias.userId, userId) // 🔐 Verificar ownership
         )
       )
@@ -161,13 +163,6 @@ export async function DELETE(
     });
   } catch (err: any) {
     console.error("Erro ao deletar categoria:", err);
-
-    if (err instanceof Error && err.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
 
     return NextResponse.json(
       { error: err.message || "Erro ao deletar categoria" },

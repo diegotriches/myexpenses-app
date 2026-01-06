@@ -72,7 +72,7 @@ export default function MovimentacaoLinha({
 
   const categoriaObj = categorias.find((c) => c.nome === mov.categoria);
   const CategoriaIconComp = categoriaObj
-    ? iconOptions.find((i) => i.name === categoriaObj.icon)?.component
+    ? iconOptions.find((i) => i.name === categoriaObj.icone)?.component
     : null;
 
   const formaPagamento = formaPagamentoConfig[mov.formaPagamento as keyof typeof formaPagamentoConfig];

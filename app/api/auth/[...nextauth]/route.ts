@@ -21,47 +21,56 @@ async function criarCategoriasIniciaisSeNecessario(userId: string) {
     return; // Já tem categorias
   }
 
+  // ✅ CORREÇÃO: Usar 'icone' ao invés de 'icon'
   // Categorias padrão de ENTRADA
   const categoriasEntrada = [
-    { nome: "Salário", icon: "FaWallet" },
-    { nome: "Freelance", icon: "FaBriefcase" },
-    { nome: "Investimentos", icon: "FaPiggyBank" },
-    { nome: "Vendas", icon: "FaShoppingBag" },
-    { nome: "Aluguel recebido", icon: "FaHome" },
-    { nome: "Reembolso", icon: "FaFileInvoiceDollar" },
-    { nome: "Prêmios", icon: "FaGift" },
-    { nome: "Saldo inicial", icon: "FaMoneyBill" },
-    { nome: "Transferência interna", icon: "FaRegCreditCard" },
-    { nome: "Outras receitas", icon: "FaMoneyBill" },
+    { nome: "Salário", icone: "FaWallet" },
+    { nome: "Freelance", icone: "FaBriefcase" },
+    { nome: "Investimentos", icone: "FaPiggyBank" },
+    { nome: "Vendas", icone: "FaShoppingBag" },
+    { nome: "Aluguel recebido", icone: "FaHome" },
+    { nome: "Reembolso", icone: "FaFileInvoiceDollar" },
+    { nome: "Prêmios", icone: "FaGift" },
+    { nome: "Saldo inicial", icone: "FaMoneyBill" },
+    { nome: "Transferência interna", icone: "FaRegCreditCard" },
+    { nome: "Outras receitas", icone: "FaMoneyBill" },
   ];
 
   // Categorias padrão de SAÍDA
   const categoriasSaida = [
-    { nome: "Alimentação", icon: "FaUtensils" },
-    { nome: "Assinaturas", icon: "FaRegCreditCard" },
-    { nome: "Compras", icon: "FaShoppingCart" },
-    { nome: "Delivery", icon: "MdFastfood" },
-    { nome: "Educação", icon: "FaBook" },
-    { nome: "Energia e água", icon: "FaBolt" },
-    { nome: "Internet", icon: "FaPhoneAlt" },
-    { nome: "Lazer", icon: "FaGamepad" },
-    { nome: "Mercado", icon: "MdLocalGroceryStore" },
-    { nome: "Moradia", icon: "FaHome" },
-    { nome: "Outras despesas", icon: "FaRegSmile" },
-    { nome: "Pagamentos", icon: "FaFileInvoiceDollar" },
-    { nome: "Pets", icon: "MdPets" },
-    { nome: "Presentes", icon: "FaGift" },
-    { nome: "Restaurantes", icon: "MdRestaurant" },
-    { nome: "Saúde", icon: "FaHeart" },
-    { nome: "Transporte", icon: "FaCar" },
-    { nome: "Vestuário", icon: "FaTshirt" },
-    { nome: "Viagem", icon: "FaPlane" },
+    { nome: "Alimentação", icone: "FaUtensils" },
+    { nome: "Assinaturas", icone: "FaRegCreditCard" },
+    { nome: "Compras", icone: "FaShoppingCart" },
+    { nome: "Delivery", icone: "MdFastfood" },
+    { nome: "Educação", icone: "FaBook" },
+    { nome: "Energia e água", icone: "FaBolt" },
+    { nome: "Internet", icone: "FaPhoneAlt" },
+    { nome: "Lazer", icone: "FaGamepad" },
+    { nome: "Mercado", icone: "MdLocalGroceryStore" },
+    { nome: "Moradia", icone: "FaHome" },
+    { nome: "Outras despesas", icone: "FaRegSmile" },
+    { nome: "Pagamentos", icone: "FaFileInvoiceDollar" },
+    { nome: "Pets", icone: "MdPets" },
+    { nome: "Presentes", icone: "FaGift" },
+    { nome: "Restaurantes", icone: "MdRestaurant" },
+    { nome: "Saúde", icone: "FaHeart" },
+    { nome: "Transporte", icone: "FaCar" },
+    { nome: "Vestuário", icone: "FaTshirt" },
+    { nome: "Viagem", icone: "FaPlane" },
   ];
 
-  // Inserir todas de uma vez
+  // ✅ Inserir todas de uma vez com campo 'icone'
   const todasCategorias = [
-    ...categoriasEntrada.map(cat => ({ ...cat, tipo: "entrada", userId })),
-    ...categoriasSaida.map(cat => ({ ...cat, tipo: "saida", userId })),
+    ...categoriasEntrada.map((cat) => ({ 
+      ...cat, 
+      tipo: "entrada", 
+      userId,
+    })),
+    ...categoriasSaida.map((cat) => ({ 
+      ...cat, 
+      tipo: "saida", 
+      userId,
+    })),
   ];
 
   await db.insert(categorias).values(todasCategorias);
@@ -80,7 +89,7 @@ export const authOptions: AuthOptions = {
       allowDangerousEmailAccountLinking: true, // Permite vincular contas com mesmo email
     }),
 
-    // 🔐 Login com Email/Senha (seu código adaptado)
+    // 🔐 Login com Email/Senha
     CredentialsProvider({
       name: "Credentials",
       credentials: {

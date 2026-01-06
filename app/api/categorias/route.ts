@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { categorias } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getUserIdFromSession } from "@/lib/auth/helpers";
+import { v4 as uuidv4 } from "uuid";
 
 // GET - Buscar todas as categorias do usuário
 export async function GET() {
@@ -40,11 +41,10 @@ export async function POST(req: Request) {
   try {
     // 🔐 Autenticação
     const userId = await getUserIdFromSession();
-
-    const { nome, tipo, icon } = await req.json();
+    const { nome, tipo, icone } = await req.json();
 
     // Validações
-    if (!nome || !tipo || !icon) {
+    if (!nome || !tipo || !icone) {
       return NextResponse.json(
         { error: "Nome, tipo e ícone são obrigatórios" },
         { status: 400 }
@@ -52,21 +52,22 @@ export async function POST(req: Request) {
     }
 
     // Validar tipo
-    if (tipo !== "entrada" && tipo !== "saida") {
+    if (tipo !== "entrada" && tipo !== "saida" && tipo !== "ambos") {
       return NextResponse.json(
-        { error: "Tipo deve ser 'entrada' ou 'saida'" },
+        { error: "Tipo deve ser 'entrada', 'saida' ou 'ambos'" },
         { status: 400 }
       );
     }
 
-    // 🔐 Incluir userId na criação
+    // ✅ Criar categoria com UUID gerado
     const [inserted] = await db
       .insert(categorias)
       .values({
-        userId, // 🔐 CRÍTICO: Adicionar userId
+        id: uuidv4(),
+        userId,
         nome,
         tipo,
-        icon,
+        icone,
       })
       .returning();
 
