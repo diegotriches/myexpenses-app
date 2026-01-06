@@ -67,52 +67,63 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔐 Criar conta COM userId em transação
-    const resultado = await db.transaction(async (tx) => {
-      // 1. Criar a conta
-      const [novaConta] = await tx
-        .insert(contas)
-        .values({
-          userId, // 🔐 CRÍTICO: Forçar o userId do usuário logado
-          nome: data.nome,
-          banco: data.banco || null,
-          saldoInicial: saldoInicial.toString(),
-          saldoAtual: saldoInicial.toString(),
-          ativo: data.ativo ?? true,
-          observacoes: data.observacoes || null,
-        })
-        .returning();
+    // 1. Criar a conta (sem transação, pois neon-http não suporta)
+    const [novaConta] = await db
+      .insert(contas)
+      .values({
+        userId, // 🔐 CRÍTICO: Forçar o userId do usuário logado
+        nome: data.nome,
+        banco: data.banco?.trim() || null, // Mantém valor se não estiver vazio
+        saldoInicial: saldoInicial.toString(),
+        saldoAtual: saldoInicial.toString(),
+        ativo: data.ativo ?? true,
+        observacoes: data.observacoes?.trim() || null, // Remove espaços em branco
+      })
+      .returning();
 
-      // 2. Registrar saldo inicial no extrato (se diferente de zero)
-      if (saldoInicial !== 0) {
+    // 2. Registrar saldo inicial no extrato (se diferente de zero)
+    if (saldoInicial !== 0) {
+      try {
+        // Formatar data como YYYY-MM-DD (string)
         const dataAtual = new Date();
         const dataFormatada = dataAtual.toISOString().split("T")[0];
 
-        await tx.insert(extratoConta).values({
-          userId, // 🔐 Incluir userId
+        await db.insert(extratoConta).values({
+          userId, // ✅ userId é obrigatório no schema
           contaId: novaConta.id,
-          data: dataFormatada,
+          data: dataFormatada, // ✅ date aceita string YYYY-MM-DD
           tipo: saldoInicial >= 0 ? "entrada" : "saida",
           valor: Math.abs(saldoInicial).toString(),
           descricao: "Saldo inicial da conta",
-          saldoApos: saldoInicial.toString(),
-          origem: "AJUSTE",
+          saldoApos: saldoInicial.toString(), // ✅ Campo correto do schema
+          origem: "AJUSTE", // ✅ Enum: "AJUSTE" está no extratoOrigemEnum
+          referenciaId: null,
         });
-      }
+      } catch (extratoError) {
+        // Se falhar ao criar extrato, deletar a conta criada para manter consistência
+        console.error("❌ Erro ao criar extrato, revertendo criação da conta:", extratoError);
+        
+        await db
+          .delete(contas)
+          .where(eq(contas.id, novaConta.id))
+          .catch((deleteError) => {
+            console.error("❌ Erro ao reverter criação da conta:", deleteError);
+          });
 
-      return novaConta;
-    });
+        throw new Error("Erro ao registrar saldo inicial no extrato");
+      }
+    }
 
     // Normalizar para retornar
     const contaNormalizada = {
-      ...resultado,
-      saldoInicial: Number(resultado.saldoInicial),
-      saldoAtual: Number(resultado.saldoAtual),
+      ...novaConta,
+      saldoInicial: Number(novaConta.saldoInicial),
+      saldoAtual: Number(novaConta.saldoAtual),
     };
 
     return NextResponse.json(contaNormalizada, { status: 201 });
   } catch (error) {
-    console.error("Erro ao criar conta:", error);
+    console.error("❌ Erro detalhado ao criar conta:", error);
 
     if (error instanceof Error && error.message === "Não autenticado") {
       return NextResponse.json(
@@ -121,8 +132,14 @@ export async function POST(req: Request) {
       );
     }
 
+    // Retornar mensagem de erro mais específica
+    const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+    
     return NextResponse.json(
-      { error: "Erro ao criar conta" },
+      { 
+        error: errorMessage,
+        details: process.env.NODE_ENV === "development" ? errorMessage : undefined
+      },
       { status: 500 }
     );
   }

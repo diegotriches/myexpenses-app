@@ -28,7 +28,7 @@ interface Props {
 const defaultForm: Omit<CreateContaDTO, 'tipo'> = {
   nome: "",
   ativo: true,
-  banco: undefined,
+  banco: "",  // ✅ Usar string vazia ao invés de undefined
   saldoInicial: 0,
   observacoes: "",
 };
@@ -52,7 +52,10 @@ export default function ContaModal({
   useEffect(() => {
     if (open) {
       const dadosIniciais = contaInicial ?? defaultForm;
-      setForm(dadosIniciais);
+      setForm({
+        ...dadosIniciais,
+        banco: dadosIniciais.banco || "",  // ✅ Converter null/undefined para string vazia
+      });
       setValorFormatado(formatarParaInput(dadosIniciais.saldoInicial || 0));
       setErrors({});
     }
@@ -146,12 +149,17 @@ export default function ContaModal({
       return;
     }
 
-    onSalvar({
-      ...form,
-      banco: form.banco || undefined,
+    // ✅ Prepara dados para envio, mantendo o banco se foi preenchido
+    const dadosParaSalvar = {
+      nome: form.nome.trim(),
+      ativo: form.ativo ?? true,
       saldoInicial: Number(form.saldoInicial) || 0,
-      saldoAtual: Number(form.saldoInicial) || 0,
-    } as CreateContaDTO | UpdateContaDTO);
+      observacoes: form.observacoes?.trim() || "",
+      // ✅ Envia banco como string ou undefined (não string vazia)
+      banco: form.banco && form.banco.trim() !== "" ? form.banco.trim() : undefined,
+    };
+
+    onSalvar(dadosParaSalvar as CreateContaDTO | UpdateContaDTO);
 
     setForm(defaultForm);
     setValorFormatado("0,00");
@@ -199,7 +207,7 @@ export default function ContaModal({
             <CampoSelect
               label="Banco/Instituição"
               value={form.banco ?? ""}
-              onChange={(v) => handleChange("banco", v || undefined)}
+              onChange={(v) => handleChange("banco", v || "")}
               options={empresaOptions}
             />
             {errors.banco && (

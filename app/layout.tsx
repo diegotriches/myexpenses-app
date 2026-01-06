@@ -21,6 +21,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-br" suppressHydrationWarning>
+      <meta name="apple-mobile-web-app-title" content="MyExpenses" />
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AppProviders>{children}</AppProviders>
       </body>

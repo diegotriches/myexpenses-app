@@ -6,7 +6,10 @@ export const contaService = {
    */
   async listar(): Promise<Conta[]> {
     const res = await fetch("/api/contas");
-    if (!res.ok) throw new Error("Erro ao listar contas");
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: "Erro ao listar contas" }));
+      throw new Error(error.message || error.error || "Erro ao listar contas");
+    }
     return res.json();
   },
 
@@ -15,7 +18,10 @@ export const contaService = {
    */
   async buscarPorId(id: string): Promise<Conta> {
     const res = await fetch(`/api/contas/${id}`);
-    if (!res.ok) throw new Error("Conta não encontrada");
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: "Conta não encontrada" }));
+      throw new Error(error.message || error.error || "Conta não encontrada");
+    }
     return res.json();
   },
 
@@ -28,7 +34,13 @@ export const contaService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dados),
     });
-    if (!res.ok) throw new Error("Erro ao criar conta");
+    
+    if (!res.ok) {
+      // Tenta extrair a mensagem de erro real da API
+      const error = await res.json().catch(() => ({ message: "Erro ao criar conta" }));
+      throw new Error(error.message || error.error || "Erro ao criar conta");
+    }
+    
     return res.json();
   },
 
@@ -41,7 +53,12 @@ export const contaService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dados),
     });
-    if (!res.ok) throw new Error("Erro ao atualizar conta");
+    
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: "Erro ao atualizar conta" }));
+      throw new Error(error.message || error.error || "Erro ao atualizar conta");
+    }
+    
     return res.json();
   },
 
@@ -52,7 +69,11 @@ export const contaService = {
     const res = await fetch(`/api/contas/${id}`, {
       method: "DELETE",
     });
-    if (!res.ok) throw new Error("Erro ao remover conta");
+    
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: "Erro ao remover conta" }));
+      throw new Error(error.message || error.error || "Erro ao remover conta");
+    }
   },
 
   /**
@@ -78,7 +99,12 @@ export const contaService = {
     if (params?.offset) searchParams.set("offset", params.offset.toString());
 
     const res = await fetch(`/api/contas/${contaId}/extrato?${searchParams}`);
-    if (!res.ok) throw new Error("Erro ao buscar extrato");
+    
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: "Erro ao buscar extrato" }));
+      throw new Error(error.message || error.error || "Erro ao buscar extrato");
+    }
+    
     return res.json();
   },
 
@@ -91,7 +117,12 @@ export const contaService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ valor, descricao }),
     });
-    if (!res.ok) throw new Error("Erro ao ajustar saldo");
+    
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: "Erro ao ajustar saldo" }));
+      throw new Error(error.message || error.error || "Erro ao ajustar saldo");
+    }
+    
     return res.json();
   },
 };
