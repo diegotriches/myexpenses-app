@@ -3,13 +3,16 @@ import {
   uuid, numeric, timestamp, date, uniqueIndex, pgEnum
 } from "drizzle-orm/pg-core";
 
-// USUÁRIOS
+// ========================================
+// USUÁRIOS (Base para NextAuth)
+// ========================================
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name"),
   email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  foto: text("foto"),
+  emailVerified: timestamp("emailVerified", { mode: 'date' }), // Para NextAuth
+  image: text("image"), // Para foto do Google/OAuth
+  password: text("password"), // Opcional (só para login email/senha)
   preferencias: jsonb("preferencias").$type<{
     tema?: "light" | "dark" | "system";
     idioma?: string;
@@ -19,19 +22,73 @@ export const users = pgTable("users", {
     formatoData?: "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD";
     inicioSemana?: "domingo" | "segunda";
   }>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// CATEGORIAS
+// Tabelas necessárias para NextAuth (OAuth com Google)
+export const accounts = pgTable("accounts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  provider: text("provider").notNull(),
+  providerAccountId: text("providerAccountId").notNull(),
+  refresh_token: text("refresh_token"),
+  access_token: text("access_token"),
+  expires_at: integer("expires_at"),
+  token_type: text("token_type"),
+  scope: text("scope"),
+  id_token: text("id_token"),
+  session_state: text("session_state"),
+});
+
+export const sessions = pgTable("sessions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  sessionToken: text("sessionToken").notNull().unique(),
+  userId: uuid("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  expires: timestamp("expires", { mode: 'date' }).notNull(),
+});
+
+export const verificationTokens = pgTable("verification_tokens", {
+  identifier: text("identifier").notNull(),
+  token: text("token").notNull().unique(),
+  expires: timestamp("expires", { mode: 'date' }).notNull(),
+}, (vt) => ({
+  compoundKey: uniqueIndex("verification_tokens_identifier_token_idx").on(vt.identifier, vt.token),
+}));
+
+// ========================================
+// CATEGORIAS (Isoladas por usuário)
+// ========================================
 export const categorias = pgTable("categorias", {
   id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   nome: varchar("nome", { length: 100 }).notNull(),
-  tipo: varchar("tipo", { length: 20 }).notNull(),
+  tipo: varchar("tipo", { length: 20 }).notNull(), // "entrada" ou "saida"
   icon: varchar("icon", { length: 50 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// CARTÕES
+// ========================================
+// CONTAS (Isoladas por usuário)
+// ========================================
+export const contas = pgTable("contas", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  nome: varchar("nome", { length: 150 }).notNull(),
+  ativo: boolean("ativo").default(true).notNull(),
+  observacoes: text("observacoes"),
+  saldoInicial: numeric("saldo_inicial", { precision: 14, scale: 2 }).notNull(),
+  saldoAtual: numeric("saldo_atual", { precision: 14, scale: 2 }).notNull(),
+  banco: varchar("banco", { length: 100 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
-/* Enum para tipo de cartão */
+// ========================================
+// CARTÕES (Isolados por usuário)
+// ========================================
 export const cartaoTipoEnum = pgEnum("cartao_tipo", [
   "credito",
   "debito",
@@ -39,6 +96,7 @@ export const cartaoTipoEnum = pgEnum("cartao_tipo", [
 
 export const cartoes = pgTable("cartoes", {
   id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   nome: text("nome").notNull(),
   tipo: text("tipo").notNull(),
   bandeira: text("bandeira").notNull(),
@@ -52,10 +110,12 @@ export const cartoes = pgTable("cartoes", {
   contaVinculadaId: uuid("conta_vinculada_id").references(() => contas.id),
 });
 
-// TRANSAÇÕES
+// ========================================
+// TRANSAÇÕES (Isoladas por usuário)
+// ========================================
 export const transacoes = pgTable("transacoes", {
   id: uuid("id").defaultRandom().primaryKey(),
-
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   data: timestamp("data", { withTimezone: true }).notNull(),
   tipo: text("tipo").notNull(),
   descricao: text("descricao"),
@@ -74,22 +134,12 @@ export const transacoes = pgTable("transacoes", {
   parcelaAtual: integer("parcelaAtual"),
 });
 
-// CONTAS
-export const contas = pgTable("contas", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  nome: varchar("nome", { length: 150 }).notNull(),
-  ativo: boolean("ativo").default(true).notNull(),
-  observacoes: text("observacoes"),
-  saldoInicial: numeric("saldo_inicial", { precision: 14, scale: 2 }).notNull(),
-  saldoAtual: numeric("saldo_atual", { precision: 14, scale: 2 }).notNull(),
-  banco: varchar("banco", { length: 100 }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// FATURAS
+// ========================================
+// FATURAS (Isoladas por usuário)
+// ========================================
 export const faturas = pgTable("faturas", {
   id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   cartaoId: integer("cartao_id")
     .notNull()
     .references(() => cartoes.id, { onDelete: "cascade" }),
@@ -113,15 +163,14 @@ export const faturas = pgTable("faturas", {
   })
 );
 
-// EXTRATO
-
-/* Enum para tipo de movimentação */
+// ========================================
+// EXTRATO (Isolado por usuário)
+// ========================================
 export const extratoTipoEnum = pgEnum("extrato_tipo", [
   "entrada",
   "saida",
 ]);
 
-/* Enum para origem da movimentação */
 export const extratoOrigemEnum = pgEnum("extrato_origem", [
   "TRANSACAO_MANUAL",
   "PAGAMENTO_FATURA",
@@ -132,6 +181,7 @@ export const extratoOrigemEnum = pgEnum("extrato_origem", [
 
 export const extratoConta = pgTable("extrato_conta", {
   id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   contaId: uuid("conta_id")
     .notNull()
     .references(() => contas.id, { onDelete: "cascade" }),
@@ -141,8 +191,6 @@ export const extratoConta = pgTable("extrato_conta", {
   descricao: text("descricao").notNull(),
   saldoApos: numeric("saldo_apos", { precision: 12, scale: 2 }).notNull(),
   origem: extratoOrigemEnum("origem").notNull(),
-
-  /* Referência opcional (ex: faturas.id) */
   referenciaId: varchar("referencia_id", { length: 36 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

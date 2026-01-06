@@ -1,41 +1,47 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useCallback, useState, useEffect } from "react";
+import { dashboardService } from "@/services/dashboardService";
+import { usePeriodo } from "@/contexts/PeriodoContext";
 import { DashboardResponse } from "@/types/dashboard";
 
-interface UseDashboardProps {
-  mes: number;
-  ano: number;
-}
-
-export function useDashboard({ mes, ano }: UseDashboardProps) {
+/**
+ * Hook para carregar dados do dashboard
+ * Usa automaticamente o período selecionado do PeriodoContext
+ */
+export function useDashboard() {
+  const { mesSelecionado, anoSelecionado } = usePeriodo();
+  
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // mesSelecionado é 0-indexed, então somamos 1 para a API
+      const response = await dashboardService.buscarResumo(
+        mesSelecionado + 1,
+        anoSelecionado
+      );
+      setData(response);
+    } catch (err: any) {
+      console.error("Erro ao carregar dashboard:", err);
+      setError(err?.message || "Erro ao carregar dashboard");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [mesSelecionado, anoSelecionado]);
+
   useEffect(() => {
-    if (!mes || !ano) return;
-
-    const carregar = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const res = await axios.get<DashboardResponse>("/api/dashboard", {
-          params: { mes, ano },
-        });
-
-        setData(res.data);
-      } catch (err) {
-        console.error(err);
-        setError("Erro ao carregar dashboard");
-        setData(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     carregar();
-  }, [mes, ano]);
+  }, [carregar]);
 
-  return { data, loading, error };
+  return { 
+    data, 
+    loading, 
+    error,
+    carregar // Permite recarregar manualmente se necessário
+  };
 }

@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FiUserPlus, FiMail, FiLock, FiUser, FiArrowLeft, FiEye, FiEyeOff, FiCheck } from "react-icons/fi";
+import { signIn } from "next-auth/react";
+import { FiUserPlus, FiMail, FiLock, FiUser, FiArrowLeft, FiEye, FiEyeOff, FiCheck, FiX } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { BsCashCoin } from "react-icons/bs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import {
   Form,
@@ -24,17 +25,30 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
+// Schema de validação com requisitos de senha forte
 const registerSchema = z.object({
   name: z.string().min(2, "O nome deve ter ao menos 2 caracteres"),
   email: z.string().email("Email inválido"),
-  password: z.string().min(6, "A senha deve ter ao menos 6 caracteres"),
+  password: z.string()
+    .min(8, "A senha deve ter no mínimo 8 caracteres")
+    .regex(/[a-z]/, "A senha deve conter pelo menos uma letra minúscula")
+    .regex(/[A-Z]/, "A senha deve conter pelo menos uma letra maiúscula")
+    .regex(/[0-9]/, "A senha deve conter pelo menos um número")
+    .regex(/[^a-zA-Z0-9]/, "A senha deve conter pelo menos um caractere especial (!@#$%^&*)"),
 });
+
+// Tipos para os requisitos de senha
+type PasswordRequirement = {
+  label: string;
+  validator: (password: string) => boolean;
+};
 
 export default function RegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [passwordValue, setPasswordValue] = useState("");
 
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
@@ -44,6 +58,62 @@ export default function RegisterPage() {
       password: "",
     },
   });
+
+  // Requisitos de senha
+  const passwordRequirements: PasswordRequirement[] = [
+    {
+      label: "Mínimo de 8 caracteres",
+      validator: (pwd) => pwd.length >= 8,
+    },
+    {
+      label: "Uma letra maiúscula (A-Z)",
+      validator: (pwd) => /[A-Z]/.test(pwd),
+    },
+    {
+      label: "Uma letra minúscula (a-z)",
+      validator: (pwd) => /[a-z]/.test(pwd),
+    },
+    {
+      label: "Um número (0-9)",
+      validator: (pwd) => /[0-9]/.test(pwd),
+    },
+    {
+      label: "Um caractere especial (!@#$%^&*)",
+      validator: (pwd) => /[^a-zA-Z0-9]/.test(pwd),
+    },
+  ];
+
+  // Calcular força da senha
+  const getPasswordStrength = (password: string) => {
+    const validRequirements = passwordRequirements.filter(req => req.validator(password)).length;
+    const percentage = (validRequirements / passwordRequirements.length) * 100;
+    
+    if (percentage === 0) return { label: "", color: "bg-gray-200 dark:bg-gray-700", percentage: 0 };
+    if (percentage <= 40) return { label: "Fraca", color: "bg-red-500", percentage };
+    if (percentage <= 60) return { label: "Média", color: "bg-yellow-500", percentage };
+    if (percentage <= 80) return { label: "Boa", color: "bg-blue-500", percentage };
+    return { label: "Forte", color: "bg-green-500", percentage };
+  };
+
+  const passwordStrength = getPasswordStrength(passwordValue);
+
+  async function handleGoogleSignIn() {
+    setIsLoading(true);
+    try {
+      await signIn("google", { 
+        callbackUrl: "/dashboard",
+        redirect: true 
+      });
+    } catch (error) {
+      console.error("Erro ao fazer login com Google:", error);
+      toast({
+        title: "Erro ao fazer login",
+        description: "Não foi possível conectar com o Google. Tente novamente.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
+  }
 
   const onSubmit = async (values: z.infer<typeof registerSchema>) => {
     setIsLoading(true);
@@ -233,18 +303,77 @@ export default function RegisterPage() {
                               placeholder="••••••••"
                               {...field}
                               disabled={isLoading}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                setPasswordValue(e.target.value);
+                              }}
                               className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
                             />
                             <button
                               type="button"
                               onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
                             >
                               {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
                             </button>
                           </div>
                         </FormControl>
                         <FormMessage />
+
+                        {/* Password Strength Indicator */}
+                        {passwordValue.length > 0 && (
+                          <div className="space-y-3 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                            {/* Strength Bar */}
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  Força da senha:
+                                </span>
+                                <span className={`font-semibold ${
+                                  passwordStrength.label === "Forte" ? "text-green-600 dark:text-green-400" :
+                                  passwordStrength.label === "Boa" ? "text-blue-600 dark:text-blue-400" :
+                                  passwordStrength.label === "Média" ? "text-yellow-600 dark:text-yellow-400" :
+                                  "text-red-600 dark:text-red-400"
+                                }`}>
+                                  {passwordStrength.label}
+                                </span>
+                              </div>
+                              <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full ${passwordStrength.color} transition-all duration-300`}
+                                  style={{ width: `${passwordStrength.percentage}%` }}
+                                ></div>
+                              </div>
+                            </div>
+
+                            {/* Requirements Checklist */}
+                            <div className="space-y-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                              <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Requisitos da senha:
+                              </p>
+                              {passwordRequirements.map((requirement, index) => {
+                                const isValid = requirement.validator(passwordValue);
+                                return (
+                                  <div 
+                                    key={index} 
+                                    className={`flex items-center gap-2 text-xs transition-colors ${
+                                      isValid 
+                                        ? "text-green-600 dark:text-green-400" 
+                                        : "text-gray-500 dark:text-gray-400"
+                                    }`}
+                                  >
+                                    {isValid ? (
+                                      <FiCheck className="flex-shrink-0" size={14} />
+                                    ) : (
+                                      <FiX className="flex-shrink-0" size={14} />
+                                    )}
+                                    <span>{requirement.label}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </FormItem>
                     )}
                   />
@@ -265,7 +394,7 @@ export default function RegisterPage() {
                   <Button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full h-12 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="w-full h-12 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer"
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-2">
@@ -298,11 +427,21 @@ export default function RegisterPage() {
               <Button
                 type="button"
                 variant="outline"
+                onClick={handleGoogleSignIn}
                 disabled={isLoading}
-                className="w-full h-12 border-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 font-medium"
+                className="w-full h-12 border-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 font-medium cursor-pointer"
               >
-                <FcGoogle size={24} className="mr-2" />
-                Continuar com Google
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-gray-700 dark:border-gray-300 border-t-transparent rounded-full animate-spin mr-2"></div>
+                    <span>Conectando...</span>
+                  </>
+                ) : (
+                  <>
+                    <FcGoogle size={24} className="mr-2" />
+                    Continuar com Google
+                  </>
+                )}
               </Button>
 
               {/* Login Link */}

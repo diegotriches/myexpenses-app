@@ -1,5 +1,7 @@
+// src/hooks/useExtrato.ts
 import { useCallback, useState, useEffect } from "react";
 import { usePeriodo } from "@/contexts/PeriodoContext";
+import { dashboardService } from "@/services/dashboardService";
 
 export interface MovimentacaoExtrato {
   id: string;
@@ -61,45 +63,41 @@ export function useExtrato(): UseExtratoReturn {
     tipo: "TODOS",
   });
 
-  // Carregar extrato
+  // Carregar extrato usando o dashboardService
   const carregar = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const params = new URLSearchParams({
-        ano: String(anoSelecionado),
-        mes: String(mesSelecionado + 1),
-      });
+      // Prepara parâmetros para o service
+      const params: any = {
+        ano: anoSelecionado,
+        mes: mesSelecionado + 1,
+      };
 
       // Adiciona filtros opcionais
       if (filtros.contaId) {
-        params.append("contaId", filtros.contaId);
+        params.contaId = filtros.contaId;
       }
       
       if (filtros.origem && filtros.origem !== "TODAS") {
-        params.append("origem", filtros.origem);
+        params.origem = filtros.origem;
       }
       
       if (filtros.tipo && filtros.tipo !== "TODOS") {
-        params.append("tipo", filtros.tipo);
+        params.tipo = filtros.tipo;
       }
 
       if (filtros.dataInicio) {
-        params.append("dataInicio", filtros.dataInicio);
+        params.dataInicio = filtros.dataInicio;
       }
 
       if (filtros.dataFim) {
-        params.append("dataFim", filtros.dataFim);
+        params.dataFim = filtros.dataFim;
       }
 
-      const res = await fetch(`/api/extrato?${params.toString()}`);
-      
-      if (!res.ok) {
-        throw new Error("Falha ao carregar extrato");
-      }
-
-      const data = await res.json();
+      // ✅ Usa o dashboardService
+      const data = await dashboardService.buscarExtrato(params);
       
       setMovimentacoes(data.movimentacoes || []);
       setSaldos(data.saldos || []);

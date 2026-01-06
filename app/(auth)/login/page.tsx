@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
-import { FiLogIn, FiMail, FiLock, FiArrowLeft, FiEye, FiEyeOff } from "react-icons/fi";
+import { FiLogIn, FiMail, FiLock, FiArrowLeft, FiEye, FiEyeOff, FiAlertCircle, FiX } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { BsCashCoin } from "react-icons/bs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import {
     Form,
@@ -22,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const loginSchema = z.object({
     email: z.string().email("Email inválido"),
@@ -29,8 +31,11 @@ const loginSchema = z.object({
 });
 
 export default function LoginPage() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const form = useForm({
         resolver: zodResolver(loginSchema),
@@ -40,14 +45,52 @@ export default function LoginPage() {
         },
     });
 
+    // Verificar se há erro na URL (quando NextAuth redireciona com erro)
+    useEffect(() => {
+        const errorParam = searchParams.get("error");
+        if (errorParam) {
+            const errorMessages: Record<string, string> = {
+                CredentialsSignin: "Email ou senha incorretos. Verifique suas credenciais e tente novamente.",
+                OAuthSignin: "Erro ao fazer login com Google. Tente novamente.",
+                OAuthCallback: "Erro no callback do Google. Tente novamente.",
+                OAuthCreateAccount: "Erro ao criar conta com Google. Tente novamente.",
+                EmailCreateAccount: "Erro ao criar conta. Tente novamente.",
+                Callback: "Erro no callback de autenticação. Tente novamente.",
+                OAuthAccountNotLinked: "Esta conta já está vinculada a outro método de login.",
+                EmailSignin: "Erro ao enviar email de verificação.",
+                SessionRequired: "É necessário fazer login para acessar esta página.",
+                Default: "Ocorreu um erro ao fazer login. Tente novamente.",
+            };
+
+            setError(errorMessages[errorParam] || errorMessages.Default);
+        }
+    }, [searchParams]);
+
     async function onSubmit(values: z.infer<typeof loginSchema>) {
         setIsLoading(true);
+        setError(null);
+        
         try {
-            await signIn("credentials", {
+            const result = await signIn("credentials", {
                 email: values.email,
                 password: values.password,
-                callbackUrl: "/dashboard",
+                redirect: false, // Não redirecionar automaticamente
             });
+
+            if (result?.error) {
+                // Tratar erros específicos
+                if (result.error === "CredentialsSignin") {
+                    setError("Email ou senha incorretos. Verifique suas credenciais e tente novamente.");
+                } else {
+                    setError("Ocorreu um erro ao fazer login. Tente novamente.");
+                }
+            } else if (result?.ok) {
+                // Login bem-sucedido, redirecionar para dashboard
+                router.push("/dashboard");
+            }
+        } catch (err) {
+            setError("Erro inesperado. Por favor, tente novamente mais tarde.");
+            console.error("Erro no login:", err);
         } finally {
             setIsLoading(false);
         }
@@ -55,9 +98,16 @@ export default function LoginPage() {
 
     async function handleGoogleLogin() {
         setIsLoading(true);
+        setError(null);
+        
         try {
-            await signIn("google", { callbackUrl: "/dashboard" });
-        } finally {
+            await signIn("google", { 
+                callbackUrl: "/dashboard",
+                redirect: true 
+            });
+        } catch (err) {
+            setError("Erro ao fazer login com Google. Tente novamente.");
+            console.error("Erro no login Google:", err);
             setIsLoading(false);
         }
     }
@@ -133,6 +183,23 @@ export default function LoginPage() {
                         </CardHeader>
 
                         <CardContent className="space-y-6">
+                            {/* Error Alert */}
+                            {error && (
+                                <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <FiAlertCircle className="h-4 w-4" />
+                                    <AlertDescription className="flex items-center justify-between gap-2">
+                                        <span className="flex-1">{error}</span>
+                                        <button
+                                            onClick={() => setError(null)}
+                                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                                            aria-label="Fechar alerta"
+                                        >
+                                            <FiX size={18} />
+                                        </button>
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
                             <Form {...form}>
                                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                     {/* Email Field */}
@@ -216,7 +283,7 @@ export default function LoginPage() {
                                                 Entrando...
                                             </div>
                                         ) : (
-                                            <div className="flex items-center gap-2 cursor-pointer">
+                                            <div className="flex items-center gap-2">
                                                 <FiLogIn size={20} />
                                                 Entrar
                                             </div>

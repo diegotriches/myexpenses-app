@@ -1,42 +1,30 @@
 import { useEffect, useState, useCallback } from "react";
-import { FormMovimentacao } from "@/lib/buildTransacoesFromForm";
-import { Transacao, TransacaoCreate, TransacaoUpdate } from "@/types/transacao";
+import { Transacao } from "@/types/transacao";
+import { transacaoService } from "@/services/transacaoService";
 import { usePeriodo } from "@/contexts/PeriodoContext";
-
-type TipoExclusao = "unica" | "todas_parcelas" | "toda_recorrencia";
-type TipoEdicao = "unica" | "todas_parcelas" | "toda_recorrencia";
 
 export function useTransacoes() {
   const { mesSelecionado, anoSelecionado } = usePeriodo();
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [idEdicao, setIdEdicao] = useState<string | null>(null);
   const [idParaExcluir, setIdParaExcluir] = useState<string | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
 
-  // Carregar transações
   const carregar = useCallback(async () => {
     setLoading(true);
     setErro(null);
-    
+
     try {
-      const params = new URLSearchParams({
-        ano: String(anoSelecionado),
-        mes: String(mesSelecionado + 1),
+      const data = await transacaoService.listar({
+        ano: anoSelecionado,
+        mes: mesSelecionado + 1,
       });
-
-      const res = await fetch(`/api/transacoes?${params.toString()}`);
-      if (!res.ok) throw new Error("Falha ao carregar transações");
-
-      const data = (await res.json()) as Transacao[];
-      
       setTransacoes(data);
-      
-    } catch (error) {
-      console.error("Erro ao carregar transações:", error);
-      setErro("Erro ao carregar transações");
+    } catch (err: any) {
+      console.error(err);
+      setErro(err.message || "Erro ao carregar transações");
     } finally {
       setLoading(false);
     }
@@ -46,178 +34,44 @@ export function useTransacoes() {
     carregar();
   }, [carregar]);
 
-  // Criar / Atualizar
-  const salvar = useCallback(
-    async (dados: TransacaoCreate | TransacaoUpdate) => {
-      setErro(null);
-      
-      const isUpdate = "id" in dados;
+  const criar = useCallback(async (dados: any) => {
+    setErro(null);
+    try {
+      await transacaoService.criar(dados);
+      await carregar();
+      if (modalOpen) fecharModal();
+    } catch (err: any) {
+      setErro(err.message);
+      throw err;
+    }
+  }, [carregar, modalOpen]);
 
-      if (!dados.contaId) {
-        const erro = "Conta é obrigatória";
-        setErro(erro);
-        throw new Error(erro);
-      }
+  const excluir = useCallback(async (id: string, tipo?: any) => {
+    setErro(null);
+    try {
+      await transacaoService.remover(id, tipo);
+      setIdParaExcluir(null);
+      await carregar();
+    } catch (err: any) {
+      setErro(err.message);
+      throw err;
+    }
+  }, [carregar]);
 
-      const url = isUpdate
-        ? `/api/transacoes/${dados.id}`
-        : "/api/transacoes";
-
-      const payload: any = {
-        ...(isUpdate ? { id: dados.id } : {}),
-        tipo: dados.tipo,
-        descricao: dados.descricao ?? null,
-        data: dados.data,
-        valor: Number(dados.valor),
-        contaId: dados.contaId,
-        cartaoId: dados.cartaoId ?? null,
-        categoria: dados.categoria ?? null,
-        formaPagamento: dados.formaPagamento ?? "dinheiro",
-        parcelado: dados.parcelado ?? false,
-        parcelamentoId: dados.parcelamentoId ?? null,
-        parcelas: dados.parcelas ?? null,
-        parcelaAtual: dados.parcelaAtual ?? null,
-        recorrente: dados.recorrente ?? false,
-        recorrenciaId: dados.recorrenciaId ?? null,
-        repeticoes: dados.repeticoes ?? null,
-      };
-
-      try {
-        const res = await fetch(url, {
-          method: isUpdate ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          console.error("Erro ao salvar transação:", {
-            status: res.status,
-            body: text,
-            payload,
-          });
-          throw new Error(text || "Erro ao salvar transação");
-        }
-
-        await carregar();
-        
-        // Fecha modal após sucesso
-        if (modalOpen) {
-          fecharModal();
-        }
-      } catch (error: any) {
-        setErro(error.message || "Erro ao salvar transação");
-        throw error;
-      }
-    },
-    [carregar, modalOpen]
-  );
-
-  // Edição avançada (parcelamentos e recorrências)
-  const editar = useCallback(
-    async (
-      transacaoEdicao: Transacao,
-      form: FormMovimentacao,
-      modoEdicao: TipoEdicao = "unica"
-    ) => {
-      setErro(null);
-
-      // Monta payload base comum a qualquer edição
-      const payload = {
-        tipo: form.tipo,
-        descricao: form.descricao,
-        data: form.data,
-        valor: Number(form.valor),
-        contaId: form.contaId,
-        categoria: form.categoria,
-        formaPagamento: form.formaPagamento,
-        cartaoId: form.formaPagamento === "cartao" ? Number(form.cartaoId) : null,
-
-        parcelado: transacaoEdicao.parcelado,
-        parcelas: transacaoEdicao.parcelas,
-        parcelaAtual: transacaoEdicao.parcelaAtual,
-        parcelamentoId: transacaoEdicao.parcelamentoId,
-
-        recorrente: transacaoEdicao.recorrente,
-        recorrenciaId: transacaoEdicao.recorrenciaId,
-        repeticoes: transacaoEdicao.repeticoes,
-
-        modoEdicao,
-      };
-
-      try {
-        const res = await fetch(`/api/transacoes/${transacaoEdicao.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(text || "Erro ao editar transação");
-        }
-
-        await carregar();
-        
-        // Fecha modal após sucesso
-        if (modalOpen) {
-          fecharModal();
-        }
-      } catch (error: any) {
-        setErro(error.message || "Erro ao editar transação");
-        throw error;
-      }
-    },
-    [carregar, modalOpen]
-  );
-
-  // Exclusão
-  const excluir = useCallback(
-    async (id: string, tipo: TipoExclusao = "unica") => {
-      setErro(null);
-
-      const transacao = transacoes.find((t) => t.id === id);
-      if (!transacao) {
-        const erro = "Transação não encontrada";
-        setErro(erro);
-        throw new Error(erro);
-      }
-
-      try {
-        const res = await fetch(`/api/transacoes/${id}?tipo=${tipo}`, { 
-          method: "DELETE" 
-        });
-        
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(text || "Erro ao excluir transação");
-        }
-
-        setIdParaExcluir(null);
-        await carregar();
-      } catch (error: any) {
-        setErro(error.message || "Erro ao excluir transação");
-        throw error;
-      }
-    },
-    [transacoes, carregar]
-  );
-
-  // Controle de Modal
-  const abrirModalCriar = useCallback(() => { 
+  const abrirModalCriar = useCallback(() => {
     setIdEdicao(null);
     setErro(null);
-    setModalOpen(true); 
+    setModalOpen(true);
   }, []);
-  
-  const abrirModalEditar = useCallback((id: string) => { 
+
+  const abrirModalEditar = useCallback((id: string) => {
     setIdEdicao(id);
     setErro(null);
-    setModalOpen(true); 
+    setModalOpen(true);
   }, []);
-  
-  const fecharModal = useCallback(() => { 
-    setModalOpen(false); 
+
+  const fecharModal = useCallback(() => {
+    setModalOpen(false);
     setIdEdicao(null);
     setErro(null);
   }, []);
@@ -227,8 +81,7 @@ export function useTransacoes() {
     loading,
     erro,
     carregar,
-    salvar,
-    editar,
+    criar,
     excluir,
     modalOpen,
     abrirModalCriar,

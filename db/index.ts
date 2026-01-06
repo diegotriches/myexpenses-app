@@ -1,18 +1,19 @@
-import { Pool } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { config } from "dotenv";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
 import * as schema from "./schema";
 
-config();
+// Validar que a DATABASE_URL existe
+if (!process.env.DATABASE_URL) {
+  throw new Error("❌ DATABASE_URL não está definida no .env.local");
+}
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+// Criar cliente Neon HTTP
+const sql = neon(process.env.DATABASE_URL);
 
-export const db = drizzle(pool, {
-  schema,
-});
+// Inicializar Drizzle com o schema
+export const db = drizzle(sql, { schema });
+
+// Log de inicialização (apenas em desenvolvimento)
+if (process.env.NODE_ENV === "development") {
+  console.log("✅ Drizzle conectado ao Neon (HTTP)");
+}

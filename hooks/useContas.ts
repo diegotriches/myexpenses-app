@@ -1,31 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Conta, CreateContaDTO } from "@/types/conta";
-import api from "@/services/api";
+import { Conta } from "@/types/conta";
+import { contaService } from "@/services/contaService";
 
-export type UpdateContaDTO = {
-  nome?: string;
-  tipo?: "BANCARIA" | "CARTAO";
-  ativo?: boolean;
-  observacoes?: string | null;
-  banco?: string | null;
-  bandeira?: string | null;
-  ultimosDigitos?: string | null;
-  limite?: number | null;
-  fechamentoFatura?: number | null;
-  vencimentoFatura?: number | null;
-};
-
-interface UseContasReturn {
-  contas: Conta[];
-  loading: boolean;
-  error: string | null;
-  carregarContas: () => Promise<void>;
-  criarConta: (data: CreateContaDTO) => Promise<void>;
-  atualizarConta: (id: string, data: UpdateContaDTO) => Promise<void>;
-  removerConta: (id: string) => Promise<void>;
-}
-
-export function useContas(): UseContasReturn {
+export function useContas() {
   const [contas, setContas] = useState<Conta[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,79 +12,61 @@ export function useContas(): UseContasReturn {
     setError(null);
 
     try {
-      const { data } = await api.get<Conta[]>("/contas");
+      const data = await contaService.listar();
       setContas(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Erro ao carregar contas");
+      setError(err.message || "Erro ao carregar contas");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const criarConta = useCallback(async (data: CreateContaDTO) => {
+  const criarConta = useCallback(async (dados: any) => {
     setLoading(true);
     setError(null);
 
     try {
-      const payload: CreateContaDTO = {
-        ...data,
-        saldoInicial: Number(data.saldoInicial) || 0,
-      };
-
-      const { data: contaCriada } = await api.post<Conta>(
-        "/contas",
-        payload
-      );
-
-      setContas((prev) => [...prev, contaCriada]);
-    } catch (err) {
+      const novaConta = await contaService.criar(dados);
+      setContas((prev) => [...prev, novaConta]);
+    } catch (err: any) {
       console.error(err);
-      setError("Erro ao criar conta");
+      setError(err.message || "Erro ao criar conta");
+      throw err;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const atualizarConta = useCallback(
-    async (id: string, data: UpdateContaDTO) => {
-      setLoading(true);
-      setError(null);
+  const atualizarConta = useCallback(async (id: string, dados: any) => {
+    setLoading(true);
+    setError(null);
 
-      try {
-        const { data: contaAtualizada } = await api.put<Conta>(
-          `/contas/${id}`,
-          data
-        );
-
-        setContas((prev) =>
-          prev.map((c) =>
-            c.id === contaAtualizada.id ? contaAtualizada : c
-          )
-        );
-      } catch (err) {
-        console.error(err);
-        setError("Erro ao atualizar conta");
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+    try {
+      const contaAtualizada = await contaService.atualizar(id, dados);
+      setContas((prev) =>
+        prev.map((c) => (c.id === id ? contaAtualizada : c))
+      );
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Erro ao atualizar conta");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const removerConta = useCallback(async (id: string) => {
     setLoading(true);
     setError(null);
 
     try {
-      await api.delete(`/contas/${id}`);
+      await contaService.remover(id);
       setContas((prev) => prev.filter((c) => c.id !== id));
     } catch (err: any) {
-      if (err.response?.status !== 404) {
-        console.error(err);
-        setError("Erro ao remover conta");
-        throw err;
-      }
+      console.error(err);
+      setError(err.message || "Erro ao remover conta");
+      throw err;
     } finally {
       setLoading(false);
     }

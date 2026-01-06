@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { cartoes, faturas, transacoes } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
+import { getUserIdFromSession } from "@/lib/auth/helpers";
 
 export async function POST(req: NextRequest) {
   try {
+    // 🔐 Autenticação
+    const userId = await getUserIdFromSession();
+
     const body = await req.json();
 
     const {
@@ -44,33 +48,39 @@ export async function POST(req: NextRequest) {
 
     /* 2. Transaction */
     await db.transaction(async (trx) => {
-      /* 2.1 Buscar cartão */
+      /* 2.1 Buscar cartão e verificar ownership */
       const [cartao] = await trx
         .select()
         .from(cartoes)
-        .where(eq(cartoes.id, cartaoId));
+        .where(
+          and(
+            eq(cartoes.id, cartaoId),
+            eq(cartoes.userId, userId) // 🔐 Verificar ownership
+          )
+        );
 
       if (!cartao) {
-        throw new Error("Cartão não encontrado");
+        throw new Error("CARTAO_NAO_ENCONTRADO");
       }
 
       if (!cartao.ativo) {
-        throw new Error("Cartão inativo");
+        throw new Error("CARTAO_INATIVO");
       }
 
       const limiteDisponivel = Number(cartao.limiteDisponivel);
 
       if (limiteDisponivel < valorTotal) {
-        throw new Error("Limite insuficiente");
+        throw new Error("LIMITE_INSUFICIENTE");
       }
 
-      /* 2.2 Criar ou buscar fatura */
+      /* 2.2 Criar ou buscar fatura - 🔐 filtrar por userId */
       const [fatura] = await trx
         .select()
         .from(faturas)
         .where(
           and(
             eq(faturas.cartaoId, cartaoId),
+            eq(faturas.userId, userId), // 🔐 Filtrar por userId
             eq(faturas.ano, ano),
             eq(faturas.mes, mes)
           )
@@ -82,6 +92,7 @@ export async function POST(req: NextRequest) {
         const [novaFatura] = await trx
           .insert(faturas)
           .values({
+            userId, // 🔐 Incluir userId
             cartaoId,
             ano,
             mes,
@@ -93,12 +104,12 @@ export async function POST(req: NextRequest) {
         faturaId = novaFatura.id;
       } else {
         if (fatura.paga) {
-          throw new Error("Fatura já paga");
+          throw new Error("FATURA_JA_PAGA");
         }
         faturaId = fatura.id;
       }
 
-      /* 2.3 Inserir transações (parceladas ou não) */
+      /* 2.3 Inserir transações (parceladas ou não) - 🔐 incluir userId */
       const parcelamentoId = parcelado
         ? crypto.randomUUID()
         : null;
@@ -108,12 +119,13 @@ export async function POST(req: NextRequest) {
         dataParcela.setMonth(dataParcela.getMonth() + (i - 1));
 
         await trx.insert(transacoes).values({
+          userId, // 🔐 CRÍTICO: Incluir userId
           data: dataParcela,
           tipo: "saida",
           descricao,
           valor: String(valorParcela),
           categoria,
-          formaPagamento: "CARTAO",
+          formaPagamento: "cartao",
           contaId,
           cartaoId,
           parcelado,
@@ -129,33 +141,57 @@ export async function POST(req: NextRequest) {
 
       await trx
         .update(faturas)
-        .set({ total: String(novoTotal) })
+        .set({ 
+          total: String(novoTotal),
+          updatedAt: new Date(),
+        })
         .where(eq(faturas.id, faturaId));
 
-      /* 2.5 Atualizar limite disponível */
+      /* 2.5 Atualizar limite disponível - 🔐 garantir ownership */
       await trx
         .update(cartoes)
         .set({
           limiteDisponivel: limiteDisponivel - valorTotal,
         })
-        .where(eq(cartoes.id, cartaoId));
+        .where(
+          and(
+            eq(cartoes.id, cartaoId),
+            eq(cartoes.userId, userId) // 🔐 Garantir ownership
+          )
+        );
     });
 
     return NextResponse.json(
-      { success: true },
+      { success: true, message: "Transação criada com sucesso" },
       { status: 201 }
     );
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) { // ✅ Adicionar tipo 'any'
+    console.error("Erro ao criar transação de cartão:", error);
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Erro ao criar transação de cartão";
+    if (error instanceof Error && error.message === "Não autenticado") {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
+    const errorMessages: Record<string, { message: string; status: number }> = {
+      CARTAO_NAO_ENCONTRADO: { message: "Cartão não encontrado", status: 404 },
+      CARTAO_INATIVO: { message: "Cartão inativo", status: 400 },
+      LIMITE_INSUFICIENTE: { message: "Limite insuficiente", status: 400 },
+      FATURA_JA_PAGA: { message: "Não é possível adicionar transações em fatura já paga", status: 400 },
+    };
+
+    const errorInfo = error instanceof Error && errorMessages[error.message]
+      ? errorMessages[error.message]
+      : {
+          message: error instanceof Error ? error.message : "Erro ao criar transação de cartão",
+          status: 400,
+        };
 
     return NextResponse.json(
-      { error: message },
-      { status: 400 }
+      { error: errorInfo.message },
+      { status: errorInfo.status }
     );
   }
 }

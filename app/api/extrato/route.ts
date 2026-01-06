@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { extratoConta, contas } from "@/db/schema";
 import { eq, and, gte, lte, sql, desc, inArray } from "drizzle-orm";
+import { getUserIdFromSession } from "@/lib/auth/helpers";
 
 export async function GET(req: NextRequest) {
     try {
+        // 🔐 Autenticação
+        const userId = await getUserIdFromSession();
+
         const { searchParams } = new URL(req.url);
 
         /* 1. Query params */
@@ -32,8 +36,9 @@ export async function GET(req: NextRequest) {
         const ultimoDia = new Date(anoNum, mesNum, 0).getDate();
         const fim = dataFim || `${anoNum}-${String(mesNum).padStart(2, "0")}-${ultimoDia}`;
 
-        /* 4. Filtros dinâmicos */
+        /* 4. Filtros dinâmicos - 🔐 SEMPRE filtrar por userId */
         const filtros = [
+            eq(extratoConta.userId, userId), // 🔐 CRÍTICO: Filtrar por userId
             gte(extratoConta.data, inicio),
             lte(extratoConta.data, fim)
         ];
@@ -50,7 +55,7 @@ export async function GET(req: NextRequest) {
             filtros.push(eq(extratoConta.tipo, tipo as any));
         }
 
-        /* 5. Buscar movimentações */
+        /* 5. Buscar movimentações - join com contas (verificando userId) */
         const movimentacoes = await db
             .select({
                 id: extratoConta.id,
@@ -66,30 +71,55 @@ export async function GET(req: NextRequest) {
                 createdAt: extratoConta.createdAt,
             })
             .from(extratoConta)
-            .innerJoin(contas, eq(extratoConta.contaId, contas.id))
+            .innerJoin(
+                contas, 
+                and(
+                    eq(extratoConta.contaId, contas.id),
+                    eq(contas.userId, userId) // 🔐 Garantir que conta é do usuário
+                )
+            )
             .where(and(...filtros))
             .orderBy(
                 desc(extratoConta.data),
                 desc(extratoConta.createdAt)
             );
 
-        /* 6. Buscar contas envolvidas */
+        /* 6. Buscar contas envolvidas - 🔐 filtrar por userId */
         const contasIds = [...new Set(movimentacoes.map(m => m.contaId))];
         
         const contasEnvolvidas = contaId 
-            ? await db.select().from(contas).where(eq(contas.id, contaId))
-            : await db.select().from(contas).where(inArray(contas.id, contasIds));
+            ? await db
+                .select()
+                .from(contas)
+                .where(
+                    and(
+                        eq(contas.id, contaId),
+                        eq(contas.userId, userId) // 🔐 Verificar ownership
+                    )
+                )
+            : contasIds.length > 0
+                ? await db
+                    .select()
+                    .from(contas)
+                    .where(
+                        and(
+                            inArray(contas.id, contasIds),
+                            eq(contas.userId, userId) // 🔐 Filtrar por userId
+                        )
+                    )
+                : [];
 
         /* 7. Calcular saldos por conta */
         const saldos = await Promise.all(
             contasEnvolvidas.map(async (conta) => {
-                // Busca primeira movimentação antes do período
+                // 🔐 Busca primeira movimentação antes do período (do usuário)
                 const [movAnterior] = await db
                     .select()
                     .from(extratoConta)
                     .where(
                         and(
                             eq(extratoConta.contaId, conta.id),
+                            eq(extratoConta.userId, userId), // 🔐 Filtrar por userId
                             lte(extratoConta.data, inicio)
                         )
                     )
@@ -144,6 +174,14 @@ export async function GET(req: NextRequest) {
         });
     } catch (error) {
         console.error("Erro ao buscar extrato:", error);
+
+        if (error instanceof Error && error.message === "Não autenticado") {
+            return NextResponse.json(
+                { error: "Não autenticado" },
+                { status: 401 }
+            );
+        }
+
         return NextResponse.json(
             { error: "Erro ao buscar extrato" },
             { status: 500 }

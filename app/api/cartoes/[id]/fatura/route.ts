@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, faturas, contas, extratoConta, cartoes } from "@/db/schema";
 import { eq, and, gte, lt, sql } from "drizzle-orm";
+import { getUserIdFromSession } from "@/lib/auth/helpers";
 
 // ========================================
 // GET - Buscar fatura do mês
@@ -11,6 +12,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // 🔐 Autenticação
+    const userId = await getUserIdFromSession();
+
     const { id } = await params;
     const cartaoId = Number(id);
 
@@ -25,30 +29,50 @@ export async function GET(
       );
     }
 
+    // 🔐 Verificar se o cartão pertence ao usuário
+    const [cartao] = await db
+      .select()
+      .from(cartoes)
+      .where(
+        and(
+          eq(cartoes.id, cartaoId),
+          eq(cartoes.userId, userId)
+        )
+      );
+
+    if (!cartao) {
+      return NextResponse.json(
+        { error: "Cartão não encontrado ou acesso negado" },
+        { status: 404 }
+      );
+    }
+
     /* 1. Intervalo do mês (mes recebido como 1–12) */
     const inicioMes = new Date(ano, mes - 1, 1);
     const fimMes = new Date(ano, mes, 1);
 
-    /* 2. Transações do cartão no período */
+    /* 2. Transações do cartão no período - 🔐 filtrar por userId */
     const transacoesDoMes = await db
       .select()
       .from(transacoes)
       .where(
         and(
           eq(transacoes.cartaoId, cartaoId),
+          eq(transacoes.userId, userId), // 🔐 Adicionar
           gte(transacoes.data, inicioMes),
           lt(transacoes.data, fimMes)
         )
       )
       .orderBy(transacoes.data);
 
-    /* 3. Buscar fatura (se existir) */
+    /* 3. Buscar fatura (se existir) - 🔐 filtrar por userId */
     const [fatura] = await db
       .select()
       .from(faturas)
       .where(
         and(
           eq(faturas.cartaoId, cartaoId),
+          eq(faturas.userId, userId), // 🔐 Adicionar
           eq(faturas.ano, ano),
           eq(faturas.mes, mes)
         )
@@ -67,6 +91,7 @@ export async function GET(
       const [novaFatura] = await db
         .insert(faturas)
         .values({
+          userId, // 🔐 Adicionar
           cartaoId,
           ano,
           mes,
@@ -86,13 +111,7 @@ export async function GET(
       porCategoria[categoria] = (porCategoria[categoria] || 0) + Number(t.valor);
     });
 
-    /* 7. Buscar informações do cartão */
-    const [cartao] = await db
-      .select()
-      .from(cartoes)
-      .where(eq(cartoes.id, cartaoId));
-
-    /* 8. Resposta */
+    /* 7. Resposta */
     return NextResponse.json({
       fatura: faturaAtual ? {
         id: faturaAtual.id,
@@ -104,12 +123,12 @@ export async function GET(
         dataPagamento: faturaAtual.dataPagamento,
         contaPagamentoId: faturaAtual.contaPagamentoId,
       } : null,
-      cartao: cartao ? {
+      cartao: {
         id: cartao.id,
         nome: cartao.nome,
         limite: Number(cartao.limite),
         limiteDisponivel: Number(cartao.limiteDisponivel),
-      } : null,
+      },
       transacoes: transacoesDoMes.map(t => ({
         ...t,
         valor: Number(t.valor),
@@ -119,6 +138,14 @@ export async function GET(
     });
   } catch (error) {
     console.error("Erro ao buscar fatura:", error);
+
+    if (error instanceof Error && error.message === "Não autenticado") {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Erro ao buscar fatura" },
       { status: 500 }
@@ -134,6 +161,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // 🔐 Autenticação
+    const userId = await getUserIdFromSession();
+
     const { id } = await params;
     const cartaoId = Number(id);
 
@@ -168,13 +198,14 @@ export async function POST(
     const dataPgtoStr = dataPgto.toISOString().split("T")[0];
 
     await db.transaction(async (trx) => {
-      /* 1. Buscar fatura */
+      /* 1. Buscar fatura - 🔐 verificar userId */
       const [fatura] = await trx
         .select()
         .from(faturas)
         .where(
           and(
             eq(faturas.cartaoId, cartaoId),
+            eq(faturas.userId, userId), // 🔐 Adicionar
             eq(faturas.ano, ano),
             eq(faturas.mes, mes)
           )
@@ -194,11 +225,16 @@ export async function POST(
         throw new Error("FATURA_SEM_VALOR");
       }
 
-      /* 2. Buscar conta */
+      /* 2. Buscar conta - 🔐 verificar userId */
       const [conta] = await trx
         .select()
         .from(contas)
-        .where(eq(contas.id, contaId));
+        .where(
+          and(
+            eq(contas.id, contaId),
+            eq(contas.userId, userId) // 🔐 Adicionar
+          )
+        );
 
       if (!conta) {
         throw new Error("CONTA_NAO_ENCONTRADA");
@@ -216,18 +252,24 @@ export async function POST(
 
       const saldoDepois = saldoAntes - totalFatura;
 
-      /* 3. Buscar informações do cartão */
+      /* 3. Buscar informações do cartão - 🔐 verificar userId */
       const [cartao] = await trx
         .select()
         .from(cartoes)
-        .where(eq(cartoes.id, cartaoId));
+        .where(
+          and(
+            eq(cartoes.id, cartaoId),
+            eq(cartoes.userId, userId) // 🔐 Adicionar
+          )
+        );
 
       if (!cartao) {
         throw new Error("CARTAO_NAO_ENCONTRADO");
       }
 
-      /* 4. Registrar no extrato da conta */
+      /* 4. Registrar no extrato da conta - 🔐 incluir userId */
       await trx.insert(extratoConta).values({
+        userId, // 🔐 Adicionar
         contaId,
         data: dataPgtoStr,
         tipo: "saida",
@@ -245,7 +287,12 @@ export async function POST(
           saldoAtual: saldoDepois.toString(),
           updatedAt: new Date(),
         })
-        .where(eq(contas.id, contaId));
+        .where(
+          and(
+            eq(contas.id, contaId),
+            eq(contas.userId, userId) // 🔐 Adicionar
+          )
+        );
 
       /* 6. Liberar limite do cartão */
       await trx
@@ -253,7 +300,12 @@ export async function POST(
         .set({
           limiteDisponivel: sql`${cartoes.limiteDisponivel} + ${totalFatura}`,
         })
-        .where(eq(cartoes.id, cartaoId));
+        .where(
+          and(
+            eq(cartoes.id, cartaoId),
+            eq(cartoes.userId, userId) // 🔐 Adicionar
+          )
+        );
 
       /* 7. Marcar fatura como paga */
       await trx
@@ -274,6 +326,13 @@ export async function POST(
     
   } catch (error: any) {
     console.error("Erro ao pagar fatura:", error);
+
+    if (error instanceof Error && error.message === "Não autenticado") {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
 
     const errorMessages: Record<string, { message: string; status: number }> = {
       SALDO_INSUFICIENTE: { message: "Saldo insuficiente para pagamento da fatura", status: 400 },
@@ -305,6 +364,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // 🔐 Autenticação
+    const userId = await getUserIdFromSession();
+
     const { id } = await params;
     const cartaoId = Number(id);
 
@@ -327,13 +389,14 @@ export async function DELETE(
     }
 
     await db.transaction(async (trx) => {
-      /* 1. Buscar fatura */
+      /* 1. Buscar fatura - 🔐 verificar userId */
       const [fatura] = await trx
         .select()
         .from(faturas)
         .where(
           and(
             eq(faturas.cartaoId, cartaoId),
+            eq(faturas.userId, userId), // 🔐 Adicionar
             eq(faturas.ano, ano),
             eq(faturas.mes, mes)
           )
@@ -353,11 +416,16 @@ export async function DELETE(
 
       const totalFatura = Number(fatura.total);
 
-      /* 2. Buscar conta de pagamento */
+      /* 2. Buscar conta de pagamento - 🔐 verificar userId */
       const [conta] = await trx
         .select()
         .from(contas)
-        .where(eq(contas.id, fatura.contaPagamentoId));
+        .where(
+          and(
+            eq(contas.id, fatura.contaPagamentoId),
+            eq(contas.userId, userId) // 🔐 Adicionar
+          )
+        );
 
       if (!conta) {
         throw new Error("CONTA_NAO_ENCONTRADA");
@@ -366,21 +434,27 @@ export async function DELETE(
       const saldoAtual = Number(conta.saldoAtual);
       const novoSaldo = saldoAtual + totalFatura; // Devolve o valor
 
-      /* 3. Buscar informações do cartão */
+      /* 3. Buscar informações do cartão - 🔐 verificar userId */
       const [cartao] = await trx
         .select()
         .from(cartoes)
-        .where(eq(cartoes.id, cartaoId));
+        .where(
+          and(
+            eq(cartoes.id, cartaoId),
+            eq(cartoes.userId, userId) // 🔐 Adicionar
+          )
+        );
 
       if (!cartao) {
         throw new Error("CARTAO_NAO_ENCONTRADO");
       }
 
-      /* 4. Registrar estorno no extrato */
+      /* 4. Registrar estorno no extrato - 🔐 incluir userId */
       const dataAtual = new Date();
       const dataFormatada = dataAtual.toISOString().split('T')[0];
 
       await trx.insert(extratoConta).values({
+        userId, // 🔐 Adicionar
         contaId: fatura.contaPagamentoId,
         data: dataFormatada,
         tipo: "entrada", // Estorno devolve o dinheiro
@@ -398,7 +472,12 @@ export async function DELETE(
           saldoAtual: novoSaldo.toString(),
           updatedAt: new Date(),
         })
-        .where(eq(contas.id, fatura.contaPagamentoId));
+        .where(
+          and(
+            eq(contas.id, fatura.contaPagamentoId),
+            eq(contas.userId, userId) // 🔐 Adicionar
+          )
+        );
 
       /* 6. Bloquear limite do cartão novamente */
       await trx
@@ -406,7 +485,12 @@ export async function DELETE(
         .set({
           limiteDisponivel: sql`${cartoes.limiteDisponivel} - ${totalFatura}`,
         })
-        .where(eq(cartoes.id, cartaoId));
+        .where(
+          and(
+            eq(cartoes.id, cartaoId),
+            eq(cartoes.userId, userId) // 🔐 Adicionar
+          )
+        );
 
       /* 7. Marcar fatura como não paga */
       await trx
@@ -427,6 +511,13 @@ export async function DELETE(
     
   } catch (error: any) {
     console.error("Erro ao estornar pagamento:", error);
+
+    if (error instanceof Error && error.message === "Não autenticado") {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
 
     const errorMessages: Record<string, { message: string; status: number }> = {
       FATURA_NAO_EXISTE: { message: "Fatura não encontrada", status: 404 },

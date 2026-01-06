@@ -1,11 +1,28 @@
 "use client"
 
 import Link from "next/link";
+import { signIn } from "next-auth/react";
+import { useState } from "react";
 import { FiLogIn, FiUserPlus, FiTrendingUp, FiPieChart, FiCreditCard, FiShield, FiZap, FiCheckCircle } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { BsCashCoin } from "react-icons/bs";
 
 export default function LandingPage() {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      await signIn("google", { 
+        callbackUrl: "/dashboard",
+        redirect: true 
+      });
+    } catch (error) {
+      console.error("Erro ao fazer login:", error);
+      setIsLoading(false);
+    }
+  };
+
   const features = [
     {
       icon: FiTrendingUp,
@@ -73,10 +90,10 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-8">
                 <Link
                   href="/register"
-                  className="group px-8 py-4 rounded-xl text-blue-700 font-bold bg-white hover:bg-blue-50 shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center gap-2 transform hover:scale-105"
+                  className="group px-8 py-4 rounded-xl text-blue-700 font-bold bg-white hover:bg-blue-50 shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center gap-2 transform hover:scale-105 cursor-pointer"
                 >
                   <FiUserPlus size={20} />
-                  Começar Gratuitamente
+                  Criar Conta Gratuita
                   <FiZap className="group-hover:rotate-12 transition-transform" size={18} />
                 </Link>
 
@@ -85,7 +102,7 @@ export default function LandingPage() {
                   className="px-8 py-4 rounded-xl font-semibold border-2 border-white text-white hover:bg-white/10 backdrop-blur-sm transition-all duration-300 flex items-center justify-center gap-2"
                 >
                   <FiLogIn size={20} />
-                  Já tenho conta
+                  Entrar com E-mail
                 </Link>
               </div>
 
@@ -131,13 +148,21 @@ export default function LandingPage() {
                   </Link>
 
                   <button
-                    className="flex items-center justify-center gap-3 w-full py-4 rounded-xl border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:shadow-md"
-                    onClick={() => {
-                      console.log("Login com Google");
-                    }}
+                    onClick={handleGoogleSignIn}
+                    disabled={isLoading}
+                    className="flex items-center justify-center gap-3 w-full py-4 rounded-xl border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <FcGoogle size={24} />
-                    Continuar com Google
+                    {isLoading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-gray-700 dark:border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+                        <span>Conectando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FcGoogle size={24} />
+                        Continuar com Google
+                      </>
+                    )}
                   </button>
 
                   <div className="relative py-4">
@@ -241,7 +266,7 @@ export default function LandingPage() {
           </p>
           <Link
             href="/register"
-            className="inline-flex items-center gap-2 px-10 py-5 rounded-xl text-blue-700 font-bold bg-white hover:bg-blue-50 shadow-2xl hover:shadow-3xl transition-all duration-300 text-lg transform hover:scale-105"
+            className="inline-flex items-center gap-2 px-10 py-5 rounded-xl text-blue-700 font-bold bg-white hover:bg-blue-50 shadow-2xl hover:shadow-3xl transition-all duration-300 text-lg transform hover:scale-105 cursor-pointer"
           >
             <FiUserPlus size={24} />
             Criar Conta Grátis Agora

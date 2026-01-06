@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { extratoConta, contas } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { TransferenciasService } from "@/services/transferenciasService"
+import { getUserIdFromSession } from "@/lib/auth/helpers";
 
+// GET - Buscar transferências do mês
 export async function GET(req: NextRequest) {
   try {
+    // 🔐 Autenticação
+    const userId = await getUserIdFromSession();
+
     const { searchParams } = new URL(req.url);
     const ano = searchParams.get("ano");
     const mes = searchParams.get("mes");
@@ -24,7 +28,7 @@ export async function GET(req: NextRequest) {
     const ultimoDia = new Date(anoNum, mesNum, 0).getDate();
     const ultimoDiaStr = `${anoNum}-${String(mesNum).padStart(2, "0")}-${ultimoDia}`;
 
-    // Busca todas as movimentações de transferência do período
+    // 🔐 Busca movimentações de transferência do usuário
     const movimentacoes = await db
       .select({
         id: extratoConta.id,
@@ -41,6 +45,7 @@ export async function GET(req: NextRequest) {
       .innerJoin(contas, eq(extratoConta.contaId, contas.id))
       .where(
         and(
+          eq(extratoConta.userId, userId), // 🔐 CRÍTICO: Filtrar por userId
           eq(extratoConta.origem, "TRANSFERENCIA"),
           sql`${extratoConta.data} >= ${primeiroDia}`,
           sql`${extratoConta.data} <= ${ultimoDiaStr}`
@@ -99,6 +104,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(transferencias);
   } catch (error) {
     console.error("Erro ao buscar transferências:", error);
+
+    if (error instanceof Error && error.message === "Não autenticado") {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Erro ao buscar transferências" },
       { status: 500 }
@@ -106,8 +119,12 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// POST - Criar transferência
 export async function POST(req: NextRequest) {
   try {
+    // 🔐 Autenticação
+    const userId = await getUserIdFromSession();
+
     const body = await req.json();
     const { contaOrigemId, contaDestinoId, valor, descricao, data } = body;
 
@@ -126,7 +143,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (valor <= 0) {
+    const valorNum = Number(valor);
+    if (valorNum <= 0) {
       return NextResponse.json(
         { error: "Valor deve ser maior que zero" },
         { status: 400 }
@@ -138,21 +156,151 @@ export async function POST(req: NextRequest) {
       ? new Date(data).toISOString().split('T')[0]
       : data;
 
-    // Executa transferência
-    const resultado = await TransferenciasService.transferir({
-      contaOrigemId,
-      contaDestinoId,
-      valor: Number(valor),
-      descricao: descricao || undefined,
-      data: dataFormatada,
+    // Executar transferência em transação
+    const resultado = await db.transaction(async (tx) => {
+      // 1. Verificar se ambas as contas pertencem ao usuário
+      const [contaOrigem] = await tx
+        .select()
+        .from(contas)
+        .where(
+          and(
+            eq(contas.id, contaOrigemId),
+            eq(contas.userId, userId) // 🔐 Verificar ownership
+          )
+        );
+
+      if (!contaOrigem) {
+        throw new Error("CONTA_ORIGEM_NAO_ENCONTRADA");
+      }
+
+      if (!contaOrigem.ativo) {
+        throw new Error("CONTA_ORIGEM_INATIVA");
+      }
+
+      const [contaDestino] = await tx
+        .select()
+        .from(contas)
+        .where(
+          and(
+            eq(contas.id, contaDestinoId),
+            eq(contas.userId, userId) // 🔐 Verificar ownership
+          )
+        );
+
+      if (!contaDestino) {
+        throw new Error("CONTA_DESTINO_NAO_ENCONTRADA");
+      }
+
+      if (!contaDestino.ativo) {
+        throw new Error("CONTA_DESTINO_INATIVA");
+      }
+
+      // 2. Verificar saldo da conta de origem
+      const saldoOrigem = Number(contaOrigem.saldoAtual);
+      if (saldoOrigem < valorNum) {
+        throw new Error("SALDO_INSUFICIENTE");
+      }
+
+      // 3. Calcular novos saldos
+      const novoSaldoOrigem = saldoOrigem - valorNum;
+      const saldoDestino = Number(contaDestino.saldoAtual);
+      const novoSaldoDestino = saldoDestino + valorNum;
+
+      // 4. Gerar ID único para a transferência
+      const transferenciaId = crypto.randomUUID();
+
+      // 5. Registrar saída na conta de origem
+      await tx.insert(extratoConta).values({
+        userId, // 🔐 Incluir userId
+        contaId: contaOrigemId,
+        data: dataFormatada,
+        tipo: "saida",
+        valor: valorNum.toString(),
+        descricao: descricao || `Transferência para ${contaDestino.nome}`,
+        saldoApos: novoSaldoOrigem.toString(),
+        origem: "TRANSFERENCIA",
+        referenciaId: transferenciaId,
+      });
+
+      // 6. Registrar entrada na conta de destino
+      await tx.insert(extratoConta).values({
+        userId, // 🔐 Incluir userId
+        contaId: contaDestinoId,
+        data: dataFormatada,
+        tipo: "entrada",
+        valor: valorNum.toString(),
+        descricao: descricao || `Transferência de ${contaOrigem.nome}`,
+        saldoApos: novoSaldoDestino.toString(),
+        origem: "TRANSFERENCIA",
+        referenciaId: transferenciaId,
+      });
+
+      // 7. Atualizar saldos das contas
+      await tx
+        .update(contas)
+        .set({
+          saldoAtual: novoSaldoOrigem.toString(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(contas.id, contaOrigemId),
+            eq(contas.userId, userId) // 🔐 Garantir ownership
+          )
+        );
+
+      await tx
+        .update(contas)
+        .set({
+          saldoAtual: novoSaldoDestino.toString(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(contas.id, contaDestinoId),
+            eq(contas.userId, userId) // 🔐 Garantir ownership
+          )
+        );
+
+      return {
+        id: transferenciaId,
+        contaOrigemId,
+        contaOrigemNome: contaOrigem.nome,
+        contaDestinoId,
+        contaDestinoNome: contaDestino.nome,
+        valor: valorNum,
+        descricao,
+        data: dataFormatada,
+      };
     });
 
     return NextResponse.json(resultado, { status: 201 });
   } catch (error: any) {
     console.error("Erro ao criar transferência:", error);
+
+    if (error instanceof Error && error.message === "Não autenticado") {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
+    const errorMessages: Record<string, { message: string; status: number }> = {
+      CONTA_ORIGEM_NAO_ENCONTRADA: { message: "Conta de origem não encontrada", status: 404 },
+      CONTA_DESTINO_NAO_ENCONTRADA: { message: "Conta de destino não encontrada", status: 404 },
+      CONTA_ORIGEM_INATIVA: { message: "Conta de origem está inativa", status: 400 },
+      CONTA_DESTINO_INATIVA: { message: "Conta de destino está inativa", status: 400 },
+      SALDO_INSUFICIENTE: { message: "Saldo insuficiente na conta de origem", status: 400 },
+    };
+
+    const errorInfo = errorMessages[error.message] || {
+      message: "Erro ao criar transferência",
+      status: 500,
+    };
+
     return NextResponse.json(
-      { error: error.message || "Erro ao criar transferência" },
-      { status: 500 }
+      { error: errorInfo.message },
+      { status: errorInfo.status }
     );
   }
 }

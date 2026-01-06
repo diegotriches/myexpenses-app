@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { extratoConta, contas } from "@/db/schema";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { getUserIdFromSession } from "@/lib/auth/helpers";
 
 export async function GET(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        // 🔐 Autenticação
+        const userId = await getUserIdFromSession();
+
         /* 1. Params */
         const { id } = await params;
         const contaId = id;
@@ -19,15 +23,20 @@ export async function GET(
             );
         }
 
-        /* 2. Buscar informações da conta */
+        /* 2. Buscar informações da conta - 🔐 verificar userId */
         const [conta] = await db
             .select()
             .from(contas)
-            .where(eq(contas.id, contaId));
+            .where(
+                and(
+                    eq(contas.id, contaId),
+                    eq(contas.userId, userId) // 🔐 Verificar ownership
+                )
+            );
 
         if (!conta) {
             return NextResponse.json(
-                { error: "Conta não encontrada" },
+                { error: "Conta não encontrada ou acesso negado" },
                 { status: 404 }
             );
         }
@@ -46,8 +55,11 @@ export async function GET(
         );
         const offset = Number(searchParams.get("offset") ?? 0);
 
-        /* 4. Filtros dinâmicos */
-        const filtros = [eq(extratoConta.contaId, contaId)];
+        /* 4. Filtros dinâmicos - 🔐 SEMPRE filtrar por userId */
+        const filtros = [
+            eq(extratoConta.contaId, contaId),
+            eq(extratoConta.userId, userId) // 🔐 CRÍTICO: Adicionar
+        ];
 
         if (inicio) {
             filtros.push(gte(extratoConta.data, inicio));
@@ -87,12 +99,14 @@ export async function GET(
         let resumo = null;
         
         if (inicio && fim) {
+            // 🔐 Filtrar movimentações por userId
             const movimentacoesPeriodo = await db
                 .select()
                 .from(extratoConta)
                 .where(
                     and(
                         eq(extratoConta.contaId, contaId),
+                        eq(extratoConta.userId, userId), // 🔐 Adicionar
                         gte(extratoConta.data, inicio),
                         lte(extratoConta.data, fim)
                     )
@@ -106,13 +120,14 @@ export async function GET(
                 .filter(m => m.tipo === "saida")
                 .reduce((sum, m) => sum + Number(m.valor), 0);
 
-            // Busca saldo inicial (primeira movimentação antes do período ou saldo inicial da conta)
+            // Busca saldo inicial - 🔐 filtrar por userId
             const [primeiraMovAnterior] = await db
                 .select()
                 .from(extratoConta)
                 .where(
                     and(
                         eq(extratoConta.contaId, contaId),
+                        eq(extratoConta.userId, userId), // 🔐 Adicionar
                         lte(extratoConta.data, inicio)
                     )
                 )
@@ -163,6 +178,14 @@ export async function GET(
         });
     } catch (error) {
         console.error("Erro ao buscar extrato da conta:", error);
+
+        if (error instanceof Error && error.message === "Não autenticado") {
+            return NextResponse.json(
+                { error: "Não autenticado" },
+                { status: 401 }
+            );
+        }
+
         return NextResponse.json(
             { error: "Erro ao buscar extrato da conta" },
             { status: 500 }

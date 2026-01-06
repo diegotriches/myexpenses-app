@@ -1,25 +1,75 @@
+import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { cartoes } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { eq, and } from "drizzle-orm";
+import { getUserIdFromSession } from "@/lib/auth/helpers";
 
+// GET - Buscar cartão específico
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const userId = await getUserIdFromSession();
+    const { id } = await params;
+
+    const [cartao] = await db
+      .select()
+      .from(cartoes)
+      .where(
+        and(
+          eq(cartoes.id, parseInt(id)),
+          eq(cartoes.userId, userId)
+        )
+      )
+      .limit(1);
+
+    if (!cartao) {
+      return NextResponse.json(
+        { error: "Cartão não encontrado" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(cartao);
+  } catch (error) {
+    console.error("Erro ao buscar cartão:", error);
+
+    if (error instanceof Error && error.message === "Não autenticado") {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Erro ao buscar cartão" },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT - Atualizar cartão
 export async function PUT(
   req: Request,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  console.log("=== DEBUG PUT /api/cartoes/[id] ===");
-
-  const { id } = await context.params;
-  const body = await req.json();
-
   try {
+    const userId = await getUserIdFromSession();
+    const { id } = await params;
+    const body = await req.json();
+
+    // 🔐 Verificar se o cartão pertence ao usuário
     const cartaoAtual = await db.query.cartoes.findFirst({
-      where: eq(cartoes.id, Number(id)),
+      where: and(
+        eq(cartoes.id, Number(id)),
+        eq(cartoes.userId, userId) // 🔐 Adicionar
+      ),
     });
 
     if (!cartaoAtual) {
       return NextResponse.json(
-        { error: "Cartão não encontrado" },
+        { error: "Cartão não encontrado ou acesso negado" },
         { status: 404 }
       );
     }
@@ -97,10 +147,16 @@ export async function PUT(
       }),
     };
 
+    // 🔐 Atualizar apenas se pertencer ao usuário
     await db
       .update(cartoes)
       .set(dadosAtualizacao)
-      .where(eq(cartoes.id, Number(id)));
+      .where(
+        and(
+          eq(cartoes.id, Number(id)),
+          eq(cartoes.userId, userId) // 🔐 Adicionar
+        )
+      );
 
     return NextResponse.json(
       { message: "Cartão atualizado com sucesso" },
@@ -108,6 +164,14 @@ export async function PUT(
     );
   } catch (error) {
     console.error("Erro ao atualizar cartão:", error);
+
+    if (error instanceof Error && error.message === "Não autenticado") {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Erro interno ao atualizar cartão" },
       { status: 500 }
@@ -115,29 +179,55 @@ export async function PUT(
   }
 }
 
+// DELETE - Deletar cartão
 export async function DELETE(
-  req: Request, 
-  context: { params: Promise<{ id: string }> }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params;
+    const userId = await getUserIdFromSession();
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
-        { error: "ID não informado." }, 
+        { error: "ID não informado." },
         { status: 400 }
       );
     }
 
-    await db.delete(cartoes).where(eq(cartoes.id, Number(id)));
+    // 🔐 Deletar apenas se pertencer ao usuário
+    const deleted = await db
+      .delete(cartoes)
+      .where(
+        and(
+          eq(cartoes.id, Number(id)),
+          eq(cartoes.userId, userId) // 🔐 Adicionar
+        )
+      )
+      .returning();
 
-    return NextResponse.json({ 
-      message: "Cartão deletado com sucesso." 
+    if (deleted.length === 0) {
+      return NextResponse.json(
+        { error: "Cartão não encontrado ou acesso negado" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      message: "Cartão deletado com sucesso."
     });
   } catch (error) {
     console.error("Erro ao deletar cartão:", error);
+
+    if (error instanceof Error && error.message === "Não autenticado") {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "Erro interno ao deletar cartão." }, 
+      { error: "Erro interno ao deletar cartão." },
       { status: 500 }
     );
   }

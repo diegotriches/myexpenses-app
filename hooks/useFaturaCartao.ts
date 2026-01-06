@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
+import { faturaService } from "@/services/faturaService";
+import { cartaoService } from "@/services/cartaoService";
 import type { Transacao } from "@/types/transacao";
 
 interface FaturaResumo {
@@ -38,7 +40,7 @@ export function useFaturaCartao({
   const [pagando, setPagando] = useState(false);
   const [erroPagamento, setErroPagamento] = useState<string | null>(null);
 
-  // Carregar fatura
+  // Carregar fatura usando cartaoService
   const carregarFatura = useCallback(async () => {
     if (!cartaoId || !ano || mes === undefined) return;
 
@@ -46,21 +48,8 @@ export function useFaturaCartao({
     setError(null);
 
     try {
-      const params = new URLSearchParams({
-        ano: String(ano),
-        mes: String(mes),
-      });
-
-      const res = await fetch(
-        `/api/cartoes/${cartaoId}/fatura?${params.toString()}`
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Erro ao carregar fatura");
-      }
-
-      const data = await res.json();
+      // ✅ Usa o cartaoService.fatura
+      const data = await cartaoService.fatura(cartaoId, ano, mes);
 
       setFatura(data.fatura ?? null);
       setTransacoes(Array.isArray(data.transacoes) ? data.transacoes : []);
@@ -80,7 +69,7 @@ export function useFaturaCartao({
     carregarFatura();
   }, [carregarFatura]);
 
-  // Pagar fatura
+  // Pagar fatura usando faturaService
   const pagarFatura = useCallback(async ({
     contaId,
     dataPagamento,
@@ -106,29 +95,16 @@ export function useFaturaCartao({
     setErroPagamento(null);
 
     try {
-      const params = new URLSearchParams({
-        ano: String(ano),
-        mes: String(mes),
-      });
-
-      const res = await fetch(
-        `/api/cartoes/${cartaoId}/fatura?${params.toString()}`,
+      // ✅ Usa o faturaService.pagar
+      await faturaService.pagar(
+        Number(cartaoId),
+        ano,
+        mes,
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contaId,
-            dataPagamento: dataPagamento || new Date().toISOString(),
-          }),
+          contaId,
+          dataPagamento: dataPagamento || new Date().toISOString(),
         }
       );
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Erro ao pagar fatura");
-      }
 
       // Recarrega a fatura após pagamento
       await carregarFatura();
@@ -142,7 +118,7 @@ export function useFaturaCartao({
     }
   }, [cartaoId, ano, mes, pagando, fatura, carregarFatura]);
 
-  // Estornar pagamento de fatura
+  // Estornar pagamento usando faturaService
   const estornarPagamento = useCallback(async () => {
     if (!cartaoId || ano === undefined || mes === undefined) {
       throw new Error("Parâmetros insuficientes para estornar pagamento");
@@ -160,22 +136,8 @@ export function useFaturaCartao({
     setErroPagamento(null);
 
     try {
-      const params = new URLSearchParams({
-        ano: String(ano),
-        mes: String(mes),
-      });
-
-      const res = await fetch(
-        `/api/cartoes/${cartaoId}/fatura?${params.toString()}`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Erro ao estornar pagamento");
-      }
+      // ✅ Usa o faturaService.estornarPagamento
+      await faturaService.estornarPagamento(Number(cartaoId), ano, mes);
 
       // Recarrega a fatura após estorno
       await carregarFatura();
@@ -214,5 +176,89 @@ export function useFaturaCartao({
     pagarFatura,
     estornarPagamento,
     limparErro,
+  };
+}
+
+// ========================================
+// Hook alternativo para buscar faturas gerais (não específico por cartão)
+// ========================================
+export function useFaturas() {
+  const [fatura, setFatura] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const buscarFatura = useCallback(async (cartaoId: number, ano: number, mes: number) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // ✅ Usa o faturaService.buscarFatura
+      const data = await faturaService.buscarFatura(cartaoId, ano, mes);
+      setFatura(data);
+      return data;
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Erro ao buscar fatura");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const pagarFatura = useCallback(async (
+    cartaoId: number,
+    ano: number,
+    mes: number,
+    dados: {
+      contaId: string;
+      dataPagamento?: string;
+    }
+  ) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // ✅ Usa o faturaService.pagar
+      const resultado = await faturaService.pagar(cartaoId, ano, mes, dados);
+      await buscarFatura(cartaoId, ano, mes); // Atualiza a fatura
+      return resultado;
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Erro ao pagar fatura");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [buscarFatura]);
+
+  const estornarPagamento = useCallback(async (
+    cartaoId: number,
+    ano: number,
+    mes: number
+  ) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // ✅ Usa o faturaService.estornarPagamento
+      const resultado = await faturaService.estornarPagamento(cartaoId, ano, mes);
+      await buscarFatura(cartaoId, ano, mes); // Atualiza a fatura
+      return resultado;
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Erro ao estornar pagamento");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [buscarFatura]);
+
+  return {
+    fatura,
+    loading,
+    error,
+    buscarFatura,
+    pagarFatura,
+    estornarPagamento,
   };
 }

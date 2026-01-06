@@ -2,30 +2,41 @@ import { db } from "@/db";
 import { cartoes, faturas } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
+import { getUserIdFromSession } from "@/lib/auth/helpers";
 
+// ============================================
+// GET - Buscar todos os cartões do usuário
+// ============================================
 export async function GET() {
   try {
+    const userId = await getUserIdFromSession();
+
     const hoje = new Date();
     const anoAtual = hoje.getFullYear();
     const mesAtual = hoje.getMonth() + 1;
 
-    const listaCartoes = await db.select().from(cartoes);
+    // FILTRAR por userId
+    const listaCartoes = await db
+      .select()
+      .from(cartoes)
+      .where(eq(cartoes.userId, userId));
 
     const resultado = await Promise.all(
       listaCartoes.map(async (cartao) => {
         const limite = Number(cartao.limite ?? 0);
 
-        // Calcular limite disponível baseado nas transações reais do cartão
+        // Calcular limite disponível baseado nas faturas não pagas
         let limiteUsado = 0;
 
-        if (cartao.tipo === 'credito') {
-          // Buscar faturas não pagas do cartão
+        if (cartao.tipo === "credito") {
+          // Buscar faturas do usuário E do cartão
           const faturasNaoPagas = await db
             .select()
             .from(faturas)
             .where(
               and(
                 eq(faturas.cartaoId, cartao.id),
+                eq(faturas.userId, userId),
                 eq(faturas.paga, false)
               )
             );
@@ -38,13 +49,14 @@ export async function GET() {
 
         const limiteDisponivel = Math.max(0, limite - limiteUsado);
 
-        /* Buscar fatura atual */
+        // Buscar fatura atual com filtro de userId
         const [faturaAtual] = await db
           .select()
           .from(faturas)
           .where(
             and(
               eq(faturas.cartaoId, cartao.id),
+              eq(faturas.userId, userId),
               eq(faturas.ano, anoAtual),
               eq(faturas.mes, mesAtual)
             )
@@ -95,13 +107,27 @@ export async function GET() {
     return NextResponse.json(resultado, { status: 200 });
   } catch (err) {
     console.error("Erro no GET /api/cartoes:", err);
+
+    // Tratar erro de autenticação
+    if (err instanceof Error && err.message === "Não autenticado") {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     const message = err instanceof Error ? err.message : "Erro desconhecido";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
+// ============================================
+// POST - Criar novo cartão
+// ============================================
 export async function POST(req: Request) {
   try {
+    const userId = await getUserIdFromSession();
+
     const body = await req.json();
 
     const {
@@ -117,6 +143,7 @@ export async function POST(req: Request) {
       contaVinculadaId,
     } = body;
 
+    // Validações básicas
     if (!nome || !tipo) {
       return NextResponse.json(
         { error: "Nome e tipo são obrigatórios" },
@@ -167,7 +194,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validação opcional da conta vinculada
+    // Validação da conta vinculada
     if (contaVinculadaId && typeof contaVinculadaId !== "string") {
       return NextResponse.json(
         { error: "Conta vinculada inválida" },
@@ -176,24 +203,18 @@ export async function POST(req: Request) {
     }
 
     const novoCartao = {
+      userId,
       nome,
       tipo,
-
-      ...(bandeira && { bandeira }),
-      ...(empresa && { empresa }),
-
+      bandeira: bandeira || "",
+      empresa: empresa || "",
       limite: limiteNum,
       limiteDisponivel: limiteNum,
-
-      ...(fechamentoNum !== undefined && { diaFechamento: fechamentoNum }),
-      ...(vencimentoNum !== undefined && { diaVencimento: vencimentoNum }),
-
+      diaFechamento: fechamentoNum ?? null,
+      diaVencimento: vencimentoNum ?? null,
       ativo: ativo ?? true,
-
-      ...(observacoes && { observacoes }),
-      
-      // NOVO CAMPO
-      ...(contaVinculadaId && { contaVinculadaId }),
+      observacoes: observacoes || null,
+      contaVinculadaId: contaVinculadaId || null,
     };
 
     const [novo] = await db
@@ -204,6 +225,14 @@ export async function POST(req: Request) {
     return NextResponse.json(novo, { status: 201 });
   } catch (err) {
     console.error("Erro no POST /api/cartoes:", err);
+
+    if (err instanceof Error && err.message === "Não autenticado") {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     const message = err instanceof Error ? err.message : "Erro desconhecido";
     return NextResponse.json({ error: message }, { status: 500 });
   }
