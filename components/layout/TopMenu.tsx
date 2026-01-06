@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import PeriodoSelector from "@/components/common/PeriodoSelector";
+import PeriodoSelector from "@/components/layout/PeriodoSelector";
 import CalculadoraModal from "@/components/common/CalculadoraModal";
 
 interface TopMenuProps {

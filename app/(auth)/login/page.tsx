@@ -9,7 +9,7 @@ import { signIn } from "next-auth/react";
 import { FiLogIn, FiMail, FiLock, FiArrowLeft, FiEye, FiEyeOff, FiAlertCircle, FiX } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { BsCashCoin } from "react-icons/bs";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 
 import {
     Form,
@@ -30,7 +30,8 @@ const loginSchema = z.object({
     password: z.string().min(6, "A senha deve ter ao menos 6 caracteres"),
 });
 
-export default function LoginPage() {
+// Componente separado que usa useSearchParams
+function LoginForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [showPassword, setShowPassword] = useState(false);
@@ -74,18 +75,16 @@ export default function LoginPage() {
             const result = await signIn("credentials", {
                 email: values.email,
                 password: values.password,
-                redirect: false, // Não redirecionar automaticamente
+                redirect: false,
             });
 
             if (result?.error) {
-                // Tratar erros específicos
                 if (result.error === "CredentialsSignin") {
                     setError("Email ou senha incorretos. Verifique suas credenciais e tente novamente.");
                 } else {
                     setError("Ocorreu um erro ao fazer login. Tente novamente.");
                 }
             } else if (result?.ok) {
-                // Login bem-sucedido, redirecionar para dashboard
                 router.push("/dashboard");
             }
         } catch (err) {
@@ -112,6 +111,158 @@ export default function LoginPage() {
         }
     }
 
+    return (
+        <>
+            {/* Error Alert */}
+            {error && (
+                <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2 duration-300">
+                    <FiAlertCircle className="h-4 w-4" />
+                    <AlertDescription className="flex items-center justify-between gap-2">
+                        <span className="flex-1">{error}</span>
+                        <button
+                            onClick={() => setError(null)}
+                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                            aria-label="Fechar alerta"
+                        >
+                            <FiX size={18} />
+                        </button>
+                    </AlertDescription>
+                </Alert>
+            )}
+
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    {/* Email Field */}
+                    <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-gray-700 dark:text-gray-300">
+                                    Email
+                                </FormLabel>
+                                <FormControl>
+                                    <div className="relative">
+                                        <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                        <Input
+                                            type="email"
+                                            placeholder="seu@email.com"
+                                            {...field}
+                                            disabled={isLoading}
+                                            className="pl-10 h-12 border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
+                                        />
+                                    </div>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    {/* Password Field */}
+                    <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-gray-700 dark:text-gray-300">
+                                    Senha
+                                </FormLabel>
+                                <FormControl>
+                                    <div className="relative">
+                                        <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                        <Input
+                                            type={showPassword ? "text" : "password"}
+                                            placeholder="••••••••"
+                                            {...field}
+                                            disabled={isLoading}
+                                            className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
+                                        >
+                                            {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                                        </button>
+                                    </div>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    {/* Forgot Password Link */}
+                    <div className="flex justify-end">
+                        <Link
+                            href="/forgot-password"
+                            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                            Esqueceu a senha?
+                        </Link>
+                    </div>
+
+                    {/* Submit Button */}
+                    <Button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full h-12 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer"
+                    >
+                        {isLoading ? (
+                            <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                Entrando...
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <FiLogIn size={20} />
+                                Entrar
+                            </div>
+                        )}
+                    </Button>
+                </form>
+            </Form>
+
+            {/* Divider */}
+            <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                    <span className="px-4 bg-white dark:bg-gray-800 text-gray-500">
+                        Ou continue com
+                    </span>
+                </div>
+            </div>
+
+            {/* Google Login */}
+            <Button
+                type="button"
+                variant="outline"
+                onClick={handleGoogleLogin}
+                disabled={isLoading}
+                className="w-full h-12 border-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 font-medium cursor-pointer"
+            >
+                <FcGoogle size={24} className="mr-2" />
+                Entrar com Google
+            </Button>
+
+            {/* Sign Up Link */}
+            <div className="text-center pt-4 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Ainda não tem uma conta?{" "}
+                    <Link
+                        href="/register"
+                        className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                    >
+                        Criar conta gratuita
+                    </Link>
+                </p>
+            </div>
+        </>
+    );
+}
+
+export default function LoginPage() {
     return (
         <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4 relative overflow-hidden">
             {/* Decorative elements */}
@@ -183,151 +334,10 @@ export default function LoginPage() {
                         </CardHeader>
 
                         <CardContent className="space-y-6">
-                            {/* Error Alert */}
-                            {error && (
-                                <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <FiAlertCircle className="h-4 w-4" />
-                                    <AlertDescription className="flex items-center justify-between gap-2">
-                                        <span className="flex-1">{error}</span>
-                                        <button
-                                            onClick={() => setError(null)}
-                                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-                                            aria-label="Fechar alerta"
-                                        >
-                                            <FiX size={18} />
-                                        </button>
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-
-                            <Form {...form}>
-                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                    {/* Email Field */}
-                                    <FormField
-                                        control={form.control}
-                                        name="email"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-gray-700 dark:text-gray-300">
-                                                    Email
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <div className="relative">
-                                                        <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                                        <Input
-                                                            type="email"
-                                                            placeholder="seu@email.com"
-                                                            {...field}
-                                                            disabled={isLoading}
-                                                            className="pl-10 h-12 border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
-                                                        />
-                                                    </div>
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    {/* Password Field */}
-                                    <FormField
-                                        control={form.control}
-                                        name="password"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-gray-700 dark:text-gray-300">
-                                                    Senha
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <div className="relative">
-                                                        <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                                        <Input
-                                                            type={showPassword ? "text" : "password"}
-                                                            placeholder="••••••••"
-                                                            {...field}
-                                                            disabled={isLoading}
-                                                            className="pl-10 pr-10 h-12 border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setShowPassword(!showPassword)}
-                                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
-                                                        >
-                                                            {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
-                                                        </button>
-                                                    </div>
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    {/* Forgot Password Link */}
-                                    <div className="flex justify-end">
-                                        <Link
-                                            href="/forgot-password"
-                                            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                                        >
-                                            Esqueceu a senha?
-                                        </Link>
-                                    </div>
-
-                                    {/* Submit Button */}
-                                    <Button
-                                        type="submit"
-                                        disabled={isLoading}
-                                        className="w-full h-12 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer"
-                                    >
-                                        {isLoading ? (
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                                Entrando...
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center gap-2">
-                                                <FiLogIn size={20} />
-                                                Entrar
-                                            </div>
-                                        )}
-                                    </Button>
-                                </form>
-                            </Form>
-
-                            {/* Divider */}
-                            <div className="relative">
-                                <div className="absolute inset-0 flex items-center">
-                                    <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
-                                </div>
-                                <div className="relative flex justify-center text-sm">
-                                    <span className="px-4 bg-white dark:bg-gray-800 text-gray-500">
-                                        Ou continue com
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Google Login */}
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={handleGoogleLogin}
-                                disabled={isLoading}
-                                className="w-full h-12 border-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 font-medium cursor-pointer"
-                            >
-                                <FcGoogle size={24} className="mr-2" />
-                                Entrar com Google
-                            </Button>
-
-                            {/* Sign Up Link */}
-                            <div className="text-center pt-4 border-t border-gray-200 dark:border-gray-700">
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    Ainda não tem uma conta?{" "}
-                                    <Link
-                                        href="/register"
-                                        className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
-                                    >
-                                        Criar conta gratuita
-                                    </Link>
-                                </p>
-                            </div>
+                            {/* Wrap LoginForm com Suspense */}
+                            <Suspense fallback={<div className="text-center py-8">Carregando...</div>}>
+                                <LoginForm />
+                            </Suspense>
                         </CardContent>
                     </Card>
                 </div>

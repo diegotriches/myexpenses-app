@@ -1,81 +1,28 @@
-"use client";
-
-import { useState } from "react";
-import { usePathname } from "next/navigation";
-import { ThemeProvider as NextThemesProvider } from "next-themes";
-
-import { Providers } from "./providers";
-import { PeriodoProvider } from "@/contexts/PeriodoContext";
-import { SessionProvider } from "@/components/providers/SessionProvider";
-import { Toaster } from "@/components/ui/toaster";
-import Sidebar from "@/components/common/Sidebar";
-import TopMenu from "@/components/common/TopMenu";
-
-import { ToastProvider } from "@/hooks/use-toast";
-
+import { ReactNode } from "react";
+import { Geist, Geist_Mono } from "next/font/google";
+import { AppProviders } from "@/components/providers/AppProviders";
 import "./globals.css";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
 
-  const esconderNavbar =
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/";
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
-  const [isCollapsed, setIsCollapsed] = useState(false);
+export const metadata = {
+  title: "MyExpenses - Controle Financeiro",
+  description: "Gerencie suas finanças pessoais de forma simples e eficiente",
+};
 
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-br" suppressHydrationWarning>
-      <body className="flex bg-gray-50 dark:bg-gray-950">
-        <SessionProvider>
-          <NextThemesProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange={false}
-          >
-            <Providers>
-              <ToastProvider>
-                <PeriodoProvider>
-                  {!esconderNavbar && (
-                    <Sidebar isCollapsed={isCollapsed} />
-                  )}
-
-                  <div
-                    className="flex-1 min-h-screen transition-all duration-300 bg-white dark:bg-gray-900"
-                    style={{
-                      marginLeft: esconderNavbar
-                        ? 0
-                        : isCollapsed
-                          ? "80px"
-                          : "256px",
-                    }}
-                  >
-                    {!esconderNavbar && (
-                      <TopMenu
-                        isCollapsed={isCollapsed}
-                        toggleSidebar={() => setIsCollapsed(!isCollapsed)}
-                      />
-                    )}
-
-                    <main
-                      className="p-4 transition-all duration-300"
-                      style={{
-                        paddingTop: esconderNavbar ? "0" : "70px",
-                      }}
-                    >
-                      {children}
-                    </main>
-                  </div>
-
-                  {/* Toaster - Renderiza os toasts */}
-                  <Toaster />
-                </PeriodoProvider>
-              </ToastProvider>
-            </Providers>
-          </NextThemesProvider>
-        </SessionProvider>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );
