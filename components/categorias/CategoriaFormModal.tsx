@@ -29,7 +29,7 @@ import {
   TrendingDown,
   Tag
 } from "lucide-react";
-import { Categoria } from "app/(dashboard)/categorias/page";
+import { Categoria } from "@/types/categoria";
 import api from "@/services/api";
 import { iconOptions } from "@/utils/iconOptions";
 import IconPickerModal from "@/components/categorias/IconPickerModal";
@@ -54,8 +54,8 @@ export default function CategoriaFormModal({
   refresh,
 }: Props) {
   const [nome, setNome] = useState("");
-  const [tipo, setTipo] = useState<"entrada" | "saida">("entrada");
-  const [icon, setIcon] = useState("FaWallet");
+  const [tipo, setTipo] = useState<"entrada" | "saida" | "ambos">("entrada");
+  const [icone, setIcone] = useState("FaWallet");
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -66,11 +66,11 @@ export default function CategoriaFormModal({
       if (categoria) {
         setNome(categoria.nome);
         setTipo(categoria.tipo);
-        setIcon(categoria.icon);
+        setIcone(categoria.icone);
       } else {
         setNome("");
         setTipo("entrada");
-        setIcon("FaWallet");
+        setIcone("FaWallet");
       }
       setErrors({});
     }
@@ -100,7 +100,7 @@ export default function CategoriaFormModal({
     }
   };
 
-  const handleTipoChange = (value: "entrada" | "saida") => {
+  const handleTipoChange = (value: "entrada" | "saida" | "ambos") => {
     setTipo(value);
     if (errors.tipo) {
       setErrors({ ...errors, tipo: undefined });
@@ -118,7 +118,7 @@ export default function CategoriaFormModal({
       const payload = { 
         nome: nome.trim(), 
         tipo, 
-        icon 
+        icone
       };
 
       if (categoria) {
@@ -160,7 +160,18 @@ export default function CategoriaFormModal({
     }
   };
 
-  const IconComp = iconOptions.find(i => i.name === icon)?.component;
+  const IconComp = iconOptions.find(i => i.name === icone)?.component;
+
+  // ✅ Função para obter cor do gradiente baseado no tipo
+  const getCorGradiente = () => {
+    if (tipo === "entrada") {
+      return "from-green-500 to-green-600";
+    } else if (tipo === "saida") {
+      return "from-red-500 to-red-600";
+    } else {
+      return "from-blue-500 to-purple-600";
+    }
+  };
 
   return (
     <>
@@ -232,6 +243,12 @@ export default function CategoriaFormModal({
                       <span>Despesa</span>
                     </div>
                   </SelectItem>
+                  <SelectItem value="ambos">
+                    <div className="flex items-center gap-2">
+                      <Tag size={14} className="text-blue-600" />
+                      <span>Ambos (Receita e Despesa)</span>
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
               {errors.tipo && (
@@ -246,12 +263,8 @@ export default function CategoriaFormModal({
             <div className="space-y-2">
               <Label>Ícone</Label>
               <div className="flex items-center gap-3">
-                {/* Preview do ícone */}
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${
-                  tipo === "entrada" 
-                    ? "from-green-500 to-green-600" 
-                    : "from-red-500 to-red-600"
-                } flex items-center justify-center shadow-md flex-shrink-0`}>
+                {/* Preview do ícone - ✅ Usar getCorGradiente() */}
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getCorGradiente()} flex items-center justify-center shadow-md flex-shrink-0`}>
                   {IconComp ? (
                     <IconComp size={24} className="text-white" />
                   ) : (
@@ -317,7 +330,7 @@ export default function CategoriaFormModal({
       <IconPickerModal
         aberto={iconPickerOpen}
         onClose={() => setIconPickerOpen(false)}
-        onSelect={(iconName) => setIcon(iconName)}
+        onSelect={(iconName) => setIcone(iconName)}
       />
     </>
   );

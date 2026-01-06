@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, Loader2, Trash2, X } from "lucide-react";
 import api from "@/services/api";
-import { Categoria } from "app/(dashboard)/categorias/page";
+import { Categoria } from "@/types/categoria";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
