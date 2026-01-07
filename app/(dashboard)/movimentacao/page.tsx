@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { MdAdd } from "react-icons/md";
-import { BsArrowLeftRight } from "react-icons/bs";
+import { BsArrowLeftRight, BsBank } from "react-icons/bs";
+import { AlertCircle } from "lucide-react";
 
 import FormMovimentacaoModal from "@/components/movimentacao/FormMovimentacaoModal";
 import MovimentacaoTabela from "@/components/movimentacao/MovimentacaoTabela";
@@ -14,17 +16,21 @@ import { usePeriodo } from '@/contexts/PeriodoContext';
 
 import { useTransacoes } from "@/hooks/useTransacoes";
 import { useCartoes } from "@/hooks/useCartoes";
+import { useContas } from "@/hooks/useContas";
 import { Transacao } from "@/types/transacao";
 
 export default function MovimentacoesConteudo() {
+  const router = useRouter();
+  
   const {
     transacoes,
     loading,
-    criar,        // ✅ Função única para criar qualquer tipo de transação
+    criar,
     excluir,
   } = useTransacoes();
 
   const { cartoes, loading: loadingCartoes } = useCartoes();
+  const { contas, loading: loadingContas } = useContas();
 
   const [openModal, setOpenModal] = useState(false);
   const [editando, setEditando] = useState<Transacao | null>(null);
@@ -45,6 +51,11 @@ export default function MovimentacoesConteudo() {
     formaPagamento: "",
     busca: "",
   });
+
+  // Verificar se há contas ativas
+  const temContasAtivas = useMemo(() => {
+    return contas.some(conta => conta.ativo);
+  }, [contas]);
 
   // Movimentações filtradas por período
   const movimentacoesPeriodo = useMemo(() => {
@@ -93,6 +104,10 @@ export default function MovimentacoesConteudo() {
   }, [movimentacoesPeriodo]);
 
   function abrirNovo() {
+    // Verificar se há contas antes de abrir o modal
+    if (!temContasAtivas) {
+      return; // Não abre o modal se não houver contas
+    }
     setEditando(null);
     setOpenModal(true);
   }
@@ -157,6 +172,50 @@ export default function MovimentacoesConteudo() {
     }
   }
 
+  // ✅ Estado vazio - Sem contas cadastradas
+  const EmptyStateNoConta = () => (
+    <div className="text-center py-16 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border-2 border-dashed border-yellow-300 dark:border-yellow-700">
+      <div className="flex justify-center mb-4">
+        <div className="relative">
+          <BsBank className="text-6xl text-yellow-500 dark:text-yellow-400" />
+          <AlertCircle className="absolute -top-2 -right-2 text-red-500 bg-white dark:bg-gray-800 rounded-full" size={24} />
+        </div>
+      </div>
+      
+      <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+        Nenhuma conta cadastrada
+      </h3>
+      
+      <p className="text-gray-700 dark:text-gray-300 mb-2 max-w-md mx-auto">
+        Você precisa cadastrar pelo menos uma conta bancária antes de registrar movimentações.
+      </p>
+      
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+        As movimentações são vinculadas a contas para calcular saldos e gerar relatórios precisos.
+      </p>
+      
+      <Button 
+        onClick={() => router.push('/contas')} 
+        size="lg"
+        className="bg-blue-700 hover:bg-blue-900"
+      >
+        <BsBank className="mr-2 text-xl" />
+        Cadastrar Primeira Conta
+      </Button>
+    </div>
+  );
+
+  // Loading state
+  if (loadingContas) {
+    return (
+      <div className="max-w-[1200px] mx-auto p-6">
+        <div className="flex items-center justify-center py-16">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-[1200px] mx-auto p-6 space-y-6">
       {/* Header */}
@@ -176,7 +235,9 @@ export default function MovimentacoesConteudo() {
 
           <Button
             onClick={abrirNovo}
-            className="flex items-center gap-2 bg-blue-700 hover:bg-blue-900 text-white"
+            disabled={!temContasAtivas}
+            className="flex items-center gap-2 bg-blue-700 hover:bg-blue-900 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!temContasAtivas ? "Cadastre uma conta primeiro" : ""}
           >
             <MdAdd className="text-xl" />
             Nova Movimentação
@@ -185,22 +246,29 @@ export default function MovimentacoesConteudo() {
         <hr className="border-t border-gray-300 dark:border-gray-700" />
       </div>
 
-      {/* Filtros */}
-      <FiltrosMovimentacoes
-        filtros={filtros}
-        onFiltrosChange={setFiltros}
-        categorias={categoriasUnicas}
-        formasPagamento={formasPagamentoUnicas}
-      />
+      {/* ✅ Verificação de contas */}
+      {!temContasAtivas ? (
+        <EmptyStateNoConta />
+      ) : (
+        <>
+          {/* Filtros */}
+          <FiltrosMovimentacoes
+            filtros={filtros}
+            onFiltrosChange={setFiltros}
+            categorias={categoriasUnicas}
+            formasPagamento={formasPagamentoUnicas}
+          />
 
-      {/* Tabela de movimentações */}
-      <MovimentacaoTabela
-        movimentacoes={movimentacoesFiltradas}
-        loading={loading || loadingCartoes}
-        cartoes={cartoes}
-        onEditar={editarItem}
-        onExcluir={confirmarExclusao}
-      />
+          {/* Tabela de movimentações */}
+          <MovimentacaoTabela
+            movimentacoes={movimentacoesFiltradas}
+            loading={loading || loadingCartoes}
+            cartoes={cartoes}
+            onEditar={editarItem}
+            onExcluir={confirmarExclusao}
+          />
+        </>
+      )}
 
       {/* Modais */}
       <FormMovimentacaoModal

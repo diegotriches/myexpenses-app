@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST - Criar transação
+// POST - Criar transação (SEM db.transaction - neon-http não suporta)
 export async function POST(req: NextRequest) {
   try {
     // 🔐 Autenticação
@@ -107,173 +107,194 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Criar transação em transação (atomic)
-    const resultado = await db.transaction(async (tx) => {
-      // 1. Se tiver contaId, verificar ownership e saldo (para saídas)
-      if (json.contaId) {
-        const [conta] = await tx
-          .select()
-          .from(contas)
-          .where(
-            and(
-              eq(contas.id, json.contaId),
-              eq(contas.userId, userId) // 🔐 Verificar ownership
-            )
-          );
+    // ===================================================================
+    // OPERAÇÕES SEQUENCIAIS (SEM db.transaction - neon-http não suporta)
+    // ===================================================================
 
-        if (!conta) {
-          throw new Error("CONTA_NAO_ENCONTRADA");
-        }
+    // 1. Se tiver contaId, verificar ownership e saldo (para saídas)
+    if (json.contaId) {
+      const [conta] = await db
+        .select()
+        .from(contas)
+        .where(
+          and(
+            eq(contas.id, json.contaId),
+            eq(contas.userId, userId) // 🔐 Verificar ownership
+          )
+        )
+        .limit(1);
 
-        if (!conta.ativo) {
-          throw new Error("CONTA_INATIVA");
-        }
-
-        // Verificar saldo apenas para saídas que não são cartão de crédito
-        if (json.tipo === "saida" && json.formaPagamento !== "cartao") {
-          const saldoAtual = Number(conta.saldoAtual);
-          if (saldoAtual < valorNum) {
-            throw new Error("SALDO_INSUFICIENTE");
-          }
-        }
+      if (!conta) {
+        return NextResponse.json(
+          { error: "Conta não encontrada" },
+          { status: 404 }
+        );
       }
 
-      // 2. Se for cartão, verificar ownership
-      if (json.cartaoId) {
-        const [cartao] = await tx
-          .select()
-          .from(cartoes)
-          .where(
-            and(
-              eq(cartoes.id, Number(json.cartaoId)),
-              eq(cartoes.userId, userId) // 🔐 Verificar ownership
-            )
-          );
-
-        if (!cartao) {
-          throw new Error("CARTAO_NAO_ENCONTRADO");
-        }
-
-        if (!cartao.ativo) {
-          throw new Error("CARTAO_INATIVO");
-        }
-
-        // Para cartão de crédito, verificar limite disponível
-        if (cartao.tipo === "credito" && json.tipo === "saida") {
-          const limiteDisponivel = Number(cartao.limiteDisponivel);
-          if (limiteDisponivel < valorNum) {
-            throw new Error("LIMITE_INSUFICIENTE");
-          }
-        }
+      if (!conta.ativo) {
+        return NextResponse.json(
+          { error: "Conta inativa" },
+          { status: 400 }
+        );
       }
 
-      // 3. Criar a transação
-      const [novaTransacao] = await tx
-        .insert(transacoes)
-        .values({
-          userId, // 🔐 CRÍTICO: Incluir userId
-          tipo: json.tipo,
-          valor: valorNum.toString(),
-          data: new Date(json.data),
-          descricao: json.descricao || null,
-          categoria: json.categoria || null,
-          formaPagamento: json.formaPagamento || "dinheiro",
-          contaId: json.contaId || null,
-          cartaoId: json.cartaoId ? Number(json.cartaoId) : null,
-          recorrente: false,
-          parcelado: false,
-        })
-        .returning();
-
-      // 4. Atualizar saldo da conta (se não for cartão de crédito)
-      if (json.contaId && json.formaPagamento !== "cartao") {
-        const [conta] = await tx
-          .select()
-          .from(contas)
-          .where(eq(contas.id, json.contaId));
-
+      // Verificar saldo apenas para saídas que não são cartão de crédito
+      if (json.tipo === "saida" && json.formaPagamento !== "cartao") {
         const saldoAtual = Number(conta.saldoAtual);
-        const novoSaldo = json.tipo === "entrada" 
-          ? saldoAtual + valorNum 
-          : saldoAtual - valorNum;
+        if (saldoAtual < valorNum) {
+          return NextResponse.json(
+            { error: "Saldo insuficiente" },
+            { status: 400 }
+          );
+        }
+      }
+    }
 
-        await tx
-          .update(contas)
+    // 2. Se for cartão, verificar ownership
+    if (json.cartaoId) {
+      const [cartao] = await db
+        .select()
+        .from(cartoes)
+        .where(
+          and(
+            eq(cartoes.id, Number(json.cartaoId)),
+            eq(cartoes.userId, userId) // 🔐 Verificar ownership
+          )
+        )
+        .limit(1);
+
+      if (!cartao) {
+        return NextResponse.json(
+          { error: "Cartão não encontrado" },
+          { status: 404 }
+        );
+      }
+
+      if (!cartao.ativo) {
+        return NextResponse.json(
+          { error: "Cartão inativo" },
+          { status: 400 }
+        );
+      }
+
+      // Para cartão de crédito, verificar limite disponível
+      if (cartao.tipo === "credito" && json.tipo === "saida") {
+        const limiteDisponivel = Number(cartao.limiteDisponivel);
+        if (limiteDisponivel < valorNum) {
+          return NextResponse.json(
+            { error: "Limite insuficiente no cartão" },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // 3. Criar a transação
+    const [novaTransacao] = await db
+      .insert(transacoes)
+      .values({
+        userId, // 🔐 CRÍTICO: Incluir userId
+        tipo: json.tipo,
+        valor: valorNum.toString(),
+        data: new Date(json.data),
+        descricao: json.descricao || null,
+        categoria: json.categoria || null,
+        formaPagamento: json.formaPagamento || "dinheiro",
+        contaId: json.contaId || null,
+        cartaoId: json.cartaoId ? Number(json.cartaoId) : null,
+        recorrente: false,
+        parcelado: false,
+      })
+      .returning();
+
+    // 4. Atualizar saldo da conta (se não for cartão de crédito)
+    if (json.contaId && json.formaPagamento !== "cartao") {
+      const [conta] = await db
+        .select()
+        .from(contas)
+        .where(eq(contas.id, json.contaId))
+        .limit(1);
+
+      const saldoAtual = Number(conta.saldoAtual);
+      const novoSaldo = json.tipo === "entrada" 
+        ? saldoAtual + valorNum 
+        : saldoAtual - valorNum;
+
+      await db
+        .update(contas)
+        .set({
+          saldoAtual: novoSaldo.toString(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(contas.id, json.contaId),
+            eq(contas.userId, userId) // 🔐 Garantir ownership
+          )
+        );
+    }
+
+    // 5. Atualizar/criar fatura se for cartão de crédito
+    if (json.cartaoId && json.formaPagamento === "cartao") {
+      const dataTransacao = new Date(json.data);
+      const mes = dataTransacao.getMonth() + 1;
+      const ano = dataTransacao.getFullYear();
+
+      // Buscar ou criar fatura
+      const [faturaExistente] = await db
+        .select()
+        .from(faturas)
+        .where(
+          and(
+            eq(faturas.cartaoId, Number(json.cartaoId)),
+            eq(faturas.userId, userId), // 🔐 Filtrar por userId
+            eq(faturas.mes, mes),
+            eq(faturas.ano, ano)
+          )
+        )
+        .limit(1);
+
+      if (faturaExistente) {
+        // Atualizar fatura existente
+        const totalAtual = Number(faturaExistente.total);
+        const novoTotal = totalAtual + valorNum;
+
+        await db
+          .update(faturas)
           .set({
-            saldoAtual: novoSaldo.toString(),
+            total: novoTotal.toString(),
             updatedAt: new Date(),
           })
-          .where(
-            and(
-              eq(contas.id, json.contaId),
-              eq(contas.userId, userId) // 🔐 Garantir ownership
-            )
-          );
+          .where(eq(faturas.id, faturaExistente.id));
+      } else {
+        // Criar nova fatura
+        await db.insert(faturas).values({
+          userId, // 🔐 Incluir userId
+          cartaoId: Number(json.cartaoId),
+          mes,
+          ano,
+          total: valorNum.toString(),
+          paga: false,
+        });
       }
 
-      // 5. Atualizar/criar fatura se for cartão de crédito
-      if (json.cartaoId && json.formaPagamento === "cartao") {
-        const dataTransacao = new Date(json.data);
-        const mes = dataTransacao.getMonth() + 1;
-        const ano = dataTransacao.getFullYear();
+      // Atualizar limite disponível do cartão
+      await db
+        .update(cartoes)
+        .set({
+          limiteDisponivel: sql`${cartoes.limiteDisponivel} - ${valorNum}`,
+        })
+        .where(
+          and(
+            eq(cartoes.id, Number(json.cartaoId)),
+            eq(cartoes.userId, userId) // 🔐 Garantir ownership
+          )
+        );
+    }
 
-        // Buscar ou criar fatura
-        const [faturaExistente] = await tx
-          .select()
-          .from(faturas)
-          .where(
-            and(
-              eq(faturas.cartaoId, Number(json.cartaoId)),
-              eq(faturas.userId, userId), // 🔐 Filtrar por userId
-              eq(faturas.mes, mes),
-              eq(faturas.ano, ano)
-            )
-          );
+    console.log("✅ Transação criada:", novaTransacao);
 
-        if (faturaExistente) {
-          // Atualizar fatura existente
-          const totalAtual = Number(faturaExistente.total);
-          const novoTotal = totalAtual + valorNum;
-
-          await tx
-            .update(faturas)
-            .set({
-              total: novoTotal.toString(),
-              updatedAt: new Date(),
-            })
-            .where(eq(faturas.id, faturaExistente.id));
-        } else {
-          // Criar nova fatura
-          await tx.insert(faturas).values({
-            userId, // 🔐 Incluir userId
-            cartaoId: Number(json.cartaoId),
-            mes,
-            ano,
-            total: valorNum.toString(),
-            paga: false,
-          });
-        }
-
-        // Atualizar limite disponível do cartão
-        await tx
-          .update(cartoes)
-          .set({
-            limiteDisponivel: sql`${cartoes.limiteDisponivel} - ${valorNum}`,
-          })
-          .where(
-            and(
-              eq(cartoes.id, Number(json.cartaoId)),
-              eq(cartoes.userId, userId) // 🔐 Garantir ownership
-            )
-          );
-      }
-
-      return novaTransacao;
-    });
-
-    console.log("✅ Transação criada:", resultado);
-
-    return NextResponse.json(resultado, { status: 201 });
+    return NextResponse.json(novaTransacao, { status: 201 });
     
   } catch (err: any) {
     console.error("❌ Erro ao criar transação:", err);
@@ -285,23 +306,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const errorMessages: Record<string, { message: string; status: number }> = {
-      CONTA_NAO_ENCONTRADA: { message: "Conta não encontrada", status: 404 },
-      CONTA_INATIVA: { message: "Conta inativa", status: 400 },
-      SALDO_INSUFICIENTE: { message: "Saldo insuficiente", status: 400 },
-      CARTAO_NAO_ENCONTRADO: { message: "Cartão não encontrado", status: 404 },
-      CARTAO_INATIVO: { message: "Cartão inativo", status: 400 },
-      LIMITE_INSUFICIENTE: { message: "Limite insuficiente no cartão", status: 400 },
-    };
-
-    const errorInfo = errorMessages[err.message] || {
-      message: err.message || "Erro ao criar transação",
-      status: 500,
-    };
-
     return NextResponse.json(
-      { error: errorInfo.message },
-      { status: errorInfo.status }
+      { error: err.message || "Erro ao criar transação" },
+      { status: 500 }
     );
   }
 }
