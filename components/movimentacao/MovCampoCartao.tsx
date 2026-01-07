@@ -30,9 +30,8 @@ export default function MovCampoCartao({ form, update }: Props) {
     (c) => String(c.id) === form.cartaoId
   );
 
-  // Calcula limite disponível após a compra
   const limiteProjetado = cartaoSelecionado
-    ? cartaoSelecionado.limiteDisponivel - (parseFloat(form.valor) || 0)
+    ? Number(cartaoSelecionado.limiteDisponivel) - (parseFloat(form.valor) || 0)
     : null;
 
   const formatarMoeda = (valor: number) => {
@@ -42,8 +41,10 @@ export default function MovCampoCartao({ form, update }: Props) {
     }).format(valor);
   };
 
-  const calcularPercentualUso = (disponivel: number, limite: number) => {
-    return ((limite - disponivel) / limite) * 100;
+  const calcularPercentualUso = (disponivel: number | string, limite: number | string) => {
+    const disponivelNum = Number(disponivel);
+    const limiteNum = Number(limite);
+    return ((limiteNum - disponivelNum) / limiteNum) * 100;
   };
 
   if (loading) {
@@ -75,7 +76,7 @@ export default function MovCampoCartao({ form, update }: Props) {
                     {cartaoSelecionado.nome}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {formatarMoeda(cartaoSelecionado.limiteDisponivel)}{" "}
+                    {formatarMoeda(Number(cartaoSelecionado.limiteDisponivel))}{" "}
                     disponível
                   </span>
                 </div>
@@ -114,7 +115,8 @@ export default function MovCampoCartao({ form, update }: Props) {
                       <div className="w-full mt-1">
                         <div className="flex justify-between text-xs mb-0.5">
                           <span className="text-muted-foreground">
-                            {formatarMoeda(cartao.limiteDisponivel)} disponível
+                            {/* ✅ CORRIGIDO: Converter para number */}
+                            {formatarMoeda(Number(cartao.limiteDisponivel))} disponível
                           </span>
                           <span className="text-muted-foreground">
                             {percentualUso.toFixed(0)}% usado
@@ -148,7 +150,7 @@ export default function MovCampoCartao({ form, update }: Props) {
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Limite disponível:</span>
             <span className="font-medium">
-              {formatarMoeda(cartaoSelecionado.limiteDisponivel)}
+              {formatarMoeda(Number(cartaoSelecionado.limiteDisponivel))}
             </span>
           </div>
 

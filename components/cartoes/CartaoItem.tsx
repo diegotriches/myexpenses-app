@@ -48,12 +48,14 @@ export default function CartaoItem({
     }).format(valor);
   };
 
+  // ✅ CORRIGIDO: Converter limite para number
+  const limiteTotal = Number(cartao.limite) || 0;
+
   // Cálculo de Em Uso
   const totalEmUso = movsSeguros
     .filter((mov) => mov.cartaoId === cartao.id)
     .reduce((total, mov) => total + Number(mov.valor ?? 0), 0);
 
-  const limiteTotal = Number(cartao.limite) || 0;
   const limiteDisponivel = limiteTotal - totalEmUso;
   const porcentagemUso = limiteTotal > 0 ? (totalEmUso / limiteTotal) * 100 : 0;
 

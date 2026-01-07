@@ -26,6 +26,7 @@ export default function MovimentacoesConteudo() {
     transacoes,
     loading,
     criar,
+    atualizar, // ✅ NOVO - hook deve retornar isso
     excluir,
   } = useTransacoes();
 
@@ -109,6 +110,7 @@ export default function MovimentacoesConteudo() {
       return; // Não abre o modal se não houver contas
     }
     setEditando(null);
+    setTipoEdicao("unica");
     setOpenModal(true);
   }
 
@@ -152,23 +154,23 @@ export default function MovimentacoesConteudo() {
     }
   }
 
-  // ✅ Função unificada para salvar (criar ou editar)
+  // ✅ CORRIGIDO: Função unificada para salvar (criar ou editar)
   async function handleSalvar(dados: any) {
     try {
       if (editando) {
-        // ✅ Modo edição: excluir antiga e criar nova
-        await excluir(editando.id, tipoEdicao);
-        await criar(dados); // ✅ criar() lida com todos os tipos (dinheiro, pix, cartão)
+        // ✅ MODO EDIÇÃO: Chamar atualizar() ao invés de excluir + criar
+        await atualizar(editando.id, dados, tipoEdicao);
       } else {
-        // ✅ Modo criação: criar nova transação
-        await criar(dados); // ✅ criar() lida com todos os tipos
+        // ✅ MODO CRIAÇÃO: Criar nova transação
+        await criar(dados);
       }
       
       setOpenModal(false);
       setEditando(null);
+      setTipoEdicao("unica");
     } catch (error) {
       console.error("Erro ao salvar transação:", error);
-      // Aqui você pode adicionar um toast/alert se quiser
+      throw error; // Re-throw para o modal tratar
     }
   }
 
@@ -273,7 +275,13 @@ export default function MovimentacoesConteudo() {
       {/* Modais */}
       <FormMovimentacaoModal
         open={openModal}
-        onOpenChange={setOpenModal}
+        onOpenChange={(open) => {
+          setOpenModal(open);
+          if (!open) {
+            setEditando(null);
+            setTipoEdicao("unica");
+          }
+        }}
         transacaoEdicao={editando}
         modoEdicao={tipoEdicao}
         salvar={handleSalvar}
@@ -281,14 +289,19 @@ export default function MovimentacoesConteudo() {
 
       <ConfirmarExclusaoModal
         open={modalExcluir}
-        onClose={() => setModalExcluir(false)}
+        onClose={() => {
+          setModalExcluir(false);
+          setItemExcluir(null);
+        }}
         transacao={itemExcluir}
         onConfirmar={handleExcluir}
       />
 
       <ConfirmarEdicaoModal
         open={modalEdicao}
-        onClose={() => setModalEdicao(false)}
+        onClose={() => {
+          setModalEdicao(false);
+        }}
         transacao={editando}
         onConfirmar={(tipo) => {
           setTipoEdicao(tipo);

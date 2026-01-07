@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, contas, extratoConta, cartoes, faturas } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { getUserIdFromSession } from "@/lib/auth/helpers";
 
 // PUT - Atualizar transação
@@ -103,7 +103,7 @@ export async function PUT(
           .set({
             tipo: json.tipo,
             descricao: json.descricao,
-            valor: String(valorParcela),
+            valor: valorParcela.toFixed(2), // ✅ String com 2 decimais
             categoria: json.categoria,
             contaId: json.contaId,
             formaPagamento: json.formaPagamento,
@@ -114,6 +114,65 @@ export async function PUT(
             parcelas: json.parcelas,
             parcelaAtual: t.parcelaAtual,
             parcelamentoId: json.parcelamentoId,
+          })
+          .where(
+            and(
+              eq(transacoes.id, t.id),
+              eq(transacoes.userId, userId) // 🔐 Garantir ownership
+            )
+          )
+          .returning();
+
+        if (updated) atualizadas.push(updated);
+      }
+
+      return NextResponse.json(atualizadas);
+    }
+
+    // EDIÇÃO DE TODA A RECORRÊNCIA
+    if (modoEdicao === "toda_recorrencia") {
+      if (!json.recorrenciaId) {
+        return NextResponse.json(
+          { error: "recorrenciaId é obrigatório" },
+          { status: 400 }
+        );
+      }
+
+      // 🔐 Buscar recorrências do usuário
+      const transacoesRecorrentes = await db
+        .select()
+        .from(transacoes)
+        .where(
+          and(
+            eq(transacoes.recorrenciaId, json.recorrenciaId),
+            eq(transacoes.userId, userId) // 🔐 Filtrar por userId
+          )
+        );
+
+      if (!transacoesRecorrentes.length) {
+        return NextResponse.json(
+          { error: "Recorrência não encontrada" },
+          { status: 404 }
+        );
+      }
+
+      const atualizadas = [];
+
+      for (const t of transacoesRecorrentes) {
+        const [updated] = await db
+          .update(transacoes)
+          .set({
+            tipo: json.tipo,
+            descricao: json.descricao,
+            valor: String(json.valor),
+            categoria: json.categoria,
+            contaId: json.contaId,
+            formaPagamento: json.formaPagamento,
+            cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
+
+            recorrente: true,
+            recorrenciaId: json.recorrenciaId,
+            repeticoes: json.repeticoes,
           })
           .where(
             and(
@@ -201,10 +260,8 @@ export async function DELETE(
     }
 
     // ===================================================================
-    // DELETAR COM AJUSTE DE SALDO E REMOÇÃO DE EXTRATO
+    // BUSCAR TRANSAÇÕES A SEREM DELETADAS
     // ===================================================================
-
-    // Buscar transações a serem deletadas
     let transacoesParaDeletar: typeof mov[] = [];
 
     if (!tipo || tipo === "unica") {
@@ -231,7 +288,11 @@ export async function DELETE(
         );
     }
 
-    // Processar cada transação
+    console.log(`🗑️  Deletando ${transacoesParaDeletar.length} transação(ões)`);
+
+    // ===================================================================
+    // PROCESSAR CADA TRANSAÇÃO
+    // ===================================================================
     for (const transacao of transacoesParaDeletar) {
       const valor = Number(transacao.valor);
 
@@ -253,7 +314,7 @@ export async function DELETE(
           await db
             .update(contas)
             .set({
-              saldoAtual: novoSaldo.toString(),
+              saldoAtual: novoSaldo.toFixed(2), // ✅ String
               updatedAt: new Date(),
             })
             .where(
@@ -308,7 +369,7 @@ export async function DELETE(
             await db
               .update(faturas)
               .set({
-                total: novoTotal.toString(),
+                total: novoTotal.toFixed(2), // ✅ String
                 updatedAt: new Date(),
               })
               .where(eq(faturas.id, fatura.id));
@@ -316,48 +377,48 @@ export async function DELETE(
         }
 
         // Reverter limite disponível do cartão
-        const [cartao] = await db
-          .select()
-          .from(cartoes)
-          .where(eq(cartoes.id, transacao.cartaoId))
-          .limit(1);
-
-        if (cartao) {
-          const novoLimiteDisponivel = cartao.limiteDisponivel + valor;
-          
-          await db
-            .update(cartoes)
-            .set({
-              limiteDisponivel: novoLimiteDisponivel,
-            })
-            .where(
-              and(
-                eq(cartoes.id, transacao.cartaoId),
-                eq(cartoes.userId, userId)
-              )
-            );
-        }
+        await db
+          .update(cartoes)
+          .set({
+            limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valor}`,
+          })
+          .where(
+            and(
+              eq(cartoes.id, transacao.cartaoId),
+              eq(cartoes.userId, userId)
+            )
+          );
       }
     }
 
-    // 4. Deletar as transações
+    // ===================================================================
+    // 4. DELETAR AS TRANSAÇÕES (CORRIGIDO)
+    // ===================================================================
     const idsParaDeletar = transacoesParaDeletar.map(t => t.id);
 
-    await db
-      .delete(transacoes)
-      .where(
-        and(
-          eq(transacoes.userId, userId),
-          // Deletar pelos IDs coletados
-          tipo === "unica"
-            ? eq(transacoes.id, id)
-            : tipo === "todas_parcelas" && mov.parcelamentoId
-              ? eq(transacoes.parcelamentoId, mov.parcelamentoId)
-              : tipo === "toda_recorrencia" && mov.recorrenciaId
-                ? eq(transacoes.recorrenciaId, mov.recorrenciaId)
-                : eq(transacoes.id, id)
-        )
-      );
+    if (idsParaDeletar.length === 1) {
+      // Deletar única transação
+      await db
+        .delete(transacoes)
+        .where(
+          and(
+            eq(transacoes.id, idsParaDeletar[0]),
+            eq(transacoes.userId, userId)
+          )
+        );
+    } else if (idsParaDeletar.length > 1) {
+      // ✅ CORRIGIDO: Deletar múltiplas transações usando inArray
+      await db
+        .delete(transacoes)
+        .where(
+          and(
+            inArray(transacoes.id, idsParaDeletar),
+            eq(transacoes.userId, userId)
+          )
+        );
+    }
+
+    console.log(`✅ ${idsParaDeletar.length} transação(ões) deletada(s)`);
 
     return NextResponse.json({ 
       sucesso: true,
@@ -365,7 +426,7 @@ export async function DELETE(
     });
 
   } catch (err: any) {
-    console.error("Erro ao deletar transação:", err);
+    console.error("❌ Erro ao deletar transação:", err);
 
     if (err instanceof Error && err.message === "Não autenticado") {
       return NextResponse.json(

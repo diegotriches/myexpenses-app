@@ -63,7 +63,7 @@ export async function PUT(
     const cartaoAtual = await db.query.cartoes.findFirst({
       where: and(
         eq(cartoes.id, Number(id)),
-        eq(cartoes.userId, userId) // 🔐 Adicionar
+        eq(cartoes.userId, userId)
       ),
     });
 
@@ -76,13 +76,17 @@ export async function PUT(
 
     const tipo = body.tipo ?? cartaoAtual.tipo;
 
-    let novoLimite = cartaoAtual.limite ?? 0;
-    let novoLimiteDisponivel = cartaoAtual.limiteDisponivel ?? 0;
+    // ✅ CORRIGIDO: Converter string para number
+    let novoLimite = Number(cartaoAtual.limite ?? 0);
+    let novoLimiteDisponivel = Number(cartaoAtual.limiteDisponivel ?? 0);
 
     // Regra para cartão de crédito
     if (tipo === "credito") {
       if (body.limite !== undefined) {
-        const limiteNum = Number(body.limite);
+        // ✅ CORRIGIDO: Aceitar string ou number
+        const limiteNum = typeof body.limite === "string" 
+          ? parseFloat(body.limite) 
+          : Number(body.limite);
 
         if (isNaN(limiteNum) || limiteNum < 0) {
           return NextResponse.json(
@@ -91,7 +95,8 @@ export async function PUT(
           );
         }
 
-        const limiteAnterior = cartaoAtual.limite ?? 0;
+        // ✅ CORRIGIDO: Usar valores já convertidos para number
+        const limiteAnterior = Number(cartaoAtual.limite ?? 0);
         const diferenca = limiteNum - limiteAnterior;
 
         novoLimite = limiteNum;
@@ -122,8 +127,9 @@ export async function PUT(
       ...(body.bandeira !== undefined && { bandeira: body.bandeira }),
       ...(body.empresa !== undefined && { empresa: body.empresa }),
 
-      limite: novoLimite,
-      limiteDisponivel: novoLimiteDisponivel,
+      // ✅ CORRIGIDO: Converter para string com 2 casas decimais
+      limite: novoLimite.toFixed(2),
+      limiteDisponivel: novoLimiteDisponivel.toFixed(2),
 
       ...(body.diaFechamento !== undefined && {
         diaFechamento: Number(body.diaFechamento),
@@ -154,7 +160,7 @@ export async function PUT(
       .where(
         and(
           eq(cartoes.id, Number(id)),
-          eq(cartoes.userId, userId) // 🔐 Adicionar
+          eq(cartoes.userId, userId)
         )
       );
 
@@ -201,7 +207,7 @@ export async function DELETE(
       .where(
         and(
           eq(cartoes.id, Number(id)),
-          eq(cartoes.userId, userId) // 🔐 Adicionar
+          eq(cartoes.userId, userId)
         )
       )
       .returning();

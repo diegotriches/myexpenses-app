@@ -23,6 +23,7 @@ export async function GET() {
 
     const resultado = await Promise.all(
       listaCartoes.map(async (cartao) => {
+        // ✅ Converter string para number
         const limite = Number(cartao.limite ?? 0);
 
         // Calcular limite disponível baseado nas faturas não pagas
@@ -95,8 +96,8 @@ export async function GET() {
 
         return {
           ...cartao,
-          limite,
-          limiteDisponivel,
+          limite, // ✅ Já convertido para number
+          limiteDisponivel, // ✅ Calculado como number
           emUso: limiteUsado,
           faturaAtual: faturaInfo,
           contaVinculadaId: cartao.contaVinculadaId ?? null,
@@ -163,7 +164,8 @@ export async function POST(req: Request) {
     let limiteNum = 0;
 
     if (isCartaoCredito) {
-      limiteNum = Number(limite);
+      // ✅ CORRIGIDO: Aceitar string ou number
+      limiteNum = typeof limite === "string" ? parseFloat(limite) : Number(limite);
 
       if (!Number.isFinite(limiteNum) || limiteNum <= 0) {
         return NextResponse.json(
@@ -208,8 +210,9 @@ export async function POST(req: Request) {
       tipo,
       bandeira: bandeira || "",
       empresa: empresa || "",
-      limite: limiteNum,
-      limiteDisponivel: limiteNum,
+      // ✅ CORRIGIDO: Converter para string com 2 casas decimais
+      limite: limiteNum.toFixed(2),
+      limiteDisponivel: limiteNum.toFixed(2),
       diaFechamento: fechamentoNum ?? null,
       diaVencimento: vencimentoNum ?? null,
       ativo: ativo ?? true,

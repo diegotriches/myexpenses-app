@@ -3,6 +3,8 @@ import { Transacao } from "@/types/transacao";
 import { transacaoService } from "@/services/transacaoService";
 import { usePeriodo } from "@/contexts/PeriodoContext";
 
+type ModoEdicao = "unica" | "todas_parcelas" | "toda_recorrencia";
+
 export function useTransacoes() {
   const { mesSelecionado, anoSelecionado } = usePeriodo();
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
@@ -38,6 +40,32 @@ export function useTransacoes() {
     setErro(null);
     try {
       await transacaoService.criar(dados);
+      await carregar();
+      if (modalOpen) fecharModal();
+    } catch (err: any) {
+      setErro(err.message);
+      throw err;
+    }
+  }, [carregar, modalOpen]);
+
+  const atualizar = useCallback(async (
+    id: string,
+    dados: any,
+    modoEdicao: ModoEdicao
+  ) => {
+    setErro(null);
+    try {
+      const response = await fetch(`/api/transacoes/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...dados, modoEdicao }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Erro ao atualizar transação");
+      }
+
       await carregar();
       if (modalOpen) fecharModal();
     } catch (err: any) {
@@ -82,6 +110,7 @@ export function useTransacoes() {
     erro,
     carregar,
     criar,
+    atualizar, // ✅ NOVO
     excluir,
     modalOpen,
     abrirModalCriar,

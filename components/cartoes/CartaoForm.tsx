@@ -10,7 +10,10 @@ import {
     SelectItem,
 } from "@/components/ui/select";
 
-import { Cartao, TipoCartao } from "@/types/cartao";
+import { Cartao } from "@/types/cartao";
+
+// ✅ Definir tipo localmente (ou adicionar em @/types/cartao)
+type TipoCartao = "credito" | "debito";
 import { bandeiraOptions, empresaOptions } from "@/utils/cartaoOptions";
 import CampoSelect from "./CampoSelect";
 import { Button } from "@/components/ui/button";
@@ -50,7 +53,8 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                 tipo: initialValues.tipo,
                 bandeira: initialValues.bandeira,
                 empresa: initialValues.empresa || "",
-                limite: initialValues.limite?.toString() ?? "",
+                // ✅ CORRIGIDO: Converter string para number antes de exibir
+                limite: initialValues.limite ? Number(initialValues.limite).toString() : "",
                 diaFechamento: initialValues.diaFechamento?.toString() ?? "",
                 diaVencimento: initialValues.diaVencimento?.toString() ?? "",
                 ativo: initialValues.ativo,
@@ -109,7 +113,8 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
             tipo: form.tipo,
             bandeira: form.bandeira || undefined,
             empresa: form.empresa || undefined,
-            limite: form.tipo === "credito" ? Number(form.limite) : 0,
+            // ✅ CORRIGIDO: Manter como string (será enviada como string para a API)
+            limite: form.tipo === "credito" ? form.limite : "0",
             diaFechamento:
                 form.tipo === "credito" ? Number(form.diaFechamento) : undefined,
             diaVencimento:

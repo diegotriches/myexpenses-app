@@ -1,6 +1,6 @@
 import {
   Transacao,
-  TransacaoBase,
+  TransacaoCreate,
   TransacaoUpdate,
 } from "@/types/transacao";
 import { buildCreateTransacoesFromForm } from "@/lib/buildCreateTransacoesFromForm";
@@ -36,9 +36,9 @@ export function buildTransacoesFromForm({
   form,
   contaId,
   transacaoEdicao,
-}: BuildTransacoesParams): (TransacaoBase | TransacaoUpdate)[] {
+}: BuildTransacoesParams): (TransacaoCreate | TransacaoUpdate)[] {
 
-  // EDIÇÃO
+  // ✅ EDIÇÃO
   if (transacaoEdicao) {
     return buildUpdateTransacoesFromForm({
       form,
@@ -46,13 +46,29 @@ export function buildTransacoesFromForm({
     });
   }
 
-  // CRIAÇÃO - Validar se contaId existe
-  if (!contaId) {
-    throw new Error('contaId é obrigatório para criar uma nova transação');
+  // ✅ CRIAÇÃO - Validar conforme forma de pagamento
+  const isCartao = form.formaPagamento === "cartao";
+  
+  if (isCartao) {
+    // Para cartão: cartaoId é obrigatório (contaId pode ser vazio)
+    if (!form.cartaoId) {
+      throw new Error('Selecione um cartão de crédito');
+    }
+    
+    // Passa string vazia como contaId (será tratado no buildCreate)
+    return buildCreateTransacoesFromForm({
+      form,
+      contaId: '', 
+    });
+  } else {
+    // Para PIX/Dinheiro: contaId é obrigatório
+    if (!contaId) {
+      throw new Error('Selecione uma conta');
+    }
+    
+    return buildCreateTransacoesFromForm({
+      form,
+      contaId,
+    });
   }
-
-  return buildCreateTransacoesFromForm({
-    form,
-    contaId, // Agora TypeScript sabe que não é undefined
-  });
 }

@@ -101,13 +101,16 @@ export const cartoes = pgTable("cartoes", {
   tipo: text("tipo").notNull(),
   bandeira: text("bandeira").notNull(),
   empresa: text("empresa").notNull(),
-  limite: integer("limite").notNull(),
-  limiteDisponivel: integer("limite_disponivel").notNull(),
+  limite: numeric("limite", { precision: 14, scale: 2 }).notNull(),
+  limiteDisponivel: numeric("limite_disponivel", { precision: 14, scale: 2 }).notNull(),
   diaFechamento: integer("dia_fechamento"),
   diaVencimento: integer("dia_vencimento"),
   ativo: boolean("ativo").default(true).notNull(),
   observacoes: text("observacoes"),
-  contaVinculadaId: uuid("conta_vinculada_id").references(() => contas.id),
+  contaVinculadaId: uuid("conta_vinculada_id").references(() => contas.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 // ========================================

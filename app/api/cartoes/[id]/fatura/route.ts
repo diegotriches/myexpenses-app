@@ -58,7 +58,7 @@ export async function GET(
       .where(
         and(
           eq(transacoes.cartaoId, cartaoId),
-          eq(transacoes.userId, userId), // 🔐 Adicionar
+          eq(transacoes.userId, userId),
           gte(transacoes.data, inicioMes),
           lt(transacoes.data, fimMes)
         )
@@ -72,7 +72,7 @@ export async function GET(
       .where(
         and(
           eq(faturas.cartaoId, cartaoId),
-          eq(faturas.userId, userId), // 🔐 Adicionar
+          eq(faturas.userId, userId),
           eq(faturas.ano, ano),
           eq(faturas.mes, mes)
         )
@@ -95,7 +95,7 @@ export async function GET(
           cartaoId,
           ano,
           mes,
-          total: totalCalculado.toString(),
+          total: totalCalculado.toFixed(2), // ✅ Converter para string
           paga: false,
           dataPagamento: null,
         })
@@ -197,127 +197,151 @@ export async function POST(
     const dataPgto = dataPagamento ? new Date(dataPagamento) : new Date();
     const dataPgtoStr = dataPgto.toISOString().split("T")[0];
 
-    await db.transaction(async (trx) => {
-      /* 1. Buscar fatura - 🔐 verificar userId */
-      const [fatura] = await trx
-        .select()
-        .from(faturas)
-        .where(
-          and(
-            eq(faturas.cartaoId, cartaoId),
-            eq(faturas.userId, userId), // 🔐 Adicionar
-            eq(faturas.ano, ano),
-            eq(faturas.mes, mes)
-          )
-        );
+    /* ========================================
+       ✅ SEM TRANSACTION - Operações Sequenciais
+       ======================================== */
 
-      if (!fatura) {
-        throw new Error("FATURA_NAO_EXISTE");
-      }
+    /* 1. Buscar fatura - 🔐 verificar userId */
+    const [fatura] = await db
+      .select()
+      .from(faturas)
+      .where(
+        and(
+          eq(faturas.cartaoId, cartaoId),
+          eq(faturas.userId, userId),
+          eq(faturas.ano, ano),
+          eq(faturas.mes, mes)
+        )
+      );
 
-      if (fatura.paga) {
-        throw new Error("FATURA_JA_PAGA");
-      }
+    if (!fatura) {
+      return NextResponse.json(
+        { error: "Fatura não encontrada" },
+        { status: 404 }
+      );
+    }
 
-      const totalFatura = Number(fatura.total);
-      
-      if (totalFatura <= 0) {
-        throw new Error("FATURA_SEM_VALOR");
-      }
+    if (fatura.paga) {
+      return NextResponse.json(
+        { error: "Fatura já foi paga" },
+        { status: 400 }
+      );
+    }
 
-      /* 2. Buscar conta - 🔐 verificar userId */
-      const [conta] = await trx
-        .select()
-        .from(contas)
-        .where(
-          and(
-            eq(contas.id, contaId),
-            eq(contas.userId, userId) // 🔐 Adicionar
-          )
-        );
+    const totalFatura = Number(fatura.total);
+    
+    if (totalFatura <= 0) {
+      return NextResponse.json(
+        { error: "Fatura sem valor para pagamento" },
+        { status: 400 }
+      );
+    }
 
-      if (!conta) {
-        throw new Error("CONTA_NAO_ENCONTRADA");
-      }
+    /* 2. Buscar conta - 🔐 verificar userId */
+    const [conta] = await db
+      .select()
+      .from(contas)
+      .where(
+        and(
+          eq(contas.id, contaId),
+          eq(contas.userId, userId)
+        )
+      );
 
-      if (!conta.ativo) {
-        throw new Error("CONTA_INATIVA");
-      }
+    if (!conta) {
+      return NextResponse.json(
+        { error: "Conta não encontrada" },
+        { status: 404 }
+      );
+    }
 
-      const saldoAntes = Number(conta.saldoAtual);
-      
-      if (saldoAntes < totalFatura) {
-        throw new Error("SALDO_INSUFICIENTE");
-      }
+    if (!conta.ativo) {
+      return NextResponse.json(
+        { error: "Conta inativa não pode realizar pagamentos" },
+        { status: 400 }
+      );
+    }
 
-      const saldoDepois = saldoAntes - totalFatura;
+    // ✅ Converter string para number
+    const saldoAntes = Number(conta.saldoAtual);
+    
+    if (saldoAntes < totalFatura) {
+      return NextResponse.json(
+        { error: "Saldo insuficiente para pagamento da fatura" },
+        { status: 400 }
+      );
+    }
 
-      /* 3. Buscar informações do cartão - 🔐 verificar userId */
-      const [cartao] = await trx
-        .select()
-        .from(cartoes)
-        .where(
-          and(
-            eq(cartoes.id, cartaoId),
-            eq(cartoes.userId, userId) // 🔐 Adicionar
-          )
-        );
+    const saldoDepois = saldoAntes - totalFatura;
 
-      if (!cartao) {
-        throw new Error("CARTAO_NAO_ENCONTRADO");
-      }
+    /* 3. Buscar informações do cartão - 🔐 verificar userId */
+    const [cartao] = await db
+      .select()
+      .from(cartoes)
+      .where(
+        and(
+          eq(cartoes.id, cartaoId),
+          eq(cartoes.userId, userId)
+        )
+      );
 
-      /* 4. Registrar no extrato da conta - 🔐 incluir userId */
-      await trx.insert(extratoConta).values({
-        userId, // 🔐 Adicionar
-        contaId,
-        data: dataPgtoStr,
-        tipo: "saida",
-        valor: totalFatura.toString(),
-        descricao: `Pagamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`,
-        saldoApos: saldoDepois.toString(),
-        origem: "PAGAMENTO_FATURA",
-        referenciaId: fatura.id.toString(),
-      });
+    if (!cartao) {
+      return NextResponse.json(
+        { error: "Cartão não encontrado" },
+        { status: 404 }
+      );
+    }
 
-      /* 5. Atualizar saldo da conta */
-      await trx
-        .update(contas)
-        .set({ 
-          saldoAtual: saldoDepois.toString(),
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(contas.id, contaId),
-            eq(contas.userId, userId) // 🔐 Adicionar
-          )
-        );
-
-      /* 6. Liberar limite do cartão */
-      await trx
-        .update(cartoes)
-        .set({
-          limiteDisponivel: sql`${cartoes.limiteDisponivel} + ${totalFatura}`,
-        })
-        .where(
-          and(
-            eq(cartoes.id, cartaoId),
-            eq(cartoes.userId, userId) // 🔐 Adicionar
-          )
-        );
-
-      /* 7. Marcar fatura como paga */
-      await trx
-        .update(faturas)
-        .set({
-          paga: true,
-          dataPagamento: dataPgtoStr,
-          contaPagamentoId: contaId,
-          updatedAt: new Date(),
-        })
-        .where(eq(faturas.id, fatura.id));
+    /* 4. Registrar no extrato da conta - 🔐 incluir userId */
+    await db.insert(extratoConta).values({
+      userId,
+      contaId,
+      data: dataPgtoStr,
+      tipo: "saida",
+      valor: totalFatura.toFixed(2),
+      descricao: `Pagamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`,
+      saldoApos: saldoDepois.toFixed(2),
+      origem: "PAGAMENTO_FATURA",
+      referenciaId: fatura.id.toString(),
     });
+
+    /* 5. Atualizar saldo da conta */
+    await db
+      .update(contas)
+      .set({ 
+        saldoAtual: saldoDepois.toFixed(2),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(contas.id, contaId),
+          eq(contas.userId, userId)
+        )
+      );
+
+    /* 6. Liberar limite do cartão */
+    await db
+      .update(cartoes)
+      .set({
+        limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${totalFatura}`,
+      })
+      .where(
+        and(
+          eq(cartoes.id, cartaoId),
+          eq(cartoes.userId, userId)
+        )
+      );
+
+    /* 7. Marcar fatura como paga */
+    await db
+      .update(faturas)
+      .set({
+        paga: true,
+        dataPagamento: dataPgtoStr,
+        contaPagamentoId: contaId,
+        updatedAt: new Date(),
+      })
+      .where(eq(faturas.id, fatura.id));
 
     return NextResponse.json({ 
       success: true,
@@ -334,24 +358,9 @@ export async function POST(
       );
     }
 
-    const errorMessages: Record<string, { message: string; status: number }> = {
-      SALDO_INSUFICIENTE: { message: "Saldo insuficiente para pagamento da fatura", status: 400 },
-      FATURA_JA_PAGA: { message: "Fatura já foi paga", status: 400 },
-      FATURA_SEM_VALOR: { message: "Fatura sem valor para pagamento", status: 400 },
-      FATURA_NAO_EXISTE: { message: "Fatura não encontrada", status: 404 },
-      CONTA_NAO_ENCONTRADA: { message: "Conta não encontrada", status: 404 },
-      CONTA_INATIVA: { message: "Conta inativa não pode realizar pagamentos", status: 400 },
-      CARTAO_NAO_ENCONTRADO: { message: "Cartão não encontrado", status: 404 },
-    };
-
-    const errorInfo = errorMessages[error.message] || { 
-      message: "Erro ao pagar fatura", 
-      status: 500 
-    };
-
     return NextResponse.json(
-      { error: errorInfo.message },
-      { status: errorInfo.status }
+      { error: "Erro ao pagar fatura" },
+      { status: 500 }
     );
   }
 }
@@ -388,121 +397,139 @@ export async function DELETE(
       );
     }
 
-    await db.transaction(async (trx) => {
-      /* 1. Buscar fatura - 🔐 verificar userId */
-      const [fatura] = await trx
-        .select()
-        .from(faturas)
-        .where(
-          and(
-            eq(faturas.cartaoId, cartaoId),
-            eq(faturas.userId, userId), // 🔐 Adicionar
-            eq(faturas.ano, ano),
-            eq(faturas.mes, mes)
-          )
-        );
+    /* ========================================
+       ✅ SEM TRANSACTION - Operações Sequenciais
+       ======================================== */
 
-      if (!fatura) {
-        throw new Error("FATURA_NAO_EXISTE");
-      }
+    /* 1. Buscar fatura - 🔐 verificar userId */
+    const [fatura] = await db
+      .select()
+      .from(faturas)
+      .where(
+        and(
+          eq(faturas.cartaoId, cartaoId),
+          eq(faturas.userId, userId),
+          eq(faturas.ano, ano),
+          eq(faturas.mes, mes)
+        )
+      );
 
-      if (!fatura.paga) {
-        throw new Error("FATURA_NAO_PAGA");
-      }
+    if (!fatura) {
+      return NextResponse.json(
+        { error: "Fatura não encontrada" },
+        { status: 404 }
+      );
+    }
 
-      if (!fatura.contaPagamentoId) {
-        throw new Error("CONTA_PAGAMENTO_NAO_IDENTIFICADA");
-      }
+    if (!fatura.paga) {
+      return NextResponse.json(
+        { error: "Fatura não está paga" },
+        { status: 400 }
+      );
+    }
 
-      const totalFatura = Number(fatura.total);
+    if (!fatura.contaPagamentoId) {
+      return NextResponse.json(
+        { error: "Conta de pagamento não identificada" },
+        { status: 400 }
+      );
+    }
 
-      /* 2. Buscar conta de pagamento - 🔐 verificar userId */
-      const [conta] = await trx
-        .select()
-        .from(contas)
-        .where(
-          and(
-            eq(contas.id, fatura.contaPagamentoId),
-            eq(contas.userId, userId) // 🔐 Adicionar
-          )
-        );
+    const totalFatura = Number(fatura.total);
 
-      if (!conta) {
-        throw new Error("CONTA_NAO_ENCONTRADA");
-      }
+    /* 2. Buscar conta de pagamento - 🔐 verificar userId */
+    const [conta] = await db
+      .select()
+      .from(contas)
+      .where(
+        and(
+          eq(contas.id, fatura.contaPagamentoId),
+          eq(contas.userId, userId)
+        )
+      );
 
-      const saldoAtual = Number(conta.saldoAtual);
-      const novoSaldo = saldoAtual + totalFatura; // Devolve o valor
+    if (!conta) {
+      return NextResponse.json(
+        { error: "Conta não encontrada" },
+        { status: 404 }
+      );
+    }
 
-      /* 3. Buscar informações do cartão - 🔐 verificar userId */
-      const [cartao] = await trx
-        .select()
-        .from(cartoes)
-        .where(
-          and(
-            eq(cartoes.id, cartaoId),
-            eq(cartoes.userId, userId) // 🔐 Adicionar
-          )
-        );
+    // ✅ Converter string para number
+    const saldoAtual = Number(conta.saldoAtual);
+    const novoSaldo = saldoAtual + totalFatura; // Devolve o valor
 
-      if (!cartao) {
-        throw new Error("CARTAO_NAO_ENCONTRADO");
-      }
+    /* 3. Buscar informações do cartão - 🔐 verificar userId */
+    const [cartao] = await db
+      .select()
+      .from(cartoes)
+      .where(
+        and(
+          eq(cartoes.id, cartaoId),
+          eq(cartoes.userId, userId)
+        )
+      );
 
-      /* 4. Registrar estorno no extrato - 🔐 incluir userId */
-      const dataAtual = new Date();
-      const dataFormatada = dataAtual.toISOString().split('T')[0];
+    if (!cartao) {
+      return NextResponse.json(
+        { error: "Cartão não encontrado" },
+        { status: 404 }
+      );
+    }
 
-      await trx.insert(extratoConta).values({
-        userId, // 🔐 Adicionar
-        contaId: fatura.contaPagamentoId,
-        data: dataFormatada,
-        tipo: "entrada", // Estorno devolve o dinheiro
-        valor: totalFatura.toString(),
-        descricao: `Estorno pagamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`,
-        saldoApos: novoSaldo.toString(),
-        origem: "ESTORNO",
-        referenciaId: fatura.id.toString(),
-      });
+    /* 4. Registrar estorno no extrato - 🔐 incluir userId */
+    const dataAtual = new Date();
+    const dataFormatada = dataAtual.toISOString().split('T')[0];
 
-      /* 5. Atualizar saldo da conta (devolver o valor) */
-      await trx
-        .update(contas)
-        .set({ 
-          saldoAtual: novoSaldo.toString(),
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(contas.id, fatura.contaPagamentoId),
-            eq(contas.userId, userId) // 🔐 Adicionar
-          )
-        );
-
-      /* 6. Bloquear limite do cartão novamente */
-      await trx
-        .update(cartoes)
-        .set({
-          limiteDisponivel: sql`${cartoes.limiteDisponivel} - ${totalFatura}`,
-        })
-        .where(
-          and(
-            eq(cartoes.id, cartaoId),
-            eq(cartoes.userId, userId) // 🔐 Adicionar
-          )
-        );
-
-      /* 7. Marcar fatura como não paga */
-      await trx
-        .update(faturas)
-        .set({
-          paga: false,
-          dataPagamento: null,
-          contaPagamentoId: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(faturas.id, fatura.id));
+    await db.insert(extratoConta).values({
+      userId,
+      contaId: fatura.contaPagamentoId,
+      data: dataFormatada,
+      tipo: "entrada", // Estorno devolve o dinheiro
+      valor: totalFatura.toFixed(2),
+      descricao: `Estorno pagamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`,
+      saldoApos: novoSaldo.toFixed(2),
+      origem: "ESTORNO",
+      referenciaId: fatura.id.toString(),
     });
+
+    /* 5. Atualizar saldo da conta (devolver o valor) */
+    await db
+      .update(contas)
+      .set({ 
+        saldoAtual: novoSaldo.toFixed(2),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(contas.id, fatura.contaPagamentoId),
+          eq(contas.userId, userId)
+        )
+      );
+
+    /* 6. Bloquear limite do cartão novamente */
+    await db
+      .update(cartoes)
+      .set({
+        limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${totalFatura}`,
+      })
+      .where(
+        and(
+          eq(cartoes.id, cartaoId),
+          eq(cartoes.userId, userId)
+        )
+      );
+
+    /* 7. Marcar fatura como não paga */
+    await db
+      .update(faturas)
+      .set({
+        paga: false,
+        dataPagamento: null,
+        contaPagamentoId: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(faturas.id, fatura.id));
 
     return NextResponse.json({ 
       success: true,
@@ -519,22 +546,9 @@ export async function DELETE(
       );
     }
 
-    const errorMessages: Record<string, { message: string; status: number }> = {
-      FATURA_NAO_EXISTE: { message: "Fatura não encontrada", status: 404 },
-      FATURA_NAO_PAGA: { message: "Fatura não está paga", status: 400 },
-      CONTA_PAGAMENTO_NAO_IDENTIFICADA: { message: "Conta de pagamento não identificada", status: 400 },
-      CONTA_NAO_ENCONTRADA: { message: "Conta não encontrada", status: 404 },
-      CARTAO_NAO_ENCONTRADO: { message: "Cartão não encontrado", status: 404 },
-    };
-
-    const errorInfo = errorMessages[error.message] || { 
-      message: "Erro ao estornar pagamento", 
-      status: 500 
-    };
-
     return NextResponse.json(
-      { error: errorInfo.message },
-      { status: errorInfo.status }
+      { error: "Erro ao estornar pagamento" },
+      { status: 500 }
     );
   }
 }

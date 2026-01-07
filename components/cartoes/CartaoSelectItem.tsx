@@ -16,7 +16,11 @@ export function CartaoSelectItem({ cartao }: Props) {
     >
       <div className="w-10 h-6 flex items-center justify-center text-xs">
         {empresaImg ? (
-          <img src={empresaImg} alt={cartao.empresa || "Empresa"} className="h-7 w-7 object-contain" />
+          <img 
+            src={empresaImg} 
+            alt={cartao.empresa || "Empresa"} 
+            className="h-7 w-7 object-contain" 
+          />
         ) : (
           <span className="w-7 h-7 block" />
         )}
@@ -25,7 +29,7 @@ export function CartaoSelectItem({ cartao }: Props) {
       <div className="flex flex-col">
         <span className="font-semibold">{cartao.nome}</span>
         <span className="text-xs text-muted-foreground">
-          {cartao.bandeira.toUpperCase()} - {cartao.tipo}
+          {cartao.bandeira ? cartao.bandeira.toUpperCase() : "SEM BANDEIRA"} - {cartao.tipo}
         </span>
       </div>
     </SelectItem>

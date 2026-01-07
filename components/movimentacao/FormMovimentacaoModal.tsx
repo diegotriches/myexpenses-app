@@ -90,12 +90,12 @@ export default function FormMovimentacaoModal({
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => {
       const updated = { ...prev, [key]: value };
-      
+
       // Se mudou o tipo para "entrada" e a forma de pagamento era "cartao", muda para "dinheiro"
       if (key === "tipo" && value === "entrada" && prev.formaPagamento === "cartao") {
         updated.formaPagamento = "dinheiro";
       }
-      
+
       return updated;
     });
     setError(null);
@@ -163,8 +163,8 @@ export default function FormMovimentacaoModal({
 
     const valorFormulario =
       modoEdicao === "todas_parcelas" &&
-      transacaoEdicao.parcelado &&
-      transacaoEdicao.parcelas
+        transacaoEdicao.parcelado &&
+        transacaoEdicao.parcelas
         ? Number(transacaoEdicao.valor) * transacaoEdicao.parcelas
         : Number(transacaoEdicao.valor ?? "");
 
@@ -210,14 +210,39 @@ export default function FormMovimentacaoModal({
     setError(null);
 
     try {
-      const transacoes = buildTransacoesFromForm({
-        form,
-        transacaoEdicao,
-        contaId: form.contaId || undefined,
-      });
+      // ✅ EDIÇÃO: Chamar salvar com dados do form + modoEdicao
+      if (isEdit && transacaoEdicao) {
+        await salvar({
+          id: transacaoEdicao.id,
+          tipo: form.tipo,
+          valor: form.valor,
+          data: form.data,
+          descricao: form.descricao,
+          categoria: form.categoria,
+          contaId: form.contaId || undefined,
+          formaPagamento: form.formaPagamento,
+          cartaoId: form.cartaoId ? Number(form.cartaoId) : null,
+          parcelado: transacaoEdicao.parcelado,
+          parcelamentoId: transacaoEdicao.parcelamentoId,
+          parcelas: form.parcelas,
+          parcelaAtual: transacaoEdicao.parcelaAtual,
 
-      for (const transacao of transacoes) {
-        await salvar(transacao);
+          recorrente: transacaoEdicao.recorrente,
+          recorrenciaId: transacaoEdicao.recorrenciaId,
+          repeticoes: form.repeticoes,
+        });
+      }
+      // ✅ CRIAÇÃO: Usar buildTransacoesFromForm
+      else {
+        const transacoes = buildTransacoesFromForm({
+          form,
+          transacaoEdicao: null,
+          contaId: form.contaId || undefined,
+        });
+
+        for (const transacao of transacoes) {
+          await salvar(transacao);
+        }
       }
 
       onOpenChange(false);
@@ -258,9 +283,9 @@ export default function FormMovimentacaoModal({
             </DialogTitle>
             {modoEdicao && (
               <Badge variant="outline" className="text-xs">
-                {modoEdicao === "unica" ? "Apenas esta" : 
-                  modoEdicao === "todas_parcelas" ? "Todas as parcelas" : 
-                  "Toda a recorrência"}
+                {modoEdicao === "unica" ? "Apenas esta" :
+                  modoEdicao === "todas_parcelas" ? "Todas as parcelas" :
+                    "Toda a recorrência"}
               </Badge>
             )}
           </div>
@@ -318,18 +343,18 @@ export default function FormMovimentacaoModal({
               <FaMoneyBill className="h-4 w-4" />
               <span>Forma de Pagamento</span>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
-              <MovCampoFormaPagamento 
-                form={form} 
+              <MovCampoFormaPagamento
+                form={form}
                 update={updateAny}
                 opcoesDisponiveis={opcoesFormaPagamento}
               />
-              
+
               {mostrarCampoConta && (
                 <MovCampoConta form={form} update={updateAny} />
               )}
-              
+
               {mostrarCampoCartao && (
                 <MovCampoCartao form={form} update={updateAny} />
               )}
@@ -357,17 +382,17 @@ export default function FormMovimentacaoModal({
               <Calendar className="h-4 w-4" />
               <span>Tipo de Pagamento</span>
             </div>
-            
+
             <div className="flex gap-2 items-start">
               <Select
                 value={tipoPagamento}
                 onValueChange={(v: TipoPagamento) => {
                   const isParcelado = v === "parcelado";
                   const isRecorrente = v === "recorrente";
-                  
+
                   update("parcelado", isParcelado);
                   update("recorrente", isRecorrente);
-                  
+
                   if (isParcelado && form.parcelas < 2) update("parcelas", 2);
                   if (isRecorrente && form.repeticoes < 2) update("repeticoes", 2);
                 }}

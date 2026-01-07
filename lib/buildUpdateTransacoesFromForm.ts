@@ -10,10 +10,12 @@ export function buildUpdateTransacoesFromForm({
   form,
   transacaoEdicao,
 }: Params): TransacaoUpdate[] {
-  const cartaoId =
-    form.formaPagamento === "cartao" && form.cartaoId
-      ? Number(form.cartaoId)
-      : null;
+  const isCartao = form.formaPagamento === "cartao";
+  
+  // ✅ Para cartão: usa cartaoId do form
+  // ✅ Para PIX/Dinheiro: mantém contaId original ou usa form.contaId
+  const cartaoId = isCartao && form.cartaoId ? Number(form.cartaoId) : null;
+  const contaId = !isCartao && form.contaId ? form.contaId : (transacaoEdicao.contaId || "");
 
   return [
     {
@@ -26,7 +28,7 @@ export function buildUpdateTransacoesFromForm({
       valor: String(form.valor),
 
       formaPagamento: form.formaPagamento,
-      contaId: transacaoEdicao.contaId,
+      contaId,
       cartaoId,
 
       parcelado: transacaoEdicao.parcelado,

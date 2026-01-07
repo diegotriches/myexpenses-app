@@ -60,13 +60,22 @@ export default function MovimentacaoLinha({
       ? `Transferência enviada${contaAtual ? ` (${contaAtual.nome})` : ""}`
       : `Transferência recebida${contaAtual ? ` (${contaAtual.nome})` : ""}`;
 
+  // ✅ CORRIGIDO: Verifica os campos booleanos corretos
   const condicao = (() => {
-    if (mov.recorrente) return { label: "Recorrente", icon: Repeat };
-    if (mov.parcelas && mov.parcelas > 1) 
+    // 1. Verifica se é PARCELADO (campo booleano)
+    if (mov.parcelado === true) {
       return { 
         label: `${mov.parcelaAtual}/${mov.parcelas}`, 
         icon: Calendar 
       };
+    }
+    
+    // 2. Verifica se é RECORRENTE (campo booleano)
+    if (mov.recorrente === true) {
+      return { label: "Recorrente", icon: Repeat };
+    }
+    
+    // 3. Caso contrário, é À VISTA
     return { label: "À Vista", icon: DollarSign };
   })();
 
