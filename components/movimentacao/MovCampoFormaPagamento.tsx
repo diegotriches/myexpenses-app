@@ -1,3 +1,5 @@
+// src/components/movimentacao/MovCampoFormaPagamento.tsx
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { FaMoneyBill, FaCreditCard, FaDollarSign } from "react-icons/fa";
@@ -25,9 +27,12 @@ export default function MovCampoFormaPagamento({
     opcoesDisponiveis.includes(opt.value as any)
   );
 
+  // ✅ Texto contextual baseado no tipo da transação
+  const labelTexto = form.tipo === "entrada" ? "Forma de Recebimento" : "Forma de Pagamento";
+
   return (
     <div>
-      <Label>Forma de Pagamento</Label>
+      <Label>{labelTexto}</Label>
       <Select
         value={form.formaPagamento}
         onValueChange={(v) => update("formaPagamento", v)}

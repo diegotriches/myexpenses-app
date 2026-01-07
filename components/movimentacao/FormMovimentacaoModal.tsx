@@ -111,6 +111,11 @@ export default function FormMovimentacaoModal({
     return "avista";
   }, [form.parcelado, form.recorrente]);
 
+  // ✅ Texto contextual baseado no tipo
+  const textoFormaPagamento = useMemo(() => {
+    return form.tipo === "entrada" ? "Forma de Recebimento" : "Forma de Pagamento";
+  }, [form.tipo]);
+
   // Opções de forma de pagamento conforme o tipo
   const opcoesFormaPagamento = useMemo(() => {
     if (form.tipo === "entrada") {
@@ -337,11 +342,11 @@ export default function FormMovimentacaoModal({
 
           <Separator />
 
-          {/* ✅ SEÇÃO 3: Forma de Pagamento */}
+          {/* ✅ SEÇÃO 3: Forma de Pagamento/Recebimento (texto dinâmico) */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <FaMoneyBill className="h-4 w-4" />
-              <span>Forma de Pagamento</span>
+              <span>{textoFormaPagamento}</span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -362,11 +367,11 @@ export default function FormMovimentacaoModal({
 
             {/* Info para despesa com cartão */}
             {mostrarCampoCartao && (
-              <Alert className="bg-blue-50 border-blue-200">
-                <Info className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-800">
+              <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-blue-800 dark:text-blue-300">
                   <p className="font-medium">Despesa com cartão de crédito</p>
-                  <p className="text-sm text-blue-700 mt-1">
+                  <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
                     O saldo da sua conta só será impactado quando você pagar a fatura do cartão.
                   </p>
                 </AlertDescription>

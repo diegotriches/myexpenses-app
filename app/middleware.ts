@@ -17,9 +17,9 @@ export const config = {
     "/transferencias/:path*",
     "/faturas/:path*",
     "/perfil/:path*",
-    "/configuracoes/:path*",
+    "/ajustes/:path*",              // ✅ Página de ajustes e configurações (com abas)
     "/relatorios/:path*",
-    "/notificacoes/:path*",         // ✅ NOVO - Página de notificações
+    "/notificacoes/:path*",
     
     // ============================================
     // 🔌 API ROUTES PROTEGIDAS
@@ -35,7 +35,8 @@ export const config = {
     "/api/users/:path*",
     "/api/profile/:path*",
     "/api/preferences/:path*",
-    "/api/notificacoes/:path*",     // ✅ NOVO - API de notificações
+    "/api/notificacoes/:path*",
+    "/api/export/:path*",           // ✅ NOVO - Export de dados do usuário
     
     // ⚠️ NÃO incluir rotas públicas:
     // - "/" (landing page)
@@ -71,9 +72,9 @@ export const config = {
 - /transferencias - Transferências entre contas
 - /faturas - Gerenciamento de faturas de cartão
 - /perfil - Dados do usuário
-- /configuracoes - Configurações gerais
+- /ajustes - Configurações e ajustes (com abas: Preferências + Backup)
 - /relatorios - Relatórios e gráficos
-- /notificacoes - ✅ NOVO - Central de notificações
+- /notificacoes - Central de notificações
 
 🔌 API ROUTES:
 - /api/contas/* - CRUD de contas
@@ -87,7 +88,7 @@ export const config = {
 - /api/users/* - Gerenciamento de usuários
 - /api/profile/* - Perfil do usuário
 - /api/preferences/* - Preferências do usuário
-- /api/notificacoes/* - ✅ NOVO - Sistema de notificações
+- /api/notificacoes/* - Sistema de notificações ✅
   * GET /api/notificacoes - Lista notificações
   * POST /api/notificacoes - Cria notificação
   * GET /api/notificacoes/[id] - Busca por ID
@@ -98,6 +99,8 @@ export const config = {
   * GET /api/notificacoes/preferencias - Busca preferências
   * PUT /api/notificacoes/preferencias - Atualiza preferências
   * POST /api/notificacoes/verificar - Verifica e cria notificações automáticas
+- /api/export/* - Export de dados do usuário ✅ NOVO
+  * GET /api/export/meus-dados - Exporta todos os dados em JSON
 
 ⚠️ IMPORTANTE:
 - Todas as rotas em matcher[] exigem sessão válida do NextAuth
@@ -111,10 +114,17 @@ export const config = {
 - Queries de banco SEMPRE incluem filtro por userId
 - Verificação de ownership antes de operações (update/delete)
 - Cron jobs autenticam via CRON_SECRET em vez de sessão
+- Export de dados: usuário só exporta seus próprios dados (sem senha)
 
-📚 PRÓXIMAS IMPLEMENTAÇÕES:
+📚 FUNCIONALIDADES IMPLEMENTADAS:
+- ✅ Sistema de Notificações - Alertas automáticos de faturas, limites e saldos
+- ✅ Export de Dados - Backup manual em formato JSON
+- ✅ Página de Ajustes - Preferências + Backup em abas organizadas
+
+🚀 PRÓXIMAS IMPLEMENTAÇÕES:
 - /metas - Sistema de metas financeiras
 - /orcamento - Orçamento por categoria
 - /relatorios/avancado - Relatórios customizáveis
-- /api/export/* - Exportação de dados (PDF/Excel/CSV)
+- /api/import/* - Importação de dados (restauração de backup)
+- /api/export/csv - Export em formato CSV para Excel
 */
