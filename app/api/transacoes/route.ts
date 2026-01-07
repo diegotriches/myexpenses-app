@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { transacoes, contas, cartoes, faturas } from "@/db/schema";
+import { transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserIdFromSession } from "@/lib/auth/helpers";
 
@@ -232,6 +232,21 @@ export async function POST(req: NextRequest) {
             eq(contas.userId, userId) // 🔐 Garantir ownership
           )
         );
+
+      // ✅ Registrar no extrato da conta
+      const dataFormatada = new Date(json.data).toISOString().split("T")[0];
+      
+      await db.insert(extratoConta).values({
+        userId,
+        contaId: json.contaId,
+        data: dataFormatada,
+        tipo: json.tipo === "entrada" ? "entrada" : "saida",
+        valor: valorNum.toString(),
+        descricao: json.descricao || "Transação manual",
+        saldoApos: novoSaldo.toString(),
+        origem: "TRANSACAO_MANUAL",
+        referenciaId: novaTransacao.id,
+      });
     }
 
     // 5. Atualizar/criar fatura se for cartão de crédito

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { transacoes } from "@/db/schema";
+import { transacoes, contas, extratoConta, cartoes, faturas } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserIdFromSession } from "@/lib/auth/helpers";
 
@@ -151,7 +151,7 @@ export async function PUT(
   }
 }
 
-// DELETE - Deletar transação
+// DELETE - Deletar transação (com remoção de extrato e ajuste de saldo)
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -200,37 +200,170 @@ export async function DELETE(
       );
     }
 
-    // Deletar conforme o tipo
+    // ===================================================================
+    // DELETAR COM AJUSTE DE SALDO E REMOÇÃO DE EXTRATO
+    // ===================================================================
+
+    // Buscar transações a serem deletadas
+    let transacoesParaDeletar: typeof mov[] = [];
+
     if (!tipo || tipo === "unica") {
-      await db
-        .delete(transacoes)
-        .where(
-          and(
-            eq(transacoes.id, id),
-            eq(transacoes.userId, userId) // 🔐 Garantir ownership
-          )
-        );
+      transacoesParaDeletar = [mov];
     } else if (tipo === "todas_parcelas" && mov.parcelamentoId) {
-      await db
-        .delete(transacoes)
+      transacoesParaDeletar = await db
+        .select()
+        .from(transacoes)
         .where(
           and(
             eq(transacoes.parcelamentoId, mov.parcelamentoId),
-            eq(transacoes.userId, userId) // 🔐 Garantir ownership
+            eq(transacoes.userId, userId)
           )
         );
     } else if (tipo === "toda_recorrencia" && mov.recorrenciaId) {
-      await db
-        .delete(transacoes)
+      transacoesParaDeletar = await db
+        .select()
+        .from(transacoes)
         .where(
           and(
             eq(transacoes.recorrenciaId, mov.recorrenciaId),
-            eq(transacoes.userId, userId) // 🔐 Garantir ownership
+            eq(transacoes.userId, userId)
           )
         );
     }
 
-    return NextResponse.json({ sucesso: true });
+    // Processar cada transação
+    for (const transacao of transacoesParaDeletar) {
+      const valor = Number(transacao.valor);
+
+      // 1. Reverter saldo da conta (se não for cartão de crédito)
+      if (transacao.contaId && transacao.formaPagamento !== "cartao") {
+        const [conta] = await db
+          .select()
+          .from(contas)
+          .where(eq(contas.id, transacao.contaId))
+          .limit(1);
+
+        if (conta) {
+          const saldoAtual = Number(conta.saldoAtual);
+          // Reverter: entrada vira saída, saída vira entrada
+          const novoSaldo = transacao.tipo === "entrada"
+            ? saldoAtual - valor
+            : saldoAtual + valor;
+
+          await db
+            .update(contas)
+            .set({
+              saldoAtual: novoSaldo.toString(),
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(contas.id, transacao.contaId),
+                eq(contas.userId, userId)
+              )
+            );
+        }
+      }
+
+      // 2. Remover do extrato (se existir)
+      await db
+        .delete(extratoConta)
+        .where(
+          and(
+            eq(extratoConta.referenciaId, transacao.id),
+            eq(extratoConta.userId, userId)
+          )
+        );
+
+      // 3. Reverter fatura se for cartão de crédito
+      if (transacao.cartaoId && transacao.formaPagamento === "cartao") {
+        const dataTransacao = new Date(transacao.data);
+        const mes = dataTransacao.getMonth() + 1;
+        const ano = dataTransacao.getFullYear();
+
+        const [fatura] = await db
+          .select()
+          .from(faturas)
+          .where(
+            and(
+              eq(faturas.cartaoId, transacao.cartaoId),
+              eq(faturas.userId, userId),
+              eq(faturas.mes, mes),
+              eq(faturas.ano, ano)
+            )
+          )
+          .limit(1);
+
+        if (fatura) {
+          const totalAtual = Number(fatura.total);
+          const novoTotal = totalAtual - valor;
+
+          if (novoTotal <= 0) {
+            // Deletar fatura se ficar zerada
+            await db
+              .delete(faturas)
+              .where(eq(faturas.id, fatura.id));
+          } else {
+            // Atualizar total da fatura
+            await db
+              .update(faturas)
+              .set({
+                total: novoTotal.toString(),
+                updatedAt: new Date(),
+              })
+              .where(eq(faturas.id, fatura.id));
+          }
+        }
+
+        // Reverter limite disponível do cartão
+        const [cartao] = await db
+          .select()
+          .from(cartoes)
+          .where(eq(cartoes.id, transacao.cartaoId))
+          .limit(1);
+
+        if (cartao) {
+          const novoLimiteDisponivel = cartao.limiteDisponivel + valor;
+          
+          await db
+            .update(cartoes)
+            .set({
+              limiteDisponivel: novoLimiteDisponivel,
+            })
+            .where(
+              and(
+                eq(cartoes.id, transacao.cartaoId),
+                eq(cartoes.userId, userId)
+              )
+            );
+        }
+      }
+    }
+
+    // 4. Deletar as transações
+    const idsParaDeletar = transacoesParaDeletar.map(t => t.id);
+
+    await db
+      .delete(transacoes)
+      .where(
+        and(
+          eq(transacoes.userId, userId),
+          // Deletar pelos IDs coletados
+          tipo === "unica"
+            ? eq(transacoes.id, id)
+            : tipo === "todas_parcelas" && mov.parcelamentoId
+              ? eq(transacoes.parcelamentoId, mov.parcelamentoId)
+              : tipo === "toda_recorrencia" && mov.recorrenciaId
+                ? eq(transacoes.recorrenciaId, mov.recorrenciaId)
+                : eq(transacoes.id, id)
+        )
+      );
+
+    return NextResponse.json({ 
+      sucesso: true,
+      deletadas: transacoesParaDeletar.length 
+    });
+
   } catch (err: any) {
     console.error("Erro ao deletar transação:", err);
 
