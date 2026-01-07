@@ -1,12 +1,12 @@
+// src/components/layout/TopMenu.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { BsList, BsChevronLeft, BsCalculatorFill } from "react-icons/bs";
-import { Sun, Moon, LogOut, ChevronRight, Bell } from "lucide-react";
+import { Sun, Moon, LogOut, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import PeriodoSelector from "@/components/layout/PeriodoSelector";
 import CalculadoraModal from "@/components/common/CalculadoraModal";
+import { NotificacaoPopover } from "@/components/notificacao/NotificacaoPopover";
 
 interface TopMenuProps {
   isCollapsed: boolean;
@@ -32,9 +33,6 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-
-  // TODO: Substituir por dados reais de notificações
-  const notificacoesNaoLidas = 0; // Placeholder
 
   // Evita hydration mismatch
   useEffect(() => {
@@ -51,23 +49,22 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
     router.push('/login');
   };
 
-  const handleNotificacoes = () => {
-    // TODO: Implementar funcionalidade de notificações
-    console.log("Notificações clicadas - funcionalidade em desenvolvimento");
-  };
-
   // Gerar breadcrumbs baseado na rota
   const getBreadcrumbs = () => {
     const paths = pathname.split('/').filter(Boolean);
     const labels: Record<string, string> = {
       dashboard: 'Dashboard',
-      movimentacao: 'Movimentações',
+      movimentacoes: 'Movimentações',
       contas: 'Contas',
       cartoes: 'Cartões',
       categorias: 'Categorias',
+      notificacoes: 'Notificações',
       ajustes: 'Ajustes',
       perfil: 'Perfil',
       extrato: 'Extrato',
+      configuracoes: 'Configurações',
+      relatorios: 'Relatórios',
+      transferencias: 'Transferências',
     };
 
     return paths.map((path, index) => ({
@@ -202,24 +199,8 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
           {/* Divider */}
           <div className="hidden md:block h-6 w-px bg-gray-300 dark:bg-gray-600" />
 
-          {/* Notificações Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleNotificacoes}
-            className="relative text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-800 cursor-pointer"
-            title="Notificações"
-          >
-            <Bell size={18} />
-            {notificacoesNaoLidas > 0 && (
-              <Badge 
-                variant="destructive" 
-                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-              >
-                {notificacoesNaoLidas > 9 ? '9+' : notificacoesNaoLidas}
-              </Badge>
-            )}
-          </Button>
+          {/* ✅ Notificações Popover (substituindo o botão antigo) */}
+          <NotificacaoPopover />
 
           {/* Logout Button */}
           <Button

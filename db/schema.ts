@@ -197,3 +197,33 @@ export const extratoConta = pgTable("extrato_conta", {
   referenciaId: varchar("referencia_id", { length: 36 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ========================================
+// NOTIFICAÇÕES (Isolado por usuário)
+// ========================================
+export const notificacoes = pgTable("notificacoes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  tipo: text("tipo").notNull(),
+  severidade: text("severidade").notNull(),
+  titulo: text("titulo").notNull(),
+  mensagem: text("mensagem").notNull(),
+  lida: boolean("lida").notNull().default(false),
+  link: text("link"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const preferenciasNotificacao = pgTable("preferencias_notificacao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  faturas: boolean("faturas").notNull().default(true),
+  limiteCartao: boolean("limite_cartao").notNull().default(true),
+  saldoBaixo: boolean("saldo_baixo").notNull().default(true),
+  transacoesAltas: boolean("transacoes_altas").notNull().default(false),
+  emailNotificacoes: boolean("email_notificacoes").notNull().default(false),
+  diasAntesVencimento: integer("dias_antes_vencimento").notNull().default(3),
+  limiteMinimoConta: integer("limite_minimo_conta").notNull().default(100),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
