@@ -175,6 +175,7 @@ export const authOptions: AuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 dias
+    updateAge: 24 * 60 * 60, // ✅ NOVO: Atualiza token a cada 24h
   },
 
   pages: {
@@ -222,18 +223,30 @@ export const authOptions: AuthOptions = {
   },
 
   callbacks: {
-    async jwt({ token, user, account, profile }) {
+    async jwt({ token, user, account, profile, trigger, session }) {
       // Adicionar userId ao token na primeira vez
       if (user) {
         token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+        token.picture = user.image;
       }
+
+      // ✅ NOVO: Atualizar token quando session é atualizada
+      if (trigger === "update" && session) {
+        token = { ...token, ...session };
+      }
+
       return token;
     },
 
     async session({ session, token }) {
-      // Adicionar userId à sessão
-      if (session.user && token.id) {
+      // Adicionar dados do token à sessão
+      if (session.user && token) {
         session.user.id = token.id as string;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string;
+        session.user.image = token.picture as string;
       }
       return session;
     },
