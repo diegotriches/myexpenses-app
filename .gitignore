@@ -1,5 +1,5 @@
 # ============================================
-# My Expenses - .gitignore
+# MyExpenses - .gitignore
 # ============================================
 
 # === Dependencies ===
@@ -29,8 +29,15 @@ next-env.d.ts
 *.lcov
 
 # === Environment Variables ===
-# Ignora todos os .env exceto .env.example
-.env*
+# ⚠️ CRÍTICO: Protege secrets e credenciais
+.env
+.env.local
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ✅ PERMITIR: Template de exemplo
 !.env.example
 
 # === Logs ===
@@ -93,11 +100,19 @@ Thumbs.db
 *.sqlite3
 *.db
 
+# === Drizzle ORM ===
+# Ignora migrations locais (se você gerar migrations localmente)
+# Descomente se não quiser versionar migrations:
+# drizzle/
+# migrations/
+
+# Drizzle Studio local cache
+.drizzle/
+
 # === Docker ===
 # Não ignora docker-compose.yml e Dockerfile
 # Ignora apenas dados e logs locais
 docker-compose.override.yml
-*.log
 
 # === AI Assistants (Claude, Gemini, Cursor, etc) ===
 # Arquivos de configuração de assistentes de IA
@@ -116,19 +131,48 @@ agents.md
 *.temp
 ~$*
 
-# === Outros ===
-# Arquivos de lock temporários
-package-lock.json  # Se usa pnpm, não precisa do npm lock
-yarn.lock          # Se usa pnpm, não precisa do yarn lock
+# === Lock Files ===
+# ⚠️ ATENÇÃO: Escolha apenas um gerenciador de pacotes!
+#
+# Se usar NPM (comentar package-lock.json):
+# package-lock.json
+#
+# Se usar YARN (comentar yarn.lock):
+# yarn.lock
+#
+# Se usar PNPM (manter pnpm-lock.yaml, ignorar os outros):
+package-lock.json
+yarn.lock
 
-# Drizzle Studio local cache
-.drizzle/
-
-# TypeScript cache
+# === TypeScript ===
 .tsbuildinfo
+next-env.d.ts
 
-# Local development files
+# === Local Development ===
 .local/
 local/
 scratch/
 playground/
+temp/
+
+# === Vercel Blob (uploads temporários) ===
+# Se testar uploads localmente
+uploads/
+.uploads/
+
+# === Sessões e Cache ===
+.cache/
+.temp/
+sessions/
+
+# ============================================
+# IMPORTANTE - Arquivo .env.local
+# ============================================
+#
+# ✅ .env.example → DEVE ser commitado (template)
+# ❌ .env.local → NUNCA commitar (secrets reais)
+#
+# Verificar: git status
+# Se .env.local aparecer, algo está errado!
+#
+# ============================================
