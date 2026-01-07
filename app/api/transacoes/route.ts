@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserIdFromSession } from "@/lib/auth/helpers";
+import { calcularFaturaDaTransacao } from "@/utils/faturaUtils"; // ✅ IMPORTAR
 
 // GET - Listar transações do usuário
 export async function GET(req: NextRequest) {
@@ -222,12 +223,26 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // 5. Atualizar/criar fatura (se for cartão)
+      // 5. ✅ ATUALIZAR/CRIAR FATURA COM CICLO CORRETO
       if (trans.cartaoId && trans.formaPagamento === "cartao") {
-        const dataTransacao = new Date(trans.data);
-        const mes = dataTransacao.getMonth() + 1;
-        const ano = dataTransacao.getFullYear();
+        const [cartao] = await db
+          .select()
+          .from(cartoes)
+          .where(eq(cartoes.id, Number(trans.cartaoId)))
+          .limit(1);
 
+        const dataTransacao = new Date(trans.data);
+        const diaFechamento = cartao.diaFechamento || 1;
+
+        // ✅ CALCULAR FATURA CORRETA baseado no dia de fechamento
+        const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
+          dataTransacao,
+          diaFechamento
+        );
+
+        console.log(`📅 Transação em ${dataTransacao.toLocaleDateString('pt-BR')} → Fatura ${mesFatura}/${anoFatura}`);
+
+        // ✅ VERIFICAR SE FATURA JÁ ESTÁ PAGA
         const [faturaExistente] = await db
           .select()
           .from(faturas)
@@ -235,13 +250,23 @@ export async function POST(req: NextRequest) {
             and(
               eq(faturas.cartaoId, Number(trans.cartaoId)),
               eq(faturas.userId, userId),
-              eq(faturas.mes, mes),
-              eq(faturas.ano, ano)
+              eq(faturas.mes, mesFatura),
+              eq(faturas.ano, anoFatura)
             )
           )
           .limit(1);
 
+        if (faturaExistente && faturaExistente.paga) {
+          return NextResponse.json(
+            { 
+              error: `Fatura de ${mesFatura}/${anoFatura} já está paga. Não é possível adicionar transações.` 
+            },
+            { status: 400 }
+          );
+        }
+
         if (faturaExistente) {
+          // Atualizar fatura existente
           const totalAtual = Number(faturaExistente.total);
           const novoTotal = totalAtual + valorNum;
 
@@ -253,11 +278,12 @@ export async function POST(req: NextRequest) {
             })
             .where(eq(faturas.id, faturaExistente.id));
         } else {
+          // Criar nova fatura
           await db.insert(faturas).values({
             userId,
             cartaoId: Number(trans.cartaoId),
-            mes,
-            ano,
+            mes: mesFatura,
+            ano: anoFatura,
             total: valorNum.toFixed(2),
             paga: false,
           });

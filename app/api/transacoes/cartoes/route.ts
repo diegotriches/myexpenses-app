@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       .where(
         and(
           eq(cartoes.id, cartaoId),
-          eq(cartoes.userId, userId) // 🔐 Verificar ownership
+          eq(cartoes.userId, userId)
         )
       );
 
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       .where(
         and(
           eq(faturas.cartaoId, cartaoId),
-          eq(faturas.userId, userId), // 🔐 Filtrar por userId
+          eq(faturas.userId, userId),
           eq(faturas.ano, ano),
           eq(faturas.mes, mes)
         )
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
       const [novaFatura] = await db
         .insert(faturas)
         .values({
-          userId, // 🔐 Incluir userId
+          userId,
           cartaoId,
           ano,
           mes,
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
       const [transacao] = await db
         .insert(transacoes)
         .values({
-          userId, // 🔐 CRÍTICO: Incluir userId
+          userId,
           data: dataParcela,
           tipo: "saida",
           descricao,
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
     await db
       .update(faturas)
       .set({
-        total: novoTotalFatura.toFixed(2), // ✅ String no formato "123.45"
+        total: novoTotalFatura.toFixed(2),
         updatedAt: new Date(),
       })
       .where(eq(faturas.id, faturaId));
@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
     await db
       .update(cartoes)
       .set({
-        limiteDisponivel: novoLimiteDisponivel.toFixed(2), // ✅ String no formato "123.45"
+        limiteDisponivel: novoLimiteDisponivel.toFixed(2),
       })
       .where(
         and(
