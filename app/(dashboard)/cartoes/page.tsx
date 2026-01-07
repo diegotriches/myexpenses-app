@@ -69,28 +69,8 @@ export default function CartoesPage() {
     }
   }, [toast]);
 
-  const transacoesPorCartao = useMemo(() => {
-    const map = new Map<number, { valor: number | string; cartaoId: number }[]>();
-
-    transacoes.forEach((t) => {
-      if (typeof t.cartaoId === "number") {
-        const lista = map.get(t.cartaoId) ?? [];
-        lista.push({
-          valor: t.valor,
-          cartaoId: t.cartaoId,
-        });
-        map.set(t.cartaoId, lista);
-      }
-    });
-
-    return map;
-  }, [transacoes]);
-
-  // Calcula uso do cartão
-  const calcularUsoCartao = (cartaoId: number): number => {
-    const movs = transacoesPorCartao.get(cartaoId) ?? [];
-    return movs.reduce((total, mov) => total + Number(mov.valor ?? 0), 0);
-  };
+  // ✅ REMOVIDO: transacoesPorCartao (não é mais necessário)
+  // ✅ REMOVIDO: calcularUsoCartao (API já calcula)
 
   // Aplica busca, filtro de aba e ordenação
   const cartoesFiltrados = useMemo(() => {
@@ -122,13 +102,15 @@ export default function CartoesPage() {
         case "limite-menor":
           return (Number(a.limite) || 0) - (Number(b.limite) || 0);
         case "uso-maior": {
-          const usoA = calcularUsoCartao(a.id);
-          const usoB = calcularUsoCartao(b.id);
+          // ✅ CORRIGIDO: Usar emUso da API
+          const usoA = Number(a.emUso) || 0;
+          const usoB = Number(b.emUso) || 0;
           return usoB - usoA;
         }
         case "uso-menor": {
-          const usoA = calcularUsoCartao(a.id);
-          const usoB = calcularUsoCartao(b.id);
+          // ✅ CORRIGIDO: Usar emUso da API
+          const usoA = Number(a.emUso) || 0;
+          const usoB = Number(b.emUso) || 0;
           return usoA - usoB;
         }
         default:
@@ -352,7 +334,6 @@ export default function CartoesPage() {
                   <CartaoItem
                     key={cartao.id}
                     cartao={cartao}
-                    movimentacoes={transacoesPorCartao.get(cartao.id) ?? []}
                     onEditar={abrirEdicao}
                     onExcluir={abrirExclusao}
                     onFatura={abrirFatura}

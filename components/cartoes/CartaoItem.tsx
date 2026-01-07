@@ -16,7 +16,6 @@ import { empresaOptions, bandeiraOptions } from "@/utils/cartaoOptions";
 
 interface Props {
   cartao: Cartao;
-  movimentacoes: { valor: number | string; cartaoId: number }[];
   onEditar: (cartao: Cartao) => void;
   onExcluir: (cartao: Cartao) => void;
   onFatura?: (cartaoId: number) => void;
@@ -29,13 +28,11 @@ function getImgFromOption(options: any[], value: string) {
 
 export default function CartaoItem({
   cartao,
-  movimentacoes = [],
   onEditar,
   onExcluir,
   onFatura,
 }: Props) {
   const router = useRouter();
-  const movsSeguros = Array.isArray(movimentacoes) ? movimentacoes : [];
 
   const empresaImg = getImgFromOption(empresaOptions, cartao.empresa ?? "");
   const bandeiraImg = getImgFromOption(bandeiraOptions, cartao.bandeira);
@@ -48,15 +45,11 @@ export default function CartaoItem({
     }).format(valor);
   };
 
-  // ✅ CORRIGIDO: Converter limite para number
+  // ✅ CORRIGIDO: Usar valores já calculados pela API
   const limiteTotal = Number(cartao.limite) || 0;
-
-  // Cálculo de Em Uso
-  const totalEmUso = movsSeguros
-    .filter((mov) => mov.cartaoId === cartao.id)
-    .reduce((total, mov) => total + Number(mov.valor ?? 0), 0);
-
-  const limiteDisponivel = limiteTotal - totalEmUso;
+  const totalEmUso = Number(cartao.emUso) || 0; // ← Valor vem da API
+  const limiteDisponivel = Number(cartao.limiteDisponivel) || 0; // ← Valor vem da API
+  
   const porcentagemUso = limiteTotal > 0 ? (totalEmUso / limiteTotal) * 100 : 0;
 
   // Cor da barra baseada no uso
