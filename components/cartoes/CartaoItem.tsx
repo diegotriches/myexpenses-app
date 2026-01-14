@@ -4,12 +4,29 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Pencil, Trash2, FileText, CreditCard, AlertCircle, TrendingUp } from "lucide-react";
+import { 
+  Pencil, 
+  Trash2, 
+  FileText, 
+  CreditCard, 
+  AlertCircle, 
+  TrendingUp, 
+  MoreVertical,
+  Power,
+  PowerOff
+} from "lucide-react";
 import { Cartao } from "@/types/cartao";
 import { useRouter } from "next/navigation";
 import { empresaOptions, bandeiraOptions } from "@/utils/cartaoOptions";
@@ -19,6 +36,7 @@ interface Props {
   onEditar: (cartao: Cartao) => void;
   onExcluir: (cartao: Cartao) => void;
   onFatura?: (cartaoId: number) => void;
+  onToggleAtivo?: (cartao: Cartao) => void; // Nova prop opcional
 }
 
 function getImgFromOption(options: any[], value: string) {
@@ -31,6 +49,7 @@ export default function CartaoItem({
   onEditar,
   onExcluir,
   onFatura,
+  onToggleAtivo,
 }: Props) {
   const router = useRouter();
 
@@ -85,9 +104,9 @@ export default function CartaoItem({
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200 dark:border-gray-700">
       <CardContent className="p-6 space-y-4">
-        {/* Header do Cartão */}
+        {/* Header do Cartão com Menu */}
         <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 flex-1">
             {empresaImg && (
               <div className="w-12 h-12 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center p-2 border dark:border-gray-700">
                 <img 
@@ -97,7 +116,7 @@ export default function CartaoItem({
                 />
               </div>
             )}
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-base font-semibold text-gray-900 dark:text-white">
                   {cartao.nome}
@@ -122,15 +141,69 @@ export default function CartaoItem({
             </div>
           </div>
 
-          {bandeiraImg && (
-            <div className="w-12 h-12 flex items-center justify-center">
-              <img 
-                src={bandeiraImg} 
-                alt={cartao.bandeira} 
-                className="w-full h-full object-contain" 
-              />
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {bandeiraImg && (
+              <div className="w-12 h-12 flex items-center justify-center">
+                <img 
+                  src={bandeiraImg} 
+                  alt={cartao.bandeira} 
+                  className="w-full h-full object-contain" 
+                />
+              </div>
+            )}
+
+            {/* Menu Dropdown de Ações */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  <MoreVertical size={16} className="text-gray-600 dark:text-gray-400" />
+                  <span className="sr-only">Abrir menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem 
+                  onClick={() => onEditar(cartao)}
+                  className="cursor-pointer"
+                >
+                  <Pencil size={14} className="mr-2" />
+                  Editar cartão
+                </DropdownMenuItem>
+
+                {onToggleAtivo && (
+                  <DropdownMenuItem 
+                    onClick={() => onToggleAtivo(cartao)}
+                    className="cursor-pointer"
+                  >
+                    {cartao.ativo ? (
+                      <>
+                        <PowerOff size={14} className="mr-2" />
+                        Desativar
+                      </>
+                    ) : (
+                      <>
+                        <Power size={14} className="mr-2" />
+                        Ativar
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                )}
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem 
+                  onClick={() => onExcluir(cartao)}
+                  className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                >
+                  <Trash2 size={14} className="mr-2" />
+                  Remover
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {cartao.tipo === "credito" && (
@@ -217,43 +290,31 @@ export default function CartaoItem({
                 </TooltipProvider>
               </div>
             </div>
+
+            {/* Botão Fatura em Destaque */}
+            <Button
+              onClick={abrirFatura}
+              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-md hover:shadow-lg transition-all duration-200"
+              size="lg"
+            >
+              <FileText size={16} className="mr-2" />
+              Ver Fatura Atual
+            </Button>
           </>
         )}
 
-        {/* Ações */}
-        <div className="flex flex-wrap gap-2 pt-2 border-t dark:border-gray-700">
+        {/* Botão Fatura para Cartão de Débito (caso tenha) */}
+        {cartao.tipo === "debito" && onFatura && (
           <Button
+            onClick={abrirFatura}
             variant="outline"
-            size="sm"
-            onClick={() => onEditar(cartao)}
-            className="flex-1 min-w-[100px] hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 dark:hover:bg-blue-950 dark:hover:border-blue-800"
+            className="w-full hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 dark:hover:bg-purple-950 dark:hover:border-purple-800"
+            size="lg"
           >
-            <Pencil size={14} className="mr-2" />
-            Editar
+            <FileText size={16} className="mr-2" />
+            Ver Movimentações
           </Button>
-
-          {cartao.tipo === "credito" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={abrirFatura}
-              className="flex-1 min-w-[100px] hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 dark:hover:bg-purple-950 dark:hover:border-purple-800"
-            >
-              <FileText size={14} className="mr-2" />
-              Fatura
-            </Button>
-          )}
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onExcluir(cartao)}
-            className="flex-1 min-w-[100px] hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-950 dark:hover:border-red-800"
-          >
-            <Trash2 size={14} className="mr-2" />
-            Remover
-          </Button>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
