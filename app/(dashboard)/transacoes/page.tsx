@@ -184,23 +184,23 @@ export default function TransacoesPage() {
 
   // ✅ EMPTY STATE - Sem contas cadastradas
   const EmptyStateNoConta = () => (
-    <div className="text-center py-16 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border-2 border-dashed border-yellow-300 dark:border-yellow-700">
+    <div className="text-center py-12 md:py-16 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border-2 border-dashed border-yellow-300 dark:border-yellow-700">
       <div className="flex justify-center mb-4">
         <div className="relative">
-          <BsBank className="text-6xl text-yellow-500 dark:text-yellow-400" />
-          <AlertCircle className="absolute -top-2 -right-2 text-red-500 bg-white dark:bg-gray-800 rounded-full" size={24} />
+          <BsBank className="text-5xl md:text-6xl text-yellow-500 dark:text-yellow-400" />
+          <AlertCircle className="absolute -top-2 -right-2 text-red-500 bg-white dark:bg-gray-800 rounded-full" size={20} />
         </div>
       </div>
 
-      <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+      <h3 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white mb-2 px-4">
         Nenhuma conta cadastrada
       </h3>
 
-      <p className="text-gray-700 dark:text-gray-300 mb-2 max-w-md mx-auto">
+      <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mb-2 max-w-md mx-auto px-4">
         Você precisa cadastrar pelo menos uma conta bancária antes de registrar movimentações.
       </p>
 
-      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+      <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto px-4">
         As movimentações são vinculadas a contas para calcular saldos e gerar relatórios precisos.
       </p>
 
@@ -220,7 +220,7 @@ export default function TransacoesPage() {
 
   if (loadingContas) {
     return (
-      <div className="max-w-[1200px] mx-auto p-6">
+      <div className="max-w-[1200px] mx-auto p-4 md:p-6">
         <div className="flex items-center justify-center py-16">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
         </div>
@@ -229,47 +229,63 @@ export default function TransacoesPage() {
   }
 
   return (
-    <div className="max-w-[1200px] mx-auto p-6 space-y-6">
-      {/* Header */}
+    <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-6">
+      {/* ✅ Header - Responsivo */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <BsArrowLeftRight className="text-3xl text-blue-700 dark:text-blue-500" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Movimentações
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {movimentacoesFiltradas.length} transação(ões) encontrada(s)
-              </p>
-            </div>
+        <div className="flex items-center gap-2 mb-2">
+          <BsArrowLeftRight className="text-2xl md:text-3xl text-blue-700 dark:text-blue-500" />
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+              Movimentações
+            </h1>
           </div>
-
-          <Button
-            onClick={abrirNovo}
-            disabled={!temContasAtivas || criarTransacao.isPending}
-            className="flex items-center gap-2 bg-blue-700 hover:bg-blue-900 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            title={!temContasAtivas ? "Cadastre uma conta primeiro" : ""}
-          >
-            <MdAdd className="text-xl" />
-            {criarTransacao.isPending ? "Criando..." : "Nova Movimentação"}
-          </Button>
         </div>
-        <hr className="border-t border-gray-300 dark:border-gray-700" />
+
+        <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
+          {movimentacoesFiltradas.length} transação(ões) encontrada(s)
+        </p>
+
+        <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
       </div>
+
+      {/* ✅ Botão flutuante mobile - Mesmo padrão de Contas */}
+      {temContasAtivas && (
+        <Button
+          onClick={abrirNovo}
+          disabled={criarTransacao.isPending}
+          className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 hover:bg-blue-900 z-50"
+          size="icon"
+        >
+          <MdAdd className="text-2xl" />
+        </Button>
+      )}
 
       {/* ✅ Verificação de contas */}
       {!temContasAtivas ? (
         <EmptyStateNoConta />
       ) : (
         <>
-          {/* Filtros */}
-          <FiltrosMovimentacoes
-            filtros={filtros}
-            onFiltrosChange={setFiltros}
-            categorias={categoriasUnicas}
-            formasPagamento={formasPagamentoUnicas}
-          />
+          {/* ✅ Filtros + Botão Desktop */}
+          <div className="space-y-4">
+            <FiltrosMovimentacoes
+              filtros={filtros}
+              onFiltrosChange={setFiltros}
+              categorias={categoriasUnicas}
+              formasPagamento={formasPagamentoUnicas}
+            />
+
+            {/* ✅ Botão desktop - Alinhado com filtros */}
+            <div className="hidden md:flex justify-end">
+              <Button
+                onClick={abrirNovo}
+                disabled={criarTransacao.isPending}
+                className="flex items-center gap-2 bg-blue-700 hover:bg-blue-900 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <MdAdd className="text-xl" />
+                {criarTransacao.isPending ? "Criando..." : "Nova Movimentação"}
+              </Button>
+            </div>
+          </div>
 
           {/* Tabela de movimentações */}
           <MovimentacaoTabela
