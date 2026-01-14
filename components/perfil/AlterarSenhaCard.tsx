@@ -1,7 +1,7 @@
+// src/components/perfil/AlterarSenhaCard.tsx
 "use client";
 
 import { useState } from "react";
-import api from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,10 +18,10 @@ import {
     Shield,
     Check
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useAlterarSenha } from "@/hooks/useProfile";
 
 interface Props {
-    usuarioId?: number;
+    usuarioId?: string;
 }
 
 type FormErrors = {
@@ -33,18 +33,19 @@ type FormErrors = {
 export default function AlterarSenhaCard({ usuarioId }: Props) {
     const [form, setForm] = useState({
         senhaAtual: "",
-        novaSenha: "",
+        senhaNova: "",
         confirmarSenha: "",
     });
     const [errors, setErrors] = useState<FormErrors>({});
-    const [loading, setLoading] = useState(false);
     const [sucesso, setSucesso] = useState(false);
     const [mostrarSenhas, setMostrarSenhas] = useState({
         atual: false,
         nova: false,
         confirmar: false,
     });
-    const { toast } = useToast();
+
+    // React Query Mutation
+    const alterarSenha = useAlterarSenha();
 
     // Validação de força da senha
     const calcularForcaSenha = (senha: string): number => {
@@ -60,7 +61,7 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
         return Math.min(forca, 100);
     };
 
-    const forcaSenha = calcularForcaSenha(form.novaSenha);
+    const forcaSenha = calcularForcaSenha(form.senhaNova);
 
     const getCorForca = (forca: number): string => {
         if (forca < 40) return "[&>div]:bg-red-500";
@@ -76,11 +77,11 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
 
     // Requisitos de senha
     const requisitos = [
-        { texto: "Mínimo de 8 caracteres", valido: form.novaSenha.length >= 8 },
-        { texto: "Letra minúscula", valido: /[a-z]/.test(form.novaSenha) },
-        { texto: "Letra maiúscula", valido: /[A-Z]/.test(form.novaSenha) },
-        { texto: "Número", valido: /[0-9]/.test(form.novaSenha) },
-        { texto: "Caractere especial (!@#$%)", valido: /[^a-zA-Z0-9]/.test(form.novaSenha) },
+        { texto: "Mínimo de 8 caracteres", valido: form.senhaNova.length >= 8 },
+        { texto: "Letra minúscula", valido: /[a-z]/.test(form.senhaNova) },
+        { texto: "Letra maiúscula", valido: /[A-Z]/.test(form.senhaNova) },
+        { texto: "Número", valido: /[0-9]/.test(form.senhaNova) },
+        { texto: "Caractere especial (!@#$%)", valido: /[^a-zA-Z0-9]/.test(form.senhaNova) },
     ];
 
     const validarFormulario = (): boolean => {
@@ -90,21 +91,21 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
             novosErros.senhaAtual = "Senha atual é obrigatória";
         }
 
-        if (!form.novaSenha || form.novaSenha.trim() === "") {
+        if (!form.senhaNova || form.senhaNova.trim() === "") {
             novosErros.novaSenha = "Nova senha é obrigatória";
-        } else if (form.novaSenha.length < 8) {
+        } else if (form.senhaNova.length < 8) {
             novosErros.novaSenha = "A senha deve ter no mínimo 8 caracteres";
         } else if (forcaSenha < 40) {
             novosErros.novaSenha = "Senha muito fraca. Use letras, números e símbolos";
         }
 
-        if (form.novaSenha === form.senhaAtual) {
+        if (form.senhaNova === form.senhaAtual) {
             novosErros.novaSenha = "A nova senha deve ser diferente da atual";
         }
 
         if (!form.confirmarSenha || form.confirmarSenha.trim() === "") {
             novosErros.confirmarSenha = "Confirme a nova senha";
-        } else if (form.novaSenha !== form.confirmarSenha) {
+        } else if (form.senhaNova !== form.confirmarSenha) {
             novosErros.confirmarSenha = "As senhas não coincidem";
         }
 
@@ -116,7 +117,7 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
         setForm({ ...form, [field]: value });
 
         // Limpa erro do campo ao editar
-        if (errors[field]) {
+        if (errors[field as keyof FormErrors]) {
             setErrors({ ...errors, [field]: undefined });
         }
 
@@ -126,40 +127,31 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
         }
     };
 
-    const alterarSenha = async () => {
+    const handleAlterarSenha = async () => {
         if (!validarFormulario()) {
             return;
         }
 
         if (!usuarioId) {
-            toast({
-                title: "Erro",
-                description: "ID do usuário não encontrado",
-                variant: "destructive",
-            });
             return;
         }
 
         try {
-            setLoading(true);
-            setSucesso(false);
-
-            await api.put(`/users/${usuarioId}/senha`, {
-                senhaAtual: form.senhaAtual,
-                novaSenha: form.novaSenha,
+            await alterarSenha.mutateAsync({
+                userId: usuarioId,
+                dados: {
+                    senhaAtual: form.senhaAtual,
+                    senhaNova: form.senhaNova,
+                    confirmarSenha: form.confirmarSenha,
+                },
             });
 
             setSucesso(true);
 
-            toast({
-                title: "Senha alterada!",
-                description: "Sua senha foi atualizada com sucesso.",
-            });
-
             // Limpa formulário
             setForm({
                 senhaAtual: "",
-                novaSenha: "",
+                senhaNova: "",
                 confirmarSenha: "",
             });
 
@@ -169,29 +161,17 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
         } catch (err: any) {
             console.error("Erro ao alterar senha:", err);
 
-            let mensagemErro = "Erro ao alterar senha. Tente novamente.";
-
-            if (err.response?.status === 401 || err.response?.status === 403) {
-                mensagemErro = "Senha atual incorreta.";
+            // Verifica se é erro de senha incorreta
+            if (err.message?.includes("incorreta") || err.message?.includes("atual")) {
                 setErrors({ senhaAtual: "Senha incorreta" });
-            } else if (err.response?.data?.message) {
-                mensagemErro = err.response.data.message;
             }
-
-            toast({
-                title: "Erro ao alterar senha",
-                description: mensagemErro,
-                variant: "destructive",
-            });
-        } finally {
-            setLoading(false);
         }
     };
 
     const cancelar = () => {
         setForm({
             senhaAtual: "",
-            novaSenha: "",
+            senhaNova: "",
             confirmarSenha: "",
         });
         setErrors({});
@@ -202,7 +182,7 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
         setMostrarSenhas({ ...mostrarSenhas, [campo]: !mostrarSenhas[campo] });
     };
 
-    const temAlteracoes = form.senhaAtual || form.novaSenha || form.confirmarSenha;
+    const temAlteracoes = form.senhaAtual || form.senhaNova || form.confirmarSenha;
 
     return (
         <div className="space-y-6">
@@ -232,7 +212,7 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
                             onChange={(e) => handleChange("senhaAtual", e.target.value)}
                             placeholder="Digite sua senha atual"
                             className={errors.senhaAtual ? "border-red-500 pr-10" : "pr-10"}
-                            disabled={loading}
+                            disabled={alterarSenha.isPending}
                         />
                         <button
                             type="button"
@@ -253,19 +233,19 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
 
                 {/* Nova Senha */}
                 <div className="space-y-2">
-                    <Label htmlFor="novaSenha" className="flex items-center gap-1">
+                    <Label htmlFor="senhaNova" className="flex items-center gap-1">
                         Nova Senha
                         <span className="text-red-500">*</span>
                     </Label>
                     <div className="relative">
                         <Input
-                            id="novaSenha"
+                            id="senhaNova"
                             type={mostrarSenhas.nova ? "text" : "password"}
-                            value={form.novaSenha}
-                            onChange={(e) => handleChange("novaSenha", e.target.value)}
+                            value={form.senhaNova}
+                            onChange={(e) => handleChange("senhaNova", e.target.value)}
                             placeholder="Digite sua nova senha"
                             className={errors.novaSenha ? "border-red-500 pr-10" : "pr-10"}
-                            disabled={loading}
+                            disabled={alterarSenha.isPending}
                         />
                         <button
                             type="button"
@@ -284,7 +264,7 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
                     )}
 
                     {/* Indicador de Força */}
-                    {form.novaSenha && (
+                    {form.senhaNova && (
                         <div className="space-y-2">
                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-gray-600 dark:text-gray-400">Força da senha:</span>
@@ -303,7 +283,7 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
                     )}
 
                     {/* Requisitos */}
-                    {form.novaSenha && (
+                    {form.senhaNova && (
                         <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-2">
                             <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
                                 <Shield size={12} />
@@ -341,7 +321,7 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
                             onChange={(e) => handleChange("confirmarSenha", e.target.value)}
                             placeholder="Digite novamente a nova senha"
                             className={errors.confirmarSenha ? "border-red-500 pr-10" : "pr-10"}
-                            disabled={loading}
+                            disabled={alterarSenha.isPending}
                         />
                         <button
                             type="button"
@@ -366,18 +346,18 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
                 <Button
                     variant="outline"
                     onClick={cancelar}
-                    disabled={!temAlteracoes || loading}
+                    disabled={!temAlteracoes || alterarSenha.isPending}
                     className="flex-1 sm:flex-initial"
                 >
                     <X size={16} className="mr-2" />
                     Cancelar
                 </Button>
                 <Button
-                    onClick={alterarSenha}
-                    disabled={!temAlteracoes || loading}
+                    onClick={handleAlterarSenha}
+                    disabled={!temAlteracoes || alterarSenha.isPending}
                     className="flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700"
                 >
-                    {loading ? (
+                    {alterarSenha.isPending ? (
                         <>
                             <Loader2 size={16} className="mr-2 animate-spin" />
                             Alterando...

@@ -1,42 +1,41 @@
+// src/components/perfil/EditarDadosCard.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import api from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Save, X, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useAtualizarProfile } from "@/hooks/useProfile";
+import type { Usuario } from "@/types/profile";
 
 interface Props {
-  usuario: { id?: number; nome: string; email: string };
-  atualizarUsuario: (dados: { nome?: string; email?: string }) => void;
+  usuario: Usuario;
 }
 
 type FormErrors = {
-  nome?: string;
+  name?: string;
   email?: string;
 };
 
-export default function EditarDadosCard({ usuario, atualizarUsuario }: Props) {
-  const [form, setForm] = useState({ nome: usuario.nome, email: usuario.email });
-  const [usuarioOriginal, setUsuarioOriginal] = useState({ nome: usuario.nome, email: usuario.email });
+export default function EditarDadosCard({ usuario }: Props) {
+  const [form, setForm] = useState({ name: usuario.name, email: usuario.email });
+  const [usuarioOriginal, setUsuarioOriginal] = useState({ name: usuario.name, email: usuario.email });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [loading, setLoading] = useState(false);
   const [sucesso, setSucesso] = useState(false);
-  const { toast } = useToast();
-  const router = useRouter();
+
+  // React Query Mutation
+  const atualizarProfile = useAtualizarProfile();
 
   useEffect(() => {
-    setForm({ nome: usuario.nome, email: usuario.email });
-    setUsuarioOriginal({ nome: usuario.nome, email: usuario.email });
+    setForm({ name: usuario.name, email: usuario.email });
+    setUsuarioOriginal({ name: usuario.name, email: usuario.email });
   }, [usuario]);
 
   // Verifica se houve alterações
   const temAlteracoes = () => {
-    return form.nome !== usuarioOriginal.nome || form.email !== usuarioOriginal.email;
+    return form.name !== usuarioOriginal.name || form.email !== usuarioOriginal.email;
   };
 
   // Validação de email
@@ -49,10 +48,10 @@ export default function EditarDadosCard({ usuario, atualizarUsuario }: Props) {
   const validarFormulario = (): boolean => {
     const novosErros: FormErrors = {};
 
-    if (!form.nome || form.nome.trim() === "") {
-      novosErros.nome = "Nome é obrigatório";
-    } else if (form.nome.trim().length < 2) {
-      novosErros.nome = "Nome deve ter pelo menos 2 caracteres";
+    if (!form.name || form.name.trim() === "") {
+      novosErros.name = "Nome é obrigatório";
+    } else if (form.name.trim().length < 2) {
+      novosErros.name = "Nome deve ter pelo menos 2 caracteres";
     }
 
     if (!form.email || form.email.trim() === "") {
@@ -83,42 +82,26 @@ export default function EditarDadosCard({ usuario, atualizarUsuario }: Props) {
     }
 
     if (!usuario.id) {
-      toast({
-        title: "Erro",
-        description: "ID do usuário não encontrado",
-        variant: "destructive",
-      });
       return;
     }
 
     try {
-      setLoading(true);
-      setSucesso(false);
-
       const payload = {
-        name: form.nome.trim(),
+        name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
       };
 
-      const res = await api.put(`/users/${usuario.id}`, payload);
-
-      // Atualiza estado local
-      atualizarUsuario({
-        nome: res.data.name || res.data.nome,
-        email: res.data.email,
+      await atualizarProfile.mutateAsync({
+        userId: usuario.id,
+        dados: payload,
       });
 
       setUsuarioOriginal({ 
-        nome: res.data.name || res.data.nome, 
-        email: res.data.email 
+        name: form.name.trim(), 
+        email: form.email.trim().toLowerCase(),
       });
 
       setSucesso(true);
-      
-      toast({
-        title: "Sucesso!",
-        description: "Seus dados foram atualizados com sucesso.",
-      });
 
       // Remove mensagem de sucesso após 3 segundos
       setTimeout(() => setSucesso(false), 3000);
@@ -126,29 +109,17 @@ export default function EditarDadosCard({ usuario, atualizarUsuario }: Props) {
     } catch (err: any) {
       console.error("Erro ao salvar dados:", err);
       
-      const mensagemErro = err.response?.data?.message || 
-                          err.response?.data?.error ||
-                          "Erro ao salvar dados. Tente novamente.";
-      
       // Verifica se é erro de email duplicado
-      if (mensagemErro.toLowerCase().includes("email") && 
-          mensagemErro.toLowerCase().includes("já existe")) {
+      if (err.message?.toLowerCase().includes("email") && 
+          err.message?.toLowerCase().includes("já existe")) {
         setErrors({ email: "Este email já está em uso" });
       }
-
-      toast({
-        title: "Erro ao salvar",
-        description: mensagemErro,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
   const cancelarEdicoes = () => {
     setForm({ 
-      nome: usuarioOriginal.nome, 
+      name: usuarioOriginal.name, 
       email: usuarioOriginal.email 
     });
     setErrors({});
@@ -171,23 +142,23 @@ export default function EditarDadosCard({ usuario, atualizarUsuario }: Props) {
       <div className="space-y-4">
         {/* Nome */}
         <div className="space-y-2">
-          <Label htmlFor="nome" className="flex items-center gap-1">
+          <Label htmlFor="name" className="flex items-center gap-1">
             Nome Completo
             <span className="text-red-500">*</span>
           </Label>
           <Input
-            id="nome"
+            id="name"
             type="text"
-            value={form.nome}
-            onChange={(e) => handleChange("nome", e.target.value)}
+            value={form.name}
+            onChange={(e) => handleChange("name", e.target.value)}
             placeholder="Seu nome completo"
-            className={errors.nome ? "border-red-500" : ""}
-            disabled={loading}
+            className={errors.name ? "border-red-500" : ""}
+            disabled={atualizarProfile.isPending}
           />
-          {errors.nome && (
+          {errors.name && (
             <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
               <AlertCircle size={12} />
-              <span>{errors.nome}</span>
+              <span>{errors.name}</span>
             </div>
           )}
         </div>
@@ -205,7 +176,7 @@ export default function EditarDadosCard({ usuario, atualizarUsuario }: Props) {
             onChange={(e) => handleChange("email", e.target.value)}
             placeholder="seu@email.com"
             className={errors.email ? "border-red-500" : ""}
-            disabled={loading}
+            disabled={atualizarProfile.isPending}
           />
           {errors.email && (
             <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
@@ -224,7 +195,7 @@ export default function EditarDadosCard({ usuario, atualizarUsuario }: Props) {
         <Button
           variant="outline"
           onClick={cancelarEdicoes}
-          disabled={!temAlteracoes() || loading}
+          disabled={!temAlteracoes() || atualizarProfile.isPending}
           className="flex-1 sm:flex-initial"
         >
           <X size={16} className="mr-2" />
@@ -232,10 +203,10 @@ export default function EditarDadosCard({ usuario, atualizarUsuario }: Props) {
         </Button>
         <Button
           onClick={salvarCampos}
-          disabled={!temAlteracoes() || loading}
+          disabled={!temAlteracoes() || atualizarProfile.isPending}
           className="flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700"
         >
-          {loading ? (
+          {atualizarProfile.isPending ? (
             <>
               <Loader2 size={16} className="mr-2 animate-spin" />
               Salvando...
@@ -253,7 +224,7 @@ export default function EditarDadosCard({ usuario, atualizarUsuario }: Props) {
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          Para alterar sua senha, utilize a aba <strong>Senha</strong> no menu acima.
+          Para alterar sua senha, utilize a aba <strong>Segurança</strong> no menu acima.
         </AlertDescription>
       </Alert>
     </div>

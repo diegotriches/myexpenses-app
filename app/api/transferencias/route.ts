@@ -1,121 +1,110 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { extratoConta, contas } from "@/db/schema";
+import { transferencias, extratoConta, contas } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { getUserIdFromSession } from "@/lib/auth/helpers";
+import { getUserId } from "@/lib/auth";
 
-// GET - Buscar transferências do mês
+// GET - Buscar transferências do período
 export async function GET(req: NextRequest) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
 
-    const { searchParams } = new URL(req.url);
-    const ano = searchParams.get("ano");
-    const mes = searchParams.get("mes");
-
-    if (!ano || !mes) {
-      return NextResponse.json(
-        { error: "Ano e mês são obrigatórios" },
-        { status: 400 }
-      );
-    }
-
-    // Calcular primeiro e último dia do mês
-    const mesNum = parseInt(mes);
-    const anoNum = parseInt(ano);
-    const primeiroDia = `${anoNum}-${String(mesNum).padStart(2, "0")}-01`;
-    const ultimoDia = new Date(anoNum, mesNum, 0).getDate();
-    const ultimoDiaStr = `${anoNum}-${String(mesNum).padStart(2, "0")}-${ultimoDia}`;
-
-    // 🔐 Busca movimentações de transferência do usuário
-    const movimentacoes = await db
-      .select({
-        id: extratoConta.id,
-        referenciaId: extratoConta.referenciaId,
-        contaId: extratoConta.contaId,
-        contaNome: contas.nome,
-        data: extratoConta.data,
-        tipo: extratoConta.tipo,
-        valor: extratoConta.valor,
-        descricao: extratoConta.descricao,
-        createdAt: extratoConta.createdAt,
-      })
-      .from(extratoConta)
-      .innerJoin(contas, eq(extratoConta.contaId, contas.id))
-      .where(
-        and(
-          eq(extratoConta.userId, userId), // 🔐 CRÍTICO: Filtrar por userId
-          eq(extratoConta.origem, "TRANSFERENCIA"),
-          sql`${extratoConta.data} >= ${primeiroDia}`,
-          sql`${extratoConta.data} <= ${ultimoDiaStr}`
-        )
-      )
-      .orderBy(sql`${extratoConta.data} DESC, ${extratoConta.createdAt} DESC`);
-
-    // Agrupa por referenciaId (cada transferência tem 2 movimentações)
-    const transferenciasMap = new Map<string, any>();
-
-    for (const mov of movimentacoes) {
-      if (!mov.referenciaId) continue;
-
-      if (!transferenciasMap.has(mov.referenciaId)) {
-        transferenciasMap.set(mov.referenciaId, {
-          id: mov.referenciaId,
-          data: mov.data,
-          createdAt: mov.createdAt,
-          valor: Number(mov.valor),
-          descricao: mov.descricao,
-          origem: null,
-          destino: null,
-        });
-      }
-
-      const transf = transferenciasMap.get(mov.referenciaId);
-
-      if (mov.tipo === "saida") {
-        transf.origem = {
-          contaId: mov.contaId,
-          contaNome: mov.contaNome,
-        };
-      } else {
-        transf.destino = {
-          contaId: mov.contaId,
-          contaNome: mov.contaNome,
-        };
-      }
-    }
-
-    // Converte para array e formata
-    const transferencias = Array.from(transferenciasMap.values())
-      .filter(t => t.origem && t.destino)
-      .map(t => ({
-        id: t.id,
-        contaOrigemId: t.origem.contaId,
-        contaOrigemNome: t.origem.contaNome,
-        contaDestinoId: t.destino.contaId,
-        contaDestinoNome: t.destino.contaNome,
-        valor: t.valor,
-        descricao: t.descricao,
-        data: t.data,
-        createdAt: t.createdAt,
-      }));
-
-    return NextResponse.json(transferencias);
-  } catch (error) {
-    console.error("Erro ao buscar transferências:", error);
-
-    if (error instanceof Error && error.message === "Não autenticado") {
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
         { status: 401 }
       );
     }
 
-    return NextResponse.json(
-      { error: "Erro ao buscar transferências" },
-      { status: 500 }
-    );
+    const { searchParams } = new URL(req.url);
+    const ano = searchParams.get("ano");
+    const mes = searchParams.get("mes");
+    const contaOrigemId = searchParams.get("contaOrigemId");
+    const contaDestinoId = searchParams.get("contaDestinoId");
+
+    // Construir condições WHERE
+    const conditions = [eq(transferencias.userId, userId)];
+
+    if (ano && mes) {
+      const mesNum = parseInt(mes);
+      const anoNum = parseInt(ano);
+      const primeiroDia = `${anoNum}-${String(mesNum).padStart(2, "0")}-01`;
+      const ultimoDia = new Date(anoNum, mesNum, 0).getDate();
+      const ultimoDiaStr = `${anoNum}-${String(mesNum).padStart(2, "0")}-${ultimoDia}`;
+
+      conditions.push(
+        sql`${transferencias.data} >= ${primeiroDia}`,
+        sql`${transferencias.data} <= ${ultimoDiaStr}`
+      );
+    }
+
+    if (contaOrigemId) {
+      conditions.push(eq(transferencias.contaOrigemId, contaOrigemId));
+    }
+
+    if (contaDestinoId) {
+      conditions.push(eq(transferencias.contaDestinoId, contaDestinoId));
+    }
+
+    // 🔐 Buscar transferências com JOIN nas contas
+    const resultado = await db
+      .select({
+        id: transferencias.id,
+        userId: transferencias.userId,
+        contaOrigemId: transferencias.contaOrigemId,
+        contaDestinoId: transferencias.contaDestinoId,
+        valor: transferencias.valor,
+        data: transferencias.data,
+        descricao: transferencias.descricao,
+        createdAt: transferencias.createdAt,
+        // JOIN conta origem
+        contaOrigemNome: sql<string>`co.nome`,
+        contaOrigemBanco: sql<string>`co.banco`,
+        // JOIN conta destino
+        contaDestinoNome: sql<string>`cd.nome`,
+        contaDestinoBanco: sql<string>`cd.banco`,
+      })
+      .from(transferencias)
+      .leftJoin(
+        sql`contas co`,
+        sql`${transferencias.contaOrigemId} = co.id`
+      )
+      .leftJoin(
+        sql`contas cd`,
+        sql`${transferencias.contaDestinoId} = cd.id`
+      )
+      .where(and(...conditions))
+      .orderBy(sql`${transferencias.data} DESC, ${transferencias.createdAt} DESC`);
+
+    // Transformar para o formato esperado pelo frontend
+    const transferenciasFormatadas = resultado.map((t) => ({
+      id: t.id,
+      userId: t.userId,
+      contaOrigemId: t.contaOrigemId,
+      contaDestinoId: t.contaDestinoId,
+      valor: t.valor,
+      data: t.data,
+      descricao: t.descricao,
+      createdAt: t.createdAt,
+      contaOrigem: {
+        id: t.contaOrigemId,
+        nome: t.contaOrigemNome,
+        banco: t.contaOrigemBanco,
+      },
+      contaDestino: {
+        id: t.contaDestinoId,
+        nome: t.contaDestinoNome,
+        banco: t.contaDestinoBanco,
+      },
+    }));
+
+    return NextResponse.json(transferenciasFormatadas);
+  } catch (error) {
+    console.error("Erro ao buscar transferências:", error);
+    const message = error instanceof Error ? error.message : "Erro ao buscar transferências";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -123,7 +112,15 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
 
     const body = await req.json();
     const { contaOrigemId, contaDestinoId, valor, descricao, data } = body;
@@ -152,21 +149,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Normalizar data para formato YYYY-MM-DD
-    const dataFormatada = data.includes('T') 
-      ? new Date(data).toISOString().split('T')[0]
+    const dataFormatada = data.includes("T")
+      ? new Date(data).toISOString().split("T")[0]
       : data;
 
-    // Executar transferência em transação
+    // Executar transferência em transação atômica
     const resultado = await db.transaction(async (tx) => {
       // 1. Verificar se ambas as contas pertencem ao usuário
       const [contaOrigem] = await tx
         .select()
         .from(contas)
         .where(
-          and(
-            eq(contas.id, contaOrigemId),
-            eq(contas.userId, userId) // 🔐 Verificar ownership
-          )
+          and(eq(contas.id, contaOrigemId), eq(contas.userId, userId))
         );
 
       if (!contaOrigem) {
@@ -181,10 +175,7 @@ export async function POST(req: NextRequest) {
         .select()
         .from(contas)
         .where(
-          and(
-            eq(contas.id, contaDestinoId),
-            eq(contas.userId, userId) // 🔐 Verificar ownership
-          )
+          and(eq(contas.id, contaDestinoId), eq(contas.userId, userId))
         );
 
       if (!contaDestino) {
@@ -206,12 +197,24 @@ export async function POST(req: NextRequest) {
       const saldoDestino = Number(contaDestino.saldoAtual);
       const novoSaldoDestino = saldoDestino + valorNum;
 
-      // 4. Gerar ID único para a transferência
-      const transferenciaId = crypto.randomUUID();
+      // 4. Inserir na tabela transferencias
+      const [transferenciaInserida] = await tx
+        .insert(transferencias)
+        .values({
+          userId,
+          contaOrigemId,
+          contaDestinoId,
+          valor: valorNum.toString(),
+          data: dataFormatada,
+          descricao: descricao || null,
+        })
+        .returning();
 
-      // 5. Registrar saída na conta de origem
+      const transferenciaId = transferenciaInserida.id;
+
+      // 5. Registrar saída na conta de origem (extrato)
       await tx.insert(extratoConta).values({
-        userId, // 🔐 Incluir userId
+        userId,
         contaId: contaOrigemId,
         data: dataFormatada,
         tipo: "saida",
@@ -222,9 +225,9 @@ export async function POST(req: NextRequest) {
         referenciaId: transferenciaId,
       });
 
-      // 6. Registrar entrada na conta de destino
+      // 6. Registrar entrada na conta de destino (extrato)
       await tx.insert(extratoConta).values({
-        userId, // 🔐 Incluir userId
+        userId,
         contaId: contaDestinoId,
         data: dataFormatada,
         tipo: "entrada",
@@ -243,10 +246,7 @@ export async function POST(req: NextRequest) {
           updatedAt: new Date(),
         })
         .where(
-          and(
-            eq(contas.id, contaOrigemId),
-            eq(contas.userId, userId) // 🔐 Garantir ownership
-          )
+          and(eq(contas.id, contaOrigemId), eq(contas.userId, userId))
         );
 
       await tx
@@ -256,21 +256,28 @@ export async function POST(req: NextRequest) {
           updatedAt: new Date(),
         })
         .where(
-          and(
-            eq(contas.id, contaDestinoId),
-            eq(contas.userId, userId) // 🔐 Garantir ownership
-          )
+          and(eq(contas.id, contaDestinoId), eq(contas.userId, userId))
         );
 
       return {
         id: transferenciaId,
+        userId,
         contaOrigemId,
-        contaOrigemNome: contaOrigem.nome,
         contaDestinoId,
-        contaDestinoNome: contaDestino.nome,
         valor: valorNum,
-        descricao,
         data: dataFormatada,
+        descricao: descricao || null,
+        createdAt: transferenciaInserida.createdAt,
+        contaOrigem: {
+          id: contaOrigem.id,
+          nome: contaOrigem.nome,
+          banco: contaOrigem.banco,
+        },
+        contaDestino: {
+          id: contaDestino.id,
+          nome: contaDestino.nome,
+          banco: contaDestino.banco,
+        },
       };
     });
 
@@ -278,20 +285,29 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("Erro ao criar transferência:", error);
 
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
-    const errorMessages: Record<string, { message: string; status: number }> = {
-      CONTA_ORIGEM_NAO_ENCONTRADA: { message: "Conta de origem não encontrada", status: 404 },
-      CONTA_DESTINO_NAO_ENCONTRADA: { message: "Conta de destino não encontrada", status: 404 },
-      CONTA_ORIGEM_INATIVA: { message: "Conta de origem está inativa", status: 400 },
-      CONTA_DESTINO_INATIVA: { message: "Conta de destino está inativa", status: 400 },
-      SALDO_INSUFICIENTE: { message: "Saldo insuficiente na conta de origem", status: 400 },
-    };
+    const errorMessages: Record<string, { message: string; status: number }> =
+      {
+        CONTA_ORIGEM_NAO_ENCONTRADA: {
+          message: "Conta de origem não encontrada",
+          status: 404,
+        },
+        CONTA_DESTINO_NAO_ENCONTRADA: {
+          message: "Conta de destino não encontrada",
+          status: 404,
+        },
+        CONTA_ORIGEM_INATIVA: {
+          message: "Conta de origem está inativa",
+          status: 400,
+        },
+        CONTA_DESTINO_INATIVA: {
+          message: "Conta de destino está inativa",
+          status: 400,
+        },
+        SALDO_INSUFICIENTE: {
+          message: "Saldo insuficiente na conta de origem",
+          status: 400,
+        },
+      };
 
     const errorInfo = errorMessages[error.message] || {
       message: "Erro ao criar transferência",

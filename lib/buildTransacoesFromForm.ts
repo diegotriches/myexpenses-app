@@ -1,12 +1,13 @@
 import {
   Transacao,
-  TransacaoCreate,
-  TransacaoUpdate,
+  CreateTransacaoDTO,
+  UpdateTransacaoDTO,
+  ModoEdicao, // ✅ IMPORTADO (não redefinido)
 } from "@/types/transacao";
 import { buildCreateTransacoesFromForm } from "@/lib/buildCreateTransacoesFromForm";
 import { buildUpdateTransacoesFromForm } from "@/lib/buildUpdateTransacoesFromForm";
 
-export type ModoEdicao = "unica" | "todas_parcelas" | "toda_recorrencia";
+// ✅ REMOVIDO: export type ModoEdicao (já existe em types/transacao)
 
 export interface FormMovimentacao {
   contaId: string;
@@ -30,19 +31,22 @@ interface BuildTransacoesParams {
   form: FormMovimentacao;
   contaId?: string;
   transacaoEdicao: Transacao | null;
+  modoEdicao?: ModoEdicao; // ✅ ADICIONADO: necessário para edição
 }
 
 export function buildTransacoesFromForm({
   form,
   contaId,
   transacaoEdicao,
-}: BuildTransacoesParams): (TransacaoCreate | TransacaoUpdate)[] {
+  modoEdicao = "unica", // ✅ ADICIONADO: default "unica"
+}: BuildTransacoesParams): (CreateTransacaoDTO | UpdateTransacaoDTO)[] {
 
   // ✅ EDIÇÃO
   if (transacaoEdicao) {
     return buildUpdateTransacoesFromForm({
       form,
       transacaoEdicao,
+      modoEdicao, // ✅ ADICIONADO: passa modoEdicao
     });
   }
 

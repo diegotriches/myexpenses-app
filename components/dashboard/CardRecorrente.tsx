@@ -1,37 +1,29 @@
+// src/components/dashboard/CardRecorrente.tsx
+"use client";
+
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Transacao } from '@/types/transacao';
-import { filtrarRecorrentes } from '@/utils/dashboard';
-import { Repeat, ArrowUpCircle, ArrowDownCircle, Calendar } from 'lucide-react';
+import { Repeat, ArrowUpCircle, ArrowDownCircle, Calendar, Loader2 } from 'lucide-react';
+import { useRecorrentes } from '@/hooks/useDashboard';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useMemo } from 'react';
 
-type Props = { transacoes: Transacao[] };
+export function CardRecorrentes() {
+  const { data: transacoes, isLoading, error } = useRecorrentes();
 
-export function CardRecorrentes({ transacoes }: Props) {
-  const recorrentes = useMemo(() => filtrarRecorrentes(transacoes), [transacoes]);
-  
-  // Agrupa por recorrenciaId para mostrar cada recorrência uma vez
+  // Agrupa por recorrenciaId
   const recorrenciasAgrupadas = useMemo(() => {
-    const mapa = new Map<string, Transacao & { totalRecorrencia: number; quantidadeParcelas: number }>();
+    if (!transacoes || transacoes.length === 0) return [];
     
-    recorrentes.forEach(t => {
-      if (t.recorrenciaId) {
-        if (!mapa.has(t.recorrenciaId)) {
-          const valorMensal = Number(t.valor);
-          const totalRecorrencia = t.repeticoes ? valorMensal * t.repeticoes : valorMensal;
-          const quantidadeParcelas = t.repeticoes || 1;
-          
-          mapa.set(t.recorrenciaId, {
-            ...t,
-            totalRecorrencia,
-            quantidadeParcelas
-          });
-        }
-      } else {
+    const mapa = new Map();
+    
+    transacoes.forEach(t => {
+      const key = t.recorrenciaId || t.id;
+      if (!mapa.has(key)) {
         const valorMensal = Number(t.valor);
         const totalRecorrencia = t.repeticoes ? valorMensal * t.repeticoes : valorMensal;
         const quantidadeParcelas = t.repeticoes || 1;
         
-        mapa.set(t.id, {
+        mapa.set(key, {
           ...t,
           totalRecorrencia,
           quantidadeParcelas
@@ -40,7 +32,7 @@ export function CardRecorrentes({ transacoes }: Props) {
     });
     
     return Array.from(mapa.values());
-  }, [recorrentes]);
+  }, [transacoes]);
   
   const receitas = useMemo(
     () => recorrenciasAgrupadas.filter(t => t.tipo === 'entrada'),
@@ -69,19 +61,70 @@ export function CardRecorrentes({ transacoes }: Props) {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
   };
 
+  const formatarMoeda = (valor: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(valor);
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card className="dark:bg-gray-900 dark:border-gray-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+            <Repeat className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            Transações Recorrentes
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Card className="dark:bg-gray-900 dark:border-gray-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+            <Repeat className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            Transações Recorrentes
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertDescription>
+              Erro ao carregar dados: {error.message}
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card>
+    <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
           <Repeat className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           Transações Recorrentes
         </CardTitle>
       </CardHeader>
       <CardContent>
         {recorrenciasAgrupadas.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-            Nenhuma transação recorrente encontrada
-          </p>
+          <div className="text-center py-8">
+            <Repeat className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Nenhuma transação recorrente encontrada
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              Transações recorrentes aparecem automaticamente todos os meses
+            </p>
+          </div>
         ) : (
           <div className="space-y-2.5">
             {recorrenciasAgrupadas.slice(0, 5).map((t) => {
@@ -117,7 +160,7 @@ export function CardRecorrentes({ transacoes }: Props) {
                           ? 'text-green-600 dark:text-green-400' 
                           : 'text-red-600 dark:text-red-400'
                       }`}>
-                        {isReceita ? '+' : '-'} R$ {Number(t.valor).toFixed(2)}
+                        {isReceita ? '+' : '-'} {formatarMoeda(Number(t.valor))}
                       </span>
                     </div>
                     
@@ -159,13 +202,13 @@ export function CardRecorrentes({ transacoes }: Props) {
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Receitas mensais:</span>
                 <span className="font-semibold text-green-600 dark:text-green-400">
-                  R$ {totalReceitas.toFixed(2)}
+                  {formatarMoeda(totalReceitas)}
                 </span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Despesas mensais:</span>
                 <span className="font-semibold text-red-600 dark:text-red-400">
-                  R$ {totalDespesas.toFixed(2)}
+                  {formatarMoeda(totalDespesas)}
                 </span>
               </div>
               <div className="flex justify-between items-center pt-1 border-t border-gray-100 dark:border-gray-800">
@@ -175,17 +218,19 @@ export function CardRecorrentes({ transacoes }: Props) {
                     ? 'text-green-600 dark:text-green-400' 
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {(totalReceitas - totalDespesas) >= 0 ? '+' : '-'} R$ {Math.abs(totalReceitas - totalDespesas).toFixed(2)}
+                  {(totalReceitas - totalDespesas) >= 0 ? '+' : ''} {formatarMoeda(totalReceitas - totalDespesas)}
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
                 <span>Total de recorrências:</span>
                 <span className="font-semibold">{recorrenciasAgrupadas.length}</span>
               </div>
-              <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
-                <span>Total de lançamentos:</span>
-                <span className="font-semibold">{recorrentes.length}</span>
-              </div>
+              {transacoes && (
+                <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                  <span>Total de lançamentos:</span>
+                  <span className="font-semibold">{transacoes.length}</span>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -1,4 +1,13 @@
-import { Conta } from "@/types/conta";
+// src/services/contaService.ts
+
+import { 
+  Conta, 
+  CreateContaDTO, 
+  UpdateContaDTO, 
+  ExtratoResponse,
+  ExtratoContaData,
+  FiltrosExtrato 
+} from "@/types/conta";
 
 export const contaService = {
   /**
@@ -28,7 +37,7 @@ export const contaService = {
   /**
    * Cria uma nova conta
    */
-  async criar(dados: Omit<Conta, "id" | "createdAt" | "updatedAt">): Promise<Conta> {
+  async criar(dados: CreateContaDTO): Promise<Conta> {
     const res = await fetch("/api/contas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -36,7 +45,6 @@ export const contaService = {
     });
     
     if (!res.ok) {
-      // Tenta extrair a mensagem de erro real da API
       const error = await res.json().catch(() => ({ message: "Erro ao criar conta" }));
       throw new Error(error.message || error.error || "Erro ao criar conta");
     }
@@ -47,7 +55,7 @@ export const contaService = {
   /**
    * Atualiza uma conta existente
    */
-  async atualizar(id: string, dados: Partial<Conta>): Promise<Conta> {
+  async atualizar(id: string, dados: UpdateContaDTO): Promise<Conta> {
     const res = await fetch(`/api/contas/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -77,19 +85,13 @@ export const contaService = {
   },
 
   /**
-   * Busca o extrato de uma conta em um período
+   * ✅ ATUALIZADO: Busca o extrato de uma conta em um período
+   * Agora retorna ExtratoContaData (formato simplificado para frontend)
    */
   async buscarExtrato(
     contaId: string,
-    params?: {
-      inicio?: string;
-      fim?: string;
-      origem?: string;
-      tipo?: string;
-      limit?: number;
-      offset?: number;
-    }
-  ) {
+    params?: FiltrosExtrato
+  ): Promise<ExtratoContaData> {
     const searchParams = new URLSearchParams();
     if (params?.inicio) searchParams.set("inicio", params.inicio);
     if (params?.fim) searchParams.set("fim", params.fim);
@@ -105,13 +107,40 @@ export const contaService = {
       throw new Error(error.message || error.error || "Erro ao buscar extrato");
     }
     
-    return res.json();
+    // ✅ API retorna ExtratoResponse, transformamos para ExtratoContaData
+    const apiResponse: ExtratoResponse = await res.json();
+
+    // ✅ Buscar dados da conta (necessário para ExtratoContaData)
+    const conta = await this.buscarPorId(contaId);
+
+    // ✅ Transformar para formato esperado pelo frontend
+    return {
+      conta,
+      movimentacoes: apiResponse.extrato, // API usa "extrato", frontend espera "movimentacoes"
+      resumo: apiResponse.resumo 
+        ? {
+            saldoInicial: apiResponse.resumo.saldoInicial,
+            totalEntradas: apiResponse.resumo.totalEntradas,
+            totalSaidas: apiResponse.resumo.totalSaidas,
+            saldoFinal: apiResponse.resumo.saldoFinal,
+          }
+        : {
+            saldoInicial: conta.saldoAtual,
+            totalEntradas: 0,
+            totalSaidas: 0,
+            saldoFinal: conta.saldoAtual,
+          },
+    };
   },
 
   /**
    * Ajusta o saldo de uma conta manualmente
    */
-  async ajustarSaldo(contaId: string, valor: number, descricao?: string) {
+  async ajustarSaldo(
+    contaId: string, 
+    valor: number, 
+    descricao?: string
+  ): Promise<Conta> {
     const res = await fetch(`/api/contas/${contaId}/ajustar-saldo`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

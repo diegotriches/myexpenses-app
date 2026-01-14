@@ -5,25 +5,28 @@ import { useRouter } from "next/navigation";
 import { BsCashCoin } from "react-icons/bs";
 import { FiHome, FiArrowLeft, FiSearch, FiAlertCircle } from "react-icons/fi";
 
-function NotFound() {
+export default function NotFound() {
   const router = useRouter();
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Decorative elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl"></div>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl animate-pulse delay-2000"></div>
       </div>
 
-      <div className="relative max-w-2xl mx-auto text-center space-y-8">
+      <div className="relative max-w-2xl mx-auto text-center space-y-8 animate-fade-in">
         {/* Logo/Brand */}
         <div className="flex justify-center">
-          <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm px-6 py-3 rounded-full">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm px-6 py-3 rounded-full border border-white/20 hover:bg-white/20 transition-all"
+          >
             <BsCashCoin className="text-yellow-300" size={28} />
             <span className="font-bold text-xl text-white">MyExpenses</span>
-          </div>
+          </Link>
         </div>
 
         {/* 404 Number - Large and animated */}
@@ -47,22 +50,28 @@ function NotFound() {
         </div>
 
         {/* Suggestions */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 max-w-md mx-auto">
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 max-w-md mx-auto hover:bg-white/15 transition-all">
           <p className="text-white/90 mb-4 font-medium">
             Sugestões do que fazer:
           </p>
           <ul className="space-y-2 text-left text-blue-100">
-            <li className="flex items-start gap-2">
-              <span className="text-green-300 mt-1">✓</span>
-              <span>Verificar se o endereço está correto</span>
+            <li className="flex items-start gap-2 group">
+              <span className="text-green-300 mt-1 group-hover:scale-110 transition-transform inline-block">✓</span>
+              <span className="group-hover:text-white transition-colors">
+                Verificar se o endereço está correto
+              </span>
             </li>
-            <li className="flex items-start gap-2">
-              <span className="text-green-300 mt-1">✓</span>
-              <span>Voltar à página anterior</span>
+            <li className="flex items-start gap-2 group">
+              <span className="text-green-300 mt-1 group-hover:scale-110 transition-transform inline-block">✓</span>
+              <span className="group-hover:text-white transition-colors">
+                Voltar à página anterior
+              </span>
             </li>
-            <li className="flex items-start gap-2">
-              <span className="text-green-300 mt-1">✓</span>
-              <span>Ir para a página inicial</span>
+            <li className="flex items-start gap-2 group">
+              <span className="text-green-300 mt-1 group-hover:scale-110 transition-transform inline-block">✓</span>
+              <span className="group-hover:text-white transition-colors">
+                Ir para a página inicial
+              </span>
             </li>
           </ul>
         </div>
@@ -71,9 +80,12 @@ function NotFound() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
           <button
             onClick={() => router.back()}
-            className="group px-8 py-4 rounded-xl font-semibold border-2 border-white text-white hover:bg-white/10 backdrop-blur-sm transition-all duration-300 flex items-center gap-2 min-w-[200px] justify-center"
+            className="group px-8 py-4 rounded-xl font-semibold border-2 border-white text-white hover:bg-white/10 backdrop-blur-sm transition-all duration-300 flex items-center gap-2 min-w-[200px] justify-center hover:scale-105"
           >
-            <FiArrowLeft className="group-hover:-translate-x-1 transition-transform" size={20} />
+            <FiArrowLeft 
+              className="group-hover:-translate-x-1 transition-transform" 
+              size={20} 
+            />
             Voltar
           </button>
 
@@ -83,14 +95,20 @@ function NotFound() {
           >
             <FiHome size={20} />
             Página Inicial
-            <FiSearch className="group-hover:rotate-12 transition-transform" size={18} />
+            <FiSearch 
+              className="group-hover:rotate-12 transition-transform" 
+              size={18} 
+            />
           </Link>
         </div>
 
         {/* Help text */}
         <p className="text-sm text-blue-200 pt-4">
           Precisa de ajuda?{" "}
-          <Link href="/contato" className="text-white hover:underline font-semibold">
+          <Link 
+            href="/contato" 
+            className="text-white hover:underline font-semibold hover:text-yellow-300 transition-colors"
+          >
             Entre em contato
           </Link>
         </p>
@@ -98,5 +116,3 @@ function NotFound() {
     </main>
   );
 }
-
-export default NotFound;

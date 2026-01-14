@@ -1,17 +1,30 @@
+// src/app/api/contas/[id]/ajustar-saldo/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { contas, extratoConta } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getUserIdFromSession } from "@/lib/auth/helpers";
+import { getUserId } from "@/lib/auth";
+
+// ✅ NOVO: Tipos para os parâmetros
+type RouteParams = {
+  params: Promise<{ id: string }>;
+};
 
 // POST - Ajustar saldo da conta
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { id: contaId } = await params;
 
     const { valor, descricao } = await req.json();
@@ -39,18 +52,14 @@ export async function POST(
       );
     }
 
-    // Executar em transação
-    const resultado = await db.transaction(async (tx) => {
+    // ✅ NOVO: Executar em transação e retornar Conta completa
+    const contaAtualizada = await db.transaction(async (tx) => {
       // 1. Buscar conta e verificar ownership
       const [contaAtual] = await tx
         .select()
         .from(contas)
-        .where(
-          and(
-            eq(contas.id, contaId),
-            eq(contas.userId, userId) // 🔐 Verificar ownership
-          )
-        );
+        .where(and(eq(contas.id, contaId), eq(contas.userId, userId)))
+        .limit(1);
 
       if (!contaAtual) {
         throw new Error("CONTA_NAO_ENCONTRADA");
@@ -64,7 +73,7 @@ export async function POST(
       const dataFormatada = dataAtual.toISOString().split("T")[0];
 
       await tx.insert(extratoConta).values({
-        userId, // 🔐 Incluir userId
+        userId,
         contaId: contaId,
         data: dataFormatada,
         tipo: valorNum >= 0 ? "entrada" : "saida",
@@ -75,37 +84,28 @@ export async function POST(
       });
 
       // 3. Atualizar saldo da conta
-      await tx
+      const [resultado] = await tx
         .update(contas)
         .set({
           saldoAtual: novoSaldo.toString(),
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(contas.id, contaId),
-            eq(contas.userId, userId) // 🔐 Garantir ownership
-          )
-        );
+        .where(and(eq(contas.id, contaId), eq(contas.userId, userId)))
+        .returning();
 
-      return {
-        contaId,
-        saldoAnterior,
-        novoSaldo,
-        ajuste: valorNum,
-      };
+      return resultado;
     });
 
-    return NextResponse.json(resultado);
+    // ✅ NOVO: Normalizar e retornar Conta completa (padrão do projeto)
+    const contaNormalizada = {
+      ...contaAtualizada,
+      saldoInicial: Number(contaAtualizada.saldoInicial),
+      saldoAtual: Number(contaAtualizada.saldoAtual),
+    };
+
+    return NextResponse.json(contaNormalizada);
   } catch (error: any) {
     console.error("Erro ao ajustar saldo:", error);
-
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
 
     if (error.message === "CONTA_NAO_ENCONTRADA") {
       return NextResponse.json(
@@ -114,9 +114,7 @@ export async function POST(
       );
     }
 
-    return NextResponse.json(
-      { error: "Erro ao ajustar saldo" },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Erro ao ajustar saldo";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -1,36 +1,41 @@
+// src/app/api/contas/[id]/route.ts
+
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { contas } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getUserIdFromSession } from "@/lib/auth/helpers";
+import { getUserId } from "@/lib/auth";
+
+// ✅ NOVO: Tipos para os parâmetros
+type RouteParams = {
+  params: Promise<{ id: string }>;
+};
 
 // GET - Buscar conta específica
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(req: Request, { params }: RouteParams) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     // 🔐 Buscar conta do usuário
     const [conta] = await db
       .select()
       .from(contas)
-      .where(
-        and(
-          eq(contas.id, id),
-          eq(contas.userId, userId)
-        )
-      )
+      .where(and(eq(contas.id, id), eq(contas.userId, userId)))
       .limit(1);
 
     if (!conta) {
-      return NextResponse.json(
-        { error: "Conta não encontrada" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
     }
 
     // Normalizar valores
@@ -43,50 +48,54 @@ export async function GET(
     return NextResponse.json(contaNormalizada);
   } catch (error) {
     console.error("Erro ao buscar conta:", error);
+    const message = error instanceof Error ? error.message : "Erro ao buscar conta";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
 
-    if (error instanceof Error && error.message === "Não autenticado") {
+// PUT - Atualizar conta
+export async function PUT(req: Request, { params }: RouteParams) {
+  try {
+    // 🔐 Autenticação
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
         { status: 401 }
       );
     }
 
-    return NextResponse.json(
-      { error: "Erro ao buscar conta" },
-      { status: 500 }
-    );
-  }
-}
-
-// PUT - Atualizar conta
-export async function PUT(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
     const { id } = await params;
     const data = await req.json();
 
-    // Remover campos que não devem ser atualizados diretamente
+    // ✅ NOVO: Bloquear edição de campos sensíveis
     const {
       createdAt,
       updatedAt,
-      userId: _userId, // Remover userId do payload se vier
+      userId: _userId,
+      saldoAtual, // ⚠️ BLOQUEADO: Não pode ser editado diretamente
+      id: _id, // Remover id do payload se vier
       ...payload
     } = data;
+
+    // ✅ NOVO: Validação explícita
+    if (saldoAtual !== undefined) {
+      return NextResponse.json(
+        {
+          error:
+            "O campo 'saldoAtual' não pode ser editado diretamente. Use o endpoint /ajustar-saldo para modificar o saldo.",
+        },
+        { status: 400 }
+      );
+    }
 
     // 🔐 Verificar se a conta existe e pertence ao usuário
     const [contaExistente] = await db
       .select()
       .from(contas)
-      .where(
-        and(
-          eq(contas.id, id),
-          eq(contas.userId, userId)
-        )
-      )
+      .where(and(eq(contas.id, id), eq(contas.userId, userId)))
       .limit(1);
 
     if (!contaExistente) {
@@ -97,20 +106,31 @@ export async function PUT(
     }
 
     // Preparar dados para atualização
-    const dadosAtualizacao: any = {
+    const dadosAtualizacao: {
+      updatedAt: Date;
+      nome?: string;
+      banco?: string | null;
+      ativo?: boolean;
+      observacoes?: string | null;
+      saldoInicial?: string;
+    } = {
       updatedAt: new Date(),
     };
 
     if (payload.nome !== undefined) dadosAtualizacao.nome = payload.nome;
-    if (payload.banco !== undefined) dadosAtualizacao.banco = payload.banco;
+    if (payload.banco !== undefined) {
+      dadosAtualizacao.banco = payload.banco?.trim() || null;
+    }
     if (payload.ativo !== undefined) dadosAtualizacao.ativo = payload.ativo;
-    if (payload.observacoes !== undefined) dadosAtualizacao.observacoes = payload.observacoes;
-    
-    // ⚠️ Cuidado ao atualizar saldoAtual - normalmente não deve ser editado manualmente
-    if (payload.saldoAtual !== undefined) {
-      const saldoNum = Number(payload.saldoAtual);
-      if (!Number.isNaN(saldoNum)) {
-        dadosAtualizacao.saldoAtual = saldoNum.toString();
+    if (payload.observacoes !== undefined) {
+      dadosAtualizacao.observacoes = payload.observacoes?.trim() || null;
+    }
+
+    // ✅ Permitir editar saldoInicial (recalcula saldoAtual automaticamente)
+    if (payload.saldoInicial !== undefined) {
+      const saldoInicialNum = Number(payload.saldoInicial);
+      if (!Number.isNaN(saldoInicialNum)) {
+        dadosAtualizacao.saldoInicial = saldoInicialNum.toString();
       }
     }
 
@@ -118,12 +138,7 @@ export async function PUT(
     const [contaAtualizada] = await db
       .update(contas)
       .set(dadosAtualizacao)
-      .where(
-        and(
-          eq(contas.id, id),
-          eq(contas.userId, userId)
-        )
-      )
+      .where(and(eq(contas.id, id), eq(contas.userId, userId)))
       .returning();
 
     // Normalizar valores
@@ -136,40 +151,31 @@ export async function PUT(
     return NextResponse.json(contaNormalizada);
   } catch (error) {
     console.error("Erro ao atualizar conta:", error);
+    const message = error instanceof Error ? error.message : "Erro ao atualizar conta";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
 
-    if (error instanceof Error && error.message === "Não autenticado") {
+// DELETE - Deletar conta
+export async function DELETE(req: Request, { params }: RouteParams) {
+  try {
+    // 🔐 Autenticação
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
         { status: 401 }
       );
     }
 
-    return NextResponse.json(
-      { error: "Erro ao atualizar conta" },
-      { status: 500 }
-    );
-  }
-}
-
-// DELETE - Deletar conta
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
     const { id } = await params;
 
     // 🔐 Deletar APENAS se pertencer ao usuário
     const [deleted] = await db
       .delete(contas)
-      .where(
-        and(
-          eq(contas.id, id),
-          eq(contas.userId, userId)
-        )
-      )
+      .where(and(eq(contas.id, id), eq(contas.userId, userId)))
       .returning();
 
     if (!deleted) {
@@ -182,17 +188,7 @@ export async function DELETE(
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error("Erro ao remover conta:", error);
-
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Erro ao remover conta" },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Erro ao remover conta";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
+import { signOut } from "next-auth/react";
 import { BsList, BsChevronLeft, BsCalculatorFill } from "react-icons/bs";
 import { Sun, Moon, LogOut, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,9 +45,12 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    router.push('/login');
+  // ✅ Usa NextAuth signOut ao invés de localStorage
+  const handleLogout = async () => {
+    await signOut({ 
+      callbackUrl: "/login",
+      redirect: true 
+    });
   };
 
   // Gerar breadcrumbs baseado na rota
@@ -199,7 +203,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
           {/* Divider */}
           <div className="hidden md:block h-6 w-px bg-gray-300 dark:bg-gray-600" />
 
-          {/* ✅ Notificações Popover (substituindo o botão antigo) */}
+          {/* ✅ Notificações Popover */}
           <NotificacaoPopover />
 
           {/* Logout Button */}

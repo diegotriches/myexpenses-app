@@ -1,86 +1,24 @@
+// src/app/(protected)/perfil/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import api from "@/services/api";
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import EditarDadosCard from "@/components/perfil/EditarDadosCard";
 import EditarFotoCard from "@/components/perfil/EditarFotoCard";
 import AlterarSenhaCard from "@/components/perfil/AlterarSenhaCard";
 import DeletarContaCard from "@/components/perfil/DeletarContaCard";
+import { useProfile } from "@/hooks/useProfile";
 import { User, Image, Lock, Trash2, AlertCircle, UserCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
-interface Usuario {
-  id?: number;
-  nome: string;
-  email: string;
-  foto?: string | null;
-  createdAt?: string;
-}
-
 export default function PerfilPage() {
-  const [usuario, setUsuario] = useState<Usuario>({
-    nome: "",
-    email: "",
-    foto: null,
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // React Query
+  const { data: usuario, isLoading: loading, error: queryError } = useProfile();
+
+  // Estado local
   const [abaAtiva, setAbaAtiva] = useState("dados");
-
-  useEffect(() => {
-    carregarDados();
-  }, []);
-
-  const carregarDados = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      console.log("🔄 Carregando dados do usuário...");
-      
-      // ✅ CORRIGIDO: Endpoint correto
-      const resUsuario = await api.get("/users/me");
-      
-      console.log("📦 Resposta da API:", resUsuario.data);
-
-      if (resUsuario.data) {
-        const dadosUsuario = {
-          id: resUsuario.data.id,
-          // Aceita tanto 'nome' quanto 'name'
-          nome: resUsuario.data.nome || resUsuario.data.name || "",
-          email: resUsuario.data.email,
-          foto: resUsuario.data.foto || null,
-          createdAt: resUsuario.data.createdAt || resUsuario.data.created_at,
-        };
-
-        console.log("✅ Dados processados:", dadosUsuario);
-        setUsuario(dadosUsuario);
-      }
-    } catch (err: any) {
-      console.error("❌ Erro ao carregar dados:", err);
-      console.error("❌ Detalhes:", {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
-      
-      setError(
-        err.response?.data?.message || 
-        err.response?.data?.error ||
-        "Erro ao carregar dados. Tente novamente."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const atualizarUsuario = (dados: Partial<Usuario>) => {
-    console.log("🔄 Atualizando usuário local:", dados);
-    setUsuario((prev) => ({ ...prev, ...dados }));
-  };
 
   // Skeleton Loading
   const SkeletonCard = () => (
@@ -98,7 +36,7 @@ export default function PerfilPage() {
   );
 
   // Formatar data de membro desde
-  const formatarDataMembro = (data?: string) => {
+  const formatarDataMembro = (data?: string | Date) => {
     if (!data) return "Recente";
     const date = new Date(data);
     return date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
@@ -113,6 +51,19 @@ export default function PerfilPage() {
         </div>
         <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         <SkeletonCard />
+      </div>
+    );
+  }
+
+  if (!usuario) {
+    return (
+      <div className="max-w-[1200px] mx-auto p-4 md:p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Erro ao carregar dados do usuário. Tente recarregar a página.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -141,19 +92,11 @@ export default function PerfilPage() {
       </div>
 
       {/* Error Alert */}
-      {error && (
+      {queryError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Debug Info (remover depois) */}
-      {process.env.NODE_ENV === "development" && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-xs font-mono">
-            Debug: ID={usuario.id}, Nome={usuario.nome}, Email={usuario.email}
+          <AlertDescription>
+            {queryError instanceof Error ? queryError.message : "Erro ao carregar perfil"}
           </AlertDescription>
         </Alert>
       )}
@@ -209,10 +152,7 @@ export default function PerfilPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <EditarDadosCard 
-                usuario={usuario} 
-                atualizarUsuario={atualizarUsuario}
-              />
+              <EditarDadosCard usuario={usuario} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -230,10 +170,7 @@ export default function PerfilPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <EditarFotoCard 
-                usuario={usuario} 
-                atualizarUsuario={atualizarUsuario}
-              />
+              <EditarFotoCard usuario={usuario} />
             </CardContent>
           </Card>
         </TabsContent>

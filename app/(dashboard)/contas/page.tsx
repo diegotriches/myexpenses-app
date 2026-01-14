@@ -17,7 +17,13 @@ import ContaCard from "@/components/contas/ContaCard";
 import ConfirmDeleteModal from "@/components/contas/ConfirmDeleteModal";
 import { ModalTransferencia } from "@/components/transferencias/ModalTransferencia";
 import { Conta, CreateContaDTO, UpdateContaDTO } from "@/types/conta";
-import { useContas } from "@/hooks/useContas";
+
+import { 
+  useContas, 
+  useCriarConta, 
+  useAtualizarConta, 
+  useRemoverConta 
+} from "@/hooks/useContas";
 
 import { BsBank } from "react-icons/bs";
 import { MdAdd } from "react-icons/md";
@@ -26,14 +32,11 @@ import { Search } from "lucide-react";
 type OrdenacaoType = "nome" | "saldo-maior" | "saldo-menor" | "recente";
 
 export default function ContasPage() {
-  const {
-    contas,
-    loading,
-    error,
-    criarConta,
-    atualizarConta,
-    removerConta,
-  } = useContas();
+  // ✅ NOVO: Hooks React Query (substitui hook antigo)
+  const { data: contas = [], isLoading: loading, error } = useContas();
+  const criarConta = useCriarConta();
+  const atualizarConta = useAtualizarConta();
+  const removerConta = useRemoverConta();
 
   const router = useRouter();
 
@@ -83,27 +86,31 @@ export default function ContasPage() {
     setModalOpen(true);
   }
 
+  // ✅ NOVO: Usar hooks de mutation
   async function salvarConta(data: CreateContaDTO | UpdateContaDTO) {
-    if (contaEdicao) {
-      await atualizarConta(contaEdicao.id, data as UpdateContaDTO);
-    } else {
-      await criarConta(data as CreateContaDTO);
-    }
+    try {
+      if (contaEdicao) {
+        await atualizarConta.mutateAsync({
+          id: contaEdicao.id,
+          dados: data as UpdateContaDTO
+        });
+      } else {
+        await criarConta.mutateAsync(data as CreateContaDTO);
+      }
 
-    setModalOpen(false);
-    setContaEdicao(null);
+      // ✅ Cache invalidado automaticamente
+      // ✅ Toast mostrado automaticamente
+      
+      setModalOpen(false);
+      setContaEdicao(null);
+    } catch (error) {
+      // ✅ Toast de erro mostrado automaticamente
+      console.error("Erro ao salvar conta:", error);
+    }
   }
 
   function editarConta(conta: Conta) {
-    const dto: CreateContaDTO = {
-      nome: conta.nome,
-      ativo: conta.ativo,
-      banco: conta.banco,
-      observacoes: conta.observacoes,
-      saldoInicial: conta.saldoInicial,
-    };
-
-    setContaEdicao({ ...conta, ...dto });
+    setContaEdicao(conta);
     setModalOpen(true);
   }
 
@@ -111,10 +118,21 @@ export default function ContasPage() {
     setContaParaExcluir(conta);
   }
 
+  // ✅ NOVO: Usar hook de mutation
   async function confirmarExclusao() {
     if (!contaParaExcluir) return;
-    await removerConta(contaParaExcluir.id);
-    setContaParaExcluir(null);
+    
+    try {
+      await removerConta.mutateAsync(contaParaExcluir.id);
+      
+      // ✅ Cache invalidado automaticamente
+      // ✅ Toast mostrado automaticamente
+      
+      setContaParaExcluir(null);
+    } catch (error) {
+      // ✅ Toast de erro mostrado automaticamente
+      console.error("Erro ao excluir conta:", error);
+    }
   }
 
   function cancelarExclusao() {
@@ -214,7 +232,7 @@ export default function ContasPage() {
           {/* Botão adicionar - desktop */}
           <Button 
             onClick={abrirNovaConta} 
-            className="hidden md:flex items-center gap-2 bg-blue-700 hover:bg-blue-900 cursor-pointer"
+            className="hidden md:flex items-center gap-2 bg-blue-700 hover:bg-blue-900"
           >
             <MdAdd className="text-xl" />
             Adicionar Conta
@@ -234,17 +252,14 @@ export default function ContasPage() {
       {/* Estados de carregamento e erro */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       ) : error ? (
         <div className="text-center py-12 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-900">
           <p className="text-red-600 dark:text-red-400 font-medium mb-2">Erro ao carregar contas</p>
-          <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
+          <p className="text-sm text-red-500 dark:text-red-400">{error.message}</p>
         </div>
       ) : contas.length === 0 ? (
         <EmptyState />
@@ -290,6 +305,7 @@ export default function ContasPage() {
         description={`Tem certeza que deseja excluir a conta "${contaParaExcluir?.nome}"? Esta ação não pode ser desfeita.`}
         onConfirm={confirmarExclusao}
         onCancel={cancelarExclusao}
+        loading={removerConta.isPending}
       />
     </div>
   );

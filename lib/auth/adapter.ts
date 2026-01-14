@@ -1,3 +1,5 @@
+// lib/auth/adapter.ts
+
 import { db } from "@/db";
 import { users, accounts, sessions, verificationTokens } from "@/db/schema";
 import { eq, and } from "drizzle-orm";

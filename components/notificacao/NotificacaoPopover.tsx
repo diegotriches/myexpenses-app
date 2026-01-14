@@ -3,8 +3,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Check, CheckCheck, Trash2, X } from "lucide-react";
-import { useNotificacoes } from "@/hooks/useNotificacoes";
+import { Bell, CheckCheck, Trash2, X } from "lucide-react";
+import {
+  useNotificacoes,
+  useMarcarNotificacaoLida,
+  useMarcarTodasNotificacoesLidas,
+  useRemoverNotificacao,
+  useLimparNotificacoesLidas,
+} from "@/hooks/useNotificacoes";
 import {
   Popover,
   PopoverContent,
@@ -16,31 +22,46 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { Notificacao } from "@/types/notificacao";
 
-// Mapa de ícones por severidade
+// Mapa de ícones e cores por severidade
 const severidadeConfig = {
-  info: { color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-950" },
-  warning: { color: "text-yellow-500", bg: "bg-yellow-50 dark:bg-yellow-950" },
-  error: { color: "text-red-500", bg: "bg-red-50 dark:bg-red-950" },
-  success: { color: "text-green-500", bg: "bg-green-50 dark:bg-green-950" },
+  info: { 
+    color: "text-blue-500", 
+    bg: "bg-blue-50 dark:bg-blue-950" 
+  },
+  warning: { 
+    color: "text-yellow-500", 
+    bg: "bg-yellow-50 dark:bg-yellow-950" 
+  },
+  error: { 
+    color: "text-red-500", 
+    bg: "bg-red-50 dark:bg-red-950" 
+  },
+  success: { 
+    color: "text-green-500", 
+    bg: "bg-green-50 dark:bg-green-950" 
+  },
 };
 
 export function NotificacaoPopover() {
-  const {
-    notificacoes,
-    naoLidas,
-    loading,
-    marcarComoLida,
-    marcarTodasComoLidas,
-    remover,
-    limparLidas,
-  } = useNotificacoes();
+  // React Query Hooks
+  const { data, isLoading } = useNotificacoes(undefined, 10); // Últimas 10 notificações
+  const marcarComoLida = useMarcarNotificacaoLida();
+  const marcarTodasLidas = useMarcarTodasNotificacoesLidas();
+  const removerNotificacao = useRemoverNotificacao();
+  const limparLidas = useLimparNotificacoesLidas();
+
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
+  // Dados
+  const notificacoes = data?.notificacoes || [];
+  const naoLidas = data?.naoLidas || 0;
+
+  // Handlers
   const handleClickNotificacao = async (notif: Notificacao) => {
-    // Marca como lida
+    // Marca como lida (optimistic update automático)
     if (!notif.lida) {
-      await marcarComoLida(notif.id);
+      await marcarComoLida.mutateAsync(notif.id);
     }
 
     // Navega para o link se existir
@@ -50,29 +71,9 @@ export function NotificacaoPopover() {
     }
   };
 
-  const handleMarcarTodasLidas = async () => {
-    try {
-      await marcarTodasComoLidas();
-    } catch (error) {
-      console.error("Erro ao marcar todas como lidas:", error);
-    }
-  };
-
-  const handleLimparLidas = async () => {
-    try {
-      await limparLidas();
-    } catch (error) {
-      console.error("Erro ao limpar notificações:", error);
-    }
-  };
-
   const handleRemover = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    try {
-      await remover(id);
-    } catch (error) {
-      console.error("Erro ao remover notificação:", error);
-    }
+    await removerNotificacao.mutateAsync(id);
   };
 
   return (
@@ -116,7 +117,8 @@ export function NotificacaoPopover() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleMarcarTodasLidas}
+                  onClick={() => marcarTodasLidas.mutate()}
+                  disabled={marcarTodasLidas.isPending}
                   className="h-8 px-2"
                   title="Marcar todas como lidas"
                 >
@@ -126,7 +128,8 @@ export function NotificacaoPopover() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleLimparLidas}
+                onClick={() => limparLidas.mutate()}
+                disabled={limparLidas.isPending}
                 className="h-8 px-2"
                 title="Limpar lidas"
               >
@@ -138,27 +141,27 @@ export function NotificacaoPopover() {
 
         {/* Lista de notificações */}
         <ScrollArea className="h-[400px]">
-          {loading && notificacoes.length === 0 ? (
-            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+          {isLoading && notificacoes.length === 0 ? (
+            <div className="flex items-center justify-center py-8 text-sm text-gray-600 dark:text-gray-400">
               Carregando...
             </div>
           ) : notificacoes.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Bell className="mb-2 h-12 w-12 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">
+              <Bell className="mb-2 h-12 w-12 text-gray-400 dark:text-gray-600" />
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Nenhuma notificação
               </p>
             </div>
           ) : (
-            <div className="divide-y">
-              {notificacoes.map((notif) => {
+            <div className="divide-y divide-gray-200 dark:divide-gray-800">
+              {notificacoes.slice(0, 5).map((notif) => {
                 const config = severidadeConfig[notif.severidade];
                 return (
                   <div
                     key={notif.id}
                     onClick={() => handleClickNotificacao(notif)}
                     className={cn(
-                      "relative cursor-pointer px-4 py-3 transition-colors hover:bg-accent",
+                      "relative cursor-pointer px-4 py-3 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800",
                       !notif.lida && "bg-blue-50/50 dark:bg-blue-950/20"
                     )}
                   >
@@ -180,17 +183,16 @@ export function NotificacaoPopover() {
 
                       {/* Conteúdo */}
                       <div className="flex-1 space-y-1">
-                        <p className="text-sm font-medium leading-tight">
+                        <p className="text-sm font-medium leading-tight text-gray-900 dark:text-white">
                           {notif.titulo}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
                           {notif.mensagem}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-gray-500 dark:text-gray-500">
                           {new Date(notif.createdAt).toLocaleString("pt-BR", {
                             day: "2-digit",
                             month: "2-digit",
-                            year: "numeric",
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
@@ -203,6 +205,7 @@ export function NotificacaoPopover() {
                         size="icon"
                         className="h-6 w-6 shrink-0"
                         onClick={(e) => handleRemover(e, notif.id)}
+                        disabled={removerNotificacao.isPending}
                       >
                         <X className="h-3 w-3" />
                       </Button>

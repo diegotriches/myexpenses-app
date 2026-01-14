@@ -3,23 +3,80 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "./adapter";
 import { db } from "@/db";
-import { users, categorias } from "@/db/schema";
+import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { v4 as uuidv4 } from "uuid";
+import { criarDadosIniciaisUsuario } from "@/services/onboardingService";
 
+// ============================================
+// ⚠️ VALIDAÇÃO CRÍTICA DE VARIÁVEIS DE AMBIENTE
+// ============================================
+
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error(
+    "❌ NEXTAUTH_SECRET não está configurado nas variáveis de ambiente.\n" +
+    "Adicione ao arquivo .env.local:\n" +
+    "NEXTAUTH_SECRET=sua_chave_secreta_aqui"
+  );
+}
+
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    "❌ DATABASE_URL não está configurado nas variáveis de ambiente.\n" +
+    "Adicione ao arquivo .env.local:\n" +
+    "DATABASE_URL=sua_connection_string_do_neon"
+  );
+}
+
+if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_URL) {
+  console.warn(
+    "⚠️ NEXTAUTH_URL não está configurado para produção.\n" +
+    "Isso pode causar problemas com callbacks OAuth.\n" +
+    "Configure: NEXTAUTH_URL=https://seu-dominio.vercel.app"
+  );
+}
+
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+  console.warn(
+    "⚠️ Google OAuth não está configurado.\n" +
+    "Para habilitar login com Google, configure:\n" +
+    "GOOGLE_CLIENT_ID=seu_client_id\n" +
+    "GOOGLE_CLIENT_SECRET=seu_client_secret"
+  );
+}
+
+/**
+ * Configuração do NextAuth
+ * 
+ * Providers:
+ * - Google OAuth (allowDangerousEmailAccountLinking: true)
+ * - Credentials (email/senha com bcrypt)
+ * 
+ * Session:
+ * - Strategy: JWT (melhor performance)
+ * - MaxAge: 30 dias
+ * 
+ * Features:
+ * - Auto-onboarding (categorias padrão)
+ * - Callbacks personalizados (jwt, session, signIn)
+ * - Páginas customizadas (/auth/signin)
+ */
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(),
 
   providers: [
-    // Google OAuth
+    // ============================================
+    // 🔐 GOOGLE OAUTH
+    // ============================================
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       allowDangerousEmailAccountLinking: true, // Permite vincular contas com mesmo email
     }),
 
-    // Login com Email/Senha (opcional)
+    // ============================================
+    // 📧 LOGIN COM EMAIL/SENHA
+    // ============================================
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -59,130 +116,75 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
 
+  // ============================================
+  // 🎫 SESSÃO
+  // ============================================
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 dias
   },
 
+  // ============================================
+  // 📄 PÁGINAS CUSTOMIZADAS
+  // ============================================
   pages: {
-    signIn: "/auth/signin", // Página customizada de login
-    // signOut: "/auth/signout",
-    // error: "/auth/error",
+    signIn: "/auth/signin",
   },
 
+  // ============================================
+  // 🔄 CALLBACKS
+  // ============================================
   callbacks: {
-    async jwt({ token, user, account }) {
-      // Adicionar userId ao token na primeira vez
+    /**
+     * JWT Callback - Adiciona userId ao token
+     */
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
       }
       return token;
     },
 
+    /**
+     * Session Callback - Adiciona userId à sessão
+     */
     async session({ session, token }) {
-      // Adicionar userId à sessão
       if (session.user) {
         session.user.id = token.id as string;
       }
       return session;
     },
 
-    async signIn({ user, account, profile }) {
-      // Criar categorias padrão para novos usuários
+    /**
+     * SignIn Callback - Auto-onboarding para novos usuários
+     * Cria categorias padrão automaticamente
+     */
+    async signIn({ user, account }) {
+      // Apenas para OAuth (Google)
       if (account?.provider === "google" && user.id) {
-        await criarCategoriasIniciaisSeNecessario(user.id);
+        await criarDadosIniciaisUsuario(user.id);
       }
       return true;
     },
   },
 
+  // ============================================
+  // 📡 EVENTS
+  // ============================================
   events: {
+    /**
+     * CreateUser Event - Auto-onboarding para Credentials
+     * Cria categorias padrão quando criar usuário via email/senha
+     */
     async createUser({ user }) {
-      // Criar categorias padrão quando criar usuário via credentials
       if (user.id) {
-        await criarCategoriasIniciaisSeNecessario(user.id);
+        await criarDadosIniciaisUsuario(user.id);
       }
     },
   },
 
+  // ============================================
+  // 🐛 DEBUG
+  // ============================================
   debug: process.env.NODE_ENV === "development",
 };
-
-// Função auxiliar para criar categorias padrão
-async function criarCategoriasIniciaisSeNecessario(userId: string) {
-  try {
-    // Verificar se já tem categorias
-    const categoriasExistentes = await db
-      .select()
-      .from(categorias)
-      .where(eq(categorias.userId, userId))
-      .limit(1);
-
-    if (categoriasExistentes.length > 0) {
-      return; // Já tem categorias
-    }
-
-    // ✅ CORREÇÃO: Usar 'icone' ao invés de 'icon'
-    // Categorias padrão de ENTRADA
-    const categoriasEntrada = [
-      { nome: "Salário", icone: "FaWallet" },
-      { nome: "Freelance", icone: "FaBriefcase" },
-      { nome: "Investimentos", icone: "FaPiggyBank" },
-      { nome: "Vendas", icone: "FaShoppingBag" },
-      { nome: "Aluguel recebido", icone: "FaHome" },
-      { nome: "Reembolso", icone: "FaFileInvoiceDollar" },
-      { nome: "Prêmios", icone: "FaGift" },
-      { nome: "Saldo inicial", icone: "FaMoneyBill" },
-      { nome: "Transferência interna", icone: "FaRegCreditCard" },
-      { nome: "Outras receitas", icone: "FaMoneyBill" },
-    ];
-
-    // Categorias padrão de SAÍDA
-    const categoriasSaida = [
-      { nome: "Alimentação", icone: "FaUtensils" },
-      { nome: "Assinaturas", icone: "FaRegCreditCard" },
-      { nome: "Compras", icone: "FaShoppingCart" },
-      { nome: "Delivery", icone: "MdFastfood" },
-      { nome: "Educação", icone: "FaBook" },
-      { nome: "Energia e água", icone: "FaBolt" },
-      { nome: "Internet", icone: "FaPhoneAlt" },
-      { nome: "Lazer", icone: "FaGamepad" },
-      { nome: "Mercado", icone: "MdLocalGroceryStore" },
-      { nome: "Moradia", icone: "FaHome" },
-      { nome: "Outras despesas", icone: "FaRegSmile" },
-      { nome: "Pagamentos", icone: "FaFileInvoiceDollar" },
-      { nome: "Pets", icone: "MdPets" },
-      { nome: "Presentes", icone: "FaGift" },
-      { nome: "Restaurantes", icone: "MdRestaurant" },
-      { nome: "Saúde", icone: "FaHeart" },
-      { nome: "Transporte", icone: "FaCar" },
-      { nome: "Vestuário", icone: "FaTshirt" },
-      { nome: "Viagem", icone: "FaPlane" },
-    ];
-
-    // ✅ Inserir todas de uma vez COM UUID e userId
-    const todasCategorias = [
-      ...categoriasEntrada.map(cat => ({
-        id: uuidv4(),
-        userId,
-        nome: cat.nome,
-        tipo: "entrada",
-        icone: cat.icone,
-      })),
-      ...categoriasSaida.map(cat => ({
-        id: uuidv4(),
-        userId,
-        nome: cat.nome,
-        tipo: "saida",
-        icone: cat.icone,
-      })),
-    ];
-
-    await db.insert(categorias).values(todasCategorias);
-
-    console.log(`✅ Categorias padrão criadas para usuário ${userId}`);
-  } catch (error) {
-    console.error(`❌ Erro ao criar categorias para usuário ${userId}:`, error);
-    // Não lançar erro para não bloquear o login/registro
-  }
-}

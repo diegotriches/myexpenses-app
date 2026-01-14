@@ -1,7 +1,7 @@
+// src/components/perfil/EditarFotoCard.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import api from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
@@ -13,22 +13,23 @@ import {
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useUploadFoto, useRemoverFoto } from "@/hooks/useProfile";
+import type { Usuario } from "@/types/profile";
 
 interface Props {
-  usuario: { id?: number; nome?: string; email?: string; foto?: string | null };
-  atualizarUsuario: (dados: { foto?: string | null }) => void;
+  usuario: Usuario;
 }
 
-export default function EditarFotoCard({ usuario, atualizarUsuario }: Props) {
+export default function EditarFotoCard({ usuario }: Props) {
   const [novaFoto, setNovaFoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [enviando, setEnviando] = useState(false);
-  const [removendo, setRemovendo] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
+
+  // React Query Mutations
+  const uploadFoto = useUploadFoto();
+  const removerFoto = useRemoverFoto();
 
   // Cleanup de URLs ao desmontar ou mudar usuário
   useEffect(() => {
@@ -45,7 +46,7 @@ export default function EditarFotoCard({ usuario, atualizarUsuario }: Props) {
 
   // Validação de arquivo
   const validarArquivo = (file: File): string | null => {
-    const maxSize = 5 * 1024 * 1024;
+    const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
       return "A imagem deve ter no máximo 5MB";
     }
@@ -83,112 +84,42 @@ export default function EditarFotoCard({ usuario, atualizarUsuario }: Props) {
   };
 
   const enviarFoto = async () => {
-    console.log("🚀 enviarFoto chamado");
-    console.log("📋 Dados do usuário recebido:", usuario);
-    console.log("📋 Dados:", { 
-      usuarioId: usuario.id, 
-      novaFoto: novaFoto?.name,
-      preview 
-    });
-
-    // Tenta pegar o ID de diferentes formas
-    const userId = usuario.id || usuario.email; // fallback para email se não tiver ID
-
-    if (!userId) {
-      console.error("❌ ID do usuário não encontrado");
-      console.error("❌ Objeto usuário completo:", usuario);
+    if (!usuario.id) {
       setErro("ID do usuário não encontrado. Recarregue a página.");
       return;
     }
 
     if (!novaFoto) {
-      console.error("❌ Nenhuma foto selecionada");
       setErro("Nenhuma foto selecionada");
       return;
     }
 
-    const formData = new FormData();
-    formData.append("foto", novaFoto);
-
-    console.log("📤 FormData criado:", {
-      foto: formData.get("foto"),
-    });
-
     try {
-      setEnviando(true);
       setErro(null);
-
-      console.log("🌐 Enviando para:", `/users/${userId}/foto`);
-
-      const res = await api.post(`/users/${userId}/foto`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      console.log("✅ Resposta recebida:", res.data);
-
-      atualizarUsuario({ foto: res.data.foto });
       
-      toast({
-        title: "Sucesso!",
-        description: "Foto de perfil atualizada com sucesso.",
+      await uploadFoto.mutateAsync({
+        userId: usuario.id,
+        file: novaFoto,
       });
 
       cancelarEdicao();
     } catch (err: any) {
-      console.error("❌ Erro ao enviar foto:", err);
-      console.error("📋 Detalhes do erro:", {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
-      
-      const mensagem = err.response?.data?.message || 
-                      err.response?.data?.error ||
-                      "Erro ao enviar foto. Tente novamente.";
-      
-      setErro(mensagem);
-      
-      toast({
-        title: "Erro ao enviar foto",
-        description: mensagem,
-        variant: "destructive",
-      });
-    } finally {
-      console.log("🏁 Finalizando envio");
-      setEnviando(false);
+      console.error("Erro ao enviar foto:", err);
+      setErro(err.message || "Erro ao enviar foto. Tente novamente.");
     }
   };
 
-  const removerFoto = async () => {
-    if (!usuario.id || !usuario.foto) return;
+  const handleRemoverFoto = async () => {
+    if (!usuario.id || !usuario.image) return;
 
     try {
-      setRemovendo(true);
       setErro(null);
-
-      await api.delete(`/users/${usuario.id}/foto`);
-
-      atualizarUsuario({ foto: null });
       
-      toast({
-        title: "Foto removida",
-        description: "Sua foto de perfil foi removida.",
-      });
-
+      await removerFoto.mutateAsync(usuario.id);
+      
       cancelarEdicao();
     } catch (err: any) {
       console.error("Erro ao remover foto:", err);
-      
-      const mensagem = err.response?.data?.message || 
-                      "Erro ao remover foto. Tente novamente.";
-      
-      toast({
-        title: "Erro ao remover foto",
-        description: mensagem,
-        variant: "destructive",
-      });
-    } finally {
-      setRemovendo(false);
     }
   };
 
@@ -227,21 +158,23 @@ export default function EditarFotoCard({ usuario, atualizarUsuario }: Props) {
 
   const getFotoUrl = () => {
     if (preview) return preview;
-    if (usuario.foto) return usuario.foto;
+    if (usuario.image) return usuario.image;
     return null;
   };
 
   const fotoUrl = getFotoUrl();
   
   const getInitials = () => {
-    if (usuario.nome) {
-      return usuario.nome.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    if (usuario.name) {
+      return usuario.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
     }
     if (usuario.email) {
       return usuario.email[0].toUpperCase();
     }
     return 'U';
   };
+
+  const isLoading = uploadFoto.isPending || removerFoto.isPending;
 
   return (
     <div className="space-y-6">
@@ -272,7 +205,7 @@ export default function EditarFotoCard({ usuario, atualizarUsuario }: Props) {
         </div>
 
         <p className="text-sm text-gray-600 dark:text-gray-400 text-center max-w-sm">
-          {novaFoto ? 'Nova foto selecionada' : usuario.foto ? 'Sua foto atual' : 'Nenhuma foto definida'}
+          {novaFoto ? 'Nova foto selecionada' : usuario.image ? 'Sua foto atual' : 'Nenhuma foto definida'}
         </p>
       </div>
 
@@ -297,7 +230,7 @@ export default function EditarFotoCard({ usuario, atualizarUsuario }: Props) {
           accept="image/jpeg,image/jpg,image/png,image/webp"
           onChange={handleFotoChange}
           className="hidden"
-          disabled={enviando || removendo}
+          disabled={isLoading}
         />
 
         <div className="flex flex-col items-center gap-3 text-center">
@@ -314,7 +247,7 @@ export default function EditarFotoCard({ usuario, atualizarUsuario }: Props) {
               variant="outline"
               size="sm"
               onClick={() => inputRef.current?.click()}
-              disabled={enviando || removendo}
+              disabled={isLoading}
               className="cursor-pointer"
             >
               <Upload size={14} className="mr-2" />
@@ -354,7 +287,7 @@ export default function EditarFotoCard({ usuario, atualizarUsuario }: Props) {
               type="button"
               variant="outline"
               onClick={cancelarEdicao}
-              disabled={enviando}
+              disabled={isLoading}
               className="flex-1"
             >
               <X size={16} className="mr-2" />
@@ -362,15 +295,11 @@ export default function EditarFotoCard({ usuario, atualizarUsuario }: Props) {
             </Button>
             <Button
               type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                console.log("🖱️ Botão clicado!");
-                enviarFoto();
-              }}
-              disabled={enviando || !!erro}
+              onClick={enviarFoto}
+              disabled={isLoading || !!erro}
               className="flex-1 bg-blue-600 hover:bg-blue-700 cursor-pointer"
             >
-              {enviando ? (
+              {uploadFoto.isPending ? (
                 <>
                   <Loader2 size={16} className="mr-2 animate-spin" />
                   Enviando...
@@ -383,15 +312,15 @@ export default function EditarFotoCard({ usuario, atualizarUsuario }: Props) {
               )}
             </Button>
           </>
-        ) : usuario.foto ? (
+        ) : usuario.image ? (
           <Button
             type="button"
             variant="destructive"
-            onClick={removerFoto}
-            disabled={removendo}
+            onClick={handleRemoverFoto}
+            disabled={isLoading}
             className="w-full sm:w-auto cursor-pointer"
           >
-            {removendo ? (
+            {removerFoto.isPending ? (
               <>
                 <Loader2 size={16} className="mr-2 animate-spin" />
                 Removendo...

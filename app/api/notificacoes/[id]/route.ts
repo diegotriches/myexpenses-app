@@ -6,6 +6,10 @@ import { notificacoes } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 
+/**
+ * GET /api/notificacoes/[id]
+ * Busca notificação por ID
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,6 +21,7 @@ export async function GET(
     }
 
     const { id } = await params;
+    
     const [notificacao] = await db
       .select()
       .from(notificacoes)
@@ -29,11 +34,15 @@ export async function GET(
 
     return NextResponse.json(notificacao);
   } catch (error: any) {
-    console.error("Erro ao buscar notificação:", error);
+    console.error("❌ Erro ao buscar notificação:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
+/**
+ * DELETE /api/notificacoes/[id]
+ * Remove notificação
+ */
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -46,24 +55,20 @@ export async function DELETE(
 
     const { id } = await params;
     
-    // Verificar se existe antes de deletar
-    const [existing] = await db
-      .select()
-      .from(notificacoes)
+    // DELETE + RETURNING em 1 query (mais eficiente)
+    const deleted = await db
+      .delete(notificacoes)
       .where(and(eq(notificacoes.id, id), eq(notificacoes.userId, userId)))
-      .limit(1);
+      .returning();
 
-    if (!existing) {
+    // Se não retornou nada, é porque não existia ou não pertence ao usuário
+    if (deleted.length === 0) {
       return NextResponse.json({ error: "Notificação não encontrada" }, { status: 404 });
     }
 
-    await db
-      .delete(notificacoes)
-      .where(and(eq(notificacoes.id, id), eq(notificacoes.userId, userId)));
-
     return NextResponse.json({ message: "Notificação removida com sucesso" });
   } catch (error: any) {
-    console.error("Erro ao remover notificação:", error);
+    console.error("❌ Erro ao remover notificação:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

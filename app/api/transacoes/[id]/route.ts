@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, contas, extratoConta, cartoes, faturas } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
-import { getUserIdFromSession } from "@/lib/auth/helpers";
+import { getUserId } from "@/lib/auth";
+import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 // PUT - Atualizar transação
 export async function PUT(
@@ -11,7 +12,16 @@ export async function PUT(
 ) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     if (!id) {
@@ -195,18 +205,8 @@ export async function PUT(
     );
   } catch (error: any) {
     console.error("Erro ao atualizar transação:", error);
-
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: error.message ?? "Erro ao atualizar transação" },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Erro ao atualizar transação";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -217,7 +217,16 @@ export async function DELETE(
 ) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     if (!id) {
@@ -338,41 +347,65 @@ export async function DELETE(
 
       // 3. Reverter fatura se for cartão de crédito
       if (transacao.cartaoId && transacao.formaPagamento === "cartao") {
-        const dataTransacao = new Date(transacao.data);
-        const mes = dataTransacao.getMonth() + 1;
-        const ano = dataTransacao.getFullYear();
-
-        const [fatura] = await db
+        // ✅ BUSCAR CARTÃO PARA PEGAR DIA DE FECHAMENTO
+        const [cartao] = await db
           .select()
-          .from(faturas)
-          .where(
-            and(
-              eq(faturas.cartaoId, transacao.cartaoId),
-              eq(faturas.userId, userId),
-              eq(faturas.mes, mes),
-              eq(faturas.ano, ano)
-            )
-          )
+          .from(cartoes)
+          .where(eq(cartoes.id, transacao.cartaoId))
           .limit(1);
 
-        if (fatura) {
-          const totalAtual = Number(fatura.total);
-          const novoTotal = totalAtual - valor;
+        if (cartao) {
+          const dataTransacao = new Date(transacao.data);
+          const diaFechamento = cartao.diaFechamento || 1;
 
-          if (novoTotal <= 0) {
-            // Deletar fatura se ficar zerada
-            await db
-              .delete(faturas)
-              .where(eq(faturas.id, fatura.id));
-          } else {
-            // Atualizar total da fatura
-            await db
-              .update(faturas)
-              .set({
-                total: novoTotal.toFixed(2), // ✅ String
-                updatedAt: new Date(),
-              })
-              .where(eq(faturas.id, fatura.id));
+          // ✅ CRÍTICO: Calcular fatura correta usando o mesmo método da criação
+          const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
+            dataTransacao,
+            diaFechamento
+          );
+
+          console.log(
+            `📅 Revertendo transação de ${dataTransacao.toLocaleDateString('pt-BR')} → Fatura ${mesFatura}/${anoFatura}`
+          );
+
+          const [fatura] = await db
+            .select()
+            .from(faturas)
+            .where(
+              and(
+                eq(faturas.cartaoId, transacao.cartaoId),
+                eq(faturas.userId, userId),
+                eq(faturas.mes, mesFatura),
+                eq(faturas.ano, anoFatura)
+              )
+            )
+            .limit(1);
+
+          if (fatura) {
+            const totalAtual = Number(fatura.total);
+            const novoTotal = totalAtual - valor;
+
+            if (novoTotal <= 0) {
+              // Deletar fatura se ficar zerada
+              await db
+                .delete(faturas)
+                .where(eq(faturas.id, fatura.id));
+              
+              console.log(`🗑️  Fatura ${mesFatura}/${anoFatura} deletada (zerada)`);
+            } else {
+              // Atualizar total da fatura
+              await db
+                .update(faturas)
+                .set({
+                  total: novoTotal.toFixed(2), // ✅ String
+                  updatedAt: new Date(),
+                })
+                .where(eq(faturas.id, fatura.id));
+              
+              console.log(
+                `✅ Fatura ${mesFatura}/${anoFatura} atualizada: R$ ${totalAtual.toFixed(2)} → R$ ${novoTotal.toFixed(2)}`
+              );
+            }
           }
         }
 
@@ -392,7 +425,7 @@ export async function DELETE(
     }
 
     // ===================================================================
-    // 4. DELETAR AS TRANSAÇÕES (CORRIGIDO)
+    // 4. DELETAR AS TRANSAÇÕES
     // ===================================================================
     const idsParaDeletar = transacoesParaDeletar.map(t => t.id);
 
@@ -407,7 +440,7 @@ export async function DELETE(
           )
         );
     } else if (idsParaDeletar.length > 1) {
-      // ✅ CORRIGIDO: Deletar múltiplas transações usando inArray
+      // ✅ Deletar múltiplas transações usando inArray
       await db
         .delete(transacoes)
         .where(
@@ -427,17 +460,7 @@ export async function DELETE(
 
   } catch (err: any) {
     console.error("❌ Erro ao deletar transação:", err);
-
-    if (err instanceof Error && err.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Erro desconhecido" },
-      { status: 500 }
-    );
+    const message = err instanceof Error ? err.message : "Erro desconhecido";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

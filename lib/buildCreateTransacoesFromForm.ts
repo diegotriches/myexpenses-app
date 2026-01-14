@@ -1,4 +1,4 @@
-import { TransacaoCreate } from "@/types/transacao";
+import { CreateTransacaoDTO } from "@/types/transacao";
 import { FormMovimentacao } from "./buildTransacoesFromForm";
 import { normalizeDate } from "./utils";
 
@@ -10,7 +10,7 @@ interface Params {
 export function buildCreateTransacoesFromForm({
   form,
   contaId,
-}: Params): TransacaoCreate[] {
+}: Params): CreateTransacaoDTO[] {
   const valorTotal = Number(form.valor);
   const baseData = normalizeDate(form.data);
   const isCartao = form.formaPagamento === "cartao";
@@ -30,7 +30,6 @@ export function buildCreateTransacoesFromForm({
 
   // PARCELADO
   if (form.parcelado) {
-    const parcelamentoId = crypto.randomUUID();
     const valorParcela = valorTotal / form.parcelas;
 
     return Array.from({ length: form.parcelas }).map((_, i) => {
@@ -38,44 +37,41 @@ export function buildCreateTransacoesFromForm({
       data.setMonth(data.getMonth() + i);
 
       return {
-        contaId: contaIdFinal,
         tipo: form.tipo,
-        categoria: form.categoria,
-        valor: String(valorParcela),
-        data: data.toISOString(),
+        valor: valorParcela, // ✅ NUMBER (não string)
+        data: data.toISOString().split('T')[0], // ✅ YYYY-MM-DD
         descricao: `${form.descricao} (${i + 1}/${form.parcelas})`,
+        categoria: form.categoria,
         formaPagamento: form.formaPagamento,
-        cartaoId: isCartao && form.cartaoId ? Number(form.cartaoId) : null,
+        contaId: contaIdFinal,
+        cartaoId: isCartao && form.cartaoId ? Number(form.cartaoId) : undefined,
         parcelado: true,
-        parcelamentoId,
         parcelas: form.parcelas,
-        parcelaAtual: i + 1,
-        recorrente: false,
+        // ✅ REMOVIDO: parcelamentoId, parcelaAtual (não existem em CreateTransacaoDTO)
+        // Backend cria esses campos automaticamente na API Route
       };
     });
   }
 
   // RECORRENTE
   if (form.recorrente) {
-    const recorrenciaId = crypto.randomUUID();
-
     return Array.from({ length: form.repeticoes }).map((_, i) => {
       const data = new Date(baseData);
       data.setMonth(data.getMonth() + i);
 
       return {
-        contaId: contaIdFinal,
         tipo: form.tipo,
-        categoria: form.categoria,
-        valor: String(valorTotal),
-        data: data.toISOString(),
+        valor: valorTotal, // ✅ NUMBER (não string)
+        data: data.toISOString().split('T')[0], // ✅ YYYY-MM-DD
         descricao: form.descricao,
+        categoria: form.categoria,
         formaPagamento: form.formaPagamento,
-        cartaoId: isCartao && form.cartaoId ? Number(form.cartaoId) : null,
+        contaId: contaIdFinal,
+        cartaoId: isCartao && form.cartaoId ? Number(form.cartaoId) : undefined,
         recorrente: true,
-        recorrenciaId,
         repeticoes: form.repeticoes,
-        parcelado: false,
+        // ✅ REMOVIDO: recorrenciaId (não existe em CreateTransacaoDTO)
+        // Backend cria esse campo automaticamente na API Route
       };
     });
   }
@@ -83,14 +79,14 @@ export function buildCreateTransacoesFromForm({
   // À VISTA
   return [
     {
-      contaId: contaIdFinal,
       tipo: form.tipo,
-      categoria: form.categoria,
-      valor: String(valorTotal),
-      data: new Date(baseData).toISOString(),
+      valor: valorTotal, // ✅ NUMBER (não string)
+      data: new Date(baseData).toISOString().split('T')[0], // ✅ YYYY-MM-DD
       descricao: form.descricao,
+      categoria: form.categoria,
       formaPagamento: form.formaPagamento,
-      cartaoId: isCartao && form.cartaoId ? Number(form.cartaoId) : null,
+      contaId: contaIdFinal,
+      cartaoId: isCartao && form.cartaoId ? Number(form.cartaoId) : undefined,
       parcelado: false,
       recorrente: false,
     },

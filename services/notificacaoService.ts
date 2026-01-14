@@ -9,9 +9,26 @@ import type {
 
 const API_URL = "/api/notificacoes";
 
+// ==================== HELPER ====================
+
+/**
+ * Helper para processar respostas da API
+ * Centraliza error handling e parsing de JSON
+ */
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: "Erro desconhecido" }));
+    throw new Error(error.error || error.message || "Erro na requisição");
+  }
+  return res.json();
+}
+
+// ==================== SERVICE ====================
+
 export const notificacaoService = {
   /**
    * Lista notificações do usuário
+   * GET /api/notificacoes?lidas=false&limite=10
    * @param lidas - Filtrar por status (true/false/undefined para todas)
    * @param limite - Número máximo de notificações
    */
@@ -22,31 +39,21 @@ export const notificacaoService = {
 
     const url = params.toString() ? `${API_URL}?${params}` : API_URL;
     const res = await fetch(url);
-    
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao listar notificações");
-    }
-    
-    return res.json();
+    return handleResponse<NotificacoesResponse>(res);
   },
 
   /**
    * Busca notificação por ID
+   * GET /api/notificacoes/[id]
    */
   async buscarPorId(id: string): Promise<Notificacao> {
     const res = await fetch(`${API_URL}/${id}`);
-    
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao buscar notificação");
-    }
-    
-    return res.json();
+    return handleResponse<Notificacao>(res);
   },
 
   /**
    * Cria nova notificação (usado internamente pela API)
+   * POST /api/notificacoes
    */
   async criar(dados: CriarNotificacaoDTO): Promise<Notificacao> {
     const res = await fetch(API_URL, {
@@ -54,97 +61,67 @@ export const notificacaoService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dados),
     });
-    
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao criar notificação");
-    }
-    
-    return res.json();
+    return handleResponse<Notificacao>(res);
   },
 
   /**
    * Marca notificação como lida
+   * PUT /api/notificacoes/[id]/lida
    */
   async marcarComoLida(id: string): Promise<Notificacao> {
     const res = await fetch(`${API_URL}/${id}/lida`, {
       method: "PUT",
     });
-    
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao marcar como lida");
-    }
-    
-    return res.json();
+    return handleResponse<Notificacao>(res);
   },
 
   /**
    * Marca todas as notificações como lidas
+   * PUT /api/notificacoes/marcar-todas-lidas
    */
   async marcarTodasComoLidas(): Promise<{ message: string; count: number }> {
     const res = await fetch(`${API_URL}/marcar-todas-lidas`, {
       method: "PUT",
     });
-    
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao marcar todas como lidas");
-    }
-    
-    return res.json();
+    return handleResponse<{ message: string; count: number }>(res);
   },
 
   /**
    * Remove notificação
+   * DELETE /api/notificacoes/[id]
    */
   async remover(id: string): Promise<{ message: string }> {
     const res = await fetch(`${API_URL}/${id}`, {
       method: "DELETE",
     });
-    
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao remover notificação");
-    }
-    
-    return res.json();
+    return handleResponse<{ message: string }>(res);
   },
 
   /**
    * Remove todas as notificações lidas
+   * DELETE /api/notificacoes/limpar-lidas
    */
   async limparLidas(): Promise<{ message: string; count: number }> {
     const res = await fetch(`${API_URL}/limpar-lidas`, {
       method: "DELETE",
     });
-    
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao limpar notificações");
-    }
-    
-    return res.json();
+    return handleResponse<{ message: string; count: number }>(res);
   },
 
   // ==================== PREFERÊNCIAS ====================
 
   /**
    * Busca preferências de notificação do usuário
+   * GET /api/notificacoes/preferencias
    */
   async buscarPreferencias(): Promise<PreferenciasNotificacao> {
     const res = await fetch(`${API_URL}/preferencias`);
-    
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao buscar preferências");
-    }
-    
-    return res.json();
+    return handleResponse<PreferenciasNotificacao>(res);
   },
 
   /**
    * Atualiza preferências de notificação
+   * PUT /api/notificacoes/preferencias
    */
   async atualizarPreferencias(dados: Partial<PreferenciasNotificacao>): Promise<PreferenciasNotificacao> {
     const res = await fetch(`${API_URL}/preferencias`, {
@@ -152,31 +129,31 @@ export const notificacaoService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dados),
     });
-    
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao atualizar preferências");
-    }
-    
-    return res.json();
+    return handleResponse<PreferenciasNotificacao>(res);
   },
 
   // ==================== VERIFICAÇÃO (Cron Job) ====================
 
   /**
    * Verifica e cria notificações automáticas
-   * Chamado por cron job ou manualmente
+   * POST /api/notificacoes/verificar
+   * Chamado por cron job ou manualmente pelo usuário
    */
   async verificarNotificacoes(): Promise<{ message: string; criadas: number }> {
     const res = await fetch(`${API_URL}/verificar`, {
       method: "POST",
     });
-    
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao verificar notificações");
-    }
-    
-    return res.json();
+    return handleResponse<{ message: string; criadas: number }>(res);
   },
 };
+
+// ==================== TIPOS EXPORTADOS ====================
+
+export type {
+  Notificacao,
+  CriarNotificacaoDTO,
+  NotificacoesResponse,
+  PreferenciasNotificacao,
+  TipoNotificacao,
+  SeveridadeNotificacao,
+} from "@/types/notificacao";

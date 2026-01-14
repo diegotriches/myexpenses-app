@@ -1,123 +1,177 @@
-import { useEffect, useState, useCallback } from "react";
-import { categoriaService, Categoria } from "@/services/categoriaService";
+// src/hooks/useCategorias.ts
+"use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { categoriaService } from "@/services/categoriaService";
+import { useToast } from "@/hooks/use-toast";
+
+import type { Categoria, CriarCategoriaDTO, AtualizarCategoriaDTO } from "@/types/categoria";
+
+/**
+ * Query Keys para categorias
+ */
+export const categoriasKeys = {
+  all: ["categorias"] as const,
+  byId: (id: string) => ["categorias", id] as const,
+  byTipo: (tipo: "entrada" | "saida") => ["categorias", "tipo", tipo] as const,
+};
+
+/**
+ * Hook para listar todas as categorias (com cache)
+ */
 export function useCategorias() {
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  return useQuery({
+    queryKey: categoriasKeys.all,
+    queryFn: () => categoriaService.listar(),
+    // Dados de categorias mudam raramente, cache por 10 minutos
+    staleTime: 10 * 60 * 1000,
+  });
+}
 
-  const carregar = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+/**
+ * Hook para listar categorias por tipo (com cache)
+ */
+export function useCategoriasPorTipo(tipo: "entrada" | "saida") {
+  return useQuery({
+    queryKey: categoriasKeys.byTipo(tipo),
+    queryFn: () => categoriaService.listarPorTipo(tipo),
+    staleTime: 10 * 60 * 1000,
+  });
+}
 
-    try {
-      const data = await categoriaService.listar();
-      setCategorias(data);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Erro ao carregar categorias");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+/**
+ * Hook para buscar categoria por ID (com cache)
+ */
+export function useCategoria(id: string) {
+  return useQuery({
+    queryKey: categoriasKeys.byId(id),
+    queryFn: () => categoriaService.buscarPorId(id),
+    enabled: !!id, // Só executa se ID existir
+    staleTime: 10 * 60 * 1000,
+  });
+}
 
-  const criar = useCallback(async (dados: Omit<Categoria, "id" | "createdAt" | "updatedAt">) => {
-    setLoading(true);
-    setError(null);
+/**
+ * Opções para controlar toast nas mutations
+ */
+interface MutationOptions {
+  showToast?: boolean; // Padrão: true
+  successMessage?: string;
+  errorMessage?: string;
+}
 
-    try {
-      const novaCategoria = await categoriaService.criar(dados);
-      setCategorias((prev) => [...prev, novaCategoria]);
-      return novaCategoria;
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Erro ao criar categoria");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+/**
+ * Hook para criar categoria
+ */
+export function useCriarCategoria(options: MutationOptions = {}) {
+  const { showToast = true, successMessage, errorMessage } = options;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const atualizar = useCallback(async (id: string, dados: Partial<Categoria>) => {
-    setLoading(true);
-    setError(null);
+  return useMutation({
+    mutationFn: (dados: CriarCategoriaDTO) => categoriaService.criar(dados),
+    onSuccess: (data) => {
+      // Invalida cache de categorias
+      queryClient.invalidateQueries({ queryKey: categoriasKeys.all });
+      
+      if (showToast) {
+        toast({
+          title: "Categoria criada!",
+          description: successMessage || "A categoria foi criada com sucesso.",
+        });
+      }
+    },
+    onError: (error: Error) => {
+      if (showToast) {
+        toast({
+          title: "Erro ao criar categoria",
+          description: errorMessage || error.message,
+          variant: "destructive",
+        });
+      }
+    },
+  });
+}
 
-    try {
-      const categoriaAtualizada = await categoriaService.atualizar(id, dados);
-      setCategorias((prev) =>
-        prev.map((c) => (c.id === id ? categoriaAtualizada : c))
-      );
-      return categoriaAtualizada;
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Erro ao atualizar categoria");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+/**
+ * Hook para atualizar categoria
+ */
+export function useAtualizarCategoria(options: MutationOptions = {}) {
+  const { showToast = true, successMessage, errorMessage } = options;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const remover = useCallback(async (id: string) => {
-    setLoading(true);
-    setError(null);
+  return useMutation({
+    mutationFn: ({ id, dados }: { id: string; dados: AtualizarCategoriaDTO }) =>
+      categoriaService.atualizar(id, dados),
+    onSuccess: (_, variables) => {
+      // Invalida categoria específica e lista
+      queryClient.invalidateQueries({ queryKey: categoriasKeys.byId(variables.id) });
+      queryClient.invalidateQueries({ queryKey: categoriasKeys.all });
+      
+      if (showToast) {
+        toast({
+          title: "Categoria atualizada!",
+          description: successMessage || "As alterações foram salvas.",
+        });
+      }
+    },
+    onError: (error: Error) => {
+      if (showToast) {
+        toast({
+          title: "Erro ao atualizar categoria",
+          description: errorMessage || error.message,
+          variant: "destructive",
+        });
+      }
+    },
+  });
+}
 
-    try {
-      await categoriaService.remover(id);
-      setCategorias((prev) => prev.filter((c) => c.id !== id));
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Erro ao remover categoria");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+/**
+ * Hook para remover categoria
+ */
+export function useRemoverCategoria(options: MutationOptions = {}) {
+  const { showToast = true, successMessage, errorMessage } = options;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const reordenar = useCallback(async (categorias: { id: string; ordem: number }[]) => {
-    setLoading(true);
-    setError(null);
+  return useMutation({
+    mutationFn: (id: string) => categoriaService.remover(id),
+    onSuccess: () => {
+      // Invalida cache de categorias
+      queryClient.invalidateQueries({ queryKey: categoriasKeys.all });
+      
+      if (showToast) {
+        toast({
+          title: "Categoria removida!",
+          description: successMessage || "A categoria foi removida com sucesso.",
+        });
+      }
+    },
+    onError: (error: Error) => {
+      if (showToast) {
+        toast({
+          title: "Erro ao remover categoria",
+          description: errorMessage || error.message,
+          variant: "destructive",
+        });
+      }
+    },
+  });
+}
 
-    try {
-      await categoriaService.reordenar(categorias);
-      await carregar(); // Recarrega para refletir a nova ordem
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Erro ao reordenar categorias");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [carregar]);
-
-  const listarPorTipo = useCallback(async (tipo: "entrada" | "saida") => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const data = await categoriaService.listarPorTipo(tipo);
-      return data;
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Erro ao carregar categorias");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    carregar();
-  }, [carregar]);
-
-  return { 
-    categorias, 
-    loading, 
-    error, 
-    carregar,
-    criar,
-    atualizar,
-    remover,
-    reordenar,
-    listarPorTipo
+/**
+ * Hook auxiliar para pré-carregar categoria (útil para hover/prefetch)
+ */
+export function usePrefetchCategoria() {
+  const queryClient = useQueryClient();
+  
+  return (id: string) => {
+    queryClient.prefetchQuery({
+      queryKey: categoriasKeys.byId(id),
+      queryFn: () => categoriaService.buscarPorId(id),
+      staleTime: 10 * 60 * 1000,
+    });
   };
 }

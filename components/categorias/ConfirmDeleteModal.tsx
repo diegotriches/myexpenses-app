@@ -12,65 +12,51 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, Loader2, Trash2, X } from "lucide-react";
-import api from "@/services/api";
 import { Categoria } from "@/types/categoria";
-import { useToast } from "@/hooks/use-toast";
+
+// ✅ NOVO: Importar hook React Query
+import { useRemoverCategoria } from "@/hooks/useCategorias";
 
 interface Props {
   aberto: boolean;
   onClose: () => void;
   categoria: Categoria | null;
-  refresh: () => void;
+  // ❌ REMOVIDO: refresh: () => void; (não precisa mais)
 }
 
 export default function ConfirmDeleteModal({
   aberto,
   onClose,
   categoria,
-  refresh
 }: Props) {
-  const [loading, setLoading] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-  const { toast } = useToast();
+  // ✅ NOVO: Hook React Query (substitui api.delete direto)
+  const removerCategoria = useRemoverCategoria();
+
+  // ✅ NOVO: Loading vem do hook
+  const loading = removerCategoria.isPending;
+
+  // ❌ REMOVIDO: useState para erro (toast automático já mostra erro)
 
   const excluir = async () => {
     if (!categoria) return;
 
     try {
-      setLoading(true);
-      setErro(null);
+      // ✅ NOVO: Usar hook React Query
+      await removerCategoria.mutateAsync(categoria.id);
 
-      await api.delete(`/categorias/${categoria.id}`);
-
-      toast({
-        title: "Categoria excluída!",
-        description: `"${categoria.nome}" foi removida com sucesso.`,
-      });
-
-      refresh();
+      // ✅ Toast automático vem do hook
+      // ✅ Cache invalidado automaticamente
+      // ✅ Lista recarregada automaticamente
+      
       onClose();
     } catch (err: any) {
+      // ✅ Toast de erro também vem automaticamente do hook
       console.error("Erro ao excluir:", err);
-      
-      const mensagem = err.response?.data?.message ||
-                      err.response?.data?.error ||
-                      "Erro ao excluir categoria. Tente novamente.";
-      
-      setErro(mensagem);
-      
-      toast({
-        title: "Erro ao excluir",
-        description: mensagem,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleClose = () => {
     if (!loading) {
-      setErro(null);
       onClose();
     }
   };
@@ -110,13 +96,7 @@ export default function ConfirmDeleteModal({
             </ul>
           </div>
 
-          {/* Erro */}
-          {erro && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{erro}</AlertDescription>
-            </Alert>
-          )}
+          {/* ❌ REMOVIDO: Alert de erro manual (toast automático já mostra) */}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">

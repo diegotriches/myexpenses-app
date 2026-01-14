@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { cartoes } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getUserIdFromSession } from "@/lib/auth/helpers";
+import { getUserId } from "@/lib/auth";
 
 // GET - Buscar cartão específico
 export async function GET(
@@ -10,7 +10,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     const [cartao] = await db
@@ -34,18 +43,8 @@ export async function GET(
     return NextResponse.json(cartao);
   } catch (error) {
     console.error("Erro ao buscar cartão:", error);
-
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Erro ao buscar cartão" },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Erro ao buscar cartão";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -55,7 +54,16 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const body = await req.json();
 
@@ -170,18 +178,8 @@ export async function PUT(
     );
   } catch (error) {
     console.error("Erro ao atualizar cartão:", error);
-
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Erro interno ao atualizar cartão" },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Erro interno ao atualizar cartão";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -191,7 +189,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     if (!id) {
@@ -224,17 +231,7 @@ export async function DELETE(
     });
   } catch (error) {
     console.error("Erro ao deletar cartão:", error);
-
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Erro interno ao deletar cartão." },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Erro interno ao deletar cartão.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

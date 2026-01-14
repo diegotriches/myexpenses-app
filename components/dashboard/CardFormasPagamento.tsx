@@ -1,15 +1,68 @@
+// src/components/dashboard/CardFormasPagamento.tsx
+"use client";
+
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { DollarSign, Layers, Repeat } from 'lucide-react';
+import { DollarSign, Layers, Repeat, Loader2 } from 'lucide-react';
+import { useFormasPagamento } from '@/hooks/useDashboard';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
-interface FormasPagamento {
-  aVista: number;
-  parcelado: number;
-  recorrente: number;
-}
+export function CardFormasPagamento() {
+  const { data: dados, isLoading, error } = useFormasPagamento();
 
-type Props = { dados: FormasPagamento };
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card className="dark:bg-gray-900 dark:border-gray-800">
+        <CardHeader>
+          <CardTitle className="text-gray-900 dark:text-white">
+            Tipos de Pagamento
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        </CardContent>
+      </Card>
+    );
+  }
 
-export function CardFormasPagamento({ dados }: Props) {
+  // Error state
+  if (error) {
+    return (
+      <Card className="dark:bg-gray-900 dark:border-gray-800">
+        <CardHeader>
+          <CardTitle className="text-gray-900 dark:text-white">
+            Tipos de Pagamento
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertDescription>
+              Erro ao carregar dados: {error.message}
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Empty state
+  if (!dados) {
+    return (
+      <Card className="dark:bg-gray-900 dark:border-gray-800">
+        <CardHeader>
+          <CardTitle className="text-gray-900 dark:text-white">
+            Tipos de Pagamento
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+            Nenhum dado disponível
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const total = dados.aVista + dados.parcelado + dados.recorrente;
   
   const formas = [
@@ -49,15 +102,23 @@ export function CardFormasPagamento({ dados }: Props) {
   ];
 
   return (
-    <Card>
+    <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardHeader>
-        <CardTitle>Tipos de Pagamento</CardTitle>
+        <CardTitle className="text-gray-900 dark:text-white">
+          Tipos de Pagamento
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {total === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-            Nenhuma transação encontrada
-          </p>
+          <div className="text-center py-8">
+            <DollarSign className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Nenhuma transação encontrada
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              Suas transações por tipo aparecerão aqui
+            </p>
+          </div>
         ) : (
           <div className="space-y-2.5">
             {formas.map((forma) => {
@@ -67,7 +128,7 @@ export function CardFormasPagamento({ dados }: Props) {
               return (
                 <div 
                   key={forma.key}
-                  className={`flex items-center justify-between p-2.5 rounded-lg border ${forma.bg} ${forma.border}`}
+                  className={`flex items-center justify-between p-2.5 rounded-lg border ${forma.bg} ${forma.border} hover:opacity-90 transition-opacity`}
                 >
                   <div className="flex items-center gap-2.5 flex-1">
                     <div className={`p-1.5 rounded-full ${forma.iconBg}`}>

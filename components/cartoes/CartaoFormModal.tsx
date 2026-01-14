@@ -5,17 +5,16 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 
-import { Cartao } from "@/types/cartao";
-import CartaoForm, { CartaoFormValues } from "@/components/cartoes/CartaoForm";
+import { Cartao, CreateCartaoDTO, UpdateCartaoDTO } from "@/types/cartao";
+import CartaoForm from "@/components/cartoes/CartaoForm";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   cartaoEdicao: Cartao | null;
-  salvar: (dados: Cartao) => Promise<void>;
+  salvar: (dados: CreateCartaoDTO | UpdateCartaoDTO) => Promise<void>;
 }
 
 export default function CartaoFormModal({
@@ -24,16 +23,16 @@ export default function CartaoFormModal({
   cartaoEdicao,
   salvar,
 }: Props) {
-  async function handleSubmit(values: CartaoFormValues) {
-    await salvar(values as Cartao);
+  async function handleSubmit(values: CreateCartaoDTO | UpdateCartaoDTO) {
+    await salvar(values);
     onOpenChange(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="text-xl text-gray-900 dark:text-white">
             {cartaoEdicao ? "Editar Cartão" : "Novo Cartão"}
           </DialogTitle>
         </DialogHeader>
@@ -43,8 +42,6 @@ export default function CartaoFormModal({
           onSubmit={handleSubmit}
           onCancel={() => onOpenChange(false)}
         />
-
-        <DialogFooter />
       </DialogContent>
     </Dialog>
   );

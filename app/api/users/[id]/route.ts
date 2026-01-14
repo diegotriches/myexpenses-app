@@ -1,3 +1,4 @@
+// src/app/api/users/[id]/route.ts
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
@@ -6,12 +7,13 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { getUserId } from "@/lib/auth";
 
+// PUT - Atualizar perfil (nome/email)
 export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ 1. CRÍTICO: Verificar autenticação
+    // ✅ 1. Verificar autenticação
     const userId = await getUserId();
     
     if (!userId) {
@@ -25,7 +27,7 @@ export async function PUT(
     const params = await context.params;
     const targetId = params.id;
 
-    // ✅ 3. CRÍTICO: Verificar se o usuário está editando seu próprio perfil
+    // ✅ 3. Verificar ownership
     if (userId !== targetId) {
       return NextResponse.json(
         { message: "Você não tem permissão para editar outro usuário" },
@@ -52,19 +54,18 @@ export async function PUT(
     }
 
     // ✅ 5. Verificar se email já existe (para outro usuário)
-    if (email) {
-      const [emailExistente] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, email))
-        .limit(1);
+    const emailNormalizado = email.toLowerCase().trim();
+    const [emailExistente] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, emailNormalizado))
+      .limit(1);
 
-      if (emailExistente && emailExistente.id !== userId) {
-        return NextResponse.json(
-          { message: "Este email já está em uso" },
-          { status: 400 }
-        );
-      }
+    if (emailExistente && emailExistente.id !== userId) {
+      return NextResponse.json(
+        { message: "Este email já está em uso" },
+        { status: 409 }
+      );
     }
 
     // ✅ 6. Atualizar apenas campos permitidos
@@ -72,7 +73,7 @@ export async function PUT(
       .update(users)
       .set({
         name: name.trim(),
-        email: email.toLowerCase().trim(),
+        email: emailNormalizado,
       })
       .where(eq(users.id, userId))
       .returning({
@@ -80,6 +81,7 @@ export async function PUT(
         name: users.name,
         email: users.email,
         image: users.image,
+        emailVerified: users.emailVerified,
         createdAt: users.createdAt,
       });
 
@@ -92,7 +94,7 @@ export async function PUT(
 
     return NextResponse.json(atualizado);
   } catch (err: any) {
-    console.error("Erro ao atualizar usuário:", err);
+    console.error("❌ Erro ao atualizar usuário:", err);
     return NextResponse.json(
       { message: "Erro ao atualizar usuário" },
       { status: 500 }
@@ -100,13 +102,13 @@ export async function PUT(
   }
 }
 
-// ✅ Deletar usuário (deletar própria conta)
+// DELETE - Deletar conta
 export async function DELETE(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ 1. CRÍTICO: Verificar autenticação
+    // ✅ 1. Verificar autenticação
     const userId = await getUserId();
     
     if (!userId) {
@@ -120,7 +122,7 @@ export async function DELETE(
     const params = await context.params;
     const targetId = params.id;
 
-    // ✅ 3. CRÍTICO: Verificar se o usuário está deletando sua própria conta
+    // ✅ 3. Verificar ownership
     if (userId !== targetId) {
       return NextResponse.json(
         { message: "Você não tem permissão para deletar outro usuário" },
@@ -128,18 +130,18 @@ export async function DELETE(
       );
     }
 
-    // ✅ 4. OPCIONAL: Pedir confirmação de senha antes de deletar
+    // ✅ 4. Pedir confirmação de senha (padronizado como "senha")
     const body = await req.json();
-    const { password } = body;
+    const { senha } = body;
 
-    if (!password) {
+    if (!senha) {
       return NextResponse.json(
         { message: "Senha é obrigatória para confirmar exclusão da conta" },
         { status: 400 }
       );
     }
 
-    // ✅ 5. Verificar senha antes de deletar
+    // ✅ 5. Buscar usuário
     const [usuario] = await db
       .select()
       .from(users)
@@ -153,26 +155,24 @@ export async function DELETE(
       );
     }
 
-    // Se usuário tem senha (não é OAuth only)
+    // ✅ 6. Verificar senha antes de deletar
     if (usuario.password) {
-      const senhaValida = await bcrypt.compare(password, usuario.password);
+      const senhaValida = await bcrypt.compare(senha, usuario.password);
       if (!senhaValida) {
         return NextResponse.json(
           { message: "Senha incorreta" },
           { status: 401 }
         );
       }
+    } else {
+      // Usuário OAuth - não pode deletar sem reautenticação
+      return NextResponse.json(
+        { message: "Usuários OAuth devem reautenticar antes de deletar a conta" },
+        { status: 400 }
+      );
     }
 
-    // ✅ 6. IMPORTANTE: Deletar dados relacionados primeiro (cascade)
-    // TODO: Adicionar deleção de:
-    // - contas
-    // - cartoes
-    // - transacoes
-    // - transferencias
-    // - etc.
-
-    // ✅ 7. Deletar usuário
+    // ✅ 7. Deletar usuário (CASCADE deleta dados relacionados no schema)
     const [deletado] = await db
       .delete(users)
       .where(eq(users.id, userId))
@@ -189,7 +189,7 @@ export async function DELETE(
       message: "Conta deletada com sucesso" 
     });
   } catch (err: any) {
-    console.error("Erro ao deletar usuário:", err);
+    console.error("❌ Erro ao deletar usuário:", err);
     return NextResponse.json(
       { message: "Erro ao deletar usuário" },
       { status: 500 }

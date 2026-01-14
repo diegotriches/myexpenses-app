@@ -20,15 +20,22 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
     pathname === "/";
 
   return (
-    <div className="flex bg-gray-50 dark:bg-gray-950">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
+      {/* Sidebar - esconde em mobile, mostra em desktop */}
       {!esconderNavbar && <Sidebar isCollapsed={isCollapsed} />}
 
+      {/* Main Content Area */}
       <div
-        className="flex-1 min-h-screen transition-all duration-300 bg-white dark:bg-gray-900"
-        style={{
-          marginLeft: esconderNavbar ? 0 : isCollapsed ? "80px" : "256px",
-        }}
+        className={`
+          flex-1 flex flex-col min-h-screen
+          transition-all duration-300
+          bg-gray-50 dark:bg-gray-950
+          ${!esconderNavbar && 'md:ml-20 lg:ml-64'}
+          ${!esconderNavbar && isCollapsed && 'md:ml-20'}
+          ${!esconderNavbar && !isCollapsed && 'md:ml-64'}
+        `}
       >
+        {/* TopMenu */}
         {!esconderNavbar && (
           <TopMenu
             isCollapsed={isCollapsed}
@@ -36,11 +43,13 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
           />
         )}
 
+        {/* Main Content */}
         <main
-          className="p-4 transition-all duration-300"
-          style={{
-            paddingTop: esconderNavbar ? "0" : "70px",
-          }}
+          className={`
+            flex-1 p-4 md:p-6
+            transition-all duration-300
+            ${!esconderNavbar ? 'pt-20 md:pt-24' : 'pt-0'}
+          `}
         >
           {children}
         </main>

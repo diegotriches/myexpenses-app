@@ -1,3 +1,5 @@
+// src/app/api/users/[id]/foto/route.ts
+
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { NextRequest, NextResponse } from "next/server";
@@ -5,12 +7,13 @@ import { eq } from "drizzle-orm";
 import { put, del } from "@vercel/blob";
 import { getUserId } from "@/lib/auth";
 
+// POST - Upload de foto
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ 1. CRÍTICO: Verificar autenticação
+    // ✅ 1. Verificar autenticação
     const userId = await getUserId();
     
     if (!userId) {
@@ -24,7 +27,7 @@ export async function POST(
     const params = await context.params;
     const targetId = params.id;
 
-    // ✅ 3. CRÍTICO: Verificar se está atualizando sua própria foto
+    // ✅ 3. Verificar ownership
     if (userId !== targetId) {
       return NextResponse.json(
         { message: "Você não tem permissão para alterar a foto de outro usuário" },
@@ -32,9 +35,9 @@ export async function POST(
       );
     }
 
-    // ✅ 4. Obter arquivo do FormData
+    // ✅ 4. Obter arquivo do FormData (padronizado como "file")
     const formData = await req.formData();
-    const file = formData.get("foto") as File;
+    const file = formData.get("file") as File;
 
     if (!file) {
       return NextResponse.json(
@@ -60,7 +63,7 @@ export async function POST(
       );
     }
 
-    // ✅ 6. Buscar usuário (usando UUID string)
+    // ✅ 6. Buscar usuário
     const [usuarioExistente] = await db
       .select()
       .from(users)
@@ -78,9 +81,9 @@ export async function POST(
     if (usuarioExistente.image) {
       try {
         await del(usuarioExistente.image);
-        console.log("Foto antiga deletada:", usuarioExistente.image);
+        console.log("✅ Foto antiga deletada:", usuarioExistente.image);
       } catch (error) {
-        console.error("Erro ao deletar foto antiga:", error);
+        console.error("⚠️ Erro ao deletar foto antiga:", error);
         // Continua mesmo se falhar
       }
     }
@@ -96,7 +99,7 @@ export async function POST(
       addRandomSuffix: false,
     });
 
-    console.log("Upload concluído:", blob.url);
+    console.log("✅ Upload concluído:", blob.url);
 
     // ✅ 10. Atualizar banco de dados
     const [atualizado] = await db
@@ -110,6 +113,8 @@ export async function POST(
         name: users.name,
         email: users.email,
         image: users.image,
+        emailVerified: users.emailVerified,
+        createdAt: users.createdAt,
       });
 
     if (!atualizado) {
@@ -119,12 +124,10 @@ export async function POST(
       );
     }
 
-    return NextResponse.json({ 
-      image: blob.url,
-      message: "Foto atualizada com sucesso" 
-    });
+    // ✅ 11. Retornar usuário completo (consistente com service)
+    return NextResponse.json(atualizado);
   } catch (err: any) {
-    console.error("Erro ao fazer upload:", err);
+    console.error("❌ Erro ao fazer upload:", err);
     return NextResponse.json(
       { message: "Erro ao fazer upload da foto" },
       { status: 500 }
@@ -138,7 +141,7 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ 1. CRÍTICO: Verificar autenticação
+    // ✅ 1. Verificar autenticação
     const userId = await getUserId();
     
     if (!userId) {
@@ -152,7 +155,7 @@ export async function DELETE(
     const params = await context.params;
     const targetId = params.id;
 
-    // ✅ 3. CRÍTICO: Verificar se está deletando sua própria foto
+    // ✅ 3. Verificar ownership
     if (userId !== targetId) {
       return NextResponse.json(
         { message: "Você não tem permissão para remover a foto de outro usuário" },
@@ -178,26 +181,40 @@ export async function DELETE(
     if (usuario.image) {
       try {
         await del(usuario.image);
-        console.log("Foto deletada do Blob:", usuario.image);
+        console.log("✅ Foto deletada do Blob:", usuario.image);
       } catch (error) {
-        console.error("Erro ao deletar foto do Blob:", error);
+        console.error("⚠️ Erro ao deletar foto do Blob:", error);
         // Continua mesmo se falhar
       }
     }
 
     // ✅ 6. Atualizar banco (remover URL da foto)
-    await db
+    const [atualizado] = await db
       .update(users)
       .set({ 
         image: null,
       })
-      .where(eq(users.id, userId));
+      .where(eq(users.id, userId))
+      .returning({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        image: users.image,
+        emailVerified: users.emailVerified,
+        createdAt: users.createdAt,
+      });
 
-    return NextResponse.json({ 
-      message: "Foto removida com sucesso" 
-    });
+    if (!atualizado) {
+      return NextResponse.json(
+        { message: "Erro ao remover foto" },
+        { status: 500 }
+      );
+    }
+
+    // ✅ 7. Retornar usuário completo (consistente com service)
+    return NextResponse.json(atualizado);
   } catch (err: any) {
-    console.error("Erro ao remover foto:", err);
+    console.error("❌ Erro ao remover foto:", err);
     return NextResponse.json(
       { message: "Erro ao remover foto" },
       { status: 500 }

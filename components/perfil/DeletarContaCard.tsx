@@ -1,8 +1,7 @@
+// src/components/perfil/DeletarContaCard.tsx
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import api from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,10 +26,11 @@ import {
   FileText,
   TrendingDown
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useDeletarConta } from "@/hooks/useProfile";
+import type { Usuario } from "@/types/profile";
 
 interface Props {
-  usuario: { id?: number; nome?: string; email?: string };
+  usuario: Usuario;
 }
 
 export default function DeletarContaCard({ usuario }: Props) {
@@ -38,10 +38,10 @@ export default function DeletarContaCard({ usuario }: Props) {
   const [senha, setSenha] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
   const [aceitaTermos, setAceitaTermos] = useState(false);
-  const [deletando, setDeletando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const router = useRouter();
-  const { toast } = useToast();
+
+  // React Query Mutation
+  const deletarConta = useDeletarConta();
 
   const validarFormulario = (): boolean => {
     setErro(null);
@@ -64,53 +64,30 @@ export default function DeletarContaCard({ usuario }: Props) {
     return true;
   };
 
-  const deletarConta = async () => {
+  const handleDeletarConta = async () => {
     if (!validarFormulario() || !usuario.id) return;
 
     try {
-      setDeletando(true);
       setErro(null);
-
-      // Verifica senha antes de deletar
-      await api.post("/auth/verify-password", { password: senha });
-
-      // Deleta a conta
-      await api.delete(`/users/${usuario.id}`);
-
-      toast({
-        title: "Conta deletada",
-        description: "Sua conta foi deletada permanentemente.",
+      
+      await deletarConta.mutateAsync({
+        userId: usuario.id,
+        senha,
       });
 
-      // Limpa dados locais
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-
-      // Aguarda um pouco para o toast ser visível
-      setTimeout(() => {
-        router.push("/login");
-      }, 1500);
-
+      // Hook já redireciona para /login após sucesso
     } catch (err: any) {
       console.error("Erro ao deletar conta:", err);
       
       let mensagem = "Erro ao deletar conta. Tente novamente.";
       
-      if (err.response?.status === 401 || err.response?.status === 403) {
+      if (err.message?.includes("incorreta") || err.message?.includes("Senha")) {
         mensagem = "Senha incorreta. Tente novamente.";
-      } else if (err.response?.data?.message) {
-        mensagem = err.response.data.message;
+      } else if (err.message) {
+        mensagem = err.message;
       }
       
       setErro(mensagem);
-      
-      toast({
-        title: "Erro ao deletar conta",
-        description: mensagem,
-        variant: "destructive",
-      });
-    } finally {
-      setDeletando(false);
     }
   };
 
@@ -217,7 +194,7 @@ export default function DeletarContaCard({ usuario }: Props) {
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
                 placeholder="Digite sua senha atual"
-                disabled={deletando}
+                disabled={deletarConta.isPending}
                 className="border-red-200 focus:border-red-500"
               />
             </div>
@@ -234,7 +211,7 @@ export default function DeletarContaCard({ usuario }: Props) {
                 value={confirmacao}
                 onChange={(e) => setConfirmacao(e.target.value)}
                 placeholder="DELETE"
-                disabled={deletando}
+                disabled={deletarConta.isPending}
                 className="border-red-200 focus:border-red-500 font-mono"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -248,7 +225,7 @@ export default function DeletarContaCard({ usuario }: Props) {
                 id="termos"
                 checked={aceitaTermos}
                 onCheckedChange={(checked) => setAceitaTermos(checked as boolean)}
-                disabled={deletando}
+                disabled={deletarConta.isPending}
                 className="mt-0.5"
               />
               <label
@@ -273,16 +250,16 @@ export default function DeletarContaCard({ usuario }: Props) {
             <Button
               variant="outline"
               onClick={() => handleDialogChange(false)}
-              disabled={deletando}
+              disabled={deletarConta.isPending}
             >
               Cancelar
             </Button>
             <Button
               variant="destructive"
-              onClick={deletarConta}
-              disabled={deletando || !senha || confirmacao !== "DELETE" || !aceitaTermos}
+              onClick={handleDeletarConta}
+              disabled={deletarConta.isPending || !senha || confirmacao !== "DELETE" || !aceitaTermos}
             >
-              {deletando ? (
+              {deletarConta.isPending ? (
                 <>
                   <Loader2 size={16} className="mr-2 animate-spin" />
                   Deletando...

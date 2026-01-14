@@ -9,6 +9,8 @@ import { getUserId } from "@/lib/auth";
 /**
  * DELETE /api/notificacoes/limpar-lidas
  * Remove todas as notificações lidas do usuário
+ * 
+ * Response: { message: string, count: number }
  */
 export async function DELETE(req: NextRequest) {
   try {
@@ -28,12 +30,16 @@ export async function DELETE(req: NextRequest) {
       )
       .returning();
 
+    console.log(`✅ ${deleted.length} notificações lidas removidas para userId: ${userId}`);
+
     return NextResponse.json({
-      message: "Notificações lidas removidas com sucesso",
+      message: deleted.length > 0 
+        ? "Notificações lidas removidas com sucesso" 
+        : "Nenhuma notificação lida para remover",
       count: deleted.length,
     });
   } catch (error: any) {
-    console.error("Erro ao limpar notificações lidas:", error);
+    console.error("❌ Erro ao limpar notificações lidas:", error);
     return NextResponse.json(
       { error: error.message || "Erro ao limpar notificações" },
       { status: 500 }

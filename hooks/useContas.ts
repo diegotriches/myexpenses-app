@@ -1,88 +1,294 @@
-import { useCallback, useEffect, useState } from "react";
-import { Conta } from "@/types/conta";
+// src/hooks/useContas.ts
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { contaService } from "@/services/contaService";
+import { useToast } from "@/hooks/use-toast";
+import type { CreateContaDTO, UpdateContaDTO, FiltrosExtrato } from "@/types/conta";
 
+/**
+ * Query Keys para contas
+ */
+export const contasKeys = {
+  all: ["contas"] as const,
+  byId: (id: string) => ["contas", id] as const,
+  extrato: (id: string, filters?: FiltrosExtrato) => ["contas", id, "extrato", filters] as const,
+};
+
+/**
+ * Hook para listar todas as contas (com cache)
+ * 
+ * @example
+ * const { data: contas, isLoading, error } = useContas();
+ */
 export function useContas() {
-  const [contas, setContas] = useState<Conta[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  return useQuery({
+    queryKey: contasKeys.all,
+    queryFn: () => contaService.listar(),
+    // Contas mudam com transações, cache de 3 minutos
+    staleTime: 3 * 60 * 1000,
+  });
+}
 
-  const carregarContas = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+/**
+ * Hook para buscar conta por ID (com cache)
+ * 
+ * @param id - ID da conta
+ * @example
+ * const { data: conta, isLoading } = useConta("123");
+ */
+export function useConta(id: string) {
+  return useQuery({
+    queryKey: contasKeys.byId(id),
+    queryFn: () => contaService.buscarPorId(id),
+    enabled: !!id, // Só executa se ID existir
+    staleTime: 3 * 60 * 1000,
+  });
+}
 
-    try {
-      const data = await contaService.listar();
-      setContas(data);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Erro ao carregar contas");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+/**
+ * ✅ ATUALIZADO: Hook para buscar extrato de uma conta (com cache)
+ * Agora retorna ExtratoContaData (formato simplificado)
+ * 
+ * @param contaId - ID da conta
+ * @param filters - Filtros opcionais
+ * @example
+ * const { data, isLoading } = useExtratoConta("123", { 
+ *   inicio: "2026-01-01",
+ *   fim: "2026-01-31"
+ * });
+ * 
+ * // data.conta - Dados da conta
+ * // data.movimentacoes - Array de movimentações
+ * // data.resumo - Resumo financeiro do período
+ */
+export function useExtratoConta(contaId: string, filters?: FiltrosExtrato) {
+  return useQuery({
+    queryKey: contasKeys.extrato(contaId, filters),
+    queryFn: () => contaService.buscarExtrato(contaId, filters),
+    enabled: !!contaId,
+    staleTime: 2 * 60 * 1000, // Extrato muda frequentemente
+  });
+}
 
-  const criarConta = useCallback(async (dados: any) => {
-    setLoading(true);
-    setError(null);
+/**
+ * Hook para criar conta
+ * 
+ * @example
+ * const criarConta = useCriarConta();
+ * await criarConta.mutateAsync({ 
+ *   nome: "Nubank", 
+ *   saldoInicial: 1000 
+ * });
+ */
+export function useCriarConta() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-    try {
-      const novaConta = await contaService.criar(dados);
-      setContas((prev) => [...prev, novaConta]);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Erro ao criar conta");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  return useMutation({
+    mutationFn: (dados: CreateContaDTO) => contaService.criar(dados),
+    onSuccess: () => {
+      // Invalida cache de contas
+      queryClient.invalidateQueries({ queryKey: contasKeys.all });
+      
+      // Invalida também dashboard (saldo total mudou)
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      
+      toast({
+        title: "Conta criada!",
+        description: "A conta foi criada com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao criar conta",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
 
-  const atualizarConta = useCallback(async (id: string, dados: any) => {
-    setLoading(true);
-    setError(null);
+/**
+ * Hook para atualizar conta
+ * 
+ * @example
+ * const atualizarConta = useAtualizarConta();
+ * await atualizarConta.mutateAsync({ 
+ *   id: "123", 
+ *   dados: { nome: "Novo nome" } 
+ * });
+ */
+export function useAtualizarConta() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-    try {
-      const contaAtualizada = await contaService.atualizar(id, dados);
-      setContas((prev) =>
-        prev.map((c) => (c.id === id ? contaAtualizada : c))
-      );
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Erro ao atualizar conta");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  return useMutation({
+    mutationFn: ({ id, dados }: { id: string; dados: UpdateContaDTO }) =>
+      contaService.atualizar(id, dados),
+    onSuccess: (_, variables) => {
+      // Invalida conta específica, extrato e lista
+      queryClient.invalidateQueries({ queryKey: contasKeys.byId(variables.id) });
+      queryClient.invalidateQueries({ queryKey: contasKeys.extrato(variables.id) });
+      queryClient.invalidateQueries({ queryKey: contasKeys.all });
+      
+      // Invalida dashboard
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      
+      toast({
+        title: "Conta atualizada!",
+        description: "As alterações foram salvas.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao atualizar conta",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
 
-  const removerConta = useCallback(async (id: string) => {
-    setLoading(true);
-    setError(null);
+/**
+ * Hook para remover conta
+ * 
+ * @example
+ * const removerConta = useRemoverConta();
+ * await removerConta.mutateAsync("123");
+ */
+export function useRemoverConta() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-    try {
-      await contaService.remover(id);
-      setContas((prev) => prev.filter((c) => c.id !== id));
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Erro ao remover conta");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  return useMutation({
+    mutationFn: (id: string) => contaService.remover(id),
+    onSuccess: () => {
+      // Invalida cache de contas
+      queryClient.invalidateQueries({ queryKey: contasKeys.all });
+      
+      // Invalida dashboard
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      
+      toast({
+        title: "Conta removida!",
+        description: "A conta foi removida com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao remover conta",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
 
-  useEffect(() => {
-    carregarContas();
-  }, [carregarContas]);
+/**
+ * Hook para ajustar saldo manualmente
+ * 
+ * @example
+ * const ajustarSaldo = useAjustarSaldo();
+ * await ajustarSaldo.mutateAsync({
+ *   contaId: "123",
+ *   valor: 1500.00,
+ *   descricao: "Ajuste de saldo inicial"
+ * });
+ */
+export function useAjustarSaldo() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  return {
-    contas,
-    loading,
-    error,
-    carregarContas,
-    criarConta,
-    atualizarConta,
-    removerConta,
-  };
+  return useMutation({
+    mutationFn: ({ 
+      contaId, 
+      valor, 
+      descricao 
+    }: { 
+      contaId: string; 
+      valor: number; 
+      descricao?: string;
+    }) => contaService.ajustarSaldo(contaId, valor, descricao),
+    onSuccess: (_, variables) => {
+      // Invalida conta específica, extrato e lista
+      queryClient.invalidateQueries({ queryKey: contasKeys.byId(variables.contaId) });
+      queryClient.invalidateQueries({ queryKey: contasKeys.extrato(variables.contaId) });
+      queryClient.invalidateQueries({ queryKey: contasKeys.all });
+      
+      // Invalida dashboard e extrato geral
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["extrato"] });
+      
+      toast({
+        title: "Saldo ajustado!",
+        description: "O saldo foi atualizado com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao ajustar saldo",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+/**
+ * ✅ NOVO: Hook para remover movimentação do extrato
+ * 
+ * @example
+ * const removerExtrato = useRemoverExtrato();
+ * await removerExtrato.mutateAsync({
+ *   contaId: "123",
+ *   extratoId: "456"
+ * });
+ */
+export function useRemoverExtrato() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ 
+      contaId, 
+      extratoId 
+    }: { 
+      contaId: string; 
+      extratoId: string;
+    }) => {
+      const res = await fetch(`/api/contas/${contaId}/extrato/${extratoId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: "Erro ao excluir lançamento" }));
+        throw new Error(error.message || error.error || "Erro ao excluir lançamento");
+      }
+    },
+    onSuccess: (_, variables) => {
+      // Invalida extrato da conta específica
+      queryClient.invalidateQueries({ queryKey: contasKeys.extrato(variables.contaId) });
+      
+      // Invalida conta (saldo mudou)
+      queryClient.invalidateQueries({ queryKey: contasKeys.byId(variables.contaId) });
+      queryClient.invalidateQueries({ queryKey: contasKeys.all });
+      
+      // Invalida dashboard e extrato geral
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["extrato"] });
+      
+      toast({
+        title: "Lançamento excluído!",
+        description: "A movimentação foi removida do extrato.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir lançamento",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 }

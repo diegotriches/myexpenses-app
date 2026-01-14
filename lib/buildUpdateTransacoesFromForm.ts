@@ -1,15 +1,17 @@
-import { Transacao, TransacaoUpdate } from "@/types/transacao";
+import { Transacao, UpdateTransacaoDTO, ModoEdicao } from "@/types/transacao";
 import { FormMovimentacao } from "./buildTransacoesFromForm";
 
 interface Params {
   form: FormMovimentacao;
   transacaoEdicao: Transacao;
+  modoEdicao: ModoEdicao; // ✅ ADICIONADO: modoEdicao é obrigatório
 }
 
 export function buildUpdateTransacoesFromForm({
   form,
   transacaoEdicao,
-}: Params): TransacaoUpdate[] {
+  modoEdicao, // ✅ ADICIONADO
+}: Params): UpdateTransacaoDTO[] {
   const isCartao = form.formaPagamento === "cartao";
   
   // ✅ Para cartão: usa cartaoId do form
@@ -19,26 +21,18 @@ export function buildUpdateTransacoesFromForm({
 
   return [
     {
-      id: transacaoEdicao.id,
-
+      modoEdicao, // ✅ ADICIONADO: campo obrigatório de UpdateTransacaoDTO
       tipo: form.tipo,
       categoria: form.categoria,
       descricao: form.descricao,
       data: form.data,
-      valor: String(form.valor),
-
+      valor: Number(form.valor), // ✅ NUMBER (não string)
       formaPagamento: form.formaPagamento,
       contaId,
       cartaoId,
-
-      parcelado: transacaoEdicao.parcelado,
-      parcelamentoId: transacaoEdicao.parcelamentoId,
-      parcelas: transacaoEdicao.parcelas,
-      parcelaAtual: transacaoEdicao.parcelaAtual,
-
-      recorrente: transacaoEdicao.recorrente,
-      recorrenciaId: transacaoEdicao.recorrenciaId,
-      repeticoes: transacaoEdicao.repeticoes,
+      // ✅ REMOVIDO: Campos de parcelamento/recorrência
+      // UpdateTransacaoDTO não possui esses campos
+      // Backend mantém a estrutura original automaticamente
     },
   ];
 }

@@ -1,17 +1,24 @@
+// src/components/dashboard/CardMaioresGastos.tsx
+"use client";
+
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Transacao } from '@/types/transacao';
-import { maioresGastos } from '@/utils/dashboard';
+import { maioresGastos } from '@/utils/dashboardUtils';
 import { AlertTriangle, Calendar, Tag } from 'lucide-react';
 import { useMemo } from 'react';
 
-type Props = { transacoes: Transacao[], mesAno: string };
+type Props = { 
+  transacoes: Transacao[];
+  mesAno: string;
+};
 
 export function CardMaioresGastos({ transacoes, mesAno }: Props) {
   // Filtra transações do período e pega os maiores gastos
   const topGastos = useMemo(() => {
-    const transacoesPeriodo = transacoes.filter(t => 
-      t.data.startsWith(mesAno) && t.tipo === 'saida'
-    );
+    const transacoesPeriodo = transacoes.filter(t => {
+      const dataStr = typeof t.data === 'string' ? t.data : t.data.toISOString();
+      return dataStr.startsWith(mesAno) && t.tipo === 'saida';
+    });
     return maioresGastos(transacoesPeriodo, 5);
   }, [transacoes, mesAno]);
   
@@ -21,7 +28,7 @@ export function CardMaioresGastos({ transacoes, mesAno }: Props) {
   );
 
   const formatarData = (data: string | Date) => {
-    const date = new Date(data);
+    const date = typeof data === 'string' ? new Date(data) : data;
     return date.toLocaleDateString('pt-BR', { 
       day: '2-digit', 
       month: 'short',
@@ -29,19 +36,35 @@ export function CardMaioresGastos({ transacoes, mesAno }: Props) {
     });
   };
 
+  const formatarMoeda = (valor: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(valor);
+  };
+
   return (
-    <Card>
+    <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
           <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
-          Top 5 Maiores Gastos
+          <span className="hidden sm:inline">Top 5 Maiores Gastos</span>
+          <span className="sm:hidden">Top 5 Gastos</span>
         </CardTitle>
       </CardHeader>
+      
       <CardContent>
+        {/* Empty State */}
         {topGastos.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-            Nenhum gasto encontrado neste período
-          </p>
+          <div className="text-center py-8">
+            <AlertTriangle className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Nenhum gasto encontrado neste período
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              Suas maiores despesas aparecerão aqui
+            </p>
+          </div>
         ) : (
           <div className="space-y-2.5">
             {topGastos.map((t, index) => {
@@ -50,22 +73,25 @@ export function CardMaioresGastos({ transacoes, mesAno }: Props) {
               return (
                 <div 
                   key={t.id}
-                  className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
                 >
-                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-bold flex-shrink-0">
+                  {/* Badge com Posição */}
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-bold flex-shrink-0 group-hover:scale-110 transition-transform">
                     {index + 1}
                   </div>
                   
                   <div className="flex-1 min-w-0">
+                    {/* Descrição e Valor */}
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                         {t.descricao || 'Despesa sem descrição'}
                       </span>
                       <span className="text-sm font-bold text-red-600 dark:text-red-400 ml-2 whitespace-nowrap">
-                        R$ {Number(t.valor).toFixed(2)}
+                        {formatarMoeda(Number(t.valor))}
                       </span>
                     </div>
                     
+                    {/* Barra de Progresso + Percentual */}
                     <div className="flex items-center gap-2 mb-1">
                       <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div 
@@ -78,17 +104,20 @@ export function CardMaioresGastos({ transacoes, mesAno }: Props) {
                       </span>
                     </div>
                     
+                    {/* Data e Categoria */}
                     <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                       {t.data && (
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {formatarData(t.data)}
+                          <span className="hidden sm:inline">{formatarData(t.data)}</span>
+                          <span className="sm:hidden text-[10px]">{formatarData(t.data)}</span>
                         </div>
                       )}
                       {t.categoria && (
-                        <div className="flex items-center gap-1">
-                          <Tag className="w-3 h-3" />
-                          <span className="truncate">{t.categoria}</span>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <Tag className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate hidden sm:inline">{t.categoria}</span>
+                          <span className="truncate sm:hidden text-[10px]">{t.categoria}</span>
                         </div>
                       )}
                     </div>
@@ -97,21 +126,27 @@ export function CardMaioresGastos({ transacoes, mesAno }: Props) {
               );
             })}
             
-            {/* Total e Informações Adicionais */}
+            {/* Total e Média */}
             <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total (Top 5):</span>
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  <span className="hidden sm:inline">Total (Top 5):</span>
+                  <span className="sm:hidden">Total:</span>
+                </span>
                 <span className="text-base font-bold text-red-600 dark:text-red-400">
-                  R$ {totalGastos.toFixed(2)}
+                  {formatarMoeda(totalGastos)}
                 </span>
               </div>
               
-              {/* Média dos maiores gastos */}
+              {/* Média */}
               {topGastos.length > 0 && (
                 <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
-                  <span>Média dos maiores gastos:</span>
+                  <span>
+                    <span className="hidden sm:inline">Média dos maiores gastos:</span>
+                    <span className="sm:hidden">Média:</span>
+                  </span>
                   <span className="font-semibold">
-                    R$ {(totalGastos / topGastos.length).toFixed(2)}
+                    {formatarMoeda(totalGastos / topGastos.length)}
                   </span>
                 </div>
               )}

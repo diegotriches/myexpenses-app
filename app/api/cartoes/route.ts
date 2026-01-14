@@ -2,14 +2,22 @@ import { db } from "@/db";
 import { cartoes, faturas } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
-import { getUserIdFromSession } from "@/lib/auth/helpers";
+import { getUserId } from "@/lib/auth";
 
 // ============================================
 // GET - Buscar todos os cartões do usuário
 // ============================================
 export async function GET() {
   try {
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
 
     const hoje = new Date();
     const anoAtual = hoje.getFullYear();
@@ -109,14 +117,6 @@ export async function GET() {
   } catch (err) {
     console.error("Erro no GET /api/cartoes:", err);
 
-    // Tratar erro de autenticação
-    if (err instanceof Error && err.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
     const message = err instanceof Error ? err.message : "Erro desconhecido";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -127,7 +127,15 @@ export async function GET() {
 // ============================================
 export async function POST(req: Request) {
   try {
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
 
     const body = await req.json();
 
@@ -228,13 +236,6 @@ export async function POST(req: Request) {
     return NextResponse.json(novo, { status: 201 });
   } catch (err) {
     console.error("Erro no POST /api/cartoes:", err);
-
-    if (err instanceof Error && err.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
 
     const message = err instanceof Error ? err.message : "Erro desconhecido";
     return NextResponse.json({ error: message }, { status: 500 });

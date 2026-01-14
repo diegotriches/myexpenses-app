@@ -1,7 +1,7 @@
+// src/components/ajustes/PreferenciasCard.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import api from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -28,41 +28,33 @@ import {
   BellOff,
   Info
 } from "lucide-react";
+import { useAtualizarPreferences } from "@/hooks/usePreferences";
+import type { Preferencias } from "@/types/preferences";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "next-themes";
 
-interface Preferencias {
-  idioma?: string;
-  moeda?: string;
-  notificacoes?: boolean;
-  notificacoesEmail?: boolean;
-  formatoData?: "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD";
-  inicioSemana?: "domingo" | "segunda";
-}
-
 interface Props {
   preferencias: Preferencias;
-  atualizarPreferencias: (dados: Partial<Preferencias>) => void;
 }
 
-export default function PreferenciasCard({ preferencias, atualizarPreferencias }: Props) {
+export default function PreferenciasCard({ preferencias }: Props) {
   const { theme, setTheme } = useTheme();
   const [form, setForm] = useState<Preferencias>(preferencias);
   const [preferenciasOriginais, setPreferenciasOriginais] = useState<Preferencias>(preferencias);
-  const [loading, setLoading] = useState(false);
   const [sucesso, setSucesso] = useState(false);
   const { toast } = useToast();
+
+  // React Query Mutation
+  const atualizarPreferencias = useAtualizarPreferences();
 
   useEffect(() => {
     setForm(preferencias);
     setPreferenciasOriginais(preferencias);
   }, [preferencias]);
 
-  // Verifica se houve alterações (incluindo tema)
+  // Verifica se houve alterações
   const temAlteracoes = () => {
-    const preferenciasMudaram = JSON.stringify(form) !== JSON.stringify(preferenciasOriginais);
-    // Não precisa verificar tema pois ele já salva automaticamente
-    return preferenciasMudaram;
+    return JSON.stringify(form) !== JSON.stringify(preferenciasOriginais);
   };
 
   const handleChange = <K extends keyof Preferencias>(
@@ -93,37 +85,15 @@ export default function PreferenciasCard({ preferencias, atualizarPreferencias }
 
   const salvarPreferencias = async () => {
     try {
-      setLoading(true);
-      setSucesso(false);
-
-      // Salva preferências no backend (sem tema, que já foi salvo)
-      await api.put("/users/preferencias", form);
-
-      atualizarPreferencias(form);
-      setPreferenciasOriginais(form);
-
-      setSucesso(true);
+      await atualizarPreferencias.mutateAsync(form);
       
-      toast({
-        title: "Preferências salvas!",
-        description: "Suas configurações foram atualizadas com sucesso.",
-      });
+      setPreferenciasOriginais(form);
+      setSucesso(true);
 
       setTimeout(() => setSucesso(false), 3000);
-
-    } catch (err: any) {
-      console.error("Erro ao salvar preferências:", err);
-      
-      const mensagemErro = err.response?.data?.message || 
-                          "Erro ao salvar preferências. Tente novamente.";
-      
-      toast({
-        title: "Erro ao salvar",
-        description: mensagemErro,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      // Toast de erro já é exibido pelo hook
+      console.error("Erro ao salvar preferências:", error);
     }
   };
 
@@ -283,7 +253,7 @@ export default function PreferenciasCard({ preferencias, atualizarPreferencias }
           <Select
             value={form.idioma || "pt-BR"}
             onValueChange={(v) => handleChange("idioma", v)}
-            disabled={loading}
+            disabled={atualizarPreferencias.isPending}
           >
             <SelectTrigger id="idioma">
               <SelectValue />
@@ -307,7 +277,7 @@ export default function PreferenciasCard({ preferencias, atualizarPreferencias }
           <Select
             value={form.moeda || "BRL"}
             onValueChange={(v) => handleChange("moeda", v)}
-            disabled={loading}
+            disabled={atualizarPreferencias.isPending}
           >
             <SelectTrigger id="moeda">
               <SelectValue />
@@ -334,7 +304,7 @@ export default function PreferenciasCard({ preferencias, atualizarPreferencias }
           <Select
             value={form.formatoData || "DD/MM/YYYY"}
             onValueChange={(v) => handleChange("formatoData", v as any)}
-            disabled={loading}
+            disabled={atualizarPreferencias.isPending}
           >
             <SelectTrigger id="formatoData">
               <SelectValue />
@@ -355,7 +325,7 @@ export default function PreferenciasCard({ preferencias, atualizarPreferencias }
           <Select
             value={form.inicioSemana || "domingo"}
             onValueChange={(v) => handleChange("inicioSemana", v as "domingo" | "segunda")}
-            disabled={loading}
+            disabled={atualizarPreferencias.isPending}
           >
             <SelectTrigger id="inicioSemana">
               <SelectValue />
@@ -399,7 +369,7 @@ export default function PreferenciasCard({ preferencias, atualizarPreferencias }
             id="notificacoes"
             checked={form.notificacoes ?? true}
             onCheckedChange={(v) => handleChange("notificacoes", v)}
-            disabled={loading}
+            disabled={atualizarPreferencias.isPending}
           />
         </div>
 
@@ -417,7 +387,7 @@ export default function PreferenciasCard({ preferencias, atualizarPreferencias }
             id="notificacoesEmail"
             checked={form.notificacoesEmail ?? false}
             onCheckedChange={(v) => handleChange("notificacoesEmail", v)}
-            disabled={loading}
+            disabled={atualizarPreferencias.isPending}
           />
         </div>
       </div>
@@ -428,7 +398,7 @@ export default function PreferenciasCard({ preferencias, atualizarPreferencias }
           <Button
             variant="outline"
             onClick={cancelar}
-            disabled={loading}
+            disabled={atualizarPreferencias.isPending}
             className="flex-1 sm:flex-initial"
           >
             <X size={16} className="mr-2" />
@@ -436,10 +406,10 @@ export default function PreferenciasCard({ preferencias, atualizarPreferencias }
           </Button>
           <Button
             onClick={salvarPreferencias}
-            disabled={loading}
+            disabled={atualizarPreferencias.isPending}
             className="flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700"
           >
-            {loading ? (
+            {atualizarPreferencias.isPending ? (
               <>
                 <Loader2 size={16} className="mr-2 animate-spin" />
                 Salvando...

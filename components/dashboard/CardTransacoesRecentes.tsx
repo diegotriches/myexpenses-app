@@ -1,12 +1,16 @@
+"use client";
+
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Transacao } from '@/types/transacao';
-import { ArrowUpCircle, ArrowDownCircle, Calendar } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, Calendar, Clock } from 'lucide-react';
 
-type Props = { transacoes: Transacao[] };
+type Props = { 
+  transacoes: Transacao[] 
+};
 
 export function CardTransacoesRecentes({ transacoes }: Props) {
   const formatarData = (data: string | Date) => {
-    const date = new Date(data);
+    const date = typeof data === 'string' ? new Date(data) : data;
     return date.toLocaleDateString('pt-BR', { 
       day: '2-digit', 
       month: 'short',
@@ -14,16 +18,32 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
     });
   };
 
+  const formatarMoeda = (valor: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(valor);
+  };
+
   return (
-    <Card>
+    <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardHeader>
-        <CardTitle>Últimas Transações</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+          <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          Últimas Transações
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {transacoes.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-            Nenhuma transação encontrada
-          </p>
+          <div className="text-center py-8">
+            <Clock className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Nenhuma transação encontrada
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              Suas últimas transações aparecerão aqui
+            </p>
+          </div>
         ) : (
           <ul className="space-y-2">
             {transacoes.map(t => {
@@ -32,10 +52,11 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
               return (
                 <li 
                   key={t.id} 
-                  className="flex items-center justify-between p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  className="flex items-center justify-between p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <div className={`p-1.5 rounded-full flex-shrink-0 ${
+                    {/* Ícone */}
+                    <div className={`p-1.5 rounded-full flex-shrink-0 group-hover:scale-110 transition-transform ${
                       isReceita 
                         ? 'bg-green-100 dark:bg-green-900/30' 
                         : 'bg-red-100 dark:bg-red-900/30'
@@ -47,6 +68,7 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
                       )}
                     </div>
                     
+                    {/* Descrição e Detalhes */}
                     <div className="flex flex-col min-w-0 flex-1">
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                         {t.descricao || (isReceita ? 'Receita' : 'Despesa')}
@@ -66,10 +88,30 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
                             <span className="truncate">{t.categoria}</span>
                           </>
                         )}
+
+                        {/* Indicador de parcelado/recorrente */}
+                        {t.parcelado && t.parcelas && (
+                          <>
+                            <span>•</span>
+                            <span className="text-orange-600 dark:text-orange-400 font-medium">
+                              {t.parcelaAtual}/{t.parcelas}x
+                            </span>
+                          </>
+                        )}
+                        
+                        {t.recorrente && (
+                          <>
+                            <span>•</span>
+                            <span className="text-purple-600 dark:text-purple-400 font-medium">
+                              Recorrente
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
                   
+                  {/* Valor */}
                   <span 
                     className={`text-sm font-bold whitespace-nowrap ml-2 ${
                       isReceita 
@@ -77,12 +119,21 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
                         : 'text-red-600 dark:text-red-400'
                     }`}
                   >
-                    {isReceita ? '+' : '-'} R$ {Number(t.valor).toFixed(2)}
+                    {isReceita ? '+' : '-'} {formatarMoeda(Number(t.valor))}
                   </span>
                 </li>
               );
             })}
           </ul>
+        )}
+
+        {/* Rodapé com contagem */}
+        {transacoes.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 text-center">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Mostrando {transacoes.length} transação{transacoes.length !== 1 ? 'ões' : ''} mais recente{transacoes.length !== 1 ? 's' : ''}
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>

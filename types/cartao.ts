@@ -1,7 +1,12 @@
+// src/types/cartao.ts
+
 // ========================================
 // TIPOS: Cartão de Crédito/Débito
 // ========================================
 
+/**
+ * Interface principal de Cartão
+ */
 export interface Cartao {
   id: number;
   userId: string;
@@ -17,23 +22,35 @@ export interface Cartao {
   contaVinculadaId: string | null;
   ativo: boolean;
   createdAt: string | Date;
+  // ⚠️ REMOVIDO: updatedAt (não existe no schema)
   
   // ✅ CAMPOS CALCULADOS PELA API (GET /api/cartoes)
-  emUso?: number;
-  faturaAtual?: {
-    ano: number;
-    mes: number;
-    total: number;
-    paga: boolean;
-    dataVencimento: string;
-    status: "PAGA" | "EM_ABERTO" | "ATRASADA";
-  } | null;
+  emUso?: number; // Total de faturas não pagas
+  faturaAtual?: FaturaAtual | null;
 }
 
-export interface CartaoCreate {
+/**
+ * Fatura atual do cartão (calculada pela API)
+ */
+export interface FaturaAtual {
+  id?: number;
+  ano: number;
+  mes: number;
+  total: number;
+  paga: boolean;
+  dataVencimento: string;
+  status: "PAGA" | "EM_ABERTO" | "ATRASADA";
+  dataPagamento?: string | null;
+  contaPagamentoId?: string | null;
+}
+
+/**
+ * DTO para criar cartão (sem id, userId, timestamps, campos calculados)
+ */
+export interface CreateCartaoDTO {
   nome: string;
   tipo: "credito" | "debito";
-  limite: number | string;
+  limite: number; // Frontend envia como number
   diaFechamento?: number | null;
   diaVencimento?: number | null;
   bandeira?: string;
@@ -43,10 +60,13 @@ export interface CartaoCreate {
   ativo?: boolean;
 }
 
-export interface CartaoUpdate {
+/**
+ * DTO para atualizar cartão (todos campos opcionais)
+ */
+export interface UpdateCartaoDTO {
   nome?: string;
   tipo?: "credito" | "debito";
-  limite?: number | string;
+  limite?: number; // Frontend envia como number
   diaFechamento?: number | null;
   diaVencimento?: number | null;
   bandeira?: string;
@@ -54,6 +74,39 @@ export interface CartaoUpdate {
   observacoes?: string | null;
   contaVinculadaId?: string | null;
   ativo?: boolean;
+}
+
+/**
+ * Resposta detalhada da fatura (GET /api/cartoes/[id]/fatura)
+ */
+export interface FaturaResponse {
+  fatura: FaturaAtual;
+  cartao: {
+    id: number;
+    nome: string;
+    diaFechamento: number | null;
+    diaVencimento: number | null;
+  };
+  periodo: {
+    inicio: string;
+    fim: string;
+    descricao: string;
+  };
+  transacoes: TransacaoFatura[];
+  totalTransacoes: number;
+}
+
+/**
+ * Transação vinculada à fatura
+ */
+export interface TransacaoFatura {
+  id: string;
+  data: string | Date;
+  descricao: string;
+  valor: number;
+  categoria: string;
+  parcelas?: number;
+  parcelaAtual?: number;
 }
 
 // ========================================
@@ -68,6 +121,25 @@ export function cartaoLimiteAsNumber(cartao: Cartao): {
     limite: Number(cartao.limite) || 0,
     limiteDisponivel: Number(cartao.limiteDisponivel) || 0,
     emUso: Number(cartao.emUso) || 0,
+  };
+}
+
+/**
+ * Helper para formatar limite como moeda
+ */
+export function formatarLimite(cartao: Cartao): {
+  limite: string;
+  disponivel: string;
+  usado: string;
+  percentualUsado: number;
+} {
+  const { limite, limiteDisponivel, emUso } = cartaoLimiteAsNumber(cartao);
+  
+  return {
+    limite: limite.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    disponivel: limiteDisponivel.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    usado: emUso.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    percentualUsado: limite > 0 ? (emUso / limite) * 100 : 0,
   };
 }
 

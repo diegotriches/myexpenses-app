@@ -27,19 +27,19 @@ import {
   AlertCircle, 
   TrendingUp, 
   TrendingDown,
-  Tag
+  Tag,
+  Check
 } from "lucide-react";
 import { Categoria } from "@/types/categoria";
-import api from "@/services/api";
 import { iconOptions } from "@/utils/iconOptions";
 import IconPickerModal from "@/components/categorias/IconPickerModal";
-import { useToast } from "@/hooks/use-toast";
+
+import { useCriarCategoria, useAtualizarCategoria } from "@/hooks/useCategorias";
 
 type Props = {
   aberto: boolean;
   onClose: () => void;
   categoria: Categoria | null;
-  refresh: () => void;
 };
 
 type FormErrors = {
@@ -51,15 +51,21 @@ export default function CategoriaFormModal({
   aberto,
   onClose,
   categoria,
-  refresh,
 }: Props) {
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState<"entrada" | "saida" | "ambos">("entrada");
   const [icone, setIcone] = useState("FaWallet");
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
-  const { toast } = useToast();
+  
+  // ✅ NOVO: Validação em tempo real
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  // React Query hooks
+  const criarCategoria = useCriarCategoria();
+  const atualizarCategoria = useAtualizarCategoria();
+
+  const loading = criarCategoria.isPending || atualizarCategoria.isPending;
 
   useEffect(() => {
     if (aberto) {
@@ -73,21 +79,47 @@ export default function CategoriaFormModal({
         setIcone("FaWallet");
       }
       setErrors({});
+      setTouched({});
     }
   }, [categoria, aberto]);
 
+  // ✅ MELHORADO: Validação com feedback mais detalhado
+  const validarCampo = (campo: "nome" | "tipo", valor: string): string | undefined => {
+    if (campo === "nome") {
+      if (!valor || valor.trim() === "") {
+        return "Nome é obrigatório";
+      }
+      if (valor.trim().length < 2) {
+        return "Nome deve ter pelo menos 2 caracteres";
+      }
+      if (valor.trim().length > 50) {
+        return "Nome deve ter no máximo 50 caracteres";
+      }
+      // ✅ NOVO: Validar caracteres especiais inválidos
+      if (!/^[a-zA-ZÀ-ÿ0-9\s-]+$/.test(valor)) {
+        return "Apenas letras, números, espaços e hífens são permitidos";
+      }
+    }
+    
+    if (campo === "tipo" && !valor) {
+      return "Selecione o tipo da categoria";
+    }
+    
+    return undefined;
+  };
+
   const validarFormulario = (): boolean => {
-    const novosErros: FormErrors = {};
+    const novosErros: FormErrors = {
+      nome: validarCampo("nome", nome),
+      tipo: validarCampo("tipo", tipo),
+    };
 
-    if (!nome || nome.trim() === "") {
-      novosErros.nome = "Nome é obrigatório";
-    } else if (nome.trim().length < 2) {
-      novosErros.nome = "Nome deve ter pelo menos 2 caracteres";
-    }
-
-    if (!tipo) {
-      novosErros.tipo = "Selecione o tipo da categoria";
-    }
+    // Remove erros undefined
+    Object.keys(novosErros).forEach(key => {
+      if (!novosErros[key as keyof FormErrors]) {
+        delete novosErros[key as keyof FormErrors];
+      }
+    });
 
     setErrors(novosErros);
     return Object.keys(novosErros).length === 0;
@@ -95,62 +127,54 @@ export default function CategoriaFormModal({
 
   const handleNomeChange = (value: string) => {
     setNome(value);
-    if (errors.nome) {
-      setErrors({ ...errors, nome: undefined });
+    
+    // ✅ NOVO: Validação em tempo real após campo ser "touched"
+    if (touched.nome) {
+      const erro = validarCampo("nome", value);
+      setErrors(prev => ({ ...prev, nome: erro }));
     }
+  };
+
+  const handleNomeBlur = () => {
+    setTouched(prev => ({ ...prev, nome: true }));
+    const erro = validarCampo("nome", nome);
+    setErrors(prev => ({ ...prev, nome: erro }));
   };
 
   const handleTipoChange = (value: "entrada" | "saida" | "ambos") => {
     setTipo(value);
-    if (errors.tipo) {
-      setErrors({ ...errors, tipo: undefined });
-    }
+    
+    // ✅ Limpa erro imediatamente ao selecionar
+    setErrors(prev => ({ ...prev, tipo: undefined }));
   };
 
   const salvar = async () => {
+    // Marca todos como touched
+    setTouched({ nome: true, tipo: true });
+    
     if (!validarFormulario()) {
       return;
     }
 
+    const payload = { 
+      nome: nome.trim(), 
+      tipo, 
+      icone,
+    };
+
     try {
-      setLoading(true);
-
-      const payload = { 
-        nome: nome.trim(), 
-        tipo, 
-        icone
-      };
-
       if (categoria) {
-        await api.put(`/categorias/${categoria.id}`, payload);
-        toast({
-          title: "Categoria atualizada!",
-          description: `"${nome}" foi atualizada com sucesso.`,
+        await atualizarCategoria.mutateAsync({
+          id: categoria.id,
+          dados: payload
         });
       } else {
-        await api.post("/categorias", payload);
-        toast({
-          title: "Categoria criada!",
-          description: `"${nome}" foi adicionada com sucesso.`,
-        });
+        await criarCategoria.mutateAsync(payload);
       }
-
-      refresh();
+      
       onClose();
     } catch (err: any) {
       console.error("Erro ao salvar:", err);
-      
-      const mensagem = err.response?.data?.message ||
-                      err.response?.data?.error ||
-                      "Erro ao salvar categoria. Tente novamente.";
-      
-      toast({
-        title: "Erro ao salvar",
-        description: mensagem,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -160,26 +184,36 @@ export default function CategoriaFormModal({
     }
   };
 
-  const IconComp = iconOptions.find(i => i.name === icone)?.component;
-
-  // ✅ Função para obter cor do gradiente baseado no tipo
-  const getCorGradiente = () => {
-    if (tipo === "entrada") {
-      return "from-green-500 to-green-600";
-    } else if (tipo === "saida") {
-      return "from-red-500 to-red-600";
-    } else {
-      return "from-blue-500 to-purple-600";
+  // ✅ NOVO: Enter para salvar (UX)
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey && nome.trim()) {
+      e.preventDefault();
+      salvar();
     }
   };
+
+  const IconComp = iconOptions.find(i => i.name === icone)?.component;
+
+  const getCorGradiente = () => {
+    if (tipo === "entrada") {
+      return "from-green-500 to-green-600 dark:from-green-600 dark:to-green-700";
+    } else if (tipo === "saida") {
+      return "from-red-500 to-red-600 dark:from-red-600 dark:to-red-700";
+    } else {
+      return "from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700";
+    }
+  };
+
+  // ✅ NOVO: Indicador visual de campo válido
+  const isNomeValido = nome.trim().length >= 2 && !errors.nome;
 
   return (
     <>
       <Dialog open={aberto} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
-              <Tag className="text-blue-600" size={24} />
+              <Tag className="text-blue-600 dark:text-blue-400" size={24} />
               {categoria ? "Editar Categoria" : "Nova Categoria"}
             </DialogTitle>
             <DialogDescription>
@@ -192,21 +226,46 @@ export default function CategoriaFormModal({
           <div className="space-y-4 py-4">
             {/* Nome */}
             <div className="space-y-2">
-              <Label htmlFor="nome" className="flex items-center gap-1">
-                Nome da Categoria
-                <span className="text-red-500">*</span>
+              <Label htmlFor="nome" className="flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  Nome da Categoria
+                  <span className="text-red-500">*</span>
+                </span>
+                {/* ✅ NOVO: Indicador de caracteres */}
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {nome.length}/50
+                </span>
               </Label>
-              <Input
-                id="nome"
-                type="text"
-                value={nome}
-                onChange={(e) => handleNomeChange(e.target.value)}
-                placeholder="Ex: Alimentação, Transporte, Saúde"
-                className={errors.nome ? "border-red-500" : ""}
-                disabled={loading}
-              />
+              <div className="relative">
+                <Input
+                  id="nome"
+                  type="text"
+                  value={nome}
+                  onChange={(e) => handleNomeChange(e.target.value)}
+                  onBlur={handleNomeBlur}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ex: Alimentação, Transporte, Saúde"
+                  className={`pr-10 ${errors.nome ? "border-red-500" : touched.nome && isNomeValido ? "border-green-500" : ""}`}
+                  disabled={loading}
+                  maxLength={50}
+                  aria-invalid={!!errors.nome}
+                  aria-describedby={errors.nome ? "nome-error" : undefined}
+                />
+                {/* ✅ NOVO: Check verde quando válido */}
+                {touched.nome && isNomeValido && !loading && (
+                  <Check 
+                    size={16} 
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-green-600 dark:text-green-400"
+                    aria-hidden="true"
+                  />
+                )}
+              </div>
               {errors.nome && (
-                <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+                <div 
+                  id="nome-error" 
+                  className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400"
+                  role="alert"
+                >
                   <AlertCircle size={12} />
                   <span>{errors.nome}</span>
                 </div>
@@ -227,32 +286,33 @@ export default function CategoriaFormModal({
                 <SelectTrigger 
                   id="tipo" 
                   className={errors.tipo ? "border-red-500" : ""}
+                  aria-invalid={!!errors.tipo}
                 >
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="entrada">
                     <div className="flex items-center gap-2">
-                      <TrendingUp size={14} className="text-green-600" />
+                      <TrendingUp size={14} className="text-green-600 dark:text-green-400" />
                       <span>Receita</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="saida">
                     <div className="flex items-center gap-2">
-                      <TrendingDown size={14} className="text-red-600" />
+                      <TrendingDown size={14} className="text-red-600 dark:text-red-400" />
                       <span>Despesa</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="ambos">
                     <div className="flex items-center gap-2">
-                      <Tag size={14} className="text-blue-600" />
+                      <Tag size={14} className="text-blue-600 dark:text-blue-400" />
                       <span>Ambos (Receita e Despesa)</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
               {errors.tipo && (
-                <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+                <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400" role="alert">
                   <AlertCircle size={12} />
                   <span>{errors.tipo}</span>
                 </div>
@@ -263,7 +323,7 @@ export default function CategoriaFormModal({
             <div className="space-y-2">
               <Label>Ícone</Label>
               <div className="flex items-center gap-3">
-                {/* Preview do ícone - ✅ Usar getCorGradiente() */}
+                {/* Preview do ícone */}
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getCorGradiente()} flex items-center justify-center shadow-md flex-shrink-0`}>
                   {IconComp ? (
                     <IconComp size={24} className="text-white" />
@@ -278,7 +338,7 @@ export default function CategoriaFormModal({
                   variant="outline"
                   onClick={() => setIconPickerOpen(true)}
                   disabled={loading}
-                  className="flex-1"
+                  className="flex-1 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   Selecionar Ícone
                 </Button>
@@ -302,14 +362,15 @@ export default function CategoriaFormModal({
               variant="outline"
               onClick={handleClose}
               disabled={loading}
+              className="hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               <X size={16} className="mr-2" />
               Cancelar
             </Button>
             <Button
               onClick={salvar}
-              disabled={loading || !nome.trim()}
-              className="bg-blue-600 hover:bg-blue-700"
+              disabled={loading || !nome.trim() || nome.trim().length < 2}
+              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
             >
               {loading ? (
                 <>
@@ -331,6 +392,7 @@ export default function CategoriaFormModal({
         aberto={iconPickerOpen}
         onClose={() => setIconPickerOpen(false)}
         onSelect={(iconName) => setIcone(iconName)}
+        iconeAtual={icone}
       />
     </>
   );

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, MoreVertical } from "lucide-react";
+import { ArrowLeft, Download, MoreVertical, Trash2, TrendingUp, TrendingDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,49 +12,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Trash2 } from "lucide-react";
 
 import FiltrosExtrato, { FiltrosExtratoState } from "@/components/extrato/FiltrosExtrato";
 import ModalExcluirExtrato from "@/components/extrato/ModalExcluirExtrato";
 
-interface ExtratoItem {
-  id: string;
-  data: string;
-  tipo: "entrada" | "saida";
-  descricao: string;
-  valor: number;
-  saldoApos: number;
-  origem: "TRANSACAO_MANUAL" | "PAGAMENTO_FATURA" | "TRANSFERENCIA" | "AJUSTE" | "ESTORNO";
-  referenciaId?: string | null;
-}
-
-interface ResumoExtrato {
-  contaId: string;
-  contaNome: string;
-  saldoInicial: number;
-  saldoFinal: number;
-  totalEntradas: number;
-  totalSaidas: number;
-  variacao: number;
-  periodo: {
-    inicio: string;
-    fim: string;
-  };
-}
+import { useExtratoConta, useRemoverExtrato } from "@/hooks/useContas";
+import type { MovimentacaoExtrato } from "@/types/conta";
 
 export default function ExtratoContaPage() {
   const params = useParams();
   const router = useRouter();
   const contaId = params?.id as string;
 
-  const [extrato, setExtrato] = useState<ExtratoItem[]>([]);
-  const [resumo, setResumo] = useState<ResumoExtrato | null>(null);
-  const [contaNome, setContaNome] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  const removerExtrato = useRemoverExtrato();
 
   // Modal de exclusão
   const [modalExcluir, setModalExcluir] = useState(false);
-  const [itemExcluir, setItemExcluir] = useState<ExtratoItem | null>(null);
+  const [itemExcluir, setItemExcluir] = useState<MovimentacaoExtrato | null>(null);
 
   // Filtros
   const [filtros, setFiltros] = useState<FiltrosExtratoState>({
@@ -64,58 +38,49 @@ export default function ExtratoContaPage() {
     origem: "TODAS",
   });
 
-  const carregarExtrato = useCallback(async () => {
-    setLoading(true);
+  // Preparar filtros para React Query
+  const filtrosQuery = useMemo(() => {
+    const params: any = {};
+    if (filtros.inicio) params.inicio = filtros.inicio;
+    if (filtros.fim) params.fim = filtros.fim;
+    if (filtros.tipo !== "TODOS") params.tipo = filtros.tipo;
+    if (filtros.origem !== "TODAS") params.origem = filtros.origem;
+    return params;
+  }, [filtros]);
 
-    try {
-      const query = new URLSearchParams();
-      if (filtros.inicio) query.append("inicio", filtros.inicio);
-      if (filtros.fim) query.append("fim", filtros.fim);
-      if (filtros.tipo !== "TODOS") query.append("tipo", filtros.tipo);
-      if (filtros.origem !== "TODAS") query.append("origem", filtros.origem);
+  const { 
+    data: extratoData, 
+    isLoading: loading,
+    error 
+  } = useExtratoConta(contaId, filtrosQuery);
 
-      const res = await fetch(`/api/contas/${contaId}/extrato?${query.toString()}`);
+  // Extrair dados da resposta
+  const extrato = extratoData?.movimentacoes ?? [];
+  const resumo = extratoData?.resumo;
+  const contaNome = extratoData?.conta?.nome ?? "";
 
-      if (!res.ok) {
-        throw new Error("Erro ao carregar extrato");
-      }
+  // ✅ Helper para formatar moeda
+  const formatarMoeda = (valor: number): string => {
+    return valor.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  };
 
-      const data = await res.json();
-
-      setExtrato(data.extrato ?? []);
-      setResumo(data.resumo ?? null);
-      setContaNome(data.contaNome ?? "");
-    } catch (error) {
-      console.error("Erro ao carregar extrato:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [contaId, filtros]);
-
-  useEffect(() => {
-    if (contaId) {
-      carregarExtrato();
-    }
-  }, [contaId, carregarExtrato]);
-
+  // Handler para excluir
   const handleExcluir = async () => {
     if (!itemExcluir) return;
 
     try {
-      const res = await fetch(`/api/contas/${contaId}/extrato/${itemExcluir.id}`, {
-        method: "DELETE",
+      await removerExtrato.mutateAsync({
+        contaId,
+        extratoId: itemExcluir.id,
       });
 
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error || "Erro ao excluir lançamento");
-      }
-
-      // Recarrega o extrato
-      await carregarExtrato();
+      setModalExcluir(false);
+      setItemExcluir(null);
     } catch (error) {
       console.error("Erro ao excluir:", error);
-      alert(error instanceof Error ? error.message : "Erro ao excluir lançamento");
     }
   };
 
@@ -135,25 +100,93 @@ export default function ExtratoContaPage() {
     return <Badge variant={badge.variant}>{badge.label}</Badge>;
   };
 
+  // Card de movimentação para mobile
+  const MovimentacaoCard = ({ item }: { item: MovimentacaoExtrato }) => (
+    <Card className="hover:shadow-md transition-shadow dark:bg-gray-800 dark:border-gray-700">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              {getOrigemBadge(item.origem)}
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {new Date(item.data).toLocaleDateString("pt-BR")}
+              </span>
+            </div>
+            <p className="font-medium text-gray-900 dark:text-white">{item.descricao}</p>
+          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 -mt-1">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setItemExcluir(item);
+                  setModalExcluir(true);
+                }}
+                className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">Valor</p>
+            <p className={`font-semibold ${
+              item.tipo === "entrada" 
+                ? "text-green-600 dark:text-green-400" 
+                : "text-red-600 dark:text-red-400"
+            }`}>
+              {item.tipo === "entrada" ? "+" : "-"} {formatarMoeda(item.valor)}
+            </p>
+          </div>
+          
+          <div className="text-right">
+            <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">Saldo após</p>
+            <p className={`font-semibold ${
+              item.saldoApos >= 0 
+                ? "text-gray-900 dark:text-white" 
+                : "text-red-600 dark:text-red-400"
+            }`}>
+              {formatarMoeda(item.saldoApos)}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-[1400px] mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => router.back()}
+            className="dark:hover:bg-gray-800"
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
               Extrato da Conta
             </h1>
             {contaNome && (
-              <p className="text-muted-foreground dark:text-gray-400">{contaNome}</p>
+              <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">{contaNome}</p>
             )}
           </div>
         </div>
 
-        <Button variant="outline" disabled>
+        <Button variant="outline" disabled className="hidden md:flex dark:border-gray-700">
           <Download className="h-4 w-4 mr-2" />
           Exportar
         </Button>
@@ -161,50 +194,61 @@ export default function ExtratoContaPage() {
 
       {/* Resumo do Período */}
       {resumo && (
-        <Card>
+        <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle>Resumo do Período</CardTitle>
-            <p className="text-sm text-muted-foreground dark:text-gray-400">
-              {new Date(resumo.periodo.inicio).toLocaleDateString("pt-BR")} até{" "}
-              {new Date(resumo.periodo.fim).toLocaleDateString("pt-BR")}
-            </p>
+            <CardTitle className="text-lg md:text-xl text-gray-900 dark:text-white">
+              Resumo do Período
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div>
-                <p className="text-sm text-muted-foreground dark:text-gray-400">Saldo Inicial</p>
-                <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  R$ {resumo.saldoInicial.toFixed(2)}
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  Saldo Inicial
+                </p>
+                <p className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
+                  {formatarMoeda(resumo.saldoInicial)}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground dark:text-gray-400">Entradas</p>
-                <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                  + R$ {resumo.totalEntradas.toFixed(2)}
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  Entradas
+                </p>
+                <p className="text-base md:text-lg font-bold text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <TrendingUp className="h-4 w-4" />
+                  {formatarMoeda(resumo.totalEntradas)}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground dark:text-gray-400">Saídas</p>
-                <p className="text-lg font-bold text-red-600 dark:text-red-400">
-                  - R$ {resumo.totalSaidas.toFixed(2)}
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  Saídas
+                </p>
+                <p className="text-base md:text-lg font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <TrendingDown className="h-4 w-4" />
+                  {formatarMoeda(resumo.totalSaidas)}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground dark:text-gray-400">Variação</p>
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  Variação
+                </p>
                 <p
-                  className={`text-lg font-bold ${
-                    resumo.variacao >= 0 
+                  className={`text-base md:text-lg font-bold ${
+                    (resumo.saldoFinal - resumo.saldoInicial) >= 0 
                       ? "text-green-600 dark:text-green-400" 
                       : "text-red-600 dark:text-red-400"
                   }`}
                 >
-                  {resumo.variacao >= 0 ? "+" : ""} R$ {resumo.variacao.toFixed(2)}
+                  {(resumo.saldoFinal - resumo.saldoInicial) >= 0 ? "+" : ""}
+                  {formatarMoeda(resumo.saldoFinal - resumo.saldoInicial)}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground dark:text-gray-400">Saldo Final</p>
-                <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  R$ {resumo.saldoFinal.toFixed(2)}
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  Saldo Final
+                </p>
+                <p className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
+                  {formatarMoeda(resumo.saldoFinal)}
                 </p>
               </div>
             </div>
@@ -216,47 +260,103 @@ export default function ExtratoContaPage() {
       <FiltrosExtrato
         filtros={filtros}
         onFiltrosChange={setFiltros}
-        onAplicar={carregarExtrato}
       />
 
-      {/* Tabela de Extrato */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted dark:bg-gray-800">
-                <tr>
-                  <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Data</th>
-                  <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Descrição</th>
-                  <th className="text-center p-3 font-medium text-gray-900 dark:text-white">Origem</th>
-                  <th className="text-right p-3 font-medium text-gray-900 dark:text-white">Entrada</th>
-                  <th className="text-right p-3 font-medium text-gray-900 dark:text-white">Saída</th>
-                  <th className="text-right p-3 font-medium text-gray-900 dark:text-white">Saldo</th>
-                  <th className="text-center p-3 font-medium text-gray-900 dark:text-white w-16">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading && (
-                  <tr>
-                    <td colSpan={7} className="p-6 text-center text-muted-foreground dark:text-gray-400">
-                      Carregando extrato...
-                    </td>
-                  </tr>
-                )}
+      {/* Error State */}
+      {error && (
+        <Card className="border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20">
+          <CardContent className="p-6 text-center">
+            <p className="text-red-600 dark:text-red-400 font-medium mb-2">
+              Erro ao carregar extrato
+            </p>
+            <p className="text-sm text-red-500 dark:text-red-400 mb-4">
+              {error.message}
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => window.location.reload()}
+              className="border-red-300 dark:border-red-700 dark:bg-red-950 dark:hover:bg-red-900"
+            >
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
-                {!loading && extrato.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="p-6 text-center text-muted-foreground dark:text-gray-400">
-                      Nenhuma movimentação encontrada no período
-                    </td>
-                  </tr>
-                )}
+      {/* Loading State */}
+      {loading && !error && (
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} className="animate-pulse dark:bg-gray-800 dark:border-gray-700">
+              <CardContent className="p-4">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-                {!loading &&
-                  extrato.map((item) => (
+      {/* Empty State */}
+      {!loading && !error && extrato.length === 0 && (
+        <Card className="border-dashed dark:bg-gray-800 dark:border-gray-700">
+          <CardContent className="p-12 text-center">
+            <p className="text-gray-600 dark:text-gray-400 font-medium mb-1">
+              Nenhuma movimentação encontrada
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-500">
+              Tente ajustar os filtros ou período selecionado
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Vista Mobile - Cards */}
+      {!loading && !error && extrato.length > 0 && (
+        <div className="md:hidden space-y-3">
+          {extrato.map((item) => (
+            <MovimentacaoCard key={item.id} item={item} />
+          ))}
+        </div>
+      )}
+
+      {/* Vista Desktop - Tabela */}
+      {!loading && !error && extrato.length > 0 && (
+        <Card className="hidden md:block dark:bg-gray-800 dark:border-gray-700">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-900">
+                  <tr>
+                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">
+                      Data
+                    </th>
+                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">
+                      Descrição
+                    </th>
+                    <th className="text-center p-3 font-medium text-gray-900 dark:text-white">
+                      Origem
+                    </th>
+                    <th className="text-right p-3 font-medium text-gray-900 dark:text-white">
+                      Entrada
+                    </th>
+                    <th className="text-right p-3 font-medium text-gray-900 dark:text-white">
+                      Saída
+                    </th>
+                    <th className="text-right p-3 font-medium text-gray-900 dark:text-white">
+                      Saldo
+                    </th>
+                    <th className="text-center p-3 font-medium text-gray-900 dark:text-white w-16">
+                      Ações
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {extrato.map((item) => (
                     <tr 
                       key={item.id} 
-                      className="border-t border-gray-200 dark:border-gray-700 hover:bg-muted/50 dark:hover:bg-gray-800/50 transition-colors"
+                      className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                     >
                       <td className="p-3 whitespace-nowrap text-gray-900 dark:text-gray-200">
                         {new Date(item.data).toLocaleDateString("pt-BR")}
@@ -266,10 +366,10 @@ export default function ExtratoContaPage() {
                       </td>
                       <td className="p-3 text-center">{getOrigemBadge(item.origem)}</td>
                       <td className="p-3 text-right font-medium text-green-600 dark:text-green-400">
-                        {item.tipo === "entrada" && `+ R$ ${item.valor.toFixed(2)}`}
+                        {item.tipo === "entrada" && `+ ${formatarMoeda(item.valor)}`}
                       </td>
                       <td className="p-3 text-right font-medium text-red-600 dark:text-red-400">
-                        {item.tipo === "saida" && `- R$ ${item.valor.toFixed(2)}`}
+                        {item.tipo === "saida" && `- ${formatarMoeda(item.valor)}`}
                       </td>
                       <td
                         className={`p-3 text-right font-semibold ${
@@ -278,7 +378,7 @@ export default function ExtratoContaPage() {
                             : "text-red-600 dark:text-red-400"
                         }`}
                       >
-                        R$ {item.saldoApos.toFixed(2)}
+                        {formatarMoeda(item.saldoApos)}
                       </td>
                       <td className="p-3 text-center">
                         <DropdownMenu>
@@ -303,11 +403,12 @@ export default function ExtratoContaPage() {
                       </td>
                     </tr>
                   ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Modal de Exclusão */}
       <ModalExcluirExtrato

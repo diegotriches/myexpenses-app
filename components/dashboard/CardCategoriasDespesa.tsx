@@ -1,29 +1,50 @@
+"use client";
+
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Transacao } from '@/types/transacao';
-import { categoriasDespesa } from '@/utils/dashboard';
+import { categoriasDespesa } from '@/utils/dashboardUtils';
 import { TrendingDown } from 'lucide-react';
 import { useMemo } from 'react';
 
-type Props = { transacoes: Transacao[] };
+type Props = { 
+  transacoes: Transacao[] 
+};
 
 export function CardCategoriasDespesa({ transacoes }: Props) {
-  const categorias = useMemo(() => categoriasDespesa(transacoes), [transacoes]);
-  const totalDespesas = useMemo(
-    () => categorias.reduce((acc, c) => acc + c.total, 0),
-    [categorias]
-  );
+  const categorias = useMemo(() => {
+    return categoriasDespesa(transacoes);
+  }, [transacoes]);
+
+  const totalDespesas = useMemo(() => {
+    return categorias.reduce((acc, c) => acc + c.total, 0);
+  }, [categorias]);
+
+  const formatarMoeda = (valor: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(valor);
+  };
 
   return (
-    <Card>
+    <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
           <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400" />
           Categorias com Maior Despesa
         </CardTitle>
       </CardHeader>
       <CardContent>
         {categorias.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Nenhuma despesa encontrada</p>
+          <div className="text-center py-8">
+            <TrendingDown className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Nenhuma despesa encontrada
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              As despesas aparecerão aqui quando você registrá-las
+            </p>
+          </div>
         ) : (
           <div className="space-y-2.5">
             {categorias.slice(0, 5).map((c, index) => {
@@ -32,26 +53,29 @@ export function CardCategoriasDespesa({ transacoes }: Props) {
               return (
                 <div 
                   key={c.categoria}
-                  className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
                 >
-                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-bold flex-shrink-0">
+                  {/* Ranking Badge */}
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-bold flex-shrink-0 group-hover:scale-110 transition-transform">
                     {index + 1}
                   </div>
                   
                   <div className="flex-1 min-w-0">
+                    {/* Categoria e Valor */}
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                         {c.categoria}
                       </span>
                       <span className="text-sm font-bold text-red-600 dark:text-red-400 ml-2 whitespace-nowrap">
-                        R$ {c.total.toFixed(2)}
+                        {formatarMoeda(c.total)}
                       </span>
                     </div>
                     
+                    {/* Barra de Progresso */}
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-red-500 transition-all duration-300"
+                          className="h-full bg-gradient-to-r from-red-500 to-red-600 transition-all duration-300"
                           style={{ width: `${porcentagem}%` }}
                         />
                       </div>
@@ -60,19 +84,31 @@ export function CardCategoriasDespesa({ transacoes }: Props) {
                       </span>
                     </div>
                     
+                    {/* Quantidade */}
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {c.quantidade} lançamento(s)
+                      {c.quantidade} lançamento{c.quantidade !== 1 ? 's' : ''}
                     </p>
                   </div>
                 </div>
               );
             })}
             
+            {/* Indicador de mais categorias */}
+            {categorias.length > 5 && (
+              <div className="text-center pt-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  + {categorias.length - 5} categoria{categorias.length - 5 !== 1 ? 's' : ''} com despesas
+                </p>
+              </div>
+            )}
+            
             {/* Total */}
             <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total em despesas:</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Total em despesas:
+              </span>
               <span className="text-base font-bold text-red-600 dark:text-red-400">
-                R$ {totalDespesas.toFixed(2)}
+                {formatarMoeda(totalDespesas)}
               </span>
             </div>
           </div>

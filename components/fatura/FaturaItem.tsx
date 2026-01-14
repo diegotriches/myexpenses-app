@@ -2,17 +2,15 @@
 
 import { Badge } from "@/components/ui/badge";
 import { 
-  Repeat, 
   CreditCard,
   Calendar,
   Tag,
-  TrendingUp,
   TrendingDown
 } from "lucide-react";
-import { Transacao } from "@/types/transacao";
+import { TransacaoFatura } from "@/types/cartao";
 
 interface Props {
-  transacao: Transacao;
+  transacao: TransacaoFatura;
 }
 
 export default function FaturaItem({ transacao }: Props) {
@@ -26,15 +24,15 @@ export default function FaturaItem({ transacao }: Props) {
   };
 
   // Formatação de data
-  const formatarData = (data: string) => {
+  const formatarData = (data: string | Date) => {
     try {
-      const date = new Date(data);
+      const date = typeof data === 'string' ? new Date(data) : data;
       return date.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: 'short',
       });
     } catch {
-      return data;
+      return String(data);
     }
   };
 
@@ -67,6 +65,9 @@ export default function FaturaItem({ transacao }: Props) {
     ? parseFloat(transacao.valor) 
     : transacao.valor;
 
+  // ✅ Verificação segura - apenas campo garantido (parcelas)
+  const isParcelado = transacao.parcelas && transacao.parcelas > 1;
+
   return (
     <div className="group p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200">
       <div className="flex items-start justify-between gap-4">
@@ -85,24 +86,14 @@ export default function FaturaItem({ transacao }: Props) {
                 {transacao.descricao || "Sem descrição"}
               </span>
               
-              {/* Badges de Tipo */}
-              {transacao.parcelado && (
+              {/* ✅ Badge de Parcelamento - Apenas se parcelas > 1 */}
+              {isParcelado && (
                 <Badge 
                   variant="outline" 
                   className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-900"
                 >
                   <CreditCard size={10} className="mr-1" />
-                  {transacao.parcelaAtual}/{transacao.parcelas}
-                </Badge>
-              )}
-              
-              {transacao.recorrente && (
-                <Badge 
-                  variant="outline" 
-                  className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900"
-                >
-                  <Repeat size={10} className="mr-1" />
-                  Recorrente
+                  {transacao.parcelas}x
                 </Badge>
               )}
             </div>
@@ -124,56 +115,42 @@ export default function FaturaItem({ transacao }: Props) {
               )}
             </div>
 
-            {/* Informações Adicionais - Mobile */}
+            {/* Badge Mobile */}
             <div className="flex md:hidden items-center gap-2 mt-1">
-              {transacao.formaPagamento && (
-                <Badge variant="secondary" className="text-xs">
-                  {transacao.formaPagamento}
-                </Badge>
-              )}
+              <Badge variant="secondary" className="text-xs">
+                Cartão
+              </Badge>
             </div>
           </div>
         </div>
 
         {/* Right Section */}
         <div className="flex flex-col items-end gap-2 flex-shrink-0">
-          {/* Valor */}
+          {/* Valor - Sempre negativo */}
           <div className="flex items-center gap-1">
-            {transacao.tipo === "saida" ? (
-              <TrendingDown size={16} className="text-red-600 dark:text-red-400" />
-            ) : (
-              <TrendingUp size={16} className="text-green-600 dark:text-green-400" />
-            )}
-            <span
-              className={`font-bold text-lg ${
-                transacao.tipo === "saida"
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-green-600 dark:text-green-400"
-              }`}
-            >
-              {transacao.tipo === "saida" ? "-" : "+"} {formatarMoeda(valorNum)}
+            <TrendingDown size={16} className="text-red-600 dark:text-red-400" />
+            <span className="font-bold text-lg text-red-600 dark:text-red-400">
+              - {formatarMoeda(valorNum)}
             </span>
           </div>
 
-          {/* Forma de Pagamento - Desktop */}
-          {transacao.formaPagamento && (
-            <Badge 
-              variant="secondary" 
-              className="hidden md:flex text-xs capitalize"
-            >
-              {transacao.formaPagamento}
-            </Badge>
-          )}
+          {/* Badge Desktop */}
+          <Badge 
+            variant="secondary" 
+            className="hidden md:flex text-xs"
+          >
+            Cartão
+          </Badge>
         </div>
       </div>
 
-      {/* Detalhes Parcelamento - Expandido */}
-      {transacao.parcelado && (
+      {/* ✅ Detalhes Parcelamento - Simplificado */}
+      {isParcelado && (
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-            <span>Valor da parcela</span>
+            <span>Parcelado em</span>
             <span className="font-semibold">
-              {formatarMoeda(valorNum)} de {formatarMoeda(valorNum * (transacao.parcelas || 1))}
+              {transacao.parcelas}x de {formatarMoeda(valorNum)}
             </span>
           </div>
         </div>

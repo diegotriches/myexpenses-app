@@ -25,10 +25,11 @@ interface Props {
   contaInicial?: Conta;
 }
 
-const defaultForm: Omit<CreateContaDTO, 'tipo'> = {
+// ✅ CORRIGIDO: Removido Omit desnecessário
+const defaultForm: CreateContaDTO = {
   nome: "",
   ativo: true,
-  banco: "",  // ✅ Usar string vazia ao invés de undefined
+  banco: "",
   saldoInicial: 0,
   observacoes: "",
 };
@@ -45,7 +46,8 @@ export default function ContaModal({
   onOpenChange,
   contaInicial,
 }: Props) {
-  const [form, setForm] = useState<Omit<CreateContaDTO, 'tipo'>>(defaultForm);
+  // ✅ CORRIGIDO: Type simplificado
+  const [form, setForm] = useState<CreateContaDTO>(defaultForm);
   const [errors, setErrors] = useState<FormErrors>({});
   const [valorFormatado, setValorFormatado] = useState<string>("0,00");
 
@@ -54,7 +56,7 @@ export default function ContaModal({
       const dadosIniciais = contaInicial ?? defaultForm;
       setForm({
         ...dadosIniciais,
-        banco: dadosIniciais.banco || "",  // ✅ Converter null/undefined para string vazia
+        banco: dadosIniciais.banco || "",
       });
       setValorFormatado(formatarParaInput(dadosIniciais.saldoInicial || 0));
       setErrors({});
@@ -75,9 +77,10 @@ export default function ContaModal({
     return parseFloat(numeroLimpo) || 0;
   };
 
-  const handleChange = <K extends keyof Omit<CreateContaDTO, 'tipo'>>(
+  // ✅ CORRIGIDO: Type assertion simplificado
+  const handleChange = <K extends keyof CreateContaDTO>(
     key: K,
-    value: (typeof form)[K]
+    value: CreateContaDTO[K]
   ) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     // Limpa erro do campo quando usuário começa a digitar
@@ -149,17 +152,17 @@ export default function ContaModal({
       return;
     }
 
-    // ✅ Prepara dados para envio, mantendo o banco se foi preenchido
-    const dadosParaSalvar = {
+    // Prepara dados para envio
+    const dadosParaSalvar: CreateContaDTO | UpdateContaDTO = {
       nome: form.nome.trim(),
       ativo: form.ativo ?? true,
       saldoInicial: Number(form.saldoInicial) || 0,
       observacoes: form.observacoes?.trim() || "",
-      // ✅ Envia banco como string ou undefined (não string vazia)
+      // Envia banco como string ou undefined (não string vazia)
       banco: form.banco && form.banco.trim() !== "" ? form.banco.trim() : undefined,
     };
 
-    onSalvar(dadosParaSalvar as CreateContaDTO | UpdateContaDTO);
+    onSalvar(dadosParaSalvar);
 
     setForm(defaultForm);
     setValorFormatado("0,00");
@@ -175,7 +178,7 @@ export default function ContaModal({
           <DialogTitle className="text-xl">
             {contaInicial ? "Editar Conta" : "Nova Conta"}
           </DialogTitle>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Gerencie suas contas bancárias e carteiras digitais
           </p>
         </DialogHeader>
@@ -192,10 +195,10 @@ export default function ContaModal({
               value={form.nome}
               onChange={(e) => handleChange("nome", e.target.value)}
               placeholder="Ex: Conta Corrente Nubank, Carteira PicPay"
-              className={errors.nome ? "border-red-500" : ""}
+              className={errors.nome ? "border-red-500 dark:border-red-500" : ""}
             />
             {errors.nome && (
-              <div className="flex items-center gap-1 text-xs text-red-600">
+              <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
                 <AlertCircle size={12} />
                 <span>{errors.nome}</span>
               </div>
@@ -211,25 +214,25 @@ export default function ContaModal({
               options={empresaOptions}
             />
             {errors.banco && (
-              <div className="flex items-center gap-1 text-xs text-red-600">
+              <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
                 <AlertCircle size={12} />
                 <span>{errors.banco}</span>
               </div>
             )}
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               Selecione a instituição financeira desta conta
             </p>
           </div>
 
           {/* Saldo Inicial e Status */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="saldo" className="flex items-center gap-1">
                 Saldo Inicial
                 <span className="text-red-500">*</span>
               </Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">
                   R$
                 </span>
                 <Input
@@ -238,11 +241,11 @@ export default function ContaModal({
                   onChange={handleValorChange}
                   onBlur={handleValorBlur}
                   placeholder="0,00"
-                  className={`pl-10 ${errors.saldoInicial ? "border-red-500" : ""}`}
+                  className={`pl-10 ${errors.saldoInicial ? "border-red-500 dark:border-red-500" : ""}`}
                 />
               </div>
               {errors.saldoInicial && (
-                <div className="flex items-center gap-1 text-xs text-red-600">
+                <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
                   <AlertCircle size={12} />
                   <span>{errors.saldoInicial}</span>
                 </div>
@@ -251,8 +254,8 @@ export default function ContaModal({
 
             <div className="space-y-2">
               <Label htmlFor="ativo">Status</Label>
-              <div className="flex items-center gap-3 h-10 px-3 border rounded-md bg-gray-50">
-                <span className="text-sm font-medium flex-1">
+              <div className="flex items-center gap-3 h-10 px-3 border rounded-md bg-gray-50 dark:bg-gray-900 dark:border-gray-700">
+                <span className="text-sm font-medium flex-1 text-gray-900 dark:text-gray-100">
                   {form.ativo ? "Ativa" : "Inativa"}
                 </span>
                 <Switch
@@ -268,7 +271,7 @@ export default function ContaModal({
           <div className="space-y-2">
             <Label htmlFor="observacoes">
               Observações
-              <span className="text-gray-400 text-xs ml-1">(opcional)</span>
+              <span className="text-gray-400 dark:text-gray-500 text-xs ml-1">(opcional)</span>
             </Label>
             <Textarea
               id="observacoes"

@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import api from "@/services/api";
+import { signOut } from "next-auth/react";
+import { useProfile } from "@/hooks/useProfile";
 import {
   Tooltip,
   TooltipContent,
@@ -39,16 +40,10 @@ interface SidebarProps {
   isCollapsed: boolean;
 }
 
-interface UserData {
-  id?: number;
-  foto?: string | null;
-  email?: string;
-  nome?: string;
-}
-
 const Sidebar = ({ isCollapsed }: SidebarProps) => {
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState(true);
+  // ✅ React Query - substitui useState + useEffect + api.get
+  const { data: userData, isLoading: loading } = useProfile();
+  
   const [fotoError, setFotoError] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const pathname = usePathname();
@@ -61,37 +56,12 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    const carregarDados = async () => {
-      try {
-        console.log("🔄 Carregando dados do usuário para sidebar...");
-        
-        // ✅ Endpoint correto
-        const res = await api.get("/users/me");
-        
-        console.log("📦 Dados recebidos:", res.data);
-
-        if (res.data) {
-          setUserData({
-            id: res.data.id,
-            nome: res.data.nome || res.data.name,
-            email: res.data.email,
-            foto: res.data.foto, // ✅ Já vem a URL completa do Vercel Blob
-          });
-        }
-      } catch (err) {
-        console.error("❌ Erro ao carregar dados do usuário:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    carregarDados();
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    router.push("/login");
+  // ✅ Usa NextAuth signOut ao invés de localStorage
+  const handleLogout = async () => {
+    await signOut({ 
+      callbackUrl: "/login",
+      redirect: true 
+    });
   };
 
   const toggleTheme = () => {
@@ -118,7 +88,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       title: "Principal",
       links: [
         { href: "/dashboard", icon: BsHouse, label: "Dashboard" },
-        { href: "/movimentacao", icon: BsArrowLeftRight, label: "Movimentações" },
+        { href: "/transacoes", icon: BsArrowLeftRight, label: "Movimentações" },
       ],
     },
     {
@@ -164,8 +134,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   const UserProfileCard = () => {
     // ✅ Prioriza nome, senão pega primeira letra do email
     const getInitials = () => {
-      if (userData?.nome) {
-        return userData.nome
+      if (userData?.name) {
+        return userData.name
           .split(' ')
           .map(n => n[0])
           .join('')
@@ -176,7 +146,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     };
 
     const initials = getInitials();
-    const displayName = userData?.nome || "Usuário";
+    const displayName = userData?.name || "Usuário";
     const displayEmail = userData?.email || "";
 
     const cardContent = (
@@ -189,13 +159,13 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           <div className="w-10 h-10 rounded-full border-2 border-white dark:border-slate-700 overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700">
             {loading ? (
               <div className="w-full h-full bg-blue-400 dark:bg-blue-600 animate-pulse" />
-            ) : userData?.foto && !fotoError ? (
+            ) : userData?.image && !fotoError ? (
               <img
-                src={userData.foto}
+                src={userData.image}
                 alt={displayName}
                 className="w-full h-full object-cover"
                 onError={() => {
-                  console.error("❌ Erro ao carregar foto:", userData.foto);
+                  console.error("❌ Erro ao carregar foto:", userData.image);
                   setFotoError(true);
                 }}
               />

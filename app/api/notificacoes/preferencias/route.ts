@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(prefs);
   } catch (error: any) {
-    console.error("Erro ao buscar preferências:", error);
+    console.error("❌ Erro ao buscar preferências:", error);
     return NextResponse.json(
       { error: error.message || "Erro ao buscar preferências" },
       { status: 500 }
@@ -65,6 +65,45 @@ export async function PUT(req: NextRequest) {
     }
 
     const body: Partial<PreferenciasNotificacao> = await req.json();
+
+    // Validações de valores
+    if (body.diasAntesVencimento !== undefined) {
+      const dias = Number(body.diasAntesVencimento);
+      if (isNaN(dias) || dias < 1 || dias > 30) {
+        return NextResponse.json(
+          { error: "diasAntesVencimento deve ser entre 1 e 30" },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (body.limiteMinimoConta !== undefined) {
+      const limite = Number(body.limiteMinimoConta);
+      if (isNaN(limite) || limite < 0) {
+        return NextResponse.json(
+          { error: "limiteMinimoConta deve ser maior ou igual a 0" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validar booleanos
+    const camposBooleanos: (keyof PreferenciasNotificacao)[] = [
+      'faturas',
+      'limiteCartao',
+      'saldoBaixo',
+      'transacoesAltas',
+      'emailNotificacoes'
+    ];
+
+    for (const campo of camposBooleanos) {
+      if (body[campo] !== undefined && typeof body[campo] !== 'boolean') {
+        return NextResponse.json(
+          { error: `${campo} deve ser um valor booleano (true/false)` },
+          { status: 400 }
+        );
+      }
+    }
 
     // Remover campos que não devem ser atualizados
     delete (body as any).id;
@@ -94,11 +133,20 @@ export async function PUT(req: NextRequest) {
         .where(eq(preferenciasNotificacao.userId, userId))
         .returning();
     } else {
-      // Criar novo
+      // Criar novo com valores padrão + body
       [result] = await db
         .insert(preferenciasNotificacao)
         .values({
           userId,
+          // Valores padrão
+          faturas: true,
+          limiteCartao: true,
+          saldoBaixo: true,
+          transacoesAltas: false,
+          emailNotificacoes: false,
+          diasAntesVencimento: 3,
+          limiteMinimoConta: 100,
+          // Sobrescrever com valores do body
           ...dados,
         })
         .returning();
@@ -106,7 +154,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error: any) {
-    console.error("Erro ao atualizar preferências:", error);
+    console.error("❌ Erro ao atualizar preferências:", error);
     return NextResponse.json(
       { error: error.message || "Erro ao atualizar preferências" },
       { status: 500 }

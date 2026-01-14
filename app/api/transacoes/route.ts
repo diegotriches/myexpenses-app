@@ -2,14 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { getUserIdFromSession } from "@/lib/auth/helpers";
+import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils"; // ✅ IMPORTAR
 
 // GET - Listar transações do usuário
 export async function GET(req: NextRequest) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
 
     const { searchParams } = new URL(req.url);
     const ano = searchParams.get("ano");
@@ -39,15 +47,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result);
   } catch (err: any) {
     console.error("Erro ao buscar transações:", err);
-
-    if (err instanceof Error && err.message === "Não autenticado") {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-
-    return NextResponse.json(
-      { error: "Erro ao buscar transações: " + err.message },
-      { status: 500 }
-    );
+    const message = err instanceof Error ? err.message : "Erro ao buscar transações";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -55,7 +56,15 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
 
     const json = await req.json();
     
@@ -309,14 +318,7 @@ export async function POST(req: NextRequest) {
     
   } catch (err: any) {
     console.error("❌ Erro ao criar transação:", err);
-
-    if (err instanceof Error && err.message === "Não autenticado") {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-
-    return NextResponse.json(
-      { error: err.message || "Erro ao criar transação" },
-      { status: 500 }
-    );
+    const message = err instanceof Error ? err.message : "Erro ao criar transação";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

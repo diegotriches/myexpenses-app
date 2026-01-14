@@ -1,5 +1,8 @@
 // src/hooks/useExtrato.ts
-import { useCallback, useState, useEffect } from "react";
+"use client";
+
+import { useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { usePeriodo } from "@/contexts/PeriodoContext";
 import { dashboardService } from "@/services/dashboardService";
 
@@ -37,25 +40,28 @@ interface FiltrosExtrato {
   dataFim?: string;
 }
 
-interface UseExtratoReturn {
-  movimentacoes: MovimentacaoExtrato[];
-  saldos: SaldoConta[];
-  loading: boolean;
-  error: string | null;
-  filtros: FiltrosExtrato;
-  setFiltros: (filtros: FiltrosExtrato) => void;
-  carregar: () => Promise<void>;
-  exportarPDF: () => Promise<void>;
-  exportarExcel: () => Promise<void>;
-}
+/**
+ * Query Keys para extrato
+ */
+const extratoKeys = {
+  all: (ano: number, mes: number, filtros: FiltrosExtrato) => 
+    ["extrato", ano, mes, filtros] as const,
+};
 
-export function useExtrato(): UseExtratoReturn {
+/**
+ * Hook para buscar extrato geral (dashboard) com filtros (com cache)
+ * 
+ * @example
+ * const { 
+ *   movimentacoes, 
+ *   saldos, 
+ *   isLoading, 
+ *   filtros, 
+ *   setFiltros 
+ * } = useExtrato();
+ */
+export function useExtrato() {
   const { mesSelecionado, anoSelecionado } = usePeriodo();
-  
-  const [movimentacoes, setMovimentacoes] = useState<MovimentacaoExtrato[]>([]);
-  const [saldos, setSaldos] = useState<SaldoConta[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   
   const [filtros, setFiltros] = useState<FiltrosExtrato>({
     contaId: null,
@@ -63,12 +69,9 @@ export function useExtrato(): UseExtratoReturn {
     tipo: "TODOS",
   });
 
-  // Carregar extrato usando o dashboardService
-  const carregar = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: extratoKeys.all(anoSelecionado, mesSelecionado + 1, filtros),
+    queryFn: async () => {
       // Prepara parâmetros para o service
       const params: any = {
         ano: anoSelecionado,
@@ -96,30 +99,14 @@ export function useExtrato(): UseExtratoReturn {
         params.dataFim = filtros.dataFim;
       }
 
-      // ✅ Usa o dashboardService
-      const data = await dashboardService.buscarExtrato(params);
-      
-      setMovimentacoes(data.movimentacoes || []);
-      setSaldos(data.saldos || []);
-      
-    } catch (err: any) {
-      console.error("Erro ao carregar extrato:", err);
-      setError(err?.message || "Erro ao carregar extrato");
-    } finally {
-      setLoading(false);
-    }
-  }, [anoSelecionado, mesSelecionado, filtros]);
-
-  // Carregar ao montar e quando período/filtros mudarem
-  useEffect(() => {
-    carregar();
-  }, [carregar]);
+      return dashboardService.buscarExtrato(params);
+    },
+    // Extrato muda frequentemente, cache de 2 minutos
+    staleTime: 2 * 60 * 1000,
+  });
 
   // Exportar PDF
   const exportarPDF = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
     try {
       const params = new URLSearchParams({
         ano: String(anoSelecionado),
@@ -150,17 +137,12 @@ export function useExtrato(): UseExtratoReturn {
       
     } catch (err: any) {
       console.error("Erro ao exportar PDF:", err);
-      setError(err?.message || "Erro ao exportar PDF");
-    } finally {
-      setLoading(false);
+      throw err;
     }
   }, [anoSelecionado, mesSelecionado, filtros]);
 
   // Exportar Excel
   const exportarExcel = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
     try {
       const params = new URLSearchParams({
         ano: String(anoSelecionado),
@@ -191,20 +173,30 @@ export function useExtrato(): UseExtratoReturn {
       
     } catch (err: any) {
       console.error("Erro ao exportar Excel:", err);
-      setError(err?.message || "Erro ao exportar Excel");
-    } finally {
-      setLoading(false);
+      throw err;
     }
   }, [anoSelecionado, mesSelecionado, filtros]);
 
   return {
-    movimentacoes,
-    saldos,
-    loading,
-    error,
+    // ✅ CORRIGIDO: Alinhado com ExtratoResponse de @/types/dashboard
+    movimentacoes: data?.movimentacoes || [],
+    resumo: data?.resumo || {
+      saldoInicial: 0,
+      totalEntradas: 0,
+      totalSaidas: 0,
+      saldoFinal: 0,
+    },
+    
+    // Estados
+    isLoading,
+    error: error?.message || null,
+    
+    // Filtros
     filtros,
     setFiltros,
-    carregar,
+    
+    // Ações
+    carregar: refetch, // Recarregar manualmente
     exportarPDF,
     exportarExcel,
   };

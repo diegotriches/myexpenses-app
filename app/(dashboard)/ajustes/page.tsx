@@ -1,131 +1,31 @@
-// src/app/(protected)/ajustes/page.tsx
+// src/app/(dashboard)/ajustes/page.tsx
+
 "use client";
 
-import { useState, useEffect } from "react";
-import api from "@/services/api";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import PreferenciasCard from "@/components/ajustes/PreferenciasCard";
+import ExportarDadosCard from "@/components/ajustes/ExportarDadosCard";
+import ImportarDadosCard from "@/components/ajustes/ImportarDadosCard";
+import { usePreferences } from "@/hooks/usePreferences";
 import {
   Settings,
   AlertCircle,
   Download,
-  Database,
-  Shield,
-  Info,
-  CheckCircle2,
-  Loader2,
+  Upload,
   Sliders,
 } from "lucide-react";
 import { BsFillGearFill } from "react-icons/bs";
-import { useToast } from "@/hooks/use-toast";
-
-interface Preferencias {
-  tema?: "light" | "dark" | "system";
-  idioma?: string;
-  moeda?: string;
-  notificacoes?: boolean;
-}
 
 export default function AjustesPage() {
-  const [preferencias, setPreferencias] = useState<Preferencias>({
-    tema: "system",
-    idioma: "pt-BR",
-    moeda: "BRL",
-    notificacoes: true,
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
-  const [lastExport, setLastExport] = useState<string | null>(null);
+  // React Query
+  const { data: preferencias, isLoading: loading, error: queryError } = usePreferences();
+
+  // Estado local
   const [activeTab, setActiveTab] = useState("preferencias");
-  const { toast } = useToast();
-
-  useEffect(() => {
-    carregarPreferencias();
-    carregarUltimoExport();
-  }, []);
-
-  const carregarPreferencias = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const resPreferencias = await api.get("/users/preferencias");
-        if (resPreferencias.data) {
-          setPreferencias(resPreferencias.data);
-        }
-      } catch (err) {
-        console.log("Usando preferências padrão");
-      }
-    } catch (err: any) {
-      console.error("Erro ao carregar preferências:", err);
-      setError(err.response?.data?.message || "Erro ao carregar preferências.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const carregarUltimoExport = () => {
-    const lastExportDate = localStorage.getItem("lastExportDate");
-    if (lastExportDate) {
-      setLastExport(lastExportDate);
-    }
-  };
-
-  const atualizarPreferencias = (dados: Partial<Preferencias>) => {
-    setPreferencias((prev) => ({ ...prev, ...dados }));
-  };
-
-  const handleExportarDados = async () => {
-    setIsExporting(true);
-
-    try {
-      const response = await fetch("/api/export/meus-dados");
-
-      if (!response.ok) {
-        throw new Error("Erro ao exportar dados");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-
-      const contentDisposition = response.headers.get("Content-Disposition");
-      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
-      const filename = filenameMatch ? filenameMatch[1] : `myexpenses-backup-${Date.now()}.json`;
-
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      const now = new Date().toISOString();
-      setLastExport(now);
-      localStorage.setItem("lastExportDate", now);
-
-      toast({
-        title: "Dados exportados com sucesso!",
-        description: `Arquivo salvo: ${filename}`,
-      });
-    } catch (error) {
-      console.error("Erro ao exportar dados:", error);
-      toast({
-        title: "Erro ao exportar dados",
-        description: "Não foi possível realizar o export. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   const SkeletonCard = () => (
     <Card>
@@ -164,30 +64,36 @@ export default function AjustesPage() {
           </h1>
         </div>
         <p className="text-gray-600 dark:text-gray-400">
-          Gerencie suas preferências, backup de dados e configurações do sistema
+          Gerencie suas preferências, backup e importação de dados
         </p>
       </div>
 
       <Separator />
 
       {/* Error Alert */}
-      {error && (
+      {queryError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {queryError instanceof Error ? queryError.message : "Erro ao carregar preferências"}
+          </AlertDescription>
         </Alert>
       )}
 
       {/* Tabs de Navegação */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="preferencias" className="flex items-center gap-2">
             <Sliders className="h-4 w-4" />
-            Preferências
+            <span className="hidden sm:inline">Preferências</span>
           </TabsTrigger>
-          <TabsTrigger value="backup" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            Backup de Dados
+          <TabsTrigger value="exportar" className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Exportar</span>
+          </TabsTrigger>
+          <TabsTrigger value="importar" className="flex items-center gap-2">
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Importar</span>
           </TabsTrigger>
         </TabsList>
 
@@ -204,10 +110,9 @@ export default function AjustesPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <PreferenciasCard
-                preferencias={preferencias}
-                atualizarPreferencias={atualizarPreferencias}
-              />
+              {preferencias && (
+                <PreferenciasCard preferencias={preferencias} />
+              )}
             </CardContent>
           </Card>
 
@@ -232,129 +137,38 @@ export default function AjustesPage() {
           </Card>
         </TabsContent>
 
-        {/* TAB 2: BACKUP DE DADOS */}
-        <TabsContent value="backup" className="space-y-6">
+        {/* TAB 2: EXPORTAR DADOS */}
+        <TabsContent value="exportar" className="space-y-6">
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <CardTitle>Backup de Dados</CardTitle>
+                <Download className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <CardTitle>Exportar Dados</CardTitle>
               </div>
               <CardDescription>
-                Exporte todos os seus dados financeiros em formato JSON
+                Faça backup dos seus dados financeiros de forma segura
               </CardDescription>
             </CardHeader>
+            <CardContent>
+              <ExportarDadosCard />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <CardContent className="space-y-4">
-              {/* Info sobre o backup */}
-              <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
-                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <AlertDescription className="text-blue-800 dark:text-blue-300">
-                  <p className="font-medium mb-2">O que será exportado:</p>
-                  <ul className="text-sm space-y-1 text-blue-700 dark:text-blue-400">
-                    <li>• Todas as suas contas e cartões</li>
-                    <li>• Histórico completo de transações</li>
-                    <li>• Categorias personalizadas</li>
-                    <li>• Faturas e transferências</li>
-                    <li>• Extrato detalhado</li>
-                    <li>• Notificações e preferências</li>
-                  </ul>
-                </AlertDescription>
-              </Alert>
-
-              {/* Botão de exportar */}
-              <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50 dark:bg-muted/20">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium">Exportar Meus Dados</p>
-                    <Badge variant="secondary" className="text-xs">
-                      JSON
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Baixe uma cópia completa de todos os seus dados
-                  </p>
-                  {lastExport && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
-                      <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
-                      Último export: {new Date(lastExport).toLocaleString("pt-BR")}
-                    </div>
-                  )}
-                </div>
-
-                <Button
-                  onClick={handleExportarDados}
-                  disabled={isExporting}
-                  size="lg"
-                  className="min-w-[140px]"
-                >
-                  {isExporting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Exportando...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="mr-2 h-4 w-4" />
-                      Exportar Dados
-                    </>
-                  )}
-                </Button>
+        {/* TAB 3: IMPORTAR DADOS */}
+        <TabsContent value="importar" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Upload className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <CardTitle>Importar Dados</CardTitle>
               </div>
-
-              <Separator />
-
-              {/* Informações de segurança */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Shield className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <span>Informações de Segurança</span>
-                </div>
-
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                    <p>
-                      <strong>Privacidade:</strong> O arquivo contém apenas os seus dados e não
-                      inclui informações sensíveis como senhas.
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                    <p>
-                      <strong>Armazenamento:</strong> O arquivo é baixado diretamente para o seu
-                      dispositivo. Nenhuma cópia fica armazenada em nossos servidores.
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                    <p>
-                      <strong>Backup:</strong> Recomendamos fazer backups regulares e armazenar o
-                      arquivo em local seguro (nuvem criptografada, HD externo, etc).
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                    <p>
-                      <strong>Atenção:</strong> Este arquivo pode ser usado para restaurar seus dados
-                      em caso de perda, mas não há uma função automática de restauração implementada.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Formato do arquivo */}
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  <p className="font-medium mb-1">Formato do Arquivo</p>
-                  <p className="text-sm text-muted-foreground">
-                    O arquivo é exportado em formato JSON (JavaScript Object Notation), um padrão
-                    universal para troca de dados. Você pode visualizá-lo em qualquer editor de texto
-                    ou importá-lo em outras aplicações.
-                  </p>
-                </AlertDescription>
-              </Alert>
+              <CardDescription>
+                Restaure seus dados a partir de um backup anterior
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ImportarDadosCard />
             </CardContent>
           </Card>
         </TabsContent>

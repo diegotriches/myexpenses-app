@@ -18,11 +18,12 @@ import {
   Loader2,
 } from "lucide-react";
 
-import { useFaturaCartao } from "@/hooks/useFaturaCartao";
+// ✅ NOVOS IMPORTS - React Query
+import { useFaturaCartao, usePagarFatura } from "@/hooks/useFaturas";
+import { useContas } from "@/hooks/useContas";
 import FaturaItem from "@/components/fatura/FaturaItem";
 import PagarFaturaModal from "@/components/fatura/PagarFaturaModal";
 import { usePeriodo } from "@/contexts/PeriodoContext";
-import { useContas } from "@/hooks/useContas";
 
 const meses = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -32,7 +33,6 @@ const meses = [
 export default function FaturaPage() {
   const params = useParams();
   const router = useRouter();
-  const { contas } = useContas();
   const { mesSelecionado, anoSelecionado } = usePeriodo();
 
   const [modalAberto, setModalAberto] = useState(false);
@@ -43,19 +43,25 @@ export default function FaturaPage() {
   const anoNum = anoSelecionado;
   const mesNum = mesSelecionado + 1;
 
+  // ✅ HOOK 1: Buscar contas (React Query)
+  const { data: contas = [], isLoading: contasLoading } = useContas();
+
+  // ✅ HOOK 2: Buscar fatura (React Query)
   const {
     fatura,
     transacoes,
     porCategoria,
-    loading,
-    pagarFatura,
-    pagando,
+    isLoading: faturaLoading,
   } = useFaturaCartao({
     cartaoId,
     ano: anoNum,
     mes: mesNum,
   });
 
+  // ✅ HOOK 3: Mutation de pagar fatura (React Query)
+  const pagarFaturaMutation = usePagarFatura();
+
+  // Fecha modal quando fatura for paga
   useEffect(() => {
     if (fatura?.paga) {
       setModalAberto(false);
@@ -70,7 +76,21 @@ export default function FaturaPage() {
     }).format(valor);
   };
 
-  // Validações
+  // Handler do modal
+  const handlePagarFatura = async (dados: {
+    contaId: string;
+    dataPagamento?: string;
+  }) => {
+    await pagarFaturaMutation.mutateAsync({
+      cartaoId: Number(cartaoId),
+      ano: anoNum,
+      mes: mesNum,
+      contaId: dados.contaId,
+      dataPagamento: dados.dataPagamento,
+    });
+  };
+
+  // ✅ VALIDAÇÕES (mantidas iguais)
   if (!cartaoId || isNaN(anoNum) || isNaN(mesNum)) {
     return (
       <div className="max-w-3xl mx-auto p-6">
@@ -84,33 +104,35 @@ export default function FaturaPage() {
     );
   }
 
-  // Loading
+  // ✅ LOADING (ajustado)
+  const loading = faturaLoading || contasLoading;
+  
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
         {/* Header Skeleton */}
         <div className="space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-48 animate-pulse" />
-          <div className="h-32 bg-gray-200 rounded animate-pulse" />
+          <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded w-48 animate-pulse" />
+          <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
         </div>
 
         {/* Cards Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="h-40 bg-gray-200 rounded animate-pulse" />
-          <div className="h-40 bg-gray-200 rounded animate-pulse" />
+          <div className="h-40 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+          <div className="h-40 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
         </div>
 
         {/* Lista Skeleton */}
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-20 bg-gray-200 rounded animate-pulse" />
+            <div key={i} className="h-20 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
           ))}
         </div>
       </div>
     );
   }
 
-  // Fatura não encontrada
+  // ✅ FATURA NÃO ENCONTRADA (mantida igual)
   if (!fatura) {
     return (
       <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -133,11 +155,12 @@ export default function FaturaPage() {
     );
   }
 
+  // ✅ DADOS DERIVADOS (mantidos iguais)
   const faturaVazia = transacoes.length === 0;
   const totalFatura = Number(fatura?.total ?? 0);
 
   // Categoria com maior gasto
-  const categorias = Object.entries(porCategoria);
+  const categorias = Object.entries(porCategoria || {});
   const categoriaComMaiorGasto = categorias.length > 0
     ? categorias.reduce((max, cat) => cat[1] > max[1] ? cat : max)
     : null;
@@ -207,13 +230,14 @@ export default function FaturaPage() {
               )}
             </div>
 
+            {/* ✅ BOTÃO DE PAGAR - Usa isPending da mutation */}
             {!fatura.paga && transacoes.length > 0 && (
               <Button
                 onClick={() => setModalAberto(true)}
-                disabled={pagando}
+                disabled={pagarFaturaMutation.isPending}
                 className="w-full md:w-auto bg-blue-600 hover:bg-blue-700"
               >
-                {pagando ? (
+                {pagarFaturaMutation.isPending ? (
                   <>
                     <Loader2 size={16} className="mr-2 animate-spin" />
                     Pagando...
@@ -368,13 +392,14 @@ export default function FaturaPage() {
         </CardContent>
       </Card>
 
-      {/* Modal de Pagamento */}
+      {/* ✅ MODAL - Passa função de pagar e loading state */}
       <PagarFaturaModal
         aberto={modalAberto}
         onClose={() => setModalAberto(false)}
         total={totalFatura}
         contas={contas}
-        onConfirmar={pagarFatura}
+        onConfirmar={handlePagarFatura}
+        loading={pagarFaturaMutation.isPending}
       />
     </div>
   );

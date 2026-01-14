@@ -2,13 +2,21 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { contas, extratoConta } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { getUserIdFromSession } from "@/lib/auth/helpers";
+import { getUserId } from "@/lib/auth";
 
 // GET - Buscar todas as contas do usuário logado
 export async function GET() {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
 
     // 🔐 Buscar APENAS contas do usuário logado
     const result = await db
@@ -27,18 +35,8 @@ export async function GET() {
     return NextResponse.json(normalizadas);
   } catch (error) {
     console.error("Erro ao buscar contas:", error);
-    
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Erro ao buscar contas" },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Erro ao buscar contas";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -46,7 +44,15 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
 
     const data = await req.json();
 
@@ -124,13 +130,6 @@ export async function POST(req: Request) {
     return NextResponse.json(contaNormalizada, { status: 201 });
   } catch (error) {
     console.error("❌ Erro detalhado ao criar conta:", error);
-
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
 
     // Retornar mensagem de erro mais específica
     const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";

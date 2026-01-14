@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, faturas, contas, extratoConta, cartoes } from "@/db/schema";
-import { eq, and, gte, lte, sql } from "drizzle-orm"; // ✅ Trocar lt por lte
-import { getUserIdFromSession } from "@/lib/auth/helpers";
-import { calcularPeriodoFatura, calcularDataVencimento } from "@/utils/faturaUtils"; // ✅ IMPORTAR
+import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { getUserId } from "@/lib/auth";
+import { calcularPeriodoFatura, calcularDataVencimento } from "@/utils/faturaUtils";
 
 // ========================================
 // GET - Buscar fatura do mês
@@ -14,7 +14,15 @@ export async function GET(
 ) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
 
     const { id } = await params;
     const cartaoId = Number(id);
@@ -184,30 +192,30 @@ export async function GET(
     });
   } catch (error) {
     console.error("Erro ao buscar fatura:", error);
-
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Erro ao buscar fatura" },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : "Erro ao buscar fatura";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 // ========================================
-// POST - Pagar fatura (mantém igual)
+// POST - Pagar fatura
+// ✅ AJUSTADO: Retorna FaturaDetalhada
 // ========================================
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const cartaoId = Number(id);
 
@@ -332,31 +340,93 @@ export async function POST(
       })
       .where(eq(faturas.id, fatura.id));
 
-    return NextResponse.json({ 
-      success: true,
-      message: "Fatura paga com sucesso"
+    /* 8. ✅ RETORNAR DADOS COMPLETOS (FaturaDetalhada) */
+    // Buscar transações do período
+    const diaFechamento = cartao.diaFechamento || 1;
+    const { inicio, fim } = calcularPeriodoFatura(mes, ano, diaFechamento);
+
+    const transacoesDoMes = await db
+      .select()
+      .from(transacoes)
+      .where(
+        and(
+          eq(transacoes.cartaoId, cartaoId),
+          eq(transacoes.userId, userId),
+          gte(transacoes.data, inicio),
+          lte(transacoes.data, fim)
+        )
+      )
+      .orderBy(transacoes.data);
+
+    const porCategoria: Record<string, number> = {};
+    transacoesDoMes.forEach((t) => {
+      const categoria = t.categoria || "Sem categoria";
+      porCategoria[categoria] = (porCategoria[categoria] || 0) + Number(t.valor);
+    });
+
+    const diaVencimento = cartao.diaVencimento || 1;
+    const dataVencimento = calcularDataVencimento(mes, ano, diaVencimento);
+
+    return NextResponse.json({
+      fatura: {
+        id: fatura.id,
+        cartaoId,
+        mes,
+        ano,
+        total: totalFatura,
+        paga: true,
+        dataPagamento: dataPgtoStr,
+        contaPagamentoId: contaId,
+        dataVencimento: dataVencimento.toISOString().split("T")[0],
+        status: "PAGA" as const,
+      },
+      cartao: {
+        id: cartao.id,
+        nome: cartao.nome,
+        limite: Number(cartao.limite),
+        limiteDisponivel: Number(cartao.limiteDisponivel) + totalFatura, // Atualizado
+        diaFechamento: cartao.diaFechamento,
+        diaVencimento: cartao.diaVencimento,
+      },
+      periodo: {
+        inicio: inicio.toISOString().split("T")[0],
+        fim: fim.toISOString().split("T")[0],
+        descricao: `${inicio.toLocaleDateString('pt-BR')} - ${fim.toLocaleDateString('pt-BR')}`,
+      },
+      transacoes: transacoesDoMes.map(t => ({
+        ...t,
+        valor: Number(t.valor),
+      })),
+      porCategoria,
+      totalTransacoes: totalFatura,
     });
     
   } catch (error: any) {
     console.error("Erro ao pagar fatura:", error);
-
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-
-    return NextResponse.json({ error: "Erro ao pagar fatura" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Erro ao pagar fatura";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 // ========================================
-// DELETE - Estornar pagamento (mantém igual)
+// DELETE - Estornar pagamento
+// ✅ AJUSTADO: Retorna FaturaDetalhada
 // ========================================
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const cartaoId = Number(id);
 
@@ -466,18 +536,72 @@ export async function DELETE(
       })
       .where(eq(faturas.id, fatura.id));
 
-    return NextResponse.json({ 
-      success: true,
-      message: "Pagamento estornado com sucesso"
+    /* 8. ✅ RETORNAR DADOS COMPLETOS (FaturaDetalhada) */
+    // Buscar transações do período
+    const diaFechamento = cartao.diaFechamento || 1;
+    const { inicio, fim } = calcularPeriodoFatura(mes, ano, diaFechamento);
+
+    const transacoesDoMes = await db
+      .select()
+      .from(transacoes)
+      .where(
+        and(
+          eq(transacoes.cartaoId, cartaoId),
+          eq(transacoes.userId, userId),
+          gte(transacoes.data, inicio),
+          lte(transacoes.data, fim)
+        )
+      )
+      .orderBy(transacoes.data);
+
+    const porCategoria: Record<string, number> = {};
+    transacoesDoMes.forEach((t) => {
+      const categoria = t.categoria || "Sem categoria";
+      porCategoria[categoria] = (porCategoria[categoria] || 0) + Number(t.valor);
+    });
+
+    const diaVencimento = cartao.diaVencimento || 1;
+    const dataVencimento = calcularDataVencimento(mes, ano, diaVencimento);
+    const hoje = new Date();
+    const status = hoje > dataVencimento ? "ATRASADA" : "EM_ABERTO";
+
+    return NextResponse.json({
+      fatura: {
+        id: fatura.id,
+        cartaoId,
+        mes,
+        ano,
+        total: totalFatura,
+        paga: false,
+        dataPagamento: null,
+        contaPagamentoId: null,
+        dataVencimento: dataVencimento.toISOString().split("T")[0],
+        status: status as "ATRASADA" | "EM_ABERTO",
+      },
+      cartao: {
+        id: cartao.id,
+        nome: cartao.nome,
+        limite: Number(cartao.limite),
+        limiteDisponivel: Number(cartao.limiteDisponivel) - totalFatura, // Atualizado
+        diaFechamento: cartao.diaFechamento,
+        diaVencimento: cartao.diaVencimento,
+      },
+      periodo: {
+        inicio: inicio.toISOString().split("T")[0],
+        fim: fim.toISOString().split("T")[0],
+        descricao: `${inicio.toLocaleDateString('pt-BR')} - ${fim.toLocaleDateString('pt-BR')}`,
+      },
+      transacoes: transacoesDoMes.map(t => ({
+        ...t,
+        valor: Number(t.valor),
+      })),
+      porCategoria,
+      totalTransacoes: totalFatura,
     });
     
   } catch (error: any) {
     console.error("Erro ao estornar pagamento:", error);
-
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-
-    return NextResponse.json({ error: "Erro ao estornar pagamento" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Erro ao estornar pagamento";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

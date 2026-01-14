@@ -1,100 +1,125 @@
-export interface Categoria {
-  id: string;
-  nome: string;
-  tipo: "entrada" | "saida" | "ambos";
-  cor?: string;
-  icone?: string;
-  ativa: boolean;
-  ordem?: number;
-  createdAt?: string;
-  updatedAt?: string;
+// src/services/categoriaService.ts
+
+import { Categoria, CriarCategoriaDTO, AtualizarCategoriaDTO } from "@/types/categoria";
+
+/**
+ * Helper para tratar erros de forma consistente
+ */
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    let errorMessage = "Erro desconhecido";
+    
+    try {
+      const error = await response.json();
+      errorMessage = error.error || error.message || "Erro na requisição";
+    } catch {
+      // Se não conseguir parsear JSON, usa mensagem padrão baseada no status
+      errorMessage = response.status === 404 
+        ? "Recurso não encontrado"
+        : response.status === 401
+        ? "Não autenticado"
+        : response.status === 403
+        ? "Sem permissão"
+        : `Erro ${response.status}`;
+    }
+    
+    throw new Error(errorMessage);
+  }
+  
+  // Para DELETE que não retorna conteúdo
+  if (response.status === 204) {
+    return null as T;
+  }
+  
+  return response.json();
 }
 
 export const categoriaService = {
   /**
-   * Lista todas as categorias
+   * Lista todas as categorias do usuário logado
    */
   async listar(): Promise<Categoria[]> {
-    const res = await fetch("/api/categorias");
-    if (!res.ok) throw new Error("Erro ao listar categorias");
-    return res.json();
+    try {
+      const res = await fetch("/api/categorias");
+      return handleResponse<Categoria[]>(res);
+    } catch (error) {
+      console.error("[categoriaService.listar]", error);
+      throw error instanceof Error ? error : new Error("Erro ao listar categorias");
+    }
   },
 
   /**
-   * Busca uma categoria por ID
+   * Lista categorias filtradas por tipo
+   */
+  async listarPorTipo(tipo: "entrada" | "saida"): Promise<Categoria[]> {
+    try {
+      const res = await fetch(`/api/categorias?tipo=${tipo}`);
+      return handleResponse<Categoria[]>(res);
+    } catch (error) {
+      console.error("[categoriaService.listarPorTipo]", error);
+      throw error instanceof Error ? error : new Error("Erro ao listar categorias");
+    }
+  },
+
+  /**
+   * Busca uma categoria específica por ID
    */
   async buscarPorId(id: string): Promise<Categoria> {
-    const res = await fetch(`/api/categorias/${id}`);
-    if (!res.ok) throw new Error("Categoria não encontrada");
-    return res.json();
+    try {
+      const res = await fetch(`/api/categorias/${id}`);
+      return handleResponse<Categoria>(res);
+    } catch (error) {
+      console.error("[categoriaService.buscarPorId]", error);
+      throw error instanceof Error ? error : new Error("Categoria não encontrada");
+    }
   },
 
   /**
    * Cria uma nova categoria
    */
-  async criar(dados: Omit<Categoria, "id" | "createdAt" | "updatedAt">): Promise<Categoria> {
-    const res = await fetch("/api/categorias", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dados),
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao criar categoria");
+  async criar(dados: CriarCategoriaDTO): Promise<Categoria> {
+    try {
+      const res = await fetch("/api/categorias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados),
+      });
+      return handleResponse<Categoria>(res);
+    } catch (error) {
+      console.error("[categoriaService.criar]", error);
+      throw error instanceof Error ? error : new Error("Erro ao criar categoria");
     }
-    return res.json();
   },
 
   /**
    * Atualiza uma categoria existente
    */
-  async atualizar(id: string, dados: Partial<Categoria>): Promise<Categoria> {
-    const res = await fetch(`/api/categorias/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dados),
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao atualizar categoria");
+  async atualizar(id: string, dados: AtualizarCategoriaDTO): Promise<Categoria> {
+    try {
+      const res = await fetch(`/api/categorias/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados),
+      });
+      return handleResponse<Categoria>(res);
+    } catch (error) {
+      console.error("[categoriaService.atualizar]", error);
+      throw error instanceof Error ? error : new Error("Erro ao atualizar categoria");
     }
-    return res.json();
   },
 
   /**
    * Remove uma categoria
    */
   async remover(id: string): Promise<void> {
-    const res = await fetch(`/api/categorias/${id}`, {
-      method: "DELETE",
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao remover categoria");
+    try {
+      const res = await fetch(`/api/categorias/${id}`, {
+        method: "DELETE",
+      });
+      return handleResponse<void>(res);
+    } catch (error) {
+      console.error("[categoriaService.remover]", error);
+      throw error instanceof Error ? error : new Error("Erro ao remover categoria");
     }
-  },
-
-  /**
-   * Reordena categorias
-   */
-  async reordenar(categorias: { id: string; ordem: number }[]): Promise<void> {
-    const res = await fetch("/api/categorias/reordenar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categorias }),
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao reordenar categorias");
-    }
-  },
-
-  /**
-   * Lista categorias por tipo
-   */
-  async listarPorTipo(tipo: "entrada" | "saida"): Promise<Categoria[]> {
-    const res = await fetch(`/api/categorias?tipo=${tipo}`);
-    if (!res.ok) throw new Error("Erro ao listar categorias");
-    return res.json();
   },
 };

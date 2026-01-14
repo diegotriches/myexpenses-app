@@ -8,6 +8,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { AlertTriangle } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -34,14 +35,21 @@ export default function ConfirmDeleteModal({
     <Dialog open={open} onOpenChange={onCancel}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-red-600">
-            {title}
-          </DialogTitle>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+            </div>
+            <DialogTitle className="text-red-600 dark:text-red-400">
+              {title}
+            </DialogTitle>
+          </div>
         </DialogHeader>
 
-        <p className="text-sm text-gray-600">{description}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 pl-[52px]">
+          {description}
+        </p>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 sm:gap-0">
           <Button
             variant="outline"
             onClick={onCancel}
@@ -55,7 +63,7 @@ export default function ConfirmDeleteModal({
             onClick={onConfirm}
             disabled={loading}
           >
-            {confirmLabel}
+            {loading ? "Excluindo..." : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -34,7 +34,6 @@ import {
   CreditCard,
   Info
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -42,7 +41,7 @@ import { cn } from "@/lib/utils";
 interface Conta {
   id: string;
   nome: string;
-  saldoAtual?: number;
+  saldoAtual?: number | string; // ✅ Aceita string (do banco)
 }
 
 interface Props {
@@ -54,6 +53,7 @@ interface Props {
     contaId: string;
     dataPagamento?: string;
   }) => Promise<void>;
+  loading?: boolean; // ✅ Recebe loading do pai
 }
 
 export default function PagarFaturaModal({
@@ -62,12 +62,11 @@ export default function PagarFaturaModal({
   total,
   contas,
   onConfirmar,
+  loading = false, // ✅ Loading vem do pai (isPending da mutation)
 }: Props) {
   const [contaId, setContaId] = useState("");
   const [dataPagamento, setDataPagamento] = useState<Date | undefined>(new Date());
-  const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const { toast } = useToast();
   const CalendarIcon = Calendar;
 
   // Reset ao abrir
@@ -87,11 +86,14 @@ export default function PagarFaturaModal({
     }).format(valor);
   };
 
-  // Verifica se conta tem saldo suficiente
+  // ✅ Verifica se conta tem saldo suficiente (suporta string)
   const contaSelecionada = contas.find(c => c.id === contaId);
-  const saldoSuficiente = contaSelecionada 
-    ? (contaSelecionada.saldoAtual || 0) >= total
-    : true;
+  const saldoAtualNum = contaSelecionada 
+    ? (typeof contaSelecionada.saldoAtual === 'string' 
+        ? parseFloat(contaSelecionada.saldoAtual) 
+        : contaSelecionada.saldoAtual || 0)
+    : 0;
+  const saldoSuficiente = saldoAtualNum >= total;
 
   const validarFormulario = (): boolean => {
     setErro(null);
@@ -106,6 +108,11 @@ export default function PagarFaturaModal({
       return false;
     }
 
+    if (!saldoSuficiente) {
+      setErro("Saldo insuficiente na conta selecionada");
+      return false;
+    }
+
     return true;
   };
 
@@ -115,9 +122,9 @@ export default function PagarFaturaModal({
     }
 
     try {
-      setLoading(true);
       setErro(null);
 
+      // ✅ onConfirmar já lida com toast e invalidação (vem do hook React Query)
       await onConfirmar({
         contaId,
         dataPagamento: dataPagamento 
@@ -125,28 +132,13 @@ export default function PagarFaturaModal({
           : undefined,
       });
 
-      toast({
-        title: "Fatura paga!",
-        description: `Pagamento de ${formatarMoeda(total)} realizado com sucesso.`,
-      });
-
-      onClose();
+      // Modal fecha automaticamente quando fatura.paga === true
+      // (via useEffect no pai)
     } catch (err: any) {
       console.error("Erro ao pagar fatura:", err);
       
-      const mensagem = err.response?.data?.message || 
-                      err.message || 
-                      "Erro ao processar pagamento. Tente novamente.";
-      
+      const mensagem = err.message || "Erro ao processar pagamento. Tente novamente.";
       setErro(mensagem);
-      
-      toast({
-        title: "Erro ao pagar",
-        description: mensagem,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -155,7 +147,7 @@ export default function PagarFaturaModal({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <CreditCard className="text-blue-600" size={24} />
+            <CreditCard className="text-blue-600 dark:text-blue-400" size={24} />
             Pagar Fatura
           </DialogTitle>
           <DialogDescription>
@@ -176,35 +168,44 @@ export default function PagarFaturaModal({
 
           {/* Seleção de Conta */}
           <div className="space-y-2">
-            <Label htmlFor="conta" className="flex items-center gap-1">
+            <Label htmlFor="conta" className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
               Conta para Débito
               <span className="text-red-500">*</span>
             </Label>
             <Select value={contaId} onValueChange={setContaId}>
-              <SelectTrigger id="conta" className={erro && !contaId ? "border-red-500" : ""}>
+              <SelectTrigger 
+                id="conta" 
+                className={erro && !contaId ? "border-red-500" : ""}
+                disabled={loading}
+              >
                 <SelectValue placeholder="Selecione uma conta" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                 {contas.length === 0 ? (
-                  <div className="p-2 text-sm text-gray-500">
+                  <div className="p-2 text-sm text-gray-500 dark:text-gray-400">
                     Nenhuma conta disponível
                   </div>
                 ) : (
-                  contas.map((conta) => (
-                    <SelectItem key={conta.id} value={conta.id}>
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <div className="flex items-center gap-2">
-                          <Wallet size={14} />
-                          <span>{conta.nome}</span>
-                        </div>
-                        {conta.saldoAtual !== undefined && (
-                          <span className="text-xs text-gray-500">
-                            {formatarMoeda(conta.saldoAtual)}
+                  contas.map((conta) => {
+                    // ✅ Converte saldo para number
+                    const saldo = typeof conta.saldoAtual === 'string'
+                      ? parseFloat(conta.saldoAtual)
+                      : (conta.saldoAtual || 0);
+
+                    return (
+                      <SelectItem key={conta.id} value={conta.id}>
+                        <div className="flex items-center justify-between w-full gap-4">
+                          <div className="flex items-center gap-2">
+                            <Wallet size={14} />
+                            <span>{conta.nome}</span>
+                          </div>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {formatarMoeda(saldo)}
                           </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))
+                        </div>
+                      </SelectItem>
+                    );
+                  })
                 )}
               </SelectContent>
             </Select>
@@ -214,7 +215,7 @@ export default function PagarFaturaModal({
               <Alert variant="destructive" className="mt-2">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Saldo insuficiente. Disponível: {formatarMoeda(contaSelecionada.saldoAtual || 0)}
+                  Saldo insuficiente. Disponível: {formatarMoeda(saldoAtualNum)}
                 </AlertDescription>
               </Alert>
             )}
@@ -222,7 +223,7 @@ export default function PagarFaturaModal({
 
           {/* Data de Pagamento */}
           <div className="space-y-2">
-            <Label htmlFor="data" className="flex items-center gap-1">
+            <Label htmlFor="data" className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
               Data de Pagamento
               <span className="text-red-500">*</span>
             </Label>
@@ -231,6 +232,7 @@ export default function PagarFaturaModal({
                 <Button
                   id="data"
                   variant="outline"
+                  disabled={loading}
                   className={cn(
                     "w-full justify-start text-left font-normal",
                     !dataPagamento && "text-muted-foreground",
@@ -245,7 +247,7 @@ export default function PagarFaturaModal({
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 dark:bg-gray-800 dark:border-gray-700" align="start">
                 <CalendarComponent
                   mode="single"
                   selected={dataPagamento}
@@ -265,7 +267,6 @@ export default function PagarFaturaModal({
             <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertDescription className="text-blue-800 dark:text-blue-200 text-xs">
               O valor será debitado da conta selecionada e a fatura será marcada como paga.
-              Esta ação não pode ser desfeita.
             </AlertDescription>
           </Alert>
 

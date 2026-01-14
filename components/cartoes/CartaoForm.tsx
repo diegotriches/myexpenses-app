@@ -10,28 +10,28 @@ import {
     SelectItem,
 } from "@/components/ui/select";
 
-import { Cartao } from "@/types/cartao";
-
-// ✅ Definir tipo localmente (ou adicionar em @/types/cartao)
-type TipoCartao = "credito" | "debito";
+import { Cartao, CreateCartaoDTO, UpdateCartaoDTO } from "@/types/cartao";
 import { bandeiraOptions, empresaOptions } from "@/utils/cartaoOptions";
 import CampoSelect from "./CampoSelect";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+
+// ✅ NOVO: Importar hook React Query
 import { useContas } from "@/hooks/useContas";
 import { Info } from "lucide-react";
 
-export interface CartaoFormValues extends Partial<Cartao> { }
+type TipoCartao = "credito" | "debito";
 
 interface Props {
     initialValues: Cartao | null;
-    onSubmit: (values: CartaoFormValues) => Promise<void>;
+    onSubmit: (values: CreateCartaoDTO | UpdateCartaoDTO) => Promise<void>;
     onCancel?: () => void;
 }
 
 export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props) {
-    const { contas } = useContas();
+    // ✅ NOVO: Hook React Query para contas
+    const { data: contas = [] } = useContas();
 
     const [form, setForm] = useState({
         nome: "",
@@ -53,7 +53,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                 tipo: initialValues.tipo,
                 bandeira: initialValues.bandeira,
                 empresa: initialValues.empresa || "",
-                // ✅ CORRIGIDO: Converter string para number antes de exibir
+                // ✅ Converter string para number antes de exibir
                 limite: initialValues.limite ? Number(initialValues.limite).toString() : "",
                 diaFechamento: initialValues.diaFechamento?.toString() ?? "",
                 diaVencimento: initialValues.diaVencimento?.toString() ?? "",
@@ -108,19 +108,20 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
             }
         }
 
-        const payload: CartaoFormValues = {
-            nome: form.nome,
+        // ✅ CORRIGIDO: Usar DTO correto
+        const payload: CreateCartaoDTO | UpdateCartaoDTO = {
+            nome: form.nome.trim(),
             tipo: form.tipo,
-            bandeira: form.bandeira || undefined,
-            empresa: form.empresa || undefined,
-            // ✅ CORRIGIDO: Manter como string (será enviada como string para a API)
-            limite: form.tipo === "credito" ? form.limite : "0",
+            bandeira: form.bandeira,
+            empresa: form.empresa,
+            // ✅ Enviar como number (API espera number no DTO)
+            limite: form.tipo === "credito" ? Number(form.limite) : 0,
             diaFechamento:
-                form.tipo === "credito" ? Number(form.diaFechamento) : undefined,
+                form.tipo === "credito" ? Number(form.diaFechamento) : null,
             diaVencimento:
-                form.tipo === "credito" ? Number(form.diaVencimento) : undefined,
+                form.tipo === "credito" ? Number(form.diaVencimento) : null,
             ativo: form.ativo,
-            observacoes: form.observacoes || undefined,
+            observacoes: form.observacoes || null,
             contaVinculadaId: form.contaVinculadaId === "none" ? null : form.contaVinculadaId,
         };
 
@@ -140,7 +141,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
             {/* Nome + Tipo */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                 <div>
-                    <p className="text-sm font-medium mb-1">Nome</p>
+                    <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Nome</p>
                     <Input
                         placeholder="Nome do cartão"
                         value={form.nome}
@@ -149,7 +150,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                 </div>
 
                 <div>
-                    <p className="text-sm font-medium mb-1">Tipo</p>
+                    <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Tipo</p>
                     <Select
                         value={form.tipo}
                         onValueChange={(v: TipoCartao) => handleChange("tipo", v)}
@@ -157,7 +158,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                         <SelectTrigger>
                             <SelectValue placeholder="Tipo" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                             <SelectItem value="credito">Crédito</SelectItem>
                             <SelectItem value="debito">Débito</SelectItem>
                         </SelectContent>
@@ -185,7 +186,9 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
             {form.tipo === "credito" && (
                 <div>
                     <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm font-medium">Conta para pagamento da fatura</p>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Conta para pagamento da fatura
+                        </p>
                         <Info className="h-4 w-4 text-gray-400" />
                     </div>
                     <Select
@@ -195,7 +198,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                         <SelectTrigger>
                             <SelectValue placeholder="Selecione uma conta (opcional)" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                             <SelectItem value="none">Nenhuma (definir depois)</SelectItem>
                             {contasAtivas.length > 0 ? (
                                 contasAtivas.map(conta => (
@@ -221,7 +224,9 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                 {form.tipo === "credito" && (
                     <div>
-                        <p className="text-sm font-medium mb-1">Limite (R$)</p>
+                        <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                            Limite (R$)
+                        </p>
                         <Input
                             type="number"
                             placeholder="R$ 0,00"
@@ -231,7 +236,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                     </div>
                 )}
                 <div className="flex items-center gap-3 pt-2">
-                    <p className="text-sm font-medium">Ativo</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Ativo</p>
                     <Switch
                         checked={form.ativo}
                         onCheckedChange={(v) => handleChange("ativo", v)}
@@ -243,10 +248,14 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
             {form.tipo === "credito" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <p className="text-sm font-medium mb-1">Dia de fechamento</p>
+                        <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                            Dia de fechamento
+                        </p>
                         <Input
                             type="number"
                             placeholder="Fechamento"
+                            min="1"
+                            max="31"
                             value={form.diaFechamento}
                             onChange={(e) =>
                                 handleChange("diaFechamento", e.target.value)
@@ -255,10 +264,14 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                     </div>
 
                     <div>
-                        <p className="text-sm font-medium mb-1">Dia de vencimento</p>
+                        <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                            Dia de vencimento
+                        </p>
                         <Input
                             type="number"
                             placeholder="Vencimento"
+                            min="1"
+                            max="31"
                             value={form.diaVencimento}
                             onChange={(e) =>
                                 handleChange("diaVencimento", e.target.value)
@@ -270,7 +283,9 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
 
             {/* Observações */}
             <div>
-                <p className="text-sm font-medium mb-1">Observações</p>
+                <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                    Observações
+                </p>
                 <Textarea
                     placeholder="Informações adicionais, lembretes, regras do cartão, etc."
                     value={form.observacoes}
@@ -281,11 +296,11 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
 
             {/* Botões */}
             <div className="pt-4 flex justify-end gap-3">
-                <Button type="button" className="cursor-pointer" variant="outline" onClick={onCancel}>
+                <Button type="button" variant="outline" onClick={onCancel}>
                     Cancelar
                 </Button>
 
-                <Button type="submit" className="cursor-pointer" onClick={handleSubmit}>
+                <Button type="submit" onClick={handleSubmit}>
                     {initialValues ? "Salvar" : "Adicionar"}
                 </Button>
             </div>

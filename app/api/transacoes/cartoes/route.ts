@@ -2,12 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { cartoes, faturas, transacoes } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { getUserIdFromSession } from "@/lib/auth/helpers";
+import { getUserId } from "@/lib/auth";
+import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 export async function POST(req: NextRequest) {
   try {
     // 🔐 Autenticação
-    const userId = await getUserIdFromSession();
+    const userId = await getUserId();
+
+    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Não autenticado" },
+        { status: 401 }
+      );
+    }
 
     const body = await req.json();
 
@@ -38,17 +47,10 @@ export async function POST(req: NextRequest) {
     }
 
     const dataCompra = data ? new Date(data) : new Date();
-    const ano = dataCompra.getFullYear();
-    const mes = dataCompra.getMonth() + 1;
-
     const valorTotal = Number(valor);
     const valorParcela = parcelado
       ? Number((valorTotal / parcelas).toFixed(2))
       : valorTotal;
-
-    /* ========================================
-       ✅ SEM TRANSACTION - Operações Sequenciais
-       ======================================== */
 
     /* 2.1 Buscar cartão e verificar ownership */
     const [cartao] = await db
@@ -85,55 +87,73 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    /* 2.2 Criar ou buscar fatura - 🔐 filtrar por userId */
-    const [fatura] = await db
-      .select()
-      .from(faturas)
-      .where(
-        and(
-          eq(faturas.cartaoId, cartaoId),
-          eq(faturas.userId, userId),
-          eq(faturas.ano, ano),
-          eq(faturas.mes, mes)
-        )
-      );
+    const diaFechamento = cartao.diaFechamento || 1;
 
-    let faturaId: number;
-    let totalAtualFatura = 0;
-
-    if (!fatura) {
-      const [novaFatura] = await db
-        .insert(faturas)
-        .values({
-          userId,
-          cartaoId,
-          ano,
-          mes,
-          total: "0",
-          paga: false,
-        })
-        .returning();
-
-      faturaId = novaFatura.id;
-    } else {
-      if (fatura.paga) {
-        return NextResponse.json(
-          { error: "Não é possível adicionar transações em fatura já paga" },
-          { status: 400 }
-        );
-      }
-      faturaId = fatura.id;
-      totalAtualFatura = Number(fatura.total);
-    }
-
-    /* 2.3 Inserir transações (parceladas ou não) - 🔐 incluir userId */
+    /* 2.2 Criar transações e atualizar faturas */
     const parcelamentoId = parcelado ? crypto.randomUUID() : null;
     const transacoesCriadas = [];
 
     for (let i = 1; i <= parcelas; i++) {
+      // Calcular data da parcela
       const dataParcela = new Date(dataCompra);
       dataParcela.setMonth(dataParcela.getMonth() + (i - 1));
 
+      // ✅ CRÍTICO: Calcular fatura correta para CADA parcela
+      const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
+        dataParcela,
+        diaFechamento
+      );
+
+      console.log(
+        `📅 Parcela ${i}/${parcelas} em ${dataParcela.toLocaleDateString('pt-BR')} → Fatura ${mesFatura}/${anoFatura}`
+      );
+
+      // ✅ Buscar ou criar fatura (filtrando por userId)
+      const [faturaExistente] = await db
+        .select()
+        .from(faturas)
+        .where(
+          and(
+            eq(faturas.cartaoId, cartaoId),
+            eq(faturas.userId, userId),
+            eq(faturas.mes, mesFatura),
+            eq(faturas.ano, anoFatura)
+          )
+        );
+
+      // ✅ Verificar se fatura está paga
+      if (faturaExistente && faturaExistente.paga) {
+        return NextResponse.json(
+          { 
+            error: `Parcela ${i}/${parcelas} cairia na fatura ${mesFatura}/${anoFatura} que já está paga. Não é possível adicionar.`
+          },
+          { status: 400 }
+        );
+      }
+
+      let faturaId: number;
+
+      if (!faturaExistente) {
+        // Criar nova fatura
+        const [novaFatura] = await db
+          .insert(faturas)
+          .values({
+            userId,
+            cartaoId,
+            ano: anoFatura,
+            mes: mesFatura,
+            total: "0",
+            paga: false,
+          })
+          .returning();
+
+        faturaId = novaFatura.id;
+        console.log(`✅ Fatura ${mesFatura}/${anoFatura} criada`);
+      } else {
+        faturaId = faturaExistente.id;
+      }
+
+      // ✅ Criar transação
       const [transacao] = await db
         .insert(transacoes)
         .values({
@@ -154,20 +174,27 @@ export async function POST(req: NextRequest) {
         .returning();
 
       transacoesCriadas.push(transacao);
+
+      // ✅ Atualizar total da fatura
+      const totalAtual = faturaExistente 
+        ? Number(faturaExistente.total) 
+        : 0;
+      const novoTotal = totalAtual + valorParcela;
+
+      await db
+        .update(faturas)
+        .set({
+          total: novoTotal.toFixed(2),
+          updatedAt: new Date(),
+        })
+        .where(eq(faturas.id, faturaId));
+
+      console.log(
+        `✅ Fatura ${mesFatura}/${anoFatura} atualizada: R$ ${totalAtual.toFixed(2)} → R$ ${novoTotal.toFixed(2)}`
+      );
     }
 
-    /* 2.4 Atualizar total da fatura */
-    const novoTotalFatura = totalAtualFatura + valorTotal;
-
-    await db
-      .update(faturas)
-      .set({
-        total: novoTotalFatura.toFixed(2),
-        updatedAt: new Date(),
-      })
-      .where(eq(faturas.id, faturaId));
-
-    /* 2.5 Atualizar limite disponível - 🔐 garantir ownership */
+    /* 2.3 Atualizar limite disponível (apenas 1 vez, com valor total) */
     const novoLimiteDisponivel = limiteDisponivel - valorTotal;
 
     await db
@@ -178,36 +205,27 @@ export async function POST(req: NextRequest) {
       .where(
         and(
           eq(cartoes.id, cartaoId),
-          eq(cartoes.userId, userId) // 🔐 Garantir ownership
+          eq(cartoes.userId, userId)
         )
       );
+
+    console.log(
+      `💳 Limite atualizado: R$ ${limiteDisponivel.toFixed(2)} → R$ ${novoLimiteDisponivel.toFixed(2)}`
+    );
 
     return NextResponse.json(
       {
         success: true,
-        message: "Transação criada com sucesso",
+        message: parcelado 
+          ? `Compra parcelada em ${parcelas}x criada com sucesso`
+          : "Transação criada com sucesso",
         transacoes: transacoesCriadas,
       },
       { status: 201 }
     );
   } catch (error: any) {
-    console.error("Erro ao criar transação de cartão:", error);
-
-    if (error instanceof Error && error.message === "Não autenticado") {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro ao criar transação de cartão",
-      },
-      { status: 500 }
-    );
+    console.error("❌ Erro ao criar transação de cartão:", error);
+    const message = error instanceof Error ? error.message : "Erro ao criar transação de cartão";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

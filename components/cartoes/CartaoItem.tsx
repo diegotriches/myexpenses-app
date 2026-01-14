@@ -45,24 +45,24 @@ export default function CartaoItem({
     }).format(valor);
   };
 
-  // ✅ CORRIGIDO: Usar valores já calculados pela API
+  // ✅ Usar valores já calculados pela API
   const limiteTotal = Number(cartao.limite) || 0;
-  const totalEmUso = Number(cartao.emUso) || 0; // ← Valor vem da API
-  const limiteDisponivel = Number(cartao.limiteDisponivel) || 0; // ← Valor vem da API
+  const totalEmUso = Number(cartao.emUso) || 0;
+  const limiteDisponivel = Number(cartao.limiteDisponivel) || 0;
   
   const porcentagemUso = limiteTotal > 0 ? (totalEmUso / limiteTotal) * 100 : 0;
 
-  // Cor da barra baseada no uso
+  // Cor da barra baseada no uso (com dark mode)
   const getCorBarra = (percentual: number): string => {
-    if (percentual < 50) return "bg-green-500";
-    if (percentual < 80) return "bg-yellow-500";
-    return "bg-red-500";
+    if (percentual < 50) return "bg-green-500 dark:bg-green-600";
+    if (percentual < 80) return "bg-yellow-500 dark:bg-yellow-600";
+    return "bg-red-500 dark:bg-red-600";
   };
 
   const getCorTexto = (percentual: number): string => {
-    if (percentual < 50) return "text-green-700";
-    if (percentual < 80) return "text-yellow-700";
-    return "text-red-700";
+    if (percentual < 50) return "text-green-700 dark:text-green-400";
+    if (percentual < 80) return "text-yellow-700 dark:text-yellow-400";
+    return "text-red-700 dark:text-red-400";
   };
 
   // Verifica vencimento próximo (próximos 5 dias)
@@ -83,13 +83,13 @@ export default function CartaoItem({
   };
 
   return (
-    <Card className="hover:shadow-lg transition-shadow duration-200">
+    <Card className="hover:shadow-lg transition-shadow duration-200 dark:border-gray-700">
       <CardContent className="p-6 space-y-4">
         {/* Header do Cartão */}
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
             {empresaImg && (
-              <div className="w-12 h-12 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center p-2 border">
+              <div className="w-12 h-12 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center p-2 border dark:border-gray-700">
                 <img 
                   src={empresaImg} 
                   alt={cartao.empresa || "Empresa"} 
@@ -106,7 +106,7 @@ export default function CartaoItem({
                   variant={cartao.ativo ? "default" : "secondary"}
                   className={cartao.ativo 
                     ? "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900 dark:text-green-300" 
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-100"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-400"
                   }
                 >
                   {cartao.ativo ? "Ativo" : "Inativo"}
@@ -146,7 +146,7 @@ export default function CartaoItem({
             )}
 
             {/* Datas */}
-            <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border">
+            <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border dark:border-gray-700">
               <div className="text-center">
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Fecha dia</p>
                 <p className="text-lg font-bold text-gray-900 dark:text-white">{cartao.diaFechamento}</p>
@@ -221,12 +221,12 @@ export default function CartaoItem({
         )}
 
         {/* Ações */}
-        <div className="flex flex-wrap gap-2 pt-2 border-t">
+        <div className="flex flex-wrap gap-2 pt-2 border-t dark:border-gray-700">
           <Button
             variant="outline"
             size="sm"
             onClick={() => onEditar(cartao)}
-            className="flex-1 min-w-[100px] hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 dark:hover:bg-blue-950"
+            className="flex-1 min-w-[100px] hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 dark:hover:bg-blue-950 dark:hover:border-blue-800"
           >
             <Pencil size={14} className="mr-2" />
             Editar
@@ -237,7 +237,7 @@ export default function CartaoItem({
               variant="outline"
               size="sm"
               onClick={abrirFatura}
-              className="flex-1 min-w-[100px] hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 dark:hover:bg-purple-950"
+              className="flex-1 min-w-[100px] hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 dark:hover:bg-purple-950 dark:hover:border-purple-800"
             >
               <FileText size={14} className="mr-2" />
               Fatura
@@ -248,7 +248,7 @@ export default function CartaoItem({
             variant="outline"
             size="sm"
             onClick={() => onExcluir(cartao)}
-            className="flex-1 min-w-[100px] hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-950"
+            className="flex-1 min-w-[100px] hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-950 dark:hover:border-red-800"
           >
             <Trash2 size={14} className="mr-2" />
             Remover

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,57 +20,43 @@ import CartaoFormModal from "@/components/cartoes/CartaoFormModal";
 import CartaoItem from "@/components/cartoes/CartaoItem";
 import { CartaoExclusaoModal } from "@/components/cartoes/CartaoExclusaoModal";
 
-import { Cartao } from "@/types/cartao";
-import { cartaoService } from "@/services/cartaoService";
+import { Cartao, CreateCartaoDTO, UpdateCartaoDTO } from "@/types/cartao";
+
+// ✅ NOVO: Importar hooks React Query
+import { 
+  useCartoes, 
+  useCriarCartao, 
+  useAtualizarCartao, 
+  useRemoverCartao 
+} from "@/hooks/useCartoes";
 import { useTransacoes } from "@/hooks/useTransacoes";
-import { useToast } from "@/hooks/use-toast";
 
 type OrdenacaoType = "nome" | "limite-maior" | "limite-menor" | "uso-maior" | "uso-menor";
 
 export default function CartoesPage() {
-  const [cartoes, setCartoes] = useState<Cartao[]>([]);
+  // ✅ NOVO: Hooks React Query
+  const { data: cartoes = [], isLoading: loading, error } = useCartoes();
+  const criarCartao = useCriarCartao();
+  const atualizarCartao = useAtualizarCartao();
+  const removerCartao = useRemoverCartao();
+  
+  const { data: transacoes = [] } = useTransacoes();
+
   const [modalOpen, setModalOpen] = useState(false);
   const [cartaoEdicao, setCartaoEdicao] = useState<Cartao | null>(null);
   const [modalExclusaoOpen, setModalExclusaoOpen] = useState(false);
   const [cartaoParaExcluir, setCartaoParaExcluir] = useState<Cartao | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
   const [ordenacao, setOrdenacao] = useState<OrdenacaoType>("nome");
   const [abaAtiva, setAbaAtiva] = useState("todos");
 
   const router = useRouter();
-  const { toast } = useToast();
-
-  const { transacoes } = useTransacoes();
 
   // Função para checar se o cartão tem transações ou faturas
   const possuiDependencias = (cartaoId: number) => {
     const temTransacoes = transacoes.some((t) => t.cartaoId === cartaoId);
     return temTransacoes;
   };
-
-  const carregarCartoes = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await cartaoService.listar();
-      setCartoes(data);
-    } catch (err: any) {
-      console.error("Erro ao carregar cartões:", err);
-      setError(err.message || "Erro ao carregar cartões");
-      toast({
-        title: "Erro ao carregar",
-        description: "Não foi possível carregar os cartões. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-  // ✅ REMOVIDO: transacoesPorCartao (não é mais necessário)
-  // ✅ REMOVIDO: calcularUsoCartao (API já calcula)
 
   // Aplica busca, filtro de aba e ordenação
   const cartoesFiltrados = useMemo(() => {
@@ -102,13 +88,11 @@ export default function CartoesPage() {
         case "limite-menor":
           return (Number(a.limite) || 0) - (Number(b.limite) || 0);
         case "uso-maior": {
-          // ✅ CORRIGIDO: Usar emUso da API
           const usoA = Number(a.emUso) || 0;
           const usoB = Number(b.emUso) || 0;
           return usoB - usoA;
         }
         case "uso-menor": {
-          // ✅ CORRIGIDO: Usar emUso da API
           const usoA = Number(a.emUso) || 0;
           const usoB = Number(b.emUso) || 0;
           return usoA - usoB;
@@ -130,10 +114,6 @@ export default function CartoesPage() {
     };
   }, [cartoes]);
 
-  useEffect(() => {
-    carregarCartoes();
-  }, [carregarCartoes]);
-
   const abrirNovo = () => {
     setCartaoEdicao(null);
     setModalOpen(true);
@@ -149,52 +129,40 @@ export default function CartoesPage() {
     setModalExclusaoOpen(true);
   };
 
+  // ✅ NOVO: Usar hooks de mutation
   const confirmarExclusao = async () => {
     if (!cartaoParaExcluir) return;
 
     try {
-      await cartaoService.remover(cartaoParaExcluir.id);
-      await carregarCartoes();
+      await removerCartao.mutateAsync(cartaoParaExcluir.id);
+      
+      // ✅ Toast e invalidação automáticos
+      
       setModalExclusaoOpen(false);
       setCartaoParaExcluir(null);
-      
-      toast({
-        title: "Cartão excluído",
-        description: `${cartaoParaExcluir.nome} foi removido com sucesso.`,
-      });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erro ao excluir cartão:", error);
-      toast({
-        title: "Erro ao excluir",
-        description: error.message || "Não foi possível excluir o cartão.",
-        variant: "destructive",
-      });
     }
   };
 
-  const salvar = async (dados: Cartao) => {
+  // ✅ NOVO: Usar hooks de mutation
+  const salvar = async (dados: CreateCartaoDTO | UpdateCartaoDTO) => {
     try {
       if (cartaoEdicao) {
-        await cartaoService.atualizar(cartaoEdicao.id, dados);
-        toast({
-          title: "Cartão atualizado",
-          description: `${dados.nome} foi atualizado com sucesso.`,
+        await atualizarCartao.mutateAsync({
+          id: cartaoEdicao.id,
+          dados: dados as UpdateCartaoDTO
         });
       } else {
-        await cartaoService.criar(dados);
-        toast({
-          title: "Cartão adicionado",
-          description: `${dados.nome} foi adicionado com sucesso.`,
-        });
+        await criarCartao.mutateAsync(dados as CreateCartaoDTO);
       }
-      await carregarCartoes();
-    } catch (error: any) {
+
+      // ✅ Toast e invalidação automáticos
+      
+      setModalOpen(false);
+      setCartaoEdicao(null);
+    } catch (error) {
       console.error("Erro ao salvar cartão:", error);
-      toast({
-        title: "Erro ao salvar",
-        description: error.message || "Não foi possível salvar o cartão.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -204,33 +172,33 @@ export default function CartoesPage() {
 
   // Skeleton Loading
   const SkeletonCard = () => (
-    <div className="border rounded-lg p-6 animate-pulse space-y-4">
+    <div className="border rounded-lg p-6 animate-pulse space-y-4 bg-white dark:bg-gray-800">
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-3 flex-1">
-          <div className="w-12 h-12 bg-gray-200 rounded-lg" />
+          <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg" />
           <div className="flex-1 space-y-2">
-            <div className="h-4 bg-gray-200 rounded w-3/4" />
-            <div className="h-3 bg-gray-200 rounded w-1/2" />
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
           </div>
         </div>
-        <div className="w-12 h-12 bg-gray-200 rounded" />
+        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded" />
       </div>
-      <div className="h-20 bg-gray-200 rounded" />
+      <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
       <div className="flex gap-2">
-        <div className="h-8 bg-gray-200 rounded flex-1" />
-        <div className="h-8 bg-gray-200 rounded flex-1" />
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded flex-1" />
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded flex-1" />
       </div>
     </div>
   );
 
   // Empty State
   const EmptyState = () => (
-    <div className="text-center py-16 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-      <CreditCard className="text-6xl text-gray-300 mx-auto mb-4" size={64} />
-      <h3 className="text-xl font-semibold text-gray-700 mb-2">
+    <div className="text-center py-16 bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
+      <CreditCard className="text-6xl text-gray-300 dark:text-gray-600 mx-auto mb-4" size={64} />
+      <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
         Nenhum cartão cadastrado
       </h3>
-      <p className="text-gray-500 mb-6 max-w-md mx-auto">
+      <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
         Adicione seu primeiro cartão para começar a gerenciar limites e faturas
       </p>
       <Button onClick={abrirNovo} size="lg" className="bg-blue-700 hover:bg-blue-900">
@@ -245,7 +213,7 @@ export default function CartoesPage() {
       {/* Header */}
       <header>
         <div className="flex items-center gap-2 mb-2">
-          <BsCreditCard className="text-2xl md:text-3xl text-blue-700" />
+          <BsCreditCard className="text-2xl md:text-3xl text-blue-700 dark:text-blue-500" />
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
             Cartões
           </h1>
@@ -263,7 +231,7 @@ export default function CartoesPage() {
         <div className="flex flex-col md:flex-row gap-4">
           {/* Busca */}
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
             <Input
               placeholder="Buscar por nome, empresa ou bandeira..."
               value={busca}
@@ -323,10 +291,10 @@ export default function CartoesPage() {
 
           <TabsContent value={abaAtiva} className="space-y-4">
             {cartoesFiltrados.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50 rounded-lg">
-                <Search className="text-4xl text-gray-300 mx-auto mb-3" size={48} />
-                <p className="text-gray-600 font-medium mb-1">Nenhum cartão encontrado</p>
-                <p className="text-sm text-gray-500">Tente ajustar a busca ou filtros</p>
+              <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                <Search className="text-4xl text-gray-300 dark:text-gray-600 mx-auto mb-3" size={48} />
+                <p className="text-gray-600 dark:text-gray-300 font-medium mb-1">Nenhum cartão encontrado</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Tente ajustar a busca ou filtros</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -348,20 +316,17 @@ export default function CartoesPage() {
       {/* Estados */}
       {loading && (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       )}
 
       {!loading && error && (
-        <div className="text-center py-12 bg-red-50 rounded-lg border border-red-200">
-          <p className="text-red-600 font-medium mb-2">Erro ao carregar cartões</p>
-          <p className="text-sm text-red-500 mb-4">{error}</p>
-          <Button onClick={carregarCartoes} variant="outline">
+        <div className="text-center py-12 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-900">
+          <p className="text-red-600 dark:text-red-400 font-medium mb-2">Erro ao carregar cartões</p>
+          <p className="text-sm text-red-500 dark:text-red-400 mb-4">{error.message}</p>
+          <Button onClick={() => window.location.reload()} variant="outline">
             Tentar Novamente
           </Button>
         </div>

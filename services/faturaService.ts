@@ -1,15 +1,21 @@
 // src/services/faturaService.ts
 
-export interface PagarFaturaDTO {
-  contaId: string;
-  dataPagamento?: string;
-}
+import { FaturaDetalhada, PagarFaturaDTO } from "@/types/fatura";
 
 export const faturaService = {
   /**
    * Busca detalhes da fatura de um cartão em um mês/ano específico
+   * 
+   * @param cartaoId - ID do cartão
+   * @param ano - Ano da fatura
+   * @param mes - Mês da fatura (1-12)
+   * @returns Dados detalhados da fatura
    */
-  async buscarFatura(cartaoId: number, ano: number, mes: number) {
+  async buscarFatura(
+    cartaoId: number | string,
+    ano: number,
+    mes: number
+  ): Promise<FaturaDetalhada> {
     const res = await fetch(
       `/api/cartoes/${cartaoId}/fatura?ano=${ano}&mes=${mes}`,
       {
@@ -18,8 +24,8 @@ export const faturaService = {
     );
     
     if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao buscar fatura");
+      const error = await res.json().catch(() => ({ error: "Erro ao buscar fatura" }));
+      throw new Error(error.error || error.message || "Erro ao buscar fatura");
     }
     
     return res.json();
@@ -27,13 +33,19 @@ export const faturaService = {
 
   /**
    * Paga uma fatura
+   * 
+   * @param cartaoId - ID do cartão
+   * @param ano - Ano da fatura
+   * @param mes - Mês da fatura (1-12)
+   * @param dados - Dados do pagamento (contaId, dataPagamento)
+   * @returns Dados atualizados da fatura
    */
   async pagar(
-    cartaoId: number,
+    cartaoId: number | string,
     ano: number,
     mes: number,
     dados: PagarFaturaDTO
-  ) {
+  ): Promise<FaturaDetalhada> {
     const res = await fetch(
       `/api/cartoes/${cartaoId}/fatura?ano=${ano}&mes=${mes}`,
       {
@@ -44,8 +56,8 @@ export const faturaService = {
     );
     
     if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao pagar fatura");
+      const error = await res.json().catch(() => ({ error: "Erro ao pagar fatura" }));
+      throw new Error(error.error || error.message || "Erro ao pagar fatura");
     }
     
     return res.json();
@@ -53,8 +65,17 @@ export const faturaService = {
 
   /**
    * Estorna o pagamento de uma fatura
+   * 
+   * @param cartaoId - ID do cartão
+   * @param ano - Ano da fatura
+   * @param mes - Mês da fatura (1-12)
+   * @returns Dados atualizados da fatura
    */
-  async estornarPagamento(cartaoId: number, ano: number, mes: number) {
+  async estornarPagamento(
+    cartaoId: number | string,
+    ano: number,
+    mes: number
+  ): Promise<FaturaDetalhada> {
     const res = await fetch(
       `/api/cartoes/${cartaoId}/fatura?ano=${ano}&mes=${mes}`,
       {
@@ -63,8 +84,8 @@ export const faturaService = {
     );
     
     if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao estornar pagamento");
+      const error = await res.json().catch(() => ({ error: "Erro ao estornar pagamento" }));
+      throw new Error(error.error || error.message || "Erro ao estornar pagamento");
     }
     
     return res.json();
