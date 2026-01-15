@@ -1,3 +1,4 @@
+// app/api/transacoes/[id]/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, contas, extratoConta, cartoes, faturas } from "@/db/schema";
@@ -14,7 +15,6 @@ export async function PUT(
     // 🔐 Autenticação
     const userId = await getUserId();
 
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -31,7 +31,9 @@ export async function PUT(
     const json = await req.json();
     const { modoEdicao } = json;
 
+    // ============================================
     // EDIÇÃO DE UMA ÚNICA TRANSAÇÃO
+    // ============================================
     if (modoEdicao === "unica") {
       // 🔐 Verificar ownership antes de atualizar
       const [transacaoExistente] = await db
@@ -52,31 +54,117 @@ export async function PUT(
         );
       }
 
-      // Atualizar
+      // ✅ CORREÇÃO: Converter data
+      const dataParaAtualizar = json.data
+        ? (typeof json.data === 'string' ? new Date(json.data) : json.data)
+        : undefined;
+
+      // ✅ NOVO: Atualizar transação
       const [updated] = await db
         .update(transacoes)
         .set({
           tipo: json.tipo,
           descricao: json.descricao,
           valor: String(json.valor),
-          data: json.data,
+          data: dataParaAtualizar,
           categoria: json.categoria,
           contaId: json.contaId,
           formaPagamento: json.formaPagamento,
           cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
+          updatedAt: new Date(),
         })
         .where(
           and(
             eq(transacoes.id, id),
-            eq(transacoes.userId, userId) // 🔐 Garantir ownership
+            eq(transacoes.userId, userId)
           )
         )
         .returning();
 
+      // ✅ NOVO: Atualizar extrato SE existir e SE não for cartão
+      if (transacaoExistente.formaPagamento !== "cartao" && transacaoExistente.contaId) {
+        try {
+          // Buscar registro do extrato vinculado
+          const [extratoExistente] = await db
+            .select()
+            .from(extratoConta)
+            .where(
+              and(
+                eq(extratoConta.referenciaId, id),
+                eq(extratoConta.userId, userId)
+              )
+            )
+            .limit(1);
+
+          if (extratoExistente) {
+            // Calcular novo saldo se o valor mudou
+            const valorAntigo = Number(transacaoExistente.valor);
+            const valorNovo = Number(json.valor);
+            const saldoAntigoApos = Number(extratoExistente.saldoApos);
+
+            let novoSaldoApos = saldoAntigoApos;
+
+            // Se o valor mudou, recalcular saldo
+            if (valorAntigo !== valorNovo) {
+              const diferenca = valorNovo - valorAntigo;
+
+              if (transacaoExistente.tipo === "entrada") {
+                novoSaldoApos = saldoAntigoApos + diferenca;
+              } else {
+                novoSaldoApos = saldoAntigoApos + diferenca; // diferença já considera o sinal
+              }
+
+              // ✅ IMPORTANTE: Atualizar saldo da conta também
+              await db
+                .update(contas)
+                .set({
+                  saldoAtual: novoSaldoApos.toFixed(2),
+                  updatedAt: new Date(),
+                })
+                .where(
+                  and(
+                    eq(contas.id, transacaoExistente.contaId),
+                    eq(contas.userId, userId)
+                  )
+                );
+            }
+
+            // Formatar data para o extrato (YYYY-MM-DD)
+            const dataExtrato = dataParaAtualizar
+              ? dataParaAtualizar.toISOString().split('T')[0]
+              : extratoExistente.data;
+
+            // Atualizar registro do extrato
+            await db
+              .update(extratoConta)
+              .set({
+                data: dataExtrato,
+                tipo: json.tipo === "entrada" ? "entrada" : "saida",
+                valor: Math.abs(Number(json.valor)).toFixed(2),
+                descricao: json.descricao || extratoExistente.descricao,
+                saldoApos: novoSaldoApos.toFixed(2),
+              })
+              .where(
+                and(
+                  eq(extratoConta.id, extratoExistente.id),
+                  eq(extratoConta.userId, userId)
+                )
+              );
+
+            console.log(`✅ Extrato atualizado: ${id} | Novo saldo: R$ ${novoSaldoApos.toFixed(2)}`);
+          }
+        } catch (extratoError) {
+          console.error("⚠️ Erro ao atualizar extrato (não crítico):", extratoError);
+          // Não bloqueia a atualização da transação se o extrato falhar
+        }
+      }
+
       return NextResponse.json(updated);
     }
 
+    // ============================================
     // EDIÇÃO DE TODAS AS PARCELAS
+    // ============================================
     if (modoEdicao === "todas_parcelas") {
       if (!json.parcelamentoId) {
         return NextResponse.json(
@@ -92,7 +180,7 @@ export async function PUT(
         .where(
           and(
             eq(transacoes.parcelamentoId, json.parcelamentoId),
-            eq(transacoes.userId, userId) // 🔐 Filtrar por userId
+            eq(transacoes.userId, userId)
           )
         );
 
@@ -104,7 +192,6 @@ export async function PUT(
       }
 
       const valorParcela = Number(json.valor) / json.parcelas;
-
       const atualizadas = [];
 
       for (const t of transacoesParceladas) {
@@ -113,33 +200,69 @@ export async function PUT(
           .set({
             tipo: json.tipo,
             descricao: json.descricao,
-            valor: valorParcela.toFixed(2), // ✅ String com 2 decimais
+            valor: valorParcela.toFixed(2),
             categoria: json.categoria,
             contaId: json.contaId,
             formaPagamento: json.formaPagamento,
-            cartaoId:
-              json.formaPagamento === "cartao" ? json.cartaoId : null,
+            cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
 
             parcelado: true,
             parcelas: json.parcelas,
             parcelaAtual: t.parcelaAtual,
             parcelamentoId: json.parcelamentoId,
+            updatedAt: new Date(),
           })
           .where(
             and(
               eq(transacoes.id, t.id),
-              eq(transacoes.userId, userId) // 🔐 Garantir ownership
+              eq(transacoes.userId, userId)
             )
           )
           .returning();
 
         if (updated) atualizadas.push(updated);
+
+        // ✅ NOVO: Atualizar extrato de cada parcela
+        if (t.formaPagamento !== "cartao" && t.contaId) {
+          try {
+            const [extratoExistente] = await db
+              .select()
+              .from(extratoConta)
+              .where(
+                and(
+                  eq(extratoConta.referenciaId, t.id),
+                  eq(extratoConta.userId, userId)
+                )
+              )
+              .limit(1);
+
+            if (extratoExistente) {
+              await db
+                .update(extratoConta)
+                .set({
+                  tipo: json.tipo === "entrada" ? "entrada" : "saida",
+                  valor: Math.abs(valorParcela).toFixed(2),
+                  descricao: json.descricao || extratoExistente.descricao,
+                })
+                .where(
+                  and(
+                    eq(extratoConta.id, extratoExistente.id),
+                    eq(extratoConta.userId, userId)
+                  )
+                );
+            }
+          } catch (extratoError) {
+            console.error("⚠️ Erro ao atualizar extrato da parcela:", extratoError);
+          }
+        }
       }
 
       return NextResponse.json(atualizadas);
     }
 
+    // ============================================
     // EDIÇÃO DE TODA A RECORRÊNCIA
+    // ============================================
     if (modoEdicao === "toda_recorrencia") {
       if (!json.recorrenciaId) {
         return NextResponse.json(
@@ -155,7 +278,7 @@ export async function PUT(
         .where(
           and(
             eq(transacoes.recorrenciaId, json.recorrenciaId),
-            eq(transacoes.userId, userId) // 🔐 Filtrar por userId
+            eq(transacoes.userId, userId)
           )
         );
 
@@ -183,16 +306,51 @@ export async function PUT(
             recorrente: true,
             recorrenciaId: json.recorrenciaId,
             repeticoes: json.repeticoes,
+            updatedAt: new Date(),
           })
           .where(
             and(
               eq(transacoes.id, t.id),
-              eq(transacoes.userId, userId) // 🔐 Garantir ownership
+              eq(transacoes.userId, userId)
             )
           )
           .returning();
 
         if (updated) atualizadas.push(updated);
+
+        // ✅ NOVO: Atualizar extrato de cada recorrência
+        if (t.formaPagamento !== "cartao" && t.contaId) {
+          try {
+            const [extratoExistente] = await db
+              .select()
+              .from(extratoConta)
+              .where(
+                and(
+                  eq(extratoConta.referenciaId, t.id),
+                  eq(extratoConta.userId, userId)
+                )
+              )
+              .limit(1);
+
+            if (extratoExistente) {
+              await db
+                .update(extratoConta)
+                .set({
+                  tipo: json.tipo === "entrada" ? "entrada" : "saida",
+                  valor: Math.abs(Number(json.valor)).toFixed(2),
+                  descricao: json.descricao || extratoExistente.descricao,
+                })
+                .where(
+                  and(
+                    eq(extratoConta.id, extratoExistente.id),
+                    eq(extratoConta.userId, userId)
+                  )
+                );
+            }
+          } catch (extratoError) {
+            console.error("⚠️ Erro ao atualizar extrato da recorrência:", extratoError);
+          }
+        }
       }
 
       return NextResponse.json(atualizadas);
@@ -390,7 +548,7 @@ export async function DELETE(
               await db
                 .delete(faturas)
                 .where(eq(faturas.id, fatura.id));
-              
+
               console.log(`🗑️  Fatura ${mesFatura}/${anoFatura} deletada (zerada)`);
             } else {
               // Atualizar total da fatura
@@ -401,7 +559,7 @@ export async function DELETE(
                   updatedAt: new Date(),
                 })
                 .where(eq(faturas.id, fatura.id));
-              
+
               console.log(
                 `✅ Fatura ${mesFatura}/${anoFatura} atualizada: R$ ${totalAtual.toFixed(2)} → R$ ${novoTotal.toFixed(2)}`
               );
@@ -453,9 +611,9 @@ export async function DELETE(
 
     console.log(`✅ ${idsParaDeletar.length} transação(ões) deletada(s)`);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       sucesso: true,
-      deletadas: transacoesParaDeletar.length 
+      deletadas: transacoesParaDeletar.length
     });
 
   } catch (err: any) {

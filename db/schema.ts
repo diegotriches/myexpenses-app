@@ -234,7 +234,6 @@ export type NovaCategoriaDb = typeof categorias.$inferInsert;
 
 // CONTAS (Isoladas por usuário)
 
-// src/db/schema.ts (trecho da tabela contas)
 export const contas = pgTable(
   "contas",
   {
@@ -256,7 +255,6 @@ export const contas = pgTable(
       .notNull(),
   },
   (table) => ({
-    // ✅ NOVO: Índice para melhorar performance de queries por userId
     userIdIdx: index("contas_user_id_idx").on(table.userId),
   })
 );
@@ -309,6 +307,7 @@ export const transacoes = pgTable("transacoes", {
   parcelas: integer("parcelas"),
   parcelaAtual: integer("parcelaAtual"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
 // 📊 ÍNDICES RECOMENDADOS (V2)
