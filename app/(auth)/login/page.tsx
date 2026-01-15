@@ -6,11 +6,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { FiLogIn, FiMail, FiLock, FiArrowLeft, FiEye, FiEyeOff, FiAlertCircle, FiX } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { BsCashCoin } from "react-icons/bs";
 import { useState, useEffect, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 
 import {
     Form,
@@ -31,7 +32,60 @@ const loginSchema = z.object({
     password: z.string().min(6, "A senha deve ter ao menos 6 caracteres"),
 });
 
-// Componente separado que usa useSearchParams
+// ============================================
+// 🔄 AUTO-LOGIN WRAPPER
+// ============================================
+function AutoLoginWrapper({ children }: { children: React.ReactNode }) {
+    const router = useRouter();
+    const { data: session, status } = useSession();
+    const [isChecking, setIsChecking] = useState(true);
+
+    useEffect(() => {
+        // ✅ Se já estiver autenticado, redireciona para dashboard
+        if (status === "authenticated" && session?.user) {
+            router.push("/dashboard");
+            router.refresh();
+        } else if (status === "unauthenticated") {
+            // ✅ Não autenticado - mostra form de login
+            setIsChecking(false);
+        }
+        // status === "loading" - mantém loading
+    }, [status, session, router]);
+
+    // ============================================
+    // 📱 LOADING STATE - Verificando sessão
+    // ============================================
+    if (status === "loading" || isChecking) {
+        return (
+            <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4">
+                <Card className="bg-white dark:bg-gray-800 shadow-2xl border-0 w-full max-w-md">
+                    <CardContent className="p-12 text-center">
+                        <div className="flex flex-col items-center gap-4">
+                            <Loader2 className="h-12 w-12 text-blue-600 dark:text-blue-400 animate-spin" />
+                            <div className="space-y-2">
+                                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Verificando autenticação...
+                                </p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    Aguarde um momento
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </main>
+        );
+    }
+
+    // ============================================
+    // ✅ NÃO AUTENTICADO - Mostra formulário
+    // ============================================
+    return <>{children}</>;
+}
+
+// ============================================
+// 📝 FORMULÁRIO DE LOGIN
+// ============================================
 function LoginForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -86,7 +140,9 @@ function LoginForm() {
                     setError("Ocorreu um erro ao fazer login. Tente novamente.");
                 }
             } else if (result?.ok) {
+                // ✅ Login bem-sucedido - redireciona
                 router.push("/dashboard");
+                router.refresh();
             }
         } catch (err) {
             setError("Erro inesperado. Por favor, tente novamente mais tarde.");
@@ -263,86 +319,95 @@ function LoginForm() {
     );
 }
 
+// ============================================
+// 🎨 PÁGINA PRINCIPAL
+// ============================================
 export default function LoginPage() {
     return (
-        <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Decorative elements */}
-            <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl"></div>
-                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl"></div>
-            </div>
+        <AutoLoginWrapper>
+            <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4 relative overflow-hidden">
+                {/* Decorative elements */}
+                <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl"></div>
+                    <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl"></div>
+                </div>
 
-            {/* Back to home button */}
-            <Link
-                href="/"
-                className="absolute top-6 left-6 flex items-center gap-2 text-white hover:text-blue-200 transition-colors group"
-            >
-                <FiArrowLeft className="group-hover:-translate-x-1 transition-transform" />
-                <span className="font-medium">Voltar</span>
-            </Link>
+                {/* Back to home button */}
+                <Link
+                    href="/"
+                    className="absolute top-6 left-6 flex items-center gap-2 text-white hover:text-blue-200 transition-colors group"
+                >
+                    <FiArrowLeft className="group-hover:-translate-x-1 transition-transform" />
+                    <span className="font-medium">Voltar</span>
+                </Link>
 
-            <div className="relative w-full max-w-6xl mx-auto">
-                <div className="grid lg:grid-cols-2 gap-8 items-center">
-                    {/* Left Side - Branding */}
-                    <div className="hidden lg:block text-white space-y-6">
-                        <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full mb-4">
-                            <BsCashCoin className="text-yellow-300" size={24} />
-                            <span className="font-semibold text-lg">MyExpenses</span>
-                        </div>
-
-                        <h1 className="text-5xl font-extrabold leading-tight">
-                            Bem-vindo de volta!
-                        </h1>
-
-                        <p className="text-xl text-blue-100 leading-relaxed">
-                            Continue gerenciando suas finanças com inteligência.
-                            Seus dados estão seguros e prontos para você.
-                        </p>
-
-                        <div className="space-y-4 pt-4">
-                            {[
-                                "Acesso a todas suas transações",
-                                "Dashboard com análises em tempo real",
-                                "Controle completo de receitas e despesas"
-                            ].map((item, index) => (
-                                <div key={index} className="flex items-center gap-3">
-                                    <div className="w-6 h-6 rounded-full bg-green-400/20 flex items-center justify-center flex-shrink-0">
-                                        <div className="w-3 h-3 rounded-full bg-green-400"></div>
-                                    </div>
-                                    <span className="text-blue-100">{item}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Right Side - Login Form */}
-                    <Card className="bg-white dark:bg-gray-800 shadow-2xl border-0">
-                        <CardHeader className="space-y-2 pb-6">
-                            {/* Mobile logo */}
-                            <div className="lg:hidden flex justify-center mb-4">
-                                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full">
-                                    <BsCashCoin size={20} />
-                                    <span className="font-semibold">MyExpenses</span>
-                                </div>
+                <div className="relative w-full max-w-6xl mx-auto">
+                    <div className="grid lg:grid-cols-2 gap-8 items-center">
+                        {/* Left Side - Branding */}
+                        <div className="hidden lg:block text-white space-y-6">
+                            <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full mb-4">
+                                <BsCashCoin className="text-yellow-300" size={24} />
+                                <span className="font-semibold text-lg">MyExpenses</span>
                             </div>
 
-                            <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white text-center">
-                                Entrar na sua conta
-                            </CardTitle>
-                            <p className="text-center text-gray-600 dark:text-gray-400">
-                                Acesse o painel e gerencie suas finanças
-                            </p>
-                        </CardHeader>
+                            <h1 className="text-5xl font-extrabold leading-tight">
+                                Bem-vindo de volta!
+                            </h1>
 
-                        <CardContent className="space-y-6">
-                            {/* Wrap LoginForm com Suspense */}
-                            <Suspense fallback={<div className="text-center py-8">Carregando...</div>}>
-                                <LoginForm />
-                            </Suspense>
-                        </CardContent>
-                    </Card>
+                            <p className="text-xl text-blue-100 leading-relaxed">
+                                Continue gerenciando suas finanças com inteligência.
+                                Seus dados estão seguros e prontos para você.
+                            </p>
+
+                            <div className="space-y-4 pt-4">
+                                {[
+                                    "Acesso a todas suas transações",
+                                    "Dashboard com análises em tempo real",
+                                    "Controle completo de receitas e despesas"
+                                ].map((item, index) => (
+                                    <div key={index} className="flex items-center gap-3">
+                                        <div className="w-6 h-6 rounded-full bg-green-400/20 flex items-center justify-center flex-shrink-0">
+                                            <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                                        </div>
+                                        <span className="text-blue-100">{item}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Right Side - Login Form */}
+                        <Card className="bg-white dark:bg-gray-800 shadow-2xl border-0">
+                            <CardHeader className="space-y-2 pb-6">
+                                {/* Mobile logo */}
+                                <div className="lg:hidden flex justify-center mb-4">
+                                    <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full">
+                                        <BsCashCoin size={20} />
+                                        <span className="font-semibold">MyExpenses</span>
+                                    </div>
+                                </div>
+
+                                <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white text-center">
+                                    Entrar na sua conta
+                                </CardTitle>
+                                <p className="text-center text-gray-600 dark:text-gray-400">
+                                    Acesse o painel e gerencie suas finanças
+                                </p>
+                            </CardHeader>
+
+                            <CardContent className="space-y-6">
+                                {/* Wrap LoginForm com Suspense */}
+                                <Suspense fallback={
+                                    <div className="text-center py-8">
+                                        <Loader2 className="h-8 w-8 text-blue-600 animate-spin mx-auto" />
+                                    </div>
+                                }>
+                                    <LoginForm />
+                                </Suspense>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
-            </div>
-        </main>
+            </main>
+        </AutoLoginWrapper>
     );
 }
