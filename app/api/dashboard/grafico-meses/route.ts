@@ -86,16 +86,11 @@ export async function GET(req: NextRequest) {
       transacoesDoMes.forEach((t) => {
         const valor = Number(t.valor);
 
-        // ⚠️ IMPORTANTE: Ignorar transações de cartão de crédito
-        // (o fluxo de caixa real é o pagamento da fatura, não a compra)
-        if (t.formaPagamento === "cartao") {
-          return;
-        }
-
+        // ✅ CORREÇÃO: Contar TODAS as despesas (incluindo cartão)
         if (t.tipo === "entrada") {
           receitas += valor;
         } else if (t.tipo === "saida") {
-          despesas += valor;
+          despesas += valor; // ✅ Agora inclui cartão
         }
       });
 

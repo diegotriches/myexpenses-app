@@ -11,7 +11,7 @@ import { getUserId } from "@/lib/auth";
  * 
  * Response: {
  *   periodo: { mes, ano },
- *   resumo: { receitas, despesas, saldo },
+ *   resumo: { receitas, despesas, saldo, quantidadeReceitas, quantidadeDespesas },
  *   cartoes: [{ cartaoId, nome, totalFatura, paga }]
  * }
  */
@@ -63,27 +63,29 @@ export async function GET(req: NextRequest) {
 
     let receitas = 0;
     let despesas = 0;
+    let quantidadeReceitas = 0;
+    let quantidadeDespesas = 0;
 
-    // Agrupamento por cartão
+    // Agrupamento por cartão (apenas para info adicional)
     const faturasPorCartao: Record<number, number> = {};
 
     for (const t of todas) {
       const valor = Number(t.valor);
 
-      // Transações de cartão (acumulam na fatura)
-      if (t.formaPagamento === "cartao" && t.cartaoId) {
-        faturasPorCartao[t.cartaoId] =
-          (faturasPorCartao[t.cartaoId] || 0) + valor;
-        continue;
-      }
-
-      // Transações de conta (afetam fluxo de caixa imediato)
+      // ✅ CORREÇÃO: Contar despesas de cartão também
       if (t.tipo === "entrada") {
         receitas += valor;
+        quantidadeReceitas++;
       }
 
       if (t.tipo === "saida") {
-        despesas += valor;
+        despesas += valor; // ✅ Soma TODAS as despesas (incluindo cartão)
+        quantidadeDespesas++;
+
+        // Acumular por cartão (se aplicável)
+        if (t.formaPagamento === "cartao" && t.cartaoId) {
+          faturasPorCartao[t.cartaoId] = (faturasPorCartao[t.cartaoId] || 0) + valor;
+        }
       }
     }
 
@@ -129,6 +131,8 @@ export async function GET(req: NextRequest) {
         receitas,
         despesas,
         saldo: receitas - despesas,
+        quantidadeReceitas,
+        quantidadeDespesas,
       },
       cartoes: cartoesResumo,
     });
