@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { calcularFaturaDaTransacao } from "@/utils/faturaUtils"; // ✅ IMPORTAR
+import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 // GET - Listar transações do usuário
 export async function GET(req: NextRequest) {
@@ -73,10 +73,26 @@ export async function POST(req: NextRequest) {
     
     console.log(`📥 Recebido ${transacoesArray.length} transação(ões)`);
 
+    // ✅ DETECTAR SE É PARCELAMENTO/RECORRÊNCIA
+    const isParcelas = transacoesArray.length > 1 && transacoesArray[0].parcelado === true;
+    const isRecorrencia = transacoesArray.length > 1 && transacoesArray[0].recorrente === true;
+
+    // ✅ GERAR IDs ÚNICOS PARA PARCELAMENTO/RECORRÊNCIA
+    const parcelamentoId = isParcelas ? crypto.randomUUID() : null;
+    const recorrenciaId = isRecorrencia ? crypto.randomUUID() : null;
+
+    console.log(`🔍 Tipo de transação: ${
+      isParcelas ? `Parcelado (${transacoesArray.length}x)` :
+      isRecorrencia ? `Recorrente (${transacoesArray.length}x)` :
+      'À vista'
+    }`);
+
     const transacoesCriadas = [];
 
     // Processar cada transação
-    for (const trans of transacoesArray) {
+    for (let index = 0; index < transacoesArray.length; index++) {
+      const trans = transacoesArray[index];
+
       // Validações básicas
       if (!trans.tipo || !["entrada", "saida"].includes(trans.tipo)) {
         return NextResponse.json(
@@ -167,7 +183,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 3. ✅ CRIAR TRANSAÇÃO COM TODOS OS CAMPOS
+      // ✅ 3. CRIAR TRANSAÇÃO COM CAMPOS CORRETOS
       const [novaTransacao] = await db
         .insert(transacoes)
         .values({
@@ -181,17 +197,28 @@ export async function POST(req: NextRequest) {
           contaId: trans.contaId || null,
           cartaoId: trans.cartaoId ? Number(trans.cartaoId) : null,
           
-          // ✅ CRÍTICO: Campos de parcelamento/recorrência
-          parcelado: trans.parcelado || false,
-          parcelamentoId: trans.parcelamentoId || null,
-          parcelas: trans.parcelas || null,
-          parcelaAtual: trans.parcelaAtual || null,
+          // ✅ PARCELAMENTO: Atribuir IDs e numeração
+          parcelado: isParcelas,
+          parcelamentoId: isParcelas ? parcelamentoId : null,
+          parcelas: isParcelas ? transacoesArray.length : null,
+          parcelaAtual: isParcelas ? index + 1 : null, // ✅ 1, 2, 3, 4...
           
-          recorrente: trans.recorrente || false,
-          recorrenciaId: trans.recorrenciaId || null,
-          repeticoes: trans.repeticoes || null,
+          // ✅ RECORRÊNCIA: Atribuir IDs
+          recorrente: isRecorrencia,
+          recorrenciaId: isRecorrencia ? recorrenciaId : null,
+          repeticoes: isRecorrencia ? transacoesArray.length : null,
         })
         .returning();
+
+      // ✅ LOG para debug
+      if (isParcelas) {
+        console.log(
+          `📦 Parcela ${index + 1}/${transacoesArray.length} criada | ` +
+          `Data: ${new Date(trans.data).toLocaleDateString('pt-BR')} | ` +
+          `Valor: R$ ${valorNum.toFixed(2)} | ` +
+          `ID Parcelamento: ${parcelamentoId?.slice(0, 8)}...`
+        );
+      }
 
       transacoesCriadas.push(novaTransacao);
 
@@ -249,7 +276,10 @@ export async function POST(req: NextRequest) {
           diaFechamento
         );
 
-        console.log(`📅 Transação em ${dataTransacao.toLocaleDateString('pt-BR')} → Fatura ${mesFatura}/${anoFatura}`);
+        console.log(
+          `📅 Transação ${index + 1} em ${dataTransacao.toLocaleDateString('pt-BR')} → ` +
+          `Fatura ${mesFatura}/${anoFatura}`
+        );
 
         // ✅ VERIFICAR SE FATURA JÁ ESTÁ PAGA
         const [faturaExistente] = await db
@@ -309,6 +339,14 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`✅ ${transacoesCriadas.length} transação(ões) criada(s)`);
+
+    // ✅ LOG FINAL para parcelamento
+    if (isParcelas) {
+      console.log(
+        `✅ Parcelamento completo: ${transacoesCriadas.length}x | ` +
+        `ID: ${parcelamentoId?.slice(0, 8)}...`
+      );
+    }
 
     // Retornar array se recebeu array, objeto único se recebeu objeto
     return NextResponse.json(

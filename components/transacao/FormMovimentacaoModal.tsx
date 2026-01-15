@@ -25,6 +25,9 @@ import {
   UpdateTransacaoDTO,
 } from "@/types/transacao";
 
+// ✅ IMPORTAR buildTransacoesFromForm
+import { buildTransacoesFromForm } from "@/lib/buildTransacoesFromForm";
+
 import {
   Select,
   SelectTrigger,
@@ -44,7 +47,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   transacaoEdicao: Transacao | null;
   modoEdicao?: "unica" | "todas_parcelas" | "toda_recorrencia";
-  salvar: (dados: CreateTransacaoDTO | UpdateTransacaoDTO) => Promise<void>;
+  salvar: (dados: any) => Promise<void>; // ✅ Aceita qualquer tipo (será validado em runtime)
   loading?: boolean;
 }
 
@@ -219,7 +222,7 @@ export default function FormMovimentacaoModal({
 
     try {
       if (isEdit && transacaoEdicao) {
-        // ✅ EDIÇÃO
+        // ✅ EDIÇÃO - Mantém lógica atual
         const dadosAtualizacao: UpdateTransacaoDTO = {
           modoEdicao: modoEdicao || "unica",
           tipo: form.tipo,
@@ -234,23 +237,41 @@ export default function FormMovimentacaoModal({
 
         await salvar(dadosAtualizacao);
       } else {
-        // ✅ CRIAÇÃO
-        const dadosCriacao: CreateTransacaoDTO = {
-          tipo: form.tipo,
-          valor: parseFloat(form.valor),
-          data: form.data,
-          descricao: form.descricao || undefined,
-          categoria: form.categoria || undefined,
+        // ✅ CRIAÇÃO - USA buildTransacoesFromForm
+        const transacoesParaCriar = buildTransacoesFromForm({
+          form: {
+            contaId: form.contaId,
+            tipo: form.tipo,
+            categoria: form.categoria,
+            valor: form.valor,
+            data: form.data,
+            descricao: form.descricao,
+            formaPagamento: form.formaPagamento,
+            cartaoId: form.cartaoId,
+            parcelas: form.parcelas,
+            repeticoes: form.repeticoes,
+            parcelado: form.parcelado,
+            recorrente: form.recorrente,
+          },
           contaId: form.contaId,
-          formaPagamento: form.formaPagamento,
-          cartaoId: form.cartaoId ? Number(form.cartaoId) : undefined,
-          parcelado: form.parcelado,
-          parcelas: form.parcelado ? form.parcelas : undefined,
-          recorrente: form.recorrente,
-          repeticoes: form.recorrente ? form.repeticoes : undefined,
-        };
+          transacaoEdicao: null,
+        });
 
-        await salvar(dadosCriacao);
+        // ✅ LOG PARA DEBUG
+        console.log('🔍 Transações geradas pelo buildTransacoesFromForm:', {
+          total: transacoesParaCriar.length,
+          isParcelas: form.parcelado,
+          isRecorrente: form.recorrente,
+          datas: transacoesParaCriar.map(t => t.data),
+          valores: transacoesParaCriar.map(t => t.valor),
+        });
+
+        // ✅ Envia array se múltiplas transações, objeto único se apenas uma
+        const dadosParaSalvar = transacoesParaCriar.length === 1 
+          ? transacoesParaCriar[0] 
+          : transacoesParaCriar;
+
+        await salvar(dadosParaSalvar);
       }
 
       // Modal fecha após sucesso
