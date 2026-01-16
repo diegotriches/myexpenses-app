@@ -6,7 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { signOut } from "next-auth/react";
 import { BsList, BsChevronLeft, BsCalculatorFill } from "react-icons/bs";
-import { Sun, Moon, LogOut, ChevronRight } from "lucide-react";
+import { Sun, Moon, LogOut, ChevronRight, MoreVertical, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -31,6 +31,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [calculadoraOpen, setCalculadoraOpen] = useState(false);
+  const [menuExpanded, setMenuExpanded] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -41,16 +42,19 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
   }, []);
 
   const alternarModo = () => {
-    // Alterna entre light e dark
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
-  // ✅ Usa NextAuth signOut ao invés de localStorage
   const handleLogout = async () => {
     await signOut({ 
       callbackUrl: "/login",
       redirect: true 
     });
+  };
+
+  // Toggle do menu mobile
+  const toggleMenu = () => {
+    setMenuExpanded(!menuExpanded);
   };
 
   // Gerar breadcrumbs baseado na rota
@@ -79,37 +83,26 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
   };
 
   const breadcrumbs = getBreadcrumbs();
+  const currentPageTitle = breadcrumbs[breadcrumbs.length - 1]?.label || 'MyExpenses';
 
   // Renderiza um fallback até montar (evita flash)
   if (!mounted) {
     return (
       <header
-        className={`
-          fixed top-0 right-0 h-16
+        className="
+          fixed top-0 left-0 right-0 h-16
           bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700
           shadow-sm z-30
-          flex items-center justify-between px-4 md:px-6
-          transition-all duration-300
-          ${isCollapsed ? 'left-20' : 'left-64'}
-          md:${isCollapsed ? 'left-20' : 'left-64'}
-          left-0
-        `}
+          flex items-center justify-between px-4
+          md:left-20 md:right-0
+          lg:left-64
+        "
       >
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSidebar}
-            className="hidden md:flex text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            {isCollapsed ? <BsList size={20} /> : <BsChevronLeft size={20} />}
-          </Button>
-        </div>
-        <div className="hidden md:flex absolute left-1/2 transform -translate-x-1/2">
-          <PeriodoSelector />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10" />
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10" /> {/* Placeholder */}
+          <div className="w-10 h-10" />
         </div>
       </header>
     );
@@ -117,110 +110,270 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
 
   return (
     <>
+      {/* ============================================
+          HEADER - Adaptado para Mobile/Tablet/Desktop
+          ============================================ */}
       <header
         className={`
-          fixed top-0 right-0 h-16
-          bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700
+          fixed top-0 right-0
+          bg-white dark:bg-gray-900 
+          border-b border-gray-200 dark:border-gray-700
           shadow-sm z-30
-          flex items-center justify-between px-4 md:px-6
           transition-all duration-300
-          ${isCollapsed ? 'left-20' : 'left-64'}
-          md:${isCollapsed ? 'left-20' : 'left-64'}
-          left-0
+          
+          /* Mobile: Altura dinâmica (16 ou 28) */
+          left-0 ${menuExpanded ? 'h-28' : 'h-16'}
+          
+          /* Tablet: Sidebar visível, 1 linha */
+          md:left-20 md:h-16
+          
+          /* Desktop: Sidebar expandido */
+          ${isCollapsed ? 'lg:left-20' : 'lg:left-64'}
         `}
       >
-        {/* Left Section */}
-        <div className="flex items-center gap-4">
-          {/* Toggle Sidebar Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSidebar}
-            className="hidden md:flex text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-800 cursor-pointer"
-            title={isCollapsed ? "Expandir menu" : "Recolher menu"}
-          >
-            {isCollapsed ? <BsList size={20} /> : <BsChevronLeft size={20} />}
-          </Button>
+        {/* ============================================
+            LINHA 1: Navegação Principal
+            ============================================ */}
+        <div className="h-16 flex items-center justify-between px-4 md:px-6">
+          
+          {/* LEFT SECTION */}
+          <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+            {/* Menu Hamburguer - Mobile */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              className="
+                md:hidden
+                h-11 w-11 flex-shrink-0
+                text-gray-600 hover:text-blue-600 hover:bg-blue-50 
+                dark:text-gray-300 dark:hover:bg-gray-800
+                touch-manipulation
+              "
+              aria-label="Menu"
+            >
+              <BsList size={24} />
+            </Button>
 
-          {/* Breadcrumbs - Desktop only */}
-          <nav className="hidden lg:flex items-center gap-2 text-sm">
-            {breadcrumbs.map((crumb, index) => (
-              <div key={crumb.href} className="flex items-center gap-2">
-                {index > 0 && (
-                  <ChevronRight size={14} className="text-gray-400 dark:text-gray-600" />
-                )}
-                {crumb.isLast ? (
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {crumb.label}
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => router.push(crumb.href)}
-                    className="text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
-                  >
-                    {crumb.label}
-                  </button>
-                )}
-              </div>
-            ))}
-          </nav>
+            {/* Toggle Sidebar - Desktop */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              className="
+                hidden md:flex
+                text-gray-600 hover:text-blue-600 hover:bg-blue-50 
+                dark:text-gray-300 dark:hover:bg-gray-800
+              "
+              title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+              aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
+            >
+              {isCollapsed ? <BsList size={20} /> : <BsChevronLeft size={20} />}
+            </Button>
 
-          {/* Page Title - Mobile only */}
-          <h1 className="lg:hidden font-semibold text-gray-900 dark:text-white">
-            {breadcrumbs[breadcrumbs.length - 1]?.label || 'MyExpenses'}
-          </h1>
+            {/* Breadcrumbs - Desktop */}
+            <nav className="hidden lg:flex items-center gap-2 text-sm" aria-label="Breadcrumb">
+              {breadcrumbs.map((crumb, index) => (
+                <div key={crumb.href} className="flex items-center gap-2">
+                  {index > 0 && (
+                    <ChevronRight size={14} className="text-gray-400 dark:text-gray-600" aria-hidden="true" />
+                  )}
+                  {crumb.isLast ? (
+                    <span className="font-semibold text-gray-900 dark:text-white" aria-current="page">
+                      {crumb.label}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => router.push(crumb.href)}
+                      className="text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+                    >
+                      {crumb.label}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </nav>
+
+            {/* Page Title - Mobile/Tablet */}
+            <h1 className="lg:hidden font-semibold text-gray-900 dark:text-white truncate text-base md:text-lg">
+              {currentPageTitle}
+            </h1>
+          </div>
+
+          {/* CENTER SECTION - Periodo Selector (Desktop only) */}
+          <div className="hidden lg:flex absolute left-1/2 transform -translate-x-1/2">
+            <PeriodoSelector />
+          </div>
+
+          {/* RIGHT SECTION */}
+          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+            {/* Calculadora - Desktop/Tablet */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCalculadoraOpen(true)}
+              className="
+                hidden md:flex
+                text-gray-600 hover:text-blue-600 hover:bg-blue-50 
+                dark:text-gray-300 dark:hover:bg-gray-800
+              "
+              title="Calculadora"
+              aria-label="Abrir calculadora"
+            >
+              <BsCalculatorFill size={18} />
+            </Button>
+
+            {/* Theme Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={alternarModo}
+              className="
+                h-11 w-11 md:h-10 md:w-10
+                text-gray-600 hover:text-blue-600 hover:bg-blue-50 
+                dark:text-gray-300 dark:hover:bg-gray-800
+                touch-manipulation
+              "
+              title={resolvedTheme === "dark" ? "Modo claro" : "Modo escuro"}
+              aria-label={resolvedTheme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+            >
+              {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+            </Button>
+
+            {/* Notificações */}
+            <NotificacaoPopover />
+
+            {/* Divider - Desktop only */}
+            <div className="hidden lg:block h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1" />
+
+            {/* Logout - Desktop/Tablet */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowLogoutDialog(true)}
+              className="
+                hidden md:flex
+                text-gray-600 hover:text-red-600 hover:bg-red-50 
+                dark:text-gray-300 dark:hover:bg-red-900/20
+              "
+              title="Sair"
+              aria-label="Sair da conta"
+            >
+              <LogOut size={18} />
+            </Button>
+
+            {/* Botão Menu Expansível - Mobile */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleMenu}
+              className={`
+                md:hidden
+                h-11 w-11
+                touch-manipulation
+                transition-all duration-200
+                ${menuExpanded 
+                  ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' 
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                }
+              `}
+              aria-label={menuExpanded ? "Fechar menu" : "Abrir menu"}
+              aria-expanded={menuExpanded}
+            >
+              {menuExpanded ? (
+                <X size={20} className="transition-transform duration-200" />
+              ) : (
+                <MoreVertical size={20} className="transition-transform duration-200" />
+              )}
+            </Button>
+          </div>
         </div>
 
-        {/* Center Section - Periodo Selector */}
-        <div className="hidden md:flex absolute left-1/2 transform -translate-x-1/2">
-          <PeriodoSelector />
+        {/* ============================================
+            LINHA 2: Contexto e Ações (Mobile only - Expansível)
+            ============================================ */}
+        <div 
+          className={`
+            md:hidden 
+            overflow-hidden
+            border-t border-gray-200 dark:border-gray-700
+            transition-all duration-300 ease-in-out
+            ${menuExpanded 
+              ? 'h-12 opacity-100' 
+              : 'h-0 opacity-0'
+            }
+          `}
+        >
+          <div className="h-12 flex items-center justify-center gap-3 px-4">
+            
+            {/* Label "Período:" */}
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex-shrink-0">
+              Período:
+            </span>
+
+            {/* Periodo Selector Inline - Mobile */}
+            <div className="flex-shrink-0">
+              <PeriodoSelector />
+            </div>
+
+            {/* Divider */}
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
+
+            {/* Ações Rápidas - Mobile */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Calculadora */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setCalculadoraOpen(true);
+                  setMenuExpanded(false); // Fecha o menu ao abrir calculadora
+                }}
+                className="
+                  h-10 w-10
+                  text-gray-600 hover:text-blue-600 hover:bg-blue-50
+                  dark:text-gray-300 dark:hover:bg-gray-800
+                  touch-manipulation
+                "
+                aria-label="Abrir calculadora"
+                title="Calculadora"
+              >
+                <BsCalculatorFill size={18} />
+              </Button>
+
+              {/* Logout */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setShowLogoutDialog(true);
+                  setMenuExpanded(false); // Fecha o menu ao abrir dialog
+                }}
+                className="
+                  h-10 w-10
+                  text-gray-600 hover:text-red-600 hover:bg-red-50
+                  dark:text-gray-300 dark:hover:bg-red-900/20
+                  touch-manipulation
+                "
+                aria-label="Sair da conta"
+                title="Sair"
+              >
+                <LogOut size={18} />
+              </Button>
+            </div>
+          </div>
         </div>
-
-        {/* Right Section */}
-        <div className="flex items-center gap-2">
-          {/* Calculadora Button - Desktop */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCalculadoraOpen(true)}
-            className="hidden md:flex text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-800 cursor-pointer"
-            title="Calculadora"
-          >
-            <BsCalculatorFill size={18} />
-          </Button>
-
-          {/* Theme Toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={alternarModo}
-            className="text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-800 cursor-pointer"
-            title={resolvedTheme === "dark" ? "Modo claro" : "Modo escuro"}
-          >
-            {resolvedTheme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          </Button>
-
-          {/* Divider */}
-          <div className="hidden md:block h-6 w-px bg-gray-300 dark:bg-gray-600" />
-
-          {/* ✅ Notificações Popover */}
-          <NotificacaoPopover />
-
-          {/* Logout Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowLogoutDialog(true)}
-            className="text-gray-600 hover:text-red-600 hover:bg-red-50 dark:text-gray-300 dark:hover:bg-red-900/20 cursor-pointer"
-            title="Sair"
-          >
-            <LogOut size={18} />
-          </Button>
-        </div>
-
-        {/* Modal da Calculadora */}
-        <CalculadoraModal open={calculadoraOpen} onOpenChange={setCalculadoraOpen} />
       </header>
+
+      {/* ============================================
+          MODALS
+          ============================================ */}
+
+      {/* Calculadora Modal */}
+      <CalculadoraModal 
+        open={calculadoraOpen} 
+        onOpenChange={setCalculadoraOpen} 
+      />
 
       {/* Logout Confirmation Dialog */}
       <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>

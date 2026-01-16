@@ -13,7 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, VisuallyHidden } from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +46,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   
   const [fotoError, setFotoError] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false); // ✅ NOVO: Controla estado do Sheet mobile
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -55,6 +56,11 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // ✅ NOVO: Fecha sidebar mobile quando pathname muda
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   // ✅ Usa NextAuth signOut ao invés de localStorage
   const handleLogout = async () => {
@@ -101,9 +107,28 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     },
   ];
 
-  const NavLink = ({ href, icon: Icon, label }: { href: string; icon: any; label: string }) => {
+  // ✅ NOVO: isMobile indica se está no contexto mobile (dentro do Sheet)
+  const NavLink = ({ 
+    href, 
+    icon: Icon, 
+    label, 
+    isMobile = false 
+  }: { 
+    href: string; 
+    icon: any; 
+    label: string;
+    isMobile?: boolean;
+  }) => {
+    // ✅ NOVO: Handler que fecha o Sheet mobile após navegação
+    const handleClick = (e: React.MouseEvent) => {
+      if (isMobile) {
+        // Não previne default, deixa o Link funcionar normalmente
+        // O useEffect vai detectar mudança no pathname e fechar
+      }
+    };
+
     const content = (
-      <Link href={href} className={linkClasses(href)}>
+      <Link href={href} className={linkClasses(href)} onClick={handleClick}>
         <Icon size={20} className="flex-shrink-0" />
         {!isCollapsed && <span className="font-medium">{label}</span>}
         {isActive(href) && !isCollapsed && (
@@ -115,7 +140,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       </Link>
     );
 
-    if (isCollapsed) {
+    if (isCollapsed && !isMobile) {
       return (
         <TooltipProvider delayDuration={0}>
           <Tooltip>
@@ -131,7 +156,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     return content;
   };
 
-  const UserProfileCard = () => {
+  const UserProfileCard = ({ isMobile = false }: { isMobile?: boolean }) => {
     // ✅ Prioriza nome, senão pega primeira letra do email
     const getInitials = () => {
       if (userData?.name) {
@@ -210,7 +235,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       </button>
     );
 
-    if (isCollapsed) {
+    if (isCollapsed && !isMobile) {
       return (
         <TooltipProvider delayDuration={0}>
           <Tooltip>
@@ -231,7 +256,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     return cardContent;
   };
 
-  const SidebarContent = () => (
+  // ✅ NOVO: Componente unificado que recebe prop isMobile
+  const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
     <>
       {/* Logo */}
       <div className="mb-8">
@@ -256,7 +282,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
             )}
             <div className="flex flex-col gap-1">
               {group.links.map((link) => (
-                <NavLink key={link.href} {...link} />
+                <NavLink key={link.href} {...link} isMobile={isMobile} />
               ))}
             </div>
           </div>
@@ -264,13 +290,13 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
 
         {/* Ajustes no final */}
         <div className="mt-auto pt-4 border-t border-blue-600 dark:border-slate-700">
-          <NavLink href="/ajustes" icon={BsFillGearFill} label="Ajustes" />
+          <NavLink href="/ajustes" icon={BsFillGearFill} label="Ajustes" isMobile={isMobile} />
         </div>
       </div>
 
       {/* User Profile Card */}
       <div className="mt-4 space-y-2">
-        <UserProfileCard />
+        <UserProfileCard isMobile={isMobile} />
         
         {/* Botões de ação */}
         <div className="flex gap-2">
@@ -299,7 +325,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
                     )}
                   </Button>
                 </TooltipTrigger>
-                {isCollapsed && (
+                {isCollapsed && !isMobile && (
                   <TooltipContent side="right" className="font-medium">
                     Modo {theme === "dark" ? "Claro" : "Escuro"}
                   </TooltipContent>
@@ -324,7 +350,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
                   {!isCollapsed && <span className="ml-2 font-medium">Sair</span>}
                 </Button>
               </TooltipTrigger>
-              {isCollapsed && (
+              {isCollapsed && !isMobile && (
                 <TooltipContent side="right" className="font-medium">
                   Sair
                 </TooltipContent>
@@ -350,12 +376,12 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           ${isCollapsed ? "w-20" : "w-64"}
         `}
       >
-        <SidebarContent />
+        <SidebarContent isMobile={false} />
       </nav>
 
       {/* Mobile Sidebar */}
       <div className="md:hidden">
-        <Sheet>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button
               variant="ghost"
@@ -367,10 +393,15 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           </SheetTrigger>
           <SheetContent 
             side="left" 
-            className="w-64 p-4 bg-gradient-to-b from-blue-600 to-blue-700 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-white border-none"
+            className="w-64 p-4 bg-gradient-to-b from-blue-600 to-blue-700 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-white border-none data-[state=closed]:duration-500 data-[state=open]:duration-500"
           >
+            {/* ✅ Título oculto para acessibilidade */}
+            <VisuallyHidden>
+              <SheetTitle>Menu de Navegação</SheetTitle>
+            </VisuallyHidden>
+            
             <div className="flex flex-col h-full">
-              <SidebarContent />
+              <SidebarContent isMobile={true} />
             </div>
           </SheetContent>
         </Sheet>
