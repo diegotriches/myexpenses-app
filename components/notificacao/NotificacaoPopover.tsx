@@ -82,12 +82,21 @@ export function NotificacaoPopover() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative"
-          aria-label="Notificações"
+          className="
+            relative
+            h-12 w-12 md:h-10 md:w-10
+            touch-manipulation
+            active:scale-95
+            transition-all duration-100
+          "
+          aria-label={`Notificações${naoLidas > 0 ? ` - ${naoLidas} não lidas` : ''}`}
         >
           <Bell className="h-5 w-5" />
           {naoLidas > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+            <span 
+              className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white dark:ring-gray-900"
+              aria-hidden="true"
+            >
               {naoLidas > 9 ? "9+" : naoLidas}
             </span>
           )}
@@ -119,8 +128,9 @@ export function NotificacaoPopover() {
                   size="sm"
                   onClick={() => marcarTodasLidas.mutate()}
                   disabled={marcarTodasLidas.isPending}
-                  className="h-8 px-2"
+                  className="h-9 w-9 p-0"
                   title="Marcar todas como lidas"
+                  aria-label="Marcar todas como lidas"
                 >
                   <CheckCheck className="h-4 w-4" />
                 </Button>
@@ -130,8 +140,9 @@ export function NotificacaoPopover() {
                 size="sm"
                 onClick={() => limparLidas.mutate()}
                 disabled={limparLidas.isPending}
-                className="h-8 px-2"
+                className="h-9 w-9 p-0"
                 title="Limpar lidas"
+                aria-label="Limpar notificações lidas"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -161,13 +172,24 @@ export function NotificacaoPopover() {
                     key={notif.id}
                     onClick={() => handleClickNotificacao(notif)}
                     className={cn(
-                      "relative cursor-pointer px-4 py-3 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800",
+                      "relative cursor-pointer px-4 py-3 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700",
                       !notif.lida && "bg-blue-50/50 dark:bg-blue-950/20"
                     )}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleClickNotificacao(notif);
+                      }
+                    }}
                   >
                     {/* Badge de não lida */}
                     {!notif.lida && (
-                      <div className="absolute left-2 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-blue-500" />
+                      <div 
+                        className="absolute left-2 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-blue-500" 
+                        aria-label="Não lida"
+                      />
                     )}
 
                     <div className="ml-3 flex items-start gap-3">
@@ -177,12 +199,13 @@ export function NotificacaoPopover() {
                           "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
                           config.bg
                         )}
+                        aria-hidden="true"
                       >
                         <Bell className={cn("h-4 w-4", config.color)} />
                       </div>
 
                       {/* Conteúdo */}
-                      <div className="flex-1 space-y-1">
+                      <div className="flex-1 space-y-1 min-w-0">
                         <p className="text-sm font-medium leading-tight text-gray-900 dark:text-white">
                           {notif.titulo}
                         </p>
@@ -199,15 +222,17 @@ export function NotificacaoPopover() {
                         </p>
                       </div>
 
-                      {/* Botão de remover */}
+                      {/* Botão de remover - CORRIGIDO */}
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 shrink-0"
+                        className="h-9 w-9 shrink-0 touch-manipulation active:scale-95 transition-transform"
                         onClick={(e) => handleRemover(e, notif.id)}
                         disabled={removerNotificacao.isPending}
+                        aria-label="Remover notificação"
+                        title="Remover"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -224,7 +249,7 @@ export function NotificacaoPopover() {
             <div className="p-2">
               <Button
                 variant="ghost"
-                className="w-full justify-center text-sm"
+                className="w-full justify-center text-sm h-10 touch-manipulation active:scale-[0.98] transition-transform"
                 onClick={() => {
                   router.push("/notificacoes");
                   setOpen(false);

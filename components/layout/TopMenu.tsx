@@ -145,10 +145,12 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
               onClick={toggleSidebar}
               className="
                 md:hidden
-                h-11 w-11 flex-shrink-0
+                h-12 w-12 flex-shrink-0
                 text-gray-600 hover:text-blue-600 hover:bg-blue-50 
                 dark:text-gray-300 dark:hover:bg-gray-800
                 touch-manipulation
+                active:scale-95
+                transition-all duration-100
               "
               aria-label="Menu"
             >
@@ -229,10 +231,12 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
               size="icon"
               onClick={alternarModo}
               className="
-                h-11 w-11 md:h-10 md:w-10
+                h-12 w-12 md:h-10 md:w-10
                 text-gray-600 hover:text-blue-600 hover:bg-blue-50 
                 dark:text-gray-300 dark:hover:bg-gray-800
                 touch-manipulation
+                active:scale-95
+                transition-all duration-100
               "
               title={resolvedTheme === "dark" ? "Modo claro" : "Modo escuro"}
               aria-label={resolvedTheme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
@@ -269,9 +273,10 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
               onClick={toggleMenu}
               className={`
                 md:hidden
-                h-11 w-11
+                h-12 w-12
                 touch-manipulation
-                transition-all duration-200
+                active:scale-95
+                transition-all duration-100
                 ${menuExpanded 
                   ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' 
                   : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-800'
@@ -304,7 +309,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
             }
           `}
         >
-          <div className="h-12 flex items-center justify-center gap-3 px-4">
+          <div className="h-12 flex items-center justify-center gap-4 px-4">
             
             {/* Label "Período:" */}
             <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex-shrink-0">
@@ -320,7 +325,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
             <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
 
             {/* Ações Rápidas - Mobile */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-3 flex-shrink-0">
               {/* Calculadora */}
               <Button
                 variant="ghost"
@@ -330,15 +335,17 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
                   setMenuExpanded(false); // Fecha o menu ao abrir calculadora
                 }}
                 className="
-                  h-10 w-10
+                  h-12 w-12
                   text-gray-600 hover:text-blue-600 hover:bg-blue-50
                   dark:text-gray-300 dark:hover:bg-gray-800
                   touch-manipulation
+                  active:scale-95
+                  transition-all duration-100
                 "
                 aria-label="Abrir calculadora"
                 title="Calculadora"
               >
-                <BsCalculatorFill size={18} />
+                <BsCalculatorFill size={20} />
               </Button>
 
               {/* Logout */}
@@ -350,15 +357,17 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
                   setMenuExpanded(false); // Fecha o menu ao abrir dialog
                 }}
                 className="
-                  h-10 w-10
+                  h-12 w-12
                   text-gray-600 hover:text-red-600 hover:bg-red-50
                   dark:text-gray-300 dark:hover:bg-red-900/20
                   touch-manipulation
+                  active:scale-95
+                  transition-all duration-100
                 "
                 aria-label="Sair da conta"
                 title="Sair"
               >
-                <LogOut size={18} />
+                <LogOut size={20} />
               </Button>
             </div>
           </div>
