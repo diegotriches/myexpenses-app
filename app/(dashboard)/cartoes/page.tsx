@@ -22,7 +22,6 @@ import { CartaoExclusaoModal } from "@/components/cartoes/CartaoExclusaoModal";
 
 import { Cartao, CreateCartaoDTO, UpdateCartaoDTO } from "@/types/cartao";
 
-// ✅ NOVO: Importar hooks React Query
 import { 
   useCartoes, 
   useCriarCartao, 
@@ -34,7 +33,6 @@ import { useTransacoes } from "@/hooks/useTransacoes";
 type OrdenacaoType = "nome" | "limite-maior" | "limite-menor" | "uso-maior" | "uso-menor";
 
 export default function CartoesPage() {
-  // ✅ NOVO: Hooks React Query
   const { data: cartoes = [], isLoading: loading, error } = useCartoes();
   const criarCartao = useCriarCartao();
   const atualizarCartao = useAtualizarCartao();
@@ -52,17 +50,14 @@ export default function CartoesPage() {
 
   const router = useRouter();
 
-  // Função para checar se o cartão tem transações ou faturas
   const possuiDependencias = (cartaoId: number) => {
     const temTransacoes = transacoes.some((t) => t.cartaoId === cartaoId);
     return temTransacoes;
   };
 
-  // Aplica busca, filtro de aba e ordenação
   const cartoesFiltrados = useMemo(() => {
     let resultado = [...cartoes];
 
-    // Busca por nome
     if (busca) {
       resultado = resultado.filter((c) =>
         c.nome.toLowerCase().includes(busca.toLowerCase()) ||
@@ -71,14 +66,12 @@ export default function CartoesPage() {
       );
     }
 
-    // Filtro por aba (ativo/inativo)
     if (abaAtiva === "ativos") {
       resultado = resultado.filter((c) => c.ativo);
     } else if (abaAtiva === "inativos") {
       resultado = resultado.filter((c) => !c.ativo);
     }
 
-    // Ordenação
     resultado.sort((a, b) => {
       switch (ordenacao) {
         case "nome":
@@ -105,7 +98,6 @@ export default function CartoesPage() {
     return resultado;
   }, [cartoes, busca, abaAtiva, ordenacao]);
 
-  // Contadores
   const contadores = useMemo(() => {
     return {
       total: cartoes.length,
@@ -129,15 +121,11 @@ export default function CartoesPage() {
     setModalExclusaoOpen(true);
   };
 
-  // ✅ NOVO: Usar hooks de mutation
   const confirmarExclusao = async () => {
     if (!cartaoParaExcluir) return;
 
     try {
       await removerCartao.mutateAsync(cartaoParaExcluir.id);
-      
-      // ✅ Toast e invalidação automáticos
-      
       setModalExclusaoOpen(false);
       setCartaoParaExcluir(null);
     } catch (error) {
@@ -145,7 +133,6 @@ export default function CartoesPage() {
     }
   };
 
-  // ✅ NOVO: Usar hooks de mutation
   const salvar = async (dados: CreateCartaoDTO | UpdateCartaoDTO) => {
     try {
       if (cartaoEdicao) {
@@ -157,8 +144,6 @@ export default function CartoesPage() {
         await criarCartao.mutateAsync(dados as CreateCartaoDTO);
       }
 
-      // ✅ Toast e invalidação automáticos
-      
       setModalOpen(false);
       setCartaoEdicao(null);
     } catch (error) {
@@ -170,7 +155,6 @@ export default function CartoesPage() {
     router.push(`/cartoes/${cartaoId}/fatura`);
   };
 
-  // Skeleton Loading
   const SkeletonCard = () => (
     <div className="border rounded-lg p-6 animate-pulse space-y-4 bg-white dark:bg-gray-800">
       <div className="flex items-start justify-between">
@@ -191,7 +175,6 @@ export default function CartoesPage() {
     </div>
   );
 
-  // Empty State
   const EmptyState = () => (
     <div className="text-center py-16 bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
       <CreditCard className="text-6xl text-gray-300 dark:text-gray-600 mx-auto mb-4" size={64} />
@@ -229,7 +212,6 @@ export default function CartoesPage() {
       {/* Barra de busca e ordenação */}
       {!loading && cartoes.length > 0 && (
         <div className="flex flex-col md:flex-row gap-4">
-          {/* Busca */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
             <Input
@@ -240,7 +222,6 @@ export default function CartoesPage() {
             />
           </div>
 
-          {/* Ordenação */}
           <Select value={ordenacao} onValueChange={(v) => setOrdenacao(v as OrdenacaoType)}>
             <SelectTrigger className="w-full md:w-[200px]">
               <SelectValue />
@@ -254,7 +235,6 @@ export default function CartoesPage() {
             </SelectContent>
           </Select>
 
-          {/* Botão adicionar - desktop */}
           <Button
             onClick={abrirNovo}
             className="hidden md:flex items-center gap-2 bg-blue-700 hover:bg-blue-900"
@@ -265,7 +245,6 @@ export default function CartoesPage() {
         </div>
       )}
 
-      {/* Botão adicionar - mobile fixo */}
       <Button
         onClick={abrirNovo}
         className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 hover:bg-blue-900 z-50"
@@ -297,7 +276,8 @@ export default function CartoesPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Tente ajustar a busca ou filtros</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              // ✅ MUDANÇA PRINCIPAL: 2 colunas ao invés de 3
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                 {cartoesFiltrados.map((cartao) => (
                   <CartaoItem
                     key={cartao.id}
@@ -313,15 +293,17 @@ export default function CartoesPage() {
         </Tabs>
       )}
 
-      {/* Estados */}
+      {/* Loading */}
       {loading && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        // ✅ SKELETON TAMBÉM COM 2 COLUNAS
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
       )}
 
+      {/* Error */}
       {!loading && error && (
         <div className="text-center py-12 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-900">
           <p className="text-red-600 dark:text-red-400 font-medium mb-2">Erro ao carregar cartões</p>
@@ -332,6 +314,7 @@ export default function CartoesPage() {
         </div>
       )}
 
+      {/* Empty */}
       {!loading && !error && cartoes.length === 0 && <EmptyState />}
 
       {/* Modais */}

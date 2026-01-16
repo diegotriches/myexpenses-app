@@ -46,7 +46,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   
   const [fotoError, setFotoError] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false); // ✅ NOVO: Controla estado do Sheet mobile
+  const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -57,7 +57,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     setMounted(true);
   }, []);
 
-  // ✅ NOVO: Fecha sidebar mobile quando pathname muda
+  // ✅ Fecha sidebar mobile quando pathname muda
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
@@ -107,7 +107,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     },
   ];
 
-  // ✅ NOVO: isMobile indica se está no contexto mobile (dentro do Sheet)
   const NavLink = ({ 
     href, 
     icon: Icon, 
@@ -119,16 +118,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     label: string;
     isMobile?: boolean;
   }) => {
-    // ✅ NOVO: Handler que fecha o Sheet mobile após navegação
-    const handleClick = (e: React.MouseEvent) => {
-      if (isMobile) {
-        // Não previne default, deixa o Link funcionar normalmente
-        // O useEffect vai detectar mudança no pathname e fechar
-      }
-    };
-
     const content = (
-      <Link href={href} className={linkClasses(href)} onClick={handleClick}>
+      <Link href={href} className={linkClasses(href)}>
         <Icon size={20} className="flex-shrink-0" />
         {!isCollapsed && <span className="font-medium">{label}</span>}
         {isActive(href) && !isCollapsed && (
@@ -157,7 +148,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   };
 
   const UserProfileCard = ({ isMobile = false }: { isMobile?: boolean }) => {
-    // ✅ Prioriza nome, senão pega primeira letra do email
     const getInitials = () => {
       if (userData?.name) {
         return userData.name
@@ -211,11 +201,9 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
               </div>
             ) : (
               <>
-                {/* ✅ Nome acima */}
                 <p className="text-sm font-semibold truncate text-white">
                   {displayName}
                 </p>
-                {/* ✅ Email abaixo */}
                 {displayEmail && (
                   <p className="text-xs text-blue-200 dark:text-gray-400 truncate">
                     {displayEmail}
@@ -256,7 +244,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     return cardContent;
   };
 
-  // ✅ NOVO: Componente unificado que recebe prop isMobile
   const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
     <>
       {/* Logo */}
@@ -393,7 +380,12 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           </SheetTrigger>
           <SheetContent 
             side="left" 
-            className="w-64 p-4 bg-gradient-to-b from-blue-600 to-blue-700 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-white border-none data-[state=closed]:duration-500 data-[state=open]:duration-500"
+            className="
+              w-64 p-4 
+              bg-gradient-to-b from-blue-600 to-blue-700 
+              dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 
+              text-white border-none
+            "
           >
             {/* ✅ Título oculto para acessibilidade */}
             <VisuallyHidden>

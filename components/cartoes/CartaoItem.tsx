@@ -36,7 +36,7 @@ interface Props {
   onEditar: (cartao: Cartao) => void;
   onExcluir: (cartao: Cartao) => void;
   onFatura?: (cartaoId: number) => void;
-  onToggleAtivo?: (cartao: Cartao) => void; // Nova prop opcional
+  onToggleAtivo?: (cartao: Cartao) => void;
 }
 
 function getImgFromOption(options: any[], value: string) {
@@ -64,14 +64,23 @@ export default function CartaoItem({
     }).format(valor);
   };
 
-  // ✅ Usar valores já calculados pela API
+  // Formatação compacta para valores grandes (ex: R$ 12,5 mil)
+  const formatarMoedaCompacta = (valor: number) => {
+    if (valor >= 1000000) {
+      return `R$ ${(valor / 1000000).toFixed(1)} mi`;
+    }
+    if (valor >= 10000) {
+      return `R$ ${(valor / 1000).toFixed(1)} mil`;
+    }
+    return formatarMoeda(valor);
+  };
+
   const limiteTotal = Number(cartao.limite) || 0;
   const totalEmUso = Number(cartao.emUso) || 0;
   const limiteDisponivel = Number(cartao.limiteDisponivel) || 0;
   
   const porcentagemUso = limiteTotal > 0 ? (totalEmUso / limiteTotal) * 100 : 0;
 
-  // Cor da barra baseada no uso (com dark mode)
   const getCorBarra = (percentual: number): string => {
     if (percentual < 50) return "bg-green-500 dark:bg-green-600";
     if (percentual < 80) return "bg-yellow-500 dark:bg-yellow-600";
@@ -84,7 +93,6 @@ export default function CartaoItem({
     return "text-red-700 dark:text-red-400";
   };
 
-  // Verifica vencimento próximo (próximos 5 dias)
   const hoje = new Date().getDate();
   const diaVencimento = Number(cartao.diaVencimento) || 0;
   const diasAteVencimento = diaVencimento >= hoje 
@@ -92,7 +100,6 @@ export default function CartaoItem({
     : (30 - hoje) + diaVencimento;
   const vencimentoProximo = diasAteVencimento <= 5 && diasAteVencimento > 0;
 
-  // Melhor dia para compras (logo após fechamento)
   const diaFechamento = Number(cartao.diaFechamento) || 0;
   const melhorDiaCompra = diaFechamento === 30 ? 1 : diaFechamento + 1;
 
@@ -106,9 +113,9 @@ export default function CartaoItem({
       <CardContent className="p-6 space-y-4">
         {/* Header do Cartão com Menu */}
         <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3 flex-1">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
             {empresaImg && (
-              <div className="w-12 h-12 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center p-2 border dark:border-gray-700">
+              <div className="w-12 h-12 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center p-2 border dark:border-gray-700 flex-shrink-0">
                 <img 
                   src={empresaImg} 
                   alt={cartao.empresa || "Empresa"} 
@@ -116,17 +123,17 @@ export default function CartaoItem({
                 />
               </div>
             )}
-            <div className="flex flex-col gap-1 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-base font-semibold text-gray-900 dark:text-white">
+            <div className="flex flex-col gap-1 flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-base font-semibold text-gray-900 dark:text-white truncate">
                   {cartao.nome}
                 </span>
                 <Badge 
                   variant={cartao.ativo ? "default" : "secondary"}
-                  className={cartao.ativo 
+                  className={`flex-shrink-0 ${cartao.ativo 
                     ? "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900 dark:text-green-300" 
                     : "bg-gray-100 text-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-400"
-                  }
+                  }`}
                 >
                   {cartao.ativo ? "Ativo" : "Inativo"}
                 </Badge>
@@ -141,7 +148,7 @@ export default function CartaoItem({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {bandeiraImg && (
               <div className="w-12 h-12 flex items-center justify-center">
                 <img 
@@ -152,7 +159,6 @@ export default function CartaoItem({
               </div>
             )}
 
-            {/* Menu Dropdown de Ações */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -230,34 +236,61 @@ export default function CartaoItem({
               </div>
             </div>
 
-            {/* Limites */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
-                <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
-                  Limite Total
-                </p>
-                <p className="text-sm font-bold text-blue-900 dark:text-blue-100">
-                  {formatarMoeda(limiteTotal)}
-                </p>
-              </div>
+            {/* Limites - CORRIGIDO */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-center p-2 sm:p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900 min-w-0">
+                      <p className="text-[10px] sm:text-xs font-medium text-blue-700 dark:text-blue-300 mb-1 truncate">
+                        Limite Total
+                      </p>
+                      <p className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 truncate">
+                        {formatarMoedaCompacta(limiteTotal)}
+                      </p>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs font-semibold">{formatarMoeda(limiteTotal)}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-              <div className="text-center p-3 bg-orange-50 dark:bg-orange-950 rounded-lg border border-orange-200 dark:border-orange-900">
-                <p className="text-xs font-medium text-orange-700 dark:text-orange-300 mb-1">
-                  Em Uso
-                </p>
-                <p className="text-sm font-bold text-orange-900 dark:text-orange-100">
-                  {formatarMoeda(totalEmUso)}
-                </p>
-              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-center p-2 sm:p-3 bg-orange-50 dark:bg-orange-950 rounded-lg border border-orange-200 dark:border-orange-900 min-w-0">
+                      <p className="text-[10px] sm:text-xs font-medium text-orange-700 dark:text-orange-300 mb-1 truncate">
+                        Em Uso
+                      </p>
+                      <p className="text-xs sm:text-sm font-bold text-orange-900 dark:text-orange-100 truncate">
+                        {formatarMoedaCompacta(totalEmUso)}
+                      </p>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs font-semibold">{formatarMoeda(totalEmUso)}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-              <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-900">
-                <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">
-                  Disponível
-                </p>
-                <p className="text-sm font-bold text-green-900 dark:text-green-100">
-                  {formatarMoeda(limiteDisponivel)}
-                </p>
-              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-center p-2 sm:p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-900 min-w-0">
+                      <p className="text-[10px] sm:text-xs font-medium text-green-700 dark:text-green-300 mb-1 truncate">
+                        Disponível
+                      </p>
+                      <p className="text-xs sm:text-sm font-bold text-green-900 dark:text-green-100 truncate">
+                        {formatarMoedaCompacta(limiteDisponivel)}
+                      </p>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs font-semibold">{formatarMoeda(limiteDisponivel)}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             {/* Barra de Progresso */}
@@ -268,7 +301,7 @@ export default function CartaoItem({
                   style={{ width: `${Math.min(porcentagemUso, 100)}%` }}
                 />
               </div>
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-xs flex-wrap gap-2">
                 <span className={`font-semibold ${getCorTexto(porcentagemUso)}`}>
                   {porcentagemUso.toFixed(1)}% utilizado
                 </span>
@@ -278,7 +311,7 @@ export default function CartaoItem({
                     <TooltipTrigger asChild>
                       <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 cursor-help">
                         <TrendingUp size={12} />
-                        <span>Melhor dia: {melhorDiaCompra}</span>
+                        <span className="whitespace-nowrap">Melhor dia: {melhorDiaCompra}</span>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -303,7 +336,7 @@ export default function CartaoItem({
           </>
         )}
 
-        {/* Botão Fatura para Cartão de Débito (caso tenha) */}
+        {/* Botão Fatura para Cartão de Débito */}
         {cartao.tipo === "debito" && onFatura && (
           <Button
             onClick={abrirFatura}

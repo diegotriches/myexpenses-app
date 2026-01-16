@@ -40,6 +40,13 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  
+  /* ============================================
+     CUSTOM TRANSITIONS (Tailwind v4)
+     ============================================ */
+  --transition-all: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: all 100ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 :root {
@@ -117,5 +124,360 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* ============================================
+   CUSTOM UTILITIES (Tailwind v4 Compatible)
+   ============================================ */
+
+@layer utilities {
+  /* Transitions */
+  .transition-all {
+    transition: var(--transition-all);
+  }
+  
+  .transition-fast {
+    transition: var(--transition-fast);
+  }
+  
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+  
+  .duration-100 {
+    transition-duration: 100ms;
+  }
+  
+  .duration-200 {
+    transition-duration: 200ms;
+  }
+  
+  .duration-300 {
+    transition-duration: 300ms;
+  }
+  
+  .duration-500 {
+    transition-duration: 500ms;
+  }
+  
+  .ease-in-out {
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .ease-out {
+    transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+  
+  .ease-in {
+    transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  }
+  
+  /* Touch Manipulation */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Active States */
+  .active\:scale-95:active {
+    transform: scale(0.95);
+  }
+  
+  .active\:scale-\[0\.98\]:active {
+    transform: scale(0.98);
+  }
+  
+  /* Will Change (Performance) */
+  .will-change-\[height\2c opacity\] {
+    will-change: height, opacity;
+  }
+  
+  .will-change-transform {
+    will-change: transform;
+  }
+  
+  .will-change-auto {
+    will-change: auto;
+  }
+}
+
+/* ============================================
+   SPECIFIC ANIMATIONS
+   ============================================ */
+
+/* Menu Expansível (TopMenu) */
+@keyframes slideDown {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: 3rem; /* 48px */
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    height: 3rem;
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+/* Classe helper para animação do menu */
+.menu-slide-enter {
+  animation: slideDown 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.menu-slide-exit {
+  animation: slideUp 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* ============================================
+   RADIX UI ANIMATIONS (Sheet, Dialog, etc)
+   ============================================ */
+
+/* Fade In/Out */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Slide In/Out - Left */
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutToLeft {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* Slide In/Out - Right */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutToRight {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Slide In/Out - Top */
+@keyframes slideInFromTop {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideOutToTop {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-100%);
+  }
+}
+
+/* Slide In/Out - Bottom */
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideOutToBottom {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+/* ============================================
+   RADIX UI UTILITY CLASSES
+   ============================================ */
+
+/* Animate In/Out */
+.animate-in {
+  animation-fill-mode: forwards;
+}
+
+.animate-out {
+  animation-fill-mode: forwards;
+}
+
+/* Fade animations */
+.fade-in-0 {
+  animation-name: fadeIn;
+  animation-duration: 500ms;
+}
+
+.fade-out-0 {
+  animation-name: fadeOut;
+  animation-duration: 500ms;
+}
+
+/* Slide animations - must match data-[state] attributes */
+.slide-in-from-left {
+  animation-name: slideInFromLeft;
+  animation-duration: 500ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slide-out-to-left {
+  animation-name: slideOutToLeft;
+  animation-duration: 500ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slide-in-from-right {
+  animation-name: slideInFromRight;
+  animation-duration: 500ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slide-out-to-right {
+  animation-name: slideOutToRight;
+  animation-duration: 500ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slide-in-from-top {
+  animation-name: slideInFromTop;
+  animation-duration: 500ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slide-out-to-top {
+  animation-name: slideOutToTop;
+  animation-duration: 500ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slide-in-from-bottom {
+  animation-name: slideInFromBottom;
+  animation-duration: 500ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slide-out-to-bottom {
+  animation-name: slideOutToBottom;
+  animation-duration: 500ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Data attribute selectors (Radix UI compatibility) */
+[data-state="open"].fade-in-0,
+[data-state="open"][class*="fade-in"] {
+  animation-name: fadeIn;
+}
+
+[data-state="closed"].fade-out-0,
+[data-state="closed"][class*="fade-out"] {
+  animation-name: fadeOut;
+}
+
+[data-state="open"].slide-in-from-left,
+[data-state="open"][class*="slide-in-from-left"] {
+  animation-name: slideInFromLeft;
+}
+
+[data-state="closed"].slide-out-to-left,
+[data-state="closed"][class*="slide-out-to-left"] {
+  animation-name: slideOutToLeft;
+}
+
+[data-state="open"].slide-in-from-right,
+[data-state="open"][class*="slide-in-from-right"] {
+  animation-name: slideInFromRight;
+}
+
+[data-state="closed"].slide-out-to-right,
+[data-state="closed"][class*="slide-out-to-right"] {
+  animation-name: slideOutToRight;
+}
+
+[data-state="open"].slide-in-from-top,
+[data-state="open"][class*="slide-in-from-top"] {
+  animation-name: slideInFromTop;
+}
+
+[data-state="closed"].slide-out-to-top,
+[data-state="closed"][class*="slide-out-to-top"] {
+  animation-name: slideOutToTop;
+}
+
+[data-state="open"].slide-in-from-bottom,
+[data-state="open"][class*="slide-in-from-bottom"] {
+  animation-name: slideInFromBottom;
+}
+
+[data-state="closed"].slide-out-to-bottom,
+[data-state="closed"][class*="slide-out-to-bottom"] {
+  animation-name: slideOutToBottom;
+}
+
+/* ============================================
+   SMOOTH SCROLLING
+   ============================================ */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ============================================
+   ACCESSIBILITY - REDUCED MOTION
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
