@@ -1,6 +1,16 @@
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon, NeonQueryFunction } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
 import * as schema from "./schema";
+import ws from "ws";
+
+// ============================================================================
+// CONFIGURAÇÃO WEBSOCKET (necessário para transações)
+// ============================================================================
+
+// ✅ Configurar WebSocket apenas no Node.js (não no Edge Runtime)
+if (typeof WebSocket === 'undefined') {
+  neonConfig.webSocketConstructor = ws as any;
+}
 
 // ============================================================================
 // TIPOS
@@ -10,6 +20,7 @@ interface DatabaseConfig {
   maxRetries: number;
   retryDelay: number;
   connectionTimeout: number;
+  poolSize: number;
 }
 
 interface LogLevel {
@@ -29,6 +40,7 @@ const config: DatabaseConfig = {
   maxRetries: 3,
   retryDelay: 1000, // 1 segundo
   connectionTimeout: 10000, // 10 segundos
+  poolSize: 10, // Máximo de conexões simultâneas
 };
 
 // Logger simples (pode ser substituído por winston, pino, etc)
@@ -89,18 +101,25 @@ function validateDatabaseUrl(url: string | undefined): string {
 async function connectWithRetry(
   url: string,
   attempt: number = 1
-): Promise<NeonQueryFunction<false, false>> {
+): Promise<Pool> {
   try {
-    logger.info(`Tentativa ${attempt}/${config.maxRetries} de conexão...`);
+    logger.info(`Tentativa ${attempt}/${config.maxRetries} de conexão (neon-serverless)...`);
 
-    // Criar cliente Neon HTTP
-    const sql = neon(url);
+    // Criar Pool de conexões Neon Serverless (suporta transações)
+    const pool = new Pool({
+      connectionString: url,
+      max: config.poolSize,
+      idleTimeoutMillis: 30000, // 30 segundos
+      connectionTimeoutMillis: config.connectionTimeout,
+    });
 
-    // Teste de conexão simples (query básica)
-    await sql`SELECT 1`;
+    // Teste de conexão simples
+    const client = await pool.connect();
+    await client.query('SELECT 1');
+    client.release();
 
-    logger.info("✅ Conexão estabelecida com sucesso!");
-    return sql;
+    logger.info("✅ Conexão estabelecida com sucesso! (Transações habilitadas)");
+    return pool;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
     logger.error(`Falha na tentativa ${attempt}:`, errorMessage);
@@ -114,7 +133,8 @@ async function connectWithRetry(
           `Verifique:\n` +
           `1. Se a DATABASE_URL está correta\n` +
           `2. Se o banco de dados está acessível\n` +
-          `3. Se as credenciais estão válidas`
+          `3. Se as credenciais estão válidas\n` +
+          `4. Se a porta WebSocket está aberta (transações)`
       );
     }
 
@@ -141,13 +161,13 @@ async function initializeDatabase(): Promise<DrizzleDB> {
     const databaseUrl = validateDatabaseUrl(process.env.DATABASE_URL);
 
     // 2. Conectar com retry
-    const sql = await connectWithRetry(databaseUrl);
+    const pool = await connectWithRetry(databaseUrl);
 
     // 3. Inicializar Drizzle com o schema
-    const db = drizzle(sql, { schema });
+    const db = drizzle(pool, { schema });
 
     // 4. Log de sucesso
-    logger.info("🚀 Drizzle ORM inicializado com sucesso");
+    logger.info("🚀 Drizzle ORM inicializado com neon-serverless (transações habilitadas)");
 
     return db;
   } catch (error) {
@@ -162,6 +182,7 @@ async function initializeDatabase(): Promise<DrizzleDB> {
 
 let dbInstance: DrizzleDB | null = null;
 let initPromise: Promise<DrizzleDB> | null = null;
+let poolInstance: Pool | null = null;
 
 /**
  * Versão assíncrona - garante que o banco está inicializado
@@ -193,32 +214,55 @@ export async function healthCheck(): Promise<boolean> {
   try {
     const db = await getDb();
     // Query simples para verificar conexão
-    const sql = neon(process.env.DATABASE_URL!);
-    await sql`SELECT 1`;
-    logger.info("✅ Health check passou");
-    return true;
+    if (poolInstance) {
+      const client = await poolInstance.connect();
+      await client.query('SELECT 1');
+      client.release();
+      logger.info("✅ Health check passou");
+      return true;
+    }
+    return false;
   } catch (error) {
     logger.error("❌ Health check falhou:", error);
     return false;
   }
 }
 
+/**
+ * Fecha o pool de conexões (útil em testes ou shutdown graceful)
+ */
+export async function closePool(): Promise<void> {
+  if (poolInstance) {
+    await poolInstance.end();
+    poolInstance = null;
+    dbInstance = null;
+    initPromise = null;
+    logger.info("🔌 Pool de conexões fechado");
+  }
+}
+
 // ============================================================================
-// EXPORT COMPATÍVEL COM CÓDIGO EXISTENTE
+// EXPORT COMPATÍVEL COM CÓDIGO EXISTENTE (SÍNCRONO)
 // ============================================================================
 
 // Validar DATABASE_URL na importação
 const databaseUrl = validateDatabaseUrl(process.env.DATABASE_URL);
 
-// Criar cliente Neon HTTP (síncrono)
-const sql = neon(databaseUrl);
+// Criar Pool síncrono (para compatibilidade com código existente)
+poolInstance = new Pool({
+  connectionString: databaseUrl,
+  max: config.poolSize,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: config.connectionTimeout,
+});
 
 // Inicializar Drizzle com o schema (síncrono)
-export const db = drizzle(sql, { schema });
+export const db = drizzle(poolInstance, { schema });
 
 // Log de inicialização (apenas em desenvolvimento)
 if (process.env.NODE_ENV === "development") {
-  console.log("✅ Drizzle conectado ao Neon (HTTP)");
+  console.log("✅ Drizzle conectado ao Neon (neon-serverless com transações)");
+  console.log("🔄 WebSocket habilitado para transações ACID");
 }
 
 // ============================================================================
