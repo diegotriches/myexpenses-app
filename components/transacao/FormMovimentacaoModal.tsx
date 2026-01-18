@@ -434,19 +434,50 @@ export default function FormMovimentacaoModal({
                 </SelectContent>
               </Select>
 
+              {/* ✅ INPUT MELHORADO - MOBILE FRIENDLY */}
               {(form.parcelado || form.recorrente) && (
                 <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-md px-3 py-2">
                   <input
                     type="number"
+                    inputMode="numeric"
                     min={2}
                     max={form.parcelado ? 48 : 999}
                     value={form.parcelado ? form.parcelas : form.repeticoes}
                     onChange={(e) => {
-                      const num = Math.max(2, Number(e.target.value));
-                      form.parcelado ? update("parcelas", num) : update("repeticoes", num);
+                      const value = e.target.value;
+                      
+                      // ✅ Permite apagar (campo vazio)
+                      if (value === "") {
+                        form.parcelado ? update("parcelas", 0) : update("repeticoes", 0);
+                        return;
+                      }
+
+                      // ✅ Converte para número e valida
+                      const num = parseInt(value, 10);
+                      if (!isNaN(num)) {
+                        // Permite digitar, mas não força o mínimo ainda
+                        form.parcelado ? update("parcelas", num) : update("repeticoes", num);
+                      }
                     }}
-                    className="w-16 border dark:border-gray-700 dark:bg-gray-900 dark:text-white rounded-md p-1 text-center font-medium"
+                    onBlur={(e) => {
+                      // ✅ Quando sair do campo, força mínimo de 2
+                      const value = parseInt(e.target.value, 10);
+                      const minValue = 2;
+                      const maxValue = form.parcelado ? 48 : 999;
+                      
+                      if (isNaN(value) || value < minValue) {
+                        form.parcelado ? update("parcelas", minValue) : update("repeticoes", minValue);
+                      } else if (value > maxValue) {
+                        form.parcelado ? update("parcelas", maxValue) : update("repeticoes", maxValue);
+                      }
+                    }}
+                    onFocus={(e) => {
+                      // ✅ Seleciona todo o texto ao focar (facilita substituir)
+                      e.target.select();
+                    }}
+                    className="w-16 border dark:border-gray-700 dark:bg-gray-900 dark:text-white rounded-md p-1 text-center font-medium focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all"
                     disabled={form.parcelado ? bloqueiaCampos.parcelas : bloqueiaCampos.repeticoes}
+                    aria-label={form.parcelado ? "Número de parcelas" : "Número de meses"}
                   />
                   <span className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
                     {form.parcelado ? "parcelas" : "meses"}

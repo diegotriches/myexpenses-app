@@ -88,6 +88,7 @@ export function NotificacaoPopover() {
             touch-manipulation
             active:scale-95
             transition-all duration-100
+            cursor-pointer
           "
           aria-label={`Notificações${naoLidas > 0 ? ` - ${naoLidas} não lidas` : ''}`}
         >
@@ -249,7 +250,7 @@ export function NotificacaoPopover() {
             <div className="p-2">
               <Button
                 variant="ghost"
-                className="w-full justify-center text-sm h-10 touch-manipulation active:scale-[0.98] transition-transform"
+                className="w-full justify-center text-sm h-10 touch-manipulation active:scale-[0.98] transition-transform "
                 onClick={() => {
                   router.push("/notificacoes");
                   setOpen(false);

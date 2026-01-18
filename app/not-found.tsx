@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BsCashCoin } from "react-icons/bs";
-import { FiHome, FiArrowLeft, FiSearch, FiAlertCircle } from "react-icons/fi";
+import { FiHome, FiArrowLeft, FiAlertCircle } from "react-icons/fi";
 
 export default function NotFound() {
   const router = useRouter();
@@ -80,7 +80,7 @@ export default function NotFound() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
           <button
             onClick={() => router.back()}
-            className="group px-8 py-4 rounded-xl font-semibold border-2 border-white text-white hover:bg-white/10 backdrop-blur-sm transition-all duration-300 flex items-center gap-2 min-w-[200px] justify-center hover:scale-105"
+            className="group px-8 py-4 rounded-xl font-semibold border-2 border-white text-white hover:bg-white/10 backdrop-blur-sm transition-all duration-300 flex items-center gap-2 min-w-[200px] justify-center hover:scale-105 cursor-pointer"
           >
             <FiArrowLeft 
               className="group-hover:-translate-x-1 transition-transform" 
@@ -90,15 +90,11 @@ export default function NotFound() {
           </button>
 
           <Link
-            href="/"
+            href="/dashboard"
             className="group px-8 py-4 rounded-xl font-bold bg-white text-blue-700 hover:bg-blue-50 shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center gap-2 min-w-[200px] justify-center transform hover:scale-105"
           >
             <FiHome size={20} />
             Página Inicial
-            <FiSearch 
-              className="group-hover:rotate-12 transition-transform" 
-              size={18} 
-            />
           </Link>
         </div>
 

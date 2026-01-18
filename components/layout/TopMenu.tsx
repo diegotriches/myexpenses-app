@@ -62,17 +62,15 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
     const paths = pathname.split('/').filter(Boolean);
     const labels: Record<string, string> = {
       dashboard: 'Dashboard',
-      movimentacoes: 'Movimentações',
+      transacoes: 'Movimentações',
       contas: 'Contas',
       cartoes: 'Cartões',
+      fatura: 'Fatura',
       categorias: 'Categorias',
-      notificacoes: 'Notificações',
       ajustes: 'Ajustes',
       perfil: 'Perfil',
       extrato: 'Extrato',
       configuracoes: 'Configurações',
-      relatorios: 'Relatórios',
-      transferencias: 'Transferências',
     };
 
     return paths.map((path, index) => ({
@@ -138,7 +136,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
           
           {/* LEFT SECTION */}
           <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
-            {/* Menu Hamburguer - Mobile */}
+            {/* Menu Hamburguer - Mobile APENAS */}
             <Button
               variant="ghost"
               size="icon"
@@ -152,20 +150,22 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
                 active:scale-95
                 transition-all duration-100
               "
-              aria-label="Menu"
+              aria-label="Abrir menu lateral"
             >
               <BsList size={24} />
             </Button>
 
-            {/* Toggle Sidebar - Desktop */}
+            {/* Toggle Sidebar - Tablet/Desktop APENAS (oculto no mobile) */}
             <Button
               variant="ghost"
               size="icon"
               onClick={toggleSidebar}
               className="
                 hidden md:flex
-                text-gray-600 hover:text-blue-600 hover:bg-blue-50 
+                text-gray-600 hover:text-blue-600 hover:bg-blue-50 cursor-pointer
                 dark:text-gray-300 dark:hover:bg-gray-800
+                transition-all duration-100
+                active:scale-95
               "
               title={isCollapsed ? "Expandir menu" : "Recolher menu"}
               aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
@@ -216,8 +216,10 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
               onClick={() => setCalculadoraOpen(true)}
               className="
                 hidden md:flex
-                text-gray-600 hover:text-blue-600 hover:bg-blue-50 
+                text-gray-600 hover:text-blue-600 hover:bg-blue-50 cursor-pointer
                 dark:text-gray-300 dark:hover:bg-gray-800
+                transition-all duration-100
+                active:scale-95
               "
               title="Calculadora"
               aria-label="Abrir calculadora"
@@ -237,6 +239,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
                 touch-manipulation
                 active:scale-95
                 transition-all duration-100
+                cursor-pointer
               "
               title={resolvedTheme === "dark" ? "Modo claro" : "Modo escuro"}
               aria-label={resolvedTheme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
@@ -259,6 +262,9 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
                 hidden md:flex
                 text-gray-600 hover:text-red-600 hover:bg-red-50 
                 dark:text-gray-300 dark:hover:bg-red-900/20
+                cursor-pointer
+                transition-all duration-100
+                active:scale-95
               "
               title="Sair"
               aria-label="Sair da conta"
