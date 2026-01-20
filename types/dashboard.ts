@@ -137,6 +137,48 @@ export interface ExtratoResponse {
   };
 }
 
+/**
+ * ✨ NOVO: Despesas futuras (transações de cartão em faturas posteriores)
+ * 
+ * Retornado por GET /api/dashboard/despesas-futuras
+ * 
+ * @example
+ * {
+ *   total: 2450.00,      // Soma dos valores das despesas futuras
+ *   quantidade: 8        // Número de transações pendentes
+ * }
+ */
+export interface DespesasFuturas {
+  total: number;      // Soma dos valores de todas as despesas futuras
+  quantidade: number; // Quantidade de transações pendentes
+}
+
+// ========================================
+// TIPOS: Resposta da API (para TypeScript)
+// ========================================
+
+/**
+ * Tipo de resposta do gráfico de meses
+ */
+export type GraficoMesesResponse = DadosGraficoMeses[];
+
+/**
+ * Tipo de resposta do resumo de faturas
+ */
+export type FaturasResumo = DashboardFaturas;
+
+/**
+ * Tipo de resposta de transações recorrentes
+ */
+export interface Recorrente {
+  id: string;
+  descricao: string;
+  valor: number;
+  categoria?: string;
+  tipo: "entrada" | "saida";
+  recorrente: boolean;
+}
+
 // ========================================
 // HELPERS
 // ========================================

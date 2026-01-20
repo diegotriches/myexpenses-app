@@ -4,10 +4,13 @@ import { db } from "@/db";
 import { transacoes, cartoes, faturas } from "@/db/schema";
 import { and, gte, lt, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 /**
  * GET /api/dashboard?mes=1&ano=2026
  * Retorna resumo completo do dashboard para o período
+ * 
+ * ✅ CORRIGIDO: Despesas de cartão só são contabilizadas se a fatura pertence ao mês atual
  * 
  * Response: {
  *   periodo: { mes, ano },
@@ -61,6 +64,15 @@ export async function GET(req: NextRequest) {
         )
       );
 
+    // 🔐 Buscar cartões do usuário (necessário para calcular ciclo de fechamento)
+    const cartoesDb = await db
+      .select()
+      .from(cartoes)
+      .where(eq(cartoes.userId, userId));
+
+    // Mapear cartões por ID para acesso rápido
+    const cartoesMap = new Map(cartoesDb.map(c => [c.id, c]));
+
     let receitas = 0;
     let despesas = 0;
     let quantidadeReceitas = 0;
@@ -69,31 +81,48 @@ export async function GET(req: NextRequest) {
     // Agrupamento por cartão (apenas para info adicional)
     const faturasPorCartao: Record<number, number> = {};
 
+    // ✅ PROCESSAR TRANSAÇÕES COM LÓGICA CORRIGIDA
     for (const t of todas) {
       const valor = Number(t.valor);
 
-      // ✅ CORREÇÃO: Contar despesas de cartão também
+      // ✅ RECEITAS: Somar direto
       if (t.tipo === "entrada") {
         receitas += valor;
         quantidadeReceitas++;
       }
 
+      // ✅ DESPESAS: Verificar se é cartão ou não
       if (t.tipo === "saida") {
-        despesas += valor; // ✅ Soma TODAS as despesas (incluindo cartão)
-        quantidadeDespesas++;
-
-        // Acumular por cartão (se aplicável)
-        if (t.formaPagamento === "cartao" && t.cartaoId) {
-          faturasPorCartao[t.cartaoId] = (faturasPorCartao[t.cartaoId] || 0) + valor;
+        // ✅ DESPESA NÃO É CARTÃO: Somar direto (dinheiro, PIX, débito)
+        if (t.formaPagamento !== "cartao" || !t.cartaoId) {
+          despesas += valor;
+          quantidadeDespesas++;
+        } 
+        // ✅ DESPESA É CARTÃO: Verificar ciclo de fechamento
+        else {
+          const cartao = cartoesMap.get(t.cartaoId);
+          
+          if (cartao) {
+            const diaFechamento = cartao.diaFechamento || 1;
+            
+            // Calcular qual fatura a transação pertence
+            const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
+              new Date(t.data),
+              diaFechamento
+            );
+            
+            // ✅ SÓ CONTABILIZAR SE A FATURA FOR DO MÊS/ANO ATUAL
+            if (mesFatura === mes && anoFatura === ano) {
+              despesas += valor;
+              quantidadeDespesas++;
+              faturasPorCartao[t.cartaoId] = (faturasPorCartao[t.cartaoId] || 0) + valor;
+            }
+            // ❌ Se a fatura for de outro mês, NÃO contabilizar aqui
+            // (será contabilizada em "Despesas Futuras")
+          }
         }
       }
     }
-
-    // 🔐 Buscar cartões do usuário
-    const cartoesDb = await db
-      .select()
-      .from(cartoes)
-      .where(eq(cartoes.userId, userId));
 
     // 🔐 Buscar faturas do período para saber status de pagamento
     const faturasDb = await db

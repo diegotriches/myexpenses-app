@@ -20,6 +20,7 @@ export const dashboardKeys = {
   formasPagamento: (mes: number, ano: number) => ["dashboard", "formas", ano, mes] as const,
   faturas: (mes: number, ano: number) => ["dashboard", "faturas", ano, mes] as const,
   recorrentes: (mes: number, ano: number) => ["dashboard", "recorrentes", ano, mes] as const,
+  despesasFuturas: (mes: number, ano: number) => ["dashboard", "despesas-futuras", ano, mes] as const,
 };
 
 /**
@@ -197,6 +198,28 @@ export function useRecorrentes() {
     queryKey: dashboardKeys.recorrentes(mesSelecionado + 1, anoSelecionado),
     queryFn: () => dashboardService.buscarRecorrentes(mesSelecionado + 1, anoSelecionado),
     staleTime: 3 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+/**
+ * ✨ NOVO: Hook para buscar despesas futuras
+ * Retorna o total de despesas em cartões que cairão em faturas posteriores ao mês atual
+ * 
+ * @example
+ * const { data, isLoading } = useDespesasFuturas();
+ * 
+ * // Dados disponíveis:
+ * data?.total      // 2450.00
+ * data?.quantidade // 8
+ */
+export function useDespesasFuturas() {
+  const { mesSelecionado, anoSelecionado } = usePeriodo();
+
+  return useQuery({
+    queryKey: dashboardKeys.despesasFuturas(mesSelecionado + 1, anoSelecionado),
+    queryFn: () => dashboardService.buscarDespesasFuturas(mesSelecionado + 1, anoSelecionado),
+    staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
 }

@@ -1,3 +1,4 @@
+// app/api/transacoes/cartoes/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { cartoes, faturas, transacoes } from "@/db/schema";

@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { usePeriodo } from '@/contexts/PeriodoContext';
 
 // ✅ REACT QUERY: Hooks específicos do dashboard
-import { useDashboard } from '@/hooks/useDashboard';
+import { useDashboard, useDespesasFuturas } from '@/hooks/useDashboard';
 import { useContas } from '@/hooks/useContas';
 import { useCartoes } from '@/hooks/useCartoes';
 import { useTransacoes } from '@/hooks/useTransacoes';
@@ -42,6 +42,7 @@ export default function Dashboard() {
 
   // ✅ HOOKS DO DASHBOARD (dados agregados do backend)
   const { data: dashboard, isLoading: loadingDashboard } = useDashboard();
+  const { data: despesasFuturas, isLoading: loadingDespesasFuturas } = useDespesasFuturas();
 
   // ✅ HOOKS DE DADOS BRUTOS (necessários para cards específicos)
   const { data: contas = [], isLoading: loadingContas } = useContas();
@@ -98,7 +99,7 @@ export default function Dashboard() {
   };
 
   // ✅ LOADING UNIFICADO
-  const isLoading = loadingDashboard || loadingContas || loadingCartoes;
+  const isLoading = loadingDashboard || loadingContas || loadingCartoes || loadingDespesasFuturas;
 
   // ✅ SKELETON COMPONENT
   const CardSkeleton = () => (
@@ -129,10 +130,10 @@ export default function Dashboard() {
         <hr className="border-t border-gray-300 dark:border-gray-700" />
       </div>
 
-      {/* Cards de resumo principal */}
+      {/* Cards de resumo principal - AGORA COM 5 CARDS */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[...Array(5)].map((_, i) => (
             <CardSkeleton key={i} />
           ))}
         </div>
@@ -141,6 +142,7 @@ export default function Dashboard() {
           resumo={dashboard?.resumo || { receitas: 0, despesas: 0, saldo: 0 }}
           saldoContas={totais?.totalContas}
           quantidadeContas={totais?.quantidadeContas}
+          despesasFuturas={despesasFuturas}
         />
       )}
 

@@ -1,257 +1,151 @@
 // src/services/dashboardService.ts
-
 import type {
+  DashboardResumo,
   DashboardResponse,
-  DadosGraficoMeses,
+  GraficoMesesResponse,
   ExtratoResponse,
   FiltrosExtrato,
-  DashboardResumo,
   CondicoesPagamento,
   FormasPagamento,
-  DashboardFaturas,
+  FaturasResumo,
+  Recorrente,
+  DespesasFuturas,
 } from "@/types/dashboard";
-import type { Transacao } from "@/types/transacao";
 
-export const dashboardService = {
+/**
+ * Service para operações do Dashboard
+ * ✅ Migrado para React Query (usado via hooks)
+ */
+class DashboardService {
+  private baseURL = "/api/dashboard";
+
   /**
-   * Busca resumo completo do dashboard para um mês/ano específico
-   * Inclui: período, resumo financeiro, cartões com faturas
-   * 
-   * @param mes - Mês (1-12)
-   * @param ano - Ano (ex: 2026)
-   * @returns DashboardResponse completo
-   * 
-   * @example
-   * const dashboard = await dashboardService.buscarResumo(1, 2026);
-   * console.log(dashboard.resumo);  // { receitas, despesas, saldo }
-   * console.log(dashboard.cartoes); // [{ cartaoId, nome, totalFatura, paga }]
+   * Busca resumo completo do dashboard (período + totais + cartões)
    */
   async buscarResumo(mes: number, ano: number): Promise<DashboardResponse> {
-    const res = await fetch(`/api/dashboard?mes=${mes}&ano=${ano}`);
-    
+    const res = await fetch(`${this.baseURL}?mes=${mes}&ano=${ano}`);
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ 
-        error: "Erro ao buscar resumo do dashboard" 
-      }));
-      throw new Error(
-        error.error || error.message || "Erro ao buscar resumo do dashboard"
-      );
+      const error = await res.json();
+      throw new Error(error.error || "Erro ao buscar resumo");
     }
-    
     return res.json();
-  },
+  }
 
   /**
-   * Busca dados do gráfico de meses (últimos N meses)
-   * 
-   * @param periodo - Número de meses como string (opcional, padrão: "6")
-   * @returns Array com dados de receitas/despesas/balanço por mês
-   * 
-   * @example
-   * // Últimos 6 meses (padrão)
-   * const grafico6m = await dashboardService.buscarGraficoMeses();
-   * 
-   * // Últimos 12 meses
-   * const grafico12m = await dashboardService.buscarGraficoMeses("12");
-   * 
-   * // Estrutura do retorno:
-   * // [{ mes: "2026-01", receitas: 1000, despesas: 500, balanco: 500 }]
-   */
-  async buscarGraficoMeses(periodo?: string): Promise<DadosGraficoMeses[]> {
-    const searchParams = new URLSearchParams();
-    if (periodo) searchParams.set("periodo", periodo);
-
-    const res = await fetch(`/api/dashboard/grafico-meses?${searchParams}`);
-    
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ 
-        error: "Erro ao buscar dados do gráfico" 
-      }));
-      throw new Error(
-        error.error || error.message || "Erro ao buscar dados do gráfico"
-      );
-    }
-    
-    return res.json();
-  },
-
-  /**
-   * Busca extrato consolidado de todas as contas
-   * 
-   * @param params - Filtros para o extrato (ano e mes obrigatórios)
-   * @returns Movimentações e resumo do extrato
-   * 
-   * @example
-   * const extrato = await dashboardService.buscarExtrato({
-   *   ano: 2026,
-   *   mes: 1,
-   *   contaId: "123",      // Opcional: filtrar por conta
-   *   tipo: "entrada",     // Opcional: "entrada" ou "saida"
-   *   origem: "TRANSACAO_MANUAL" // Opcional
-   * });
-   * 
-   * console.log(extrato.movimentacoes); // Array de movimentações
-   * console.log(extrato.resumo);        // { saldoInicial, totalEntradas, ... }
-   */
-  async buscarExtrato(params: FiltrosExtrato): Promise<ExtratoResponse> {
-    const searchParams = new URLSearchParams({
-      ano: params.ano.toString(),
-      mes: params.mes.toString(),
-    });
-
-    if (params.contaId) searchParams.set("contaId", params.contaId);
-    if (params.origem) searchParams.set("origem", params.origem);
-    if (params.tipo) searchParams.set("tipo", params.tipo);
-    if (params.dataInicio) searchParams.set("dataInicio", params.dataInicio);
-    if (params.dataFim) searchParams.set("dataFim", params.dataFim);
-
-    const res = await fetch(`/api/extrato?${searchParams}`);
-    
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ 
-        error: "Erro ao buscar extrato" 
-      }));
-      throw new Error(
-        error.error || error.message || "Erro ao buscar extrato"
-      );
-    }
-    
-    return res.json();
-  },
-
-  /**
-   * Busca resumo financeiro rápido (sem detalhes de cartões)
-   * Mais leve que buscarResumo() - use quando não precisar de info de cartões
-   * 
-   * @param mes - Mês (1-12)
-   * @param ano - Ano
-   * @returns Apenas resumo financeiro { receitas, despesas, saldo }
-   * 
-   * @example
-   * const resumo = await dashboardService.buscarResumoRapido(1, 2026);
-   * console.log(resumo); // { receitas: 1000, despesas: 500, saldo: 500 }
+   * Busca apenas totais (receitas/despesas/saldo)
+   * Mais rápido que buscarResumo() quando não precisa de detalhes
    */
   async buscarResumoRapido(mes: number, ano: number): Promise<DashboardResumo> {
-    const res = await fetch(`/api/dashboard/resumo?mes=${mes}&ano=${ano}`);
-    
+    const res = await fetch(`${this.baseURL}/resumo-rapido?mes=${mes}&ano=${ano}`);
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ 
-        error: "Erro ao buscar resumo rápido" 
-      }));
-      throw new Error(
-        error.error || error.message || "Erro ao buscar resumo rápido"
-      );
+      const error = await res.json();
+      throw new Error(error.error || "Erro ao buscar resumo rápido");
     }
-    
     return res.json();
-  },
+  }
 
   /**
-   * Busca contagem de transações por condição de pagamento
-   * (Dinheiro, PIX, Cartão)
+   * Busca dados do gráfico de meses (receitas/despesas ao longo do tempo)
    * 
-   * @param mes - Mês (1-12)
-   * @param ano - Ano (ex: 2026)
-   * @returns Contagem por forma de pagamento
+   * @param periodo - Número de meses como string (padrão: "6")
+   */
+  async buscarGraficoMeses(periodo: string = "6"): Promise<GraficoMesesResponse[]> {
+    const res = await fetch(`${this.baseURL}/grafico-meses?periodo=${periodo}`);
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || "Erro ao buscar gráfico");
+    }
+    return res.json();
+  }
+
+  /**
+   * Busca extrato consolidado com filtros
    * 
-   * @example
-   * const condicoes = await dashboardService.buscarCondicoesPagamento(1, 2026);
-   * console.log(condicoes); // { dinheiro: 10, pix: 15, cartao: 25 }
+   * @param filters - Filtros obrigatórios (ano, mes) e opcionais
+   */
+  async buscarExtrato(filters: FiltrosExtrato): Promise<ExtratoResponse> {
+    const params = new URLSearchParams({
+      ano: String(filters.ano),
+      mes: String(filters.mes),
+    });
+
+    if (filters.contaId) params.append("contaId", filters.contaId);
+    if (filters.tipo) params.append("tipo", filters.tipo);
+    if (filters.origem) params.append("origem", filters.origem);
+    if (filters.dataInicio) params.append("dataInicio", filters.dataInicio);
+    if (filters.dataFim) params.append("dataFim", filters.dataFim);
+
+    const res = await fetch(`${this.baseURL}/extrato?${params.toString()}`);
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || "Erro ao buscar extrato");
+    }
+    return res.json();
+  }
+
+  /**
+   * ✨ NOVO: Busca condições de pagamento (Dinheiro/PIX/Cartão)
    */
   async buscarCondicoesPagamento(mes: number, ano: number): Promise<CondicoesPagamento> {
-    const res = await fetch(`/api/dashboard/condicoes-pagamento?mes=${mes}&ano=${ano}`);
-    
+    const res = await fetch(`${this.baseURL}/condicoes-pagamento?mes=${mes}&ano=${ano}`);
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ 
-        error: "Erro ao buscar condições de pagamento" 
-      }));
-      throw new Error(
-        error.error || error.message || "Erro ao buscar condições de pagamento"
-      );
+      const error = await res.json();
+      throw new Error(error.error || "Erro ao buscar condições de pagamento");
     }
-    
     return res.json();
-  },
+  }
 
   /**
-   * Busca contagem de transações por forma de pagamento
-   * (À vista, Parcelado, Recorrente)
-   * 
-   * @param mes - Mês (1-12)
-   * @param ano - Ano (ex: 2026)
-   * @returns Contagem por tipo de pagamento
-   * 
-   * @example
-   * const formas = await dashboardService.buscarFormasPagamento(1, 2026);
-   * console.log(formas); // { aVista: 20, parcelado: 10, recorrente: 5 }
+   * ✨ NOVO: Busca formas de pagamento (À Vista/Parcelado/Recorrente)
    */
   async buscarFormasPagamento(mes: number, ano: number): Promise<FormasPagamento> {
-    const res = await fetch(`/api/dashboard/formas-pagamento?mes=${mes}&ano=${ano}`);
-    
+    const res = await fetch(`${this.baseURL}/formas-pagamento?mes=${mes}&ano=${ano}`);
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ 
-        error: "Erro ao buscar formas de pagamento" 
-      }));
-      throw new Error(
-        error.error || error.message || "Erro ao buscar formas de pagamento"
-      );
+      const error = await res.json();
+      throw new Error(error.error || "Erro ao buscar formas de pagamento");
     }
-    
     return res.json();
-  },
+  }
 
   /**
-   * Busca resumo de faturas de cartão
-   * (Total de faturas, total pago, total em aberto)
-   * 
-   * @param mes - Mês (1-12)
-   * @param ano - Ano (ex: 2026)
-   * @returns Resumo financeiro de faturas
-   * 
-   * @example
-   * const faturas = await dashboardService.buscarFaturasResumo(1, 2026);
-   * console.log(faturas); 
-   * // { totalFaturas: 5000, totalPago: 3000, totalAberto: 2000 }
+   * ✨ NOVO: Busca resumo de faturas (total/pago/aberto)
    */
-  async buscarFaturasResumo(mes: number, ano: number): Promise<DashboardFaturas> {
-    const res = await fetch(`/api/dashboard/faturas-resumo?mes=${mes}&ano=${ano}`);
-    
+  async buscarFaturasResumo(mes: number, ano: number): Promise<FaturasResumo> {
+    const res = await fetch(`${this.baseURL}/faturas-resumo?mes=${mes}&ano=${ano}`);
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ 
-        error: "Erro ao buscar resumo de faturas" 
-      }));
-      throw new Error(
-        error.error || error.message || "Erro ao buscar resumo de faturas"
-      );
+      const error = await res.json();
+      throw new Error(error.error || "Erro ao buscar resumo de faturas");
     }
-    
     return res.json();
-  },
+  }
 
   /**
-   * Busca transações recorrentes ativas do período
-   * 
-   * @param mes - Mês (1-12)
-   * @param ano - Ano (ex: 2026)
-   * @returns Array de transações recorrentes
-   * 
-   * @example
-   * const recorrentes = await dashboardService.buscarRecorrentes(1, 2026);
-   * console.log(recorrentes);
-   * // [{ id, descricao, valor, categoria, tipo, recorrente: true }]
+   * ✨ NOVO: Busca transações recorrentes
    */
-  async buscarRecorrentes(mes: number, ano: number): Promise<Transacao[]> {
-    const res = await fetch(`/api/dashboard/recorrentes?mes=${mes}&ano=${ano}`);
-    
+  async buscarRecorrentes(mes: number, ano: number): Promise<Recorrente[]> {
+    const res = await fetch(`${this.baseURL}/recorrentes?mes=${mes}&ano=${ano}`);
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ 
-        error: "Erro ao buscar transações recorrentes" 
-      }));
-      throw new Error(
-        error.error || error.message || "Erro ao buscar transações recorrentes"
-      );
+      const error = await res.json();
+      throw new Error(error.error || "Erro ao buscar recorrentes");
     }
-    
     return res.json();
-  },
-};
+  }
+
+  /**
+   * ✨ NOVO: Busca despesas futuras (transações de cartão em faturas posteriores)
+   * 
+   * @param mes - Mês de referência (1-12)
+   * @param ano - Ano de referência
+   * @returns DespesasFuturas { total: number, quantidade: number }
+   */
+  async buscarDespesasFuturas(mes: number, ano: number): Promise<DespesasFuturas> {
+    const res = await fetch(`${this.baseURL}/despesas-futuras?mes=${mes}&ano=${ano}`);
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || "Erro ao buscar despesas futuras");
+    }
+    return res.json();
+  }
+}
+
+export const dashboardService = new DashboardService();

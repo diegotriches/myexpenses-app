@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Wallet, Calendar } from 'lucide-react';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import type { DashboardResumo } from '@/types/dashboard';
 
@@ -10,9 +10,13 @@ interface Props {
   resumo: DashboardResumo;
   saldoContas?: number;
   quantidadeContas?: number;
+  despesasFuturas?: {
+    total: number;
+    quantidade: number;
+  };
 }
 
-export function CardResumo({ resumo, saldoContas, quantidadeContas }: Props) {
+export function CardResumo({ resumo, saldoContas, quantidadeContas, despesasFuturas }: Props) {
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -21,11 +25,11 @@ export function CardResumo({ resumo, saldoContas, quantidadeContas }: Props) {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       {/* Saldo Total em Contas */}
       {saldoContas !== undefined && (
         <Card className="border-l-4 border-l-green-500 dark:border-l-green-600 dark:bg-gray-900 dark:border-gray-800 hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-sm font-medium text-gray-900 dark:text-white">
               Saldo em Contas
             </CardTitle>
@@ -44,7 +48,7 @@ export function CardResumo({ resumo, saldoContas, quantidadeContas }: Props) {
 
       {/* Receitas do Mês */}
       <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-600 dark:bg-gray-900 dark:border-gray-800 hover:shadow-lg transition-shadow">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
           <CardTitle className="text-sm font-medium text-gray-900 dark:text-white">
             Receitas
           </CardTitle>
@@ -62,7 +66,7 @@ export function CardResumo({ resumo, saldoContas, quantidadeContas }: Props) {
 
       {/* Despesas do Mês */}
       <Card className="border-l-4 border-l-red-500 dark:border-l-red-600 dark:bg-gray-900 dark:border-gray-800 hover:shadow-lg transition-shadow">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
           <CardTitle className="text-sm font-medium text-gray-900 dark:text-white">
             Despesas
           </CardTitle>
@@ -84,7 +88,7 @@ export function CardResumo({ resumo, saldoContas, quantidadeContas }: Props) {
           ? 'border-l-green-500 dark:border-l-green-600' 
           : 'border-l-red-500 dark:border-l-red-600'
       } dark:bg-gray-900 dark:border-gray-800 hover:shadow-lg transition-shadow`}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
           <CardTitle className="text-sm font-medium text-gray-900 dark:text-white">
             Saldo do Mês
           </CardTitle>
@@ -112,6 +116,24 @@ export function CardResumo({ resumo, saldoContas, quantidadeContas }: Props) {
               {resumo.saldo >= 0 ? 'Positivo' : 'Negativo'}
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ✨ NOVO: Despesas Futuras */}
+      <Card className="border-l-4 border-l-orange-500 dark:border-l-orange-600 dark:bg-gray-900 dark:border-gray-800 hover:shadow-lg transition-shadow">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+          <CardTitle className="text-sm font-medium text-gray-900 dark:text-white">
+            Despesas Futuras
+          </CardTitle>
+          <Calendar className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+            {formatarMoeda(despesasFuturas?.total || 0)}
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {despesasFuturas?.quantidade || 0} despesa{(despesasFuturas?.quantidade || 0) !== 1 ? 's' : ''} pendente{(despesasFuturas?.quantidade || 0) !== 1 ? 's' : ''}
+          </p>
         </CardContent>
       </Card>
     </div>
