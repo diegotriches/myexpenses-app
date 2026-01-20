@@ -18,6 +18,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useCategorias } from "@/hooks/useCategorias";
 import { useContas } from "@/hooks/useContas";
 
+// ✅ CORREÇÃO: Importar função de formatação de data
+import { formatarDataParaExibicao } from "@/utils/dateUtils";
+
 import { 
   MoreVertical, 
   Edit, 
@@ -38,7 +41,7 @@ interface Props {
   cartao: Cartao | null;
   onEditar: () => void;
   onExcluir: () => void;
-  viewMode?: "table" | "card"; // ✅ NOVO: Controla modo de exibição
+  viewMode?: "table" | "card";
 }
 
 const formaPagamentoConfig = {
@@ -55,7 +58,6 @@ export default function MovimentacaoLinha({
   onExcluir,
   viewMode = "table",
 }: Props) {
-  // ✅ REACT QUERY: Desestrutura data dos hooks
   const { data: categorias = [] } = useCategorias();
   const { data: contas = [] } = useContas();
 
@@ -67,7 +69,6 @@ export default function MovimentacaoLinha({
       ? `Transferência enviada${contaAtual ? ` (${contaAtual.nome})` : ""}`
       : `Transferência recebida${contaAtual ? ` (${contaAtual.nome})` : ""}`;
 
-  // ✅ Verifica os campos booleanos corretos
   const condicao = (() => {
     if (mov.parcelado === true) {
       return { 
@@ -101,7 +102,6 @@ export default function MovimentacaoLinha({
   const FormaPagamentoIcon = formaPagamento?.icon;
   const CondicaoIcon = condicao.icon;
 
-  // ✅ Formata valor
   const valorFormatado = new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
@@ -122,8 +122,9 @@ export default function MovimentacaoLinha({
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
+                {/* ✅ CORRIGIDO: Usar formatarDataParaExibicao */}
                 <span className="text-xs text-gray-600 dark:text-gray-400">
-                  {new Date(mov.data).toLocaleDateString("pt-BR")}
+                  {formatarDataParaExibicao(mov.data)}
                 </span>
                 {mov.tipo === "entrada" ? (
                   <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
@@ -145,7 +146,6 @@ export default function MovimentacaoLinha({
               </h3>
             </div>
 
-            {/* Ações */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
@@ -180,7 +180,6 @@ export default function MovimentacaoLinha({
             </DropdownMenu>
           </div>
 
-          {/* Valor Destacado */}
           <div className={`text-2xl font-bold mb-3 ${
             mov.tipo === "entrada" 
               ? "text-green-600 dark:text-green-400" 
@@ -189,9 +188,7 @@ export default function MovimentacaoLinha({
             {mov.tipo === "entrada" ? "+" : "-"} {valorFormatado}
           </div>
 
-          {/* Detalhes em Grid */}
           <div className="space-y-2 text-sm">
-            {/* Categoria */}
             {!isTransferencia && (
               <div className="flex items-center justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Categoria:</span>
@@ -211,7 +208,6 @@ export default function MovimentacaoLinha({
               </div>
             )}
 
-            {/* Forma de Pagamento */}
             <div className="flex items-center justify-between">
               <span className="text-gray-600 dark:text-gray-400">Pagamento:</span>
               {isTransferencia ? (
@@ -229,7 +225,6 @@ export default function MovimentacaoLinha({
               )}
             </div>
 
-            {/* Condição */}
             {!isTransferencia && (
               <div className="flex items-center justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Condição:</span>
@@ -240,7 +235,6 @@ export default function MovimentacaoLinha({
               </div>
             )}
 
-            {/* Cartão (se aplicável) */}
             {!isTransferencia && mov.formaPagamento === "cartao" && cartao && (
               <div className="flex items-center justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Cartão:</span>
@@ -273,10 +267,10 @@ export default function MovimentacaoLinha({
     }`}>
       {/* Data */}
       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-        {new Date(mov.data).toLocaleDateString("pt-BR")}
+        {/* ✅ CORRIGIDO: Usar formatarDataParaExibicao */}
+        {formatarDataParaExibicao(mov.data)}
       </td>
 
-      {/* Descrição */}
       <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
         <div className="max-w-xs truncate">
           {isTransferencia
@@ -285,7 +279,6 @@ export default function MovimentacaoLinha({
         </div>
       </td>
 
-      {/* Tipo */}
       <td className="px-4 py-3 text-center">
         {mov.tipo === "entrada" ? (
           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
@@ -300,7 +293,6 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      {/* Categoria */}
       <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
         {isTransferencia ? (
           <span className="text-gray-400 dark:text-gray-600">—</span>
@@ -321,7 +313,6 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      {/* Valor */}
       <td className="px-4 py-3 text-right text-sm font-semibold">
         <span className={mov.tipo === "entrada" 
           ? "text-green-600 dark:text-green-400" 
@@ -331,7 +322,6 @@ export default function MovimentacaoLinha({
         </span>
       </td>
 
-      {/* Forma de pagamento */}
       <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
         {isTransferencia ? (
           <div className="flex items-center gap-1.5">
@@ -348,7 +338,6 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      {/* Condição */}
       <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
         {isTransferencia ? (
           <span className="text-gray-400 dark:text-gray-600">—</span>
@@ -360,7 +349,6 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      {/* Cartão */}
       <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
         {isTransferencia ? (
           <span className="text-gray-400 dark:text-gray-600">—</span>
@@ -382,7 +370,6 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      {/* Ações */}
       <td className="px-4 py-3 text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

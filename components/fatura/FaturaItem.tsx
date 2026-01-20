@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import { TransacaoFatura } from "@/types/cartao";
 
+// ✅ CORREÇÃO: Importar função de formatação de data
+import { formatarDataCurta } from "@/utils/dateUtils";
+
 interface Props {
   transacao: TransacaoFatura;
 }
@@ -21,19 +24,6 @@ export default function FaturaItem({ transacao }: Props) {
       style: 'currency',
       currency: 'BRL'
     }).format(valorNum);
-  };
-
-  // Formatação de data
-  const formatarData = (data: string | Date) => {
-    try {
-      const date = typeof data === 'string' ? new Date(data) : data;
-      return date.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: 'short',
-      });
-    } catch {
-      return String(data);
-    }
   };
 
   // Ícone da categoria
@@ -65,7 +55,6 @@ export default function FaturaItem({ transacao }: Props) {
     ? parseFloat(transacao.valor) 
     : transacao.valor;
 
-  // ✅ Verificação segura - apenas campo garantido (parcelas)
   const isParcelado = transacao.parcelas && transacao.parcelas > 1;
 
   return (
@@ -86,7 +75,7 @@ export default function FaturaItem({ transacao }: Props) {
                 {transacao.descricao || "Sem descrição"}
               </span>
               
-              {/* ✅ Badge de Parcelamento - Apenas se parcelas > 1 */}
+              {/* Badge de Parcelamento */}
               {isParcelado && (
                 <Badge 
                   variant="outline" 
@@ -110,7 +99,8 @@ export default function FaturaItem({ transacao }: Props) {
               {transacao.data && (
                 <div className="flex items-center gap-1">
                   <Calendar size={12} />
-                  <span>{formatarData(transacao.data)}</span>
+                  {/* ✅ CORRIGIDO: Usar formatarDataCurta */}
+                  <span>{formatarDataCurta(transacao.data)}</span>
                 </div>
               )}
             </div>
@@ -144,7 +134,7 @@ export default function FaturaItem({ transacao }: Props) {
         </div>
       </div>
 
-      {/* ✅ Detalhes Parcelamento - Simplificado */}
+      {/* Detalhes Parcelamento */}
       {isParcelado && (
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">

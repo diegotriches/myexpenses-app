@@ -13,6 +13,9 @@ import {
 import { AlertTriangle, Info } from "lucide-react";
 import { MovimentacaoExtrato } from "@/types/conta";
 
+// ✅ CORREÇÃO: Importar função de formatação de data
+import { formatarDataParaExibicao } from "@/utils/dateUtils";
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -82,17 +85,7 @@ export default function ModalExcluirExtrato({ open, onClose, item, onConfirmar }
 
   const { titulo, descricao, podeExcluir, icon } = getMensagemPorOrigem();
 
-  // ✅ Formatar data (string ou Date)
-  const formatarData = (data: string | Date): string => {
-    try {
-      const dataObj = typeof data === 'string' ? new Date(data) : data;
-      return dataObj.toLocaleDateString("pt-BR");
-    } catch {
-      return String(data);
-    }
-  };
-
-  // ✅ Formatar valor monetário (pt-BR)
+  // Formatar valor monetário (pt-BR)
   const formatarMoeda = (valor: number): string => {
     return valor.toLocaleString("pt-BR", {
       style: "currency",
@@ -117,7 +110,8 @@ export default function ModalExcluirExtrato({ open, onClose, item, onConfirmar }
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground dark:text-gray-500">Data:</span>
                 <span className="font-medium text-gray-900 dark:text-gray-100">
-                  {formatarData(item.data)}
+                  {/* ✅ CORRIGIDO: Usar formatarDataParaExibicao */}
+                  {formatarDataParaExibicao(item.data)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">

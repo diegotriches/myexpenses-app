@@ -25,7 +25,9 @@ import {
   UpdateTransacaoDTO,
 } from "@/types/transacao";
 
-// ✅ IMPORTAR buildTransacoesFromForm
+// ✅ CORREÇÃO: Importar função de formatação de data
+import { formatarDataParaInput } from "@/utils/dateUtils";
+
 import { buildTransacoesFromForm } from "@/lib/buildTransacoesFromForm";
 
 import {
@@ -39,7 +41,6 @@ import {
 import { FaMoneyBill, FaSpinner, FaSyncAlt } from "react-icons/fa";
 import { Info, AlertCircle, Calendar, DollarSign, Tag, FileText } from "lucide-react";
 
-// ✅ TIPO LOCAL (não importar de transacao.ts)
 type TipoPagamento = "avista" | "parcelado" | "recorrente";
 
 interface Props {
@@ -47,7 +48,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   transacaoEdicao: Transacao | null;
   modoEdicao?: "unica" | "todas_parcelas" | "toda_recorrencia";
-  salvar: (dados: any) => Promise<void>; // ✅ Aceita qualquer tipo (será validado em runtime)
+  salvar: (dados: any) => Promise<void>;
   loading?: boolean;
 }
 
@@ -96,7 +97,6 @@ export default function FormMovimentacaoModal({
     setForm((prev) => {
       const updated = { ...prev, [key]: value };
 
-      // Se mudar para entrada e estava no cartão, volta para dinheiro
       if (key === "tipo" && value === "entrada" && prev.formaPagamento === "cartao") {
         updated.formaPagamento = "dinheiro";
       }
@@ -176,16 +176,15 @@ export default function FormMovimentacaoModal({
         ? Number(transacaoEdicao.valor) * transacaoEdicao.parcelas
         : Number(transacaoEdicao.valor ?? "");
 
-    const dataStr = typeof transacaoEdicao.data === 'string'
-      ? transacaoEdicao.data
-      : transacaoEdicao.data?.toISOString() || new Date().toISOString();
+    // ✅ CORRIGIDO: Usar formatarDataParaInput
+    const dataFormatada = formatarDataParaInput(transacaoEdicao.data);
 
     setForm({
       contaId: transacaoEdicao.contaId ?? "",
       tipo: transacaoEdicao.tipo ?? "entrada",
       categoria: transacaoEdicao.categoria ?? "",
       valor: String(valorFormulario),
-      data: dataStr.split("T")[0],
+      data: dataFormatada,
       descricao: transacaoEdicao.descricao ?? "",
       formaPagamento: ["dinheiro", "pix", "cartao"].includes(transacaoEdicao.formaPagamento ?? "")
         ? (transacaoEdicao.formaPagamento as "dinheiro" | "pix" | "cartao")
@@ -222,7 +221,6 @@ export default function FormMovimentacaoModal({
 
     try {
       if (isEdit && transacaoEdicao) {
-        // ✅ EDIÇÃO - Mantém lógica atual
         const dadosAtualizacao: UpdateTransacaoDTO = {
           modoEdicao: modoEdicao || "unica",
           tipo: form.tipo,
@@ -237,7 +235,6 @@ export default function FormMovimentacaoModal({
 
         await salvar(dadosAtualizacao);
       } else {
-        // ✅ CRIAÇÃO - USA buildTransacoesFromForm
         const transacoesParaCriar = buildTransacoesFromForm({
           form: {
             contaId: form.contaId,
@@ -257,8 +254,7 @@ export default function FormMovimentacaoModal({
           transacaoEdicao: null,
         });
 
-        // ✅ LOG PARA DEBUG
-        console.log('🔍 Transações geradas pelo buildTransacoesFromForm:', {
+        console.log('🔍 Transações geradas:', {
           total: transacoesParaCriar.length,
           isParcelas: form.parcelado,
           isRecorrente: form.recorrente,
@@ -266,7 +262,6 @@ export default function FormMovimentacaoModal({
           valores: transacoesParaCriar.map(t => t.valor),
         });
 
-        // ✅ Envia array se múltiplas transações, objeto único se apenas uma
         const dadosParaSalvar = transacoesParaCriar.length === 1 
           ? transacoesParaCriar[0] 
           : transacoesParaCriar;
@@ -274,7 +269,6 @@ export default function FormMovimentacaoModal({
         await salvar(dadosParaSalvar);
       }
 
-      // Modal fecha após sucesso
       onOpenChange(false);
       if (!isEdit) setForm(initialForm);
     } catch (error) {
@@ -317,7 +311,6 @@ export default function FormMovimentacaoModal({
             </Alert>
           )}
 
-          {/* SEÇÃO 1: Tipo e Categoria */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
               <Tag className="h-4 w-4" />
@@ -336,7 +329,6 @@ export default function FormMovimentacaoModal({
 
           <Separator className="dark:bg-gray-800" />
 
-          {/* SEÇÃO 2: Valor e Data */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
               <DollarSign className="h-4 w-4" />
@@ -355,7 +347,6 @@ export default function FormMovimentacaoModal({
 
           <Separator className="dark:bg-gray-800" />
 
-          {/* SEÇÃO 3: Forma de Pagamento */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
               <FaMoneyBill className="h-4 w-4" />
@@ -393,7 +384,6 @@ export default function FormMovimentacaoModal({
 
           <Separator className="dark:bg-gray-800" />
 
-          {/* SEÇÃO 4: Tipo de Pagamento */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
               <Calendar className="h-4 w-4" />
@@ -434,7 +424,6 @@ export default function FormMovimentacaoModal({
                 </SelectContent>
               </Select>
 
-              {/* ✅ INPUT MELHORADO - MOBILE FRIENDLY */}
               {(form.parcelado || form.recorrente) && (
                 <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-md px-3 py-2">
                   <input
@@ -446,21 +435,17 @@ export default function FormMovimentacaoModal({
                     onChange={(e) => {
                       const value = e.target.value;
                       
-                      // ✅ Permite apagar (campo vazio)
                       if (value === "") {
                         form.parcelado ? update("parcelas", 0) : update("repeticoes", 0);
                         return;
                       }
 
-                      // ✅ Converte para número e valida
                       const num = parseInt(value, 10);
                       if (!isNaN(num)) {
-                        // Permite digitar, mas não força o mínimo ainda
                         form.parcelado ? update("parcelas", num) : update("repeticoes", num);
                       }
                     }}
                     onBlur={(e) => {
-                      // ✅ Quando sair do campo, força mínimo de 2
                       const value = parseInt(e.target.value, 10);
                       const minValue = 2;
                       const maxValue = form.parcelado ? 48 : 999;
@@ -472,7 +457,6 @@ export default function FormMovimentacaoModal({
                       }
                     }}
                     onFocus={(e) => {
-                      // ✅ Seleciona todo o texto ao focar (facilita substituir)
                       e.target.select();
                     }}
                     className="w-16 border dark:border-gray-700 dark:bg-gray-900 dark:text-white rounded-md p-1 text-center font-medium focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all"
@@ -510,7 +494,6 @@ export default function FormMovimentacaoModal({
 
           <Separator className="dark:bg-gray-800" />
 
-          {/* SEÇÃO 5: Descrição */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
               <FileText className="h-4 w-4" />
@@ -520,7 +503,6 @@ export default function FormMovimentacaoModal({
             <MovCamposBasicos form={form} update={updateAny} campo="descricao" />
           </div>
 
-          {/* Botões */}
           <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-800 sticky bottom-0 bg-background dark:bg-gray-900">
             <Button
               type="button"
