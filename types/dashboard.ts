@@ -177,6 +177,11 @@ export interface Recorrente {
   categoria?: string;
   tipo: "entrada" | "saida";
   recorrente: boolean;
+  
+  // ✨ Campos adicionais para agrupamento e exibição
+  recorrenciaId?: string;  // ID do grupo de recorrência (agrupa transações relacionadas)
+  repeticoes?: number;     // Quantidade de repetições/meses
+  data?: string | Date;    // Data da transação
 }
 
 // ========================================

@@ -3,6 +3,7 @@ import type {
   DashboardResumo,
   DashboardResponse,
   GraficoMesesResponse,
+  DadosGraficoMeses,
   ExtratoResponse,
   FiltrosExtrato,
   CondicoesPagamento,
@@ -49,7 +50,7 @@ class DashboardService {
    * 
    * @param periodo - Número de meses como string (padrão: "6")
    */
-  async buscarGraficoMeses(periodo: string = "6"): Promise<GraficoMesesResponse[]> {
+  async buscarGraficoMeses(periodo: string = "6"): Promise<DadosGraficoMeses[]> {
     const res = await fetch(`${this.baseURL}/grafico-meses?periodo=${periodo}`);
     if (!res.ok) {
       const error = await res.json();

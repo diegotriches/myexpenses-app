@@ -16,7 +16,7 @@ type DadosGrafico = {
 };
 
 export function CardGraficoMeses() {
-  // ✅ React Query - busca dados do gráfico
+  // ✅ React Query - busca dados do gráfico (dados é um array de DadosGraficoMeses)
   const { data: dados, isLoading, error } = useGraficoMeses("6");
 
   // Calcula totais do período
@@ -25,14 +25,19 @@ export function CardGraficoMeses() {
       return { receitas: 0, despesas: 0, balanco: 0 };
     }
     
-    return dados.reduce(
-      (acc, item) => ({
-        receitas: acc.receitas + item.receitas,
-        despesas: acc.despesas + item.despesas,
-        balanco: acc.balanco + item.balanco
-      }),
+    // ✅ Type annotations explícitas para evitar 'any' implícito
+    const resultado = dados.reduce(
+      (acc: { receitas: number; despesas: number; balanco: number }, item: { mes: string; receitas: number; despesas: number; balanco: number }) => {
+        return {
+          receitas: acc.receitas + (item.receitas ?? 0),
+          despesas: acc.despesas + (item.despesas ?? 0),
+          balanco: acc.balanco + (item.balanco ?? 0)
+        };
+      },
       { receitas: 0, despesas: 0, balanco: 0 }
     );
+    
+    return resultado;
   }, [dados]);
 
   // Formata valores para tooltip
@@ -70,12 +75,17 @@ export function CardGraficoMeses() {
   const dadosGrafico = useMemo<DadosGrafico[]>(() => {
     if (!dados || dados.length === 0) return [];
     
-    return dados.map(item => ({
-      mes: formatarMes(item.mes),
-      Receitas: item.receitas,
-      Despesas: item.despesas,
-      Balanço: item.balanco
-    }));
+    // ✅ Type annotation explícita para evitar 'any' implícito
+    const resultado = dados.map((item: { mes: string; receitas: number; despesas: number; balanco: number }) => {
+      return {
+        mes: formatarMes(item.mes ?? ''),
+        Receitas: item.receitas ?? 0,
+        Despesas: item.despesas ?? 0,
+        Balanço: item.balanco ?? 0
+      };
+    });
+    
+    return resultado;
   }, [dados]);
 
   // 🌓 Cores do gráfico (responsivas ao tema via CSS variables)

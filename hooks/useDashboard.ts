@@ -4,7 +4,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/services/dashboardService";
 import { usePeriodo } from "@/contexts/PeriodoContext";
-import type { FiltrosExtrato } from "@/types/dashboard";
+import type { 
+  FiltrosExtrato,
+  GraficoMesesResponse,
+  DadosGraficoMeses,
+} from "@/types/dashboard";
 
 /**
  * Query Keys para dashboard
@@ -62,7 +66,7 @@ export function useDashboard() {
  * graficoData // [{ mes: "2026-01", receitas: 1000, despesas: 500, balanco: 500 }]
  */
 export function useGraficoMeses(periodo?: string) {
-  return useQuery({
+  return useQuery<DadosGraficoMeses[], Error>({
     queryKey: dashboardKeys.grafico(periodo),
     queryFn: () => dashboardService.buscarGraficoMeses(periodo || "6"),
     // Gráficos mudam menos, cache de 5 minutos
