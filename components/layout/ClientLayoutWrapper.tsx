@@ -13,11 +13,20 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Verificar se deve esconder navbar
+  // ========================================
+  // ROTAS PÚBLICAS (sem Sidebar e TopMenu)
+  // ========================================
   const esconderNavbar =
+    pathname === "/" ||
     pathname === "/login" ||
     pathname === "/register" ||
-    pathname === "/";
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password" ||
+    pathname === "/verify-email" ||
+    pathname === "/contato" ||
+    pathname?.startsWith("/auth/") || // Qualquer rota dentro de (auth)
+    pathname?.includes("/404") ||
+    pathname?.includes("/500");
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
