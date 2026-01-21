@@ -5,6 +5,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 // TABELA: users
+export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -15,10 +16,12 @@ export const users = pgTable("users", {
   password: text("password"),
   resetToken: text("reset_token"),
   resetTokenExpiry: timestamp("reset_token_expiry", { mode: 'date' }),
+  role: userRoleEnum("role").default("user").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   emailIdx: index("users_email_idx").on(table.email),
+  roleIdx: index("users_role_idx").on(table.role),
 }));
 
 // TABELA: preferences
@@ -449,3 +452,49 @@ export const preferenciasNotificacao = pgTable("preferencias_notificacao", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// ENUM para status do contato
+export const contatoStatusEnum = pgEnum("contato_status", [
+  "pendente",
+  "em_andamento",
+  "resolvido",
+  "arquivado"
+]);
+
+// TABELA: contatos
+export const contatos = pgTable("contatos", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  
+  // Dados do remetente
+  nome: varchar("nome", { length: 150 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  
+  // Mensagem
+  assunto: varchar("assunto", { length: 50 }).notNull(), // "duvida" | "sugestao" | "problema" | "outro"
+  mensagem: text("mensagem").notNull(),
+  
+  // Metadata
+  status: contatoStatusEnum("status").default("pendente").notNull(),
+  lido: boolean("lido").default(false).notNull(),
+  
+  // Informações técnicas (opcional - para debug)
+  userAgent: text("user_agent"),
+  ip: varchar("ip", { length: 45 }),
+  
+  // Relacionamento opcional com usuário (se estiver logado)
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  
+  // Timestamps
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  respondidoEm: timestamp("respondido_em", { withTimezone: true }),
+}, (table) => ({
+  // Índices para performance
+  emailIdx: index("contatos_email_idx").on(table.email),
+  statusIdx: index("contatos_status_idx").on(table.status),
+  createdAtIdx: index("contatos_created_at_idx").on(table.createdAt.desc()),
+  userIdIdx: index("contatos_user_id_idx").on(table.userId),
+}));
+
+// Types para TypeScript
+export type Contato = typeof contatos.$inferSelect;
+export type NovoContato = typeof contatos.$inferInsert;
