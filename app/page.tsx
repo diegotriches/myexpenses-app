@@ -1,10 +1,25 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { BsCashCoin } from "react-icons/bs";
-import { FiTrendingUp, FiDollarSign, FiPieChart, FiShield, FiArrowRight } from "react-icons/fi";
+import { 
+  FiTrendingUp, 
+  FiDollarSign, 
+  FiPieChart, 
+  FiShield, 
+  FiArrowRight,
+  FiChevronDown,
+  FiCode,
+  FiDatabase,
+  FiLayers,
+  FiZap,
+  FiLock
+} from "react-icons/fi";
 
 export default function LandingPage() {
+  const [techStackOpen, setTechStackOpen] = useState(false);
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950">
       {/* Hero Section */}
@@ -133,6 +148,127 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Tech Stack Section - Accordion */}
+      <section className="py-16 bg-gray-50 dark:bg-gray-800 transition-colors">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <button
+            onClick={() => setTechStackOpen(!techStackOpen)}
+            className="w-full group"
+          >
+            <div className="flex items-center justify-between p-6 bg-white dark:bg-gray-900 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+                  <FiCode className="text-white" size={24} />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Tecnologias Utilizadas
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Desenvolvido com as melhores ferramentas do mercado
+                  </p>
+                </div>
+              </div>
+              <FiChevronDown 
+                className={`text-gray-400 transition-transform duration-300 ${
+                  techStackOpen ? 'rotate-180' : ''
+                }`}
+                size={24}
+              />
+            </div>
+          </button>
+
+          {/* Accordion Content */}
+          <div
+            className={`
+              overflow-hidden transition-all duration-500 ease-in-out
+              ${techStackOpen ? 'max-h-[2000px] opacity-100 mt-6' : 'max-h-0 opacity-0'}
+            `}
+          >
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Frontend */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                      <FiLayers className="text-blue-600 dark:text-blue-400" size={20} />
+                    </div>
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                      Frontend
+                    </h4>
+                  </div>
+                  <div className="space-y-3 pl-2">
+                    <TechItem name="Next.js 15" description="Framework React com SSR" />
+                    <TechItem name="TypeScript" description="Tipagem estática" />
+                    <TechItem name="Tailwind CSS" description="Estilização moderna" />
+                    <TechItem name="shadcn/ui" description="Componentes reutilizáveis" />
+                    <TechItem name="React Query" description="Gerenciamento de estado" />
+                  </div>
+                </div>
+
+                {/* Backend */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                      <FiZap className="text-purple-600 dark:text-purple-400" size={20} />
+                    </div>
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                      Backend
+                    </h4>
+                  </div>
+                  <div className="space-y-3 pl-2">
+                    <TechItem name="Next.js API Routes" description="APIs serverless" />
+                    <TechItem name="NextAuth.js" description="Autenticação OAuth" />
+                    <TechItem name="Drizzle ORM" description="Type-safe database" />
+                    <TechItem name="Resend" description="Serviço de emails" />
+                  </div>
+                </div>
+
+                {/* Database */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                      <FiDatabase className="text-green-600 dark:text-green-400" size={20} />
+                    </div>
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                      Database
+                    </h4>
+                  </div>
+                  <div className="space-y-3 pl-2">
+                    <TechItem name="PostgreSQL" description="Banco relacional robusto" />
+                    <TechItem name="Neon" description="Serverless Postgres" />
+                  </div>
+                </div>
+
+                {/* Segurança & Qualidade */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
+                      <FiLock className="text-red-600 dark:text-red-400" size={20} />
+                    </div>
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                      Segurança & Qualidade
+                    </h4>
+                  </div>
+                  <div className="space-y-3 pl-2">
+                    <TechItem name="bcryptjs" description="Hash de senhas" />
+                    <TechItem name="Zod" description="Validação de schemas" />
+                    <TechItem name="ESLint" description="Qualidade de código" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Info Badge */}
+              <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-900 rounded-xl">
+                <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
+                  💡 <strong>Código aberto:</strong> Desenvolvido com tecnologias modernas e escaláveis para garantir performance e segurança.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-900 dark:to-purple-900 transition-colors">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -170,5 +306,22 @@ export default function LandingPage() {
         </div>
       </footer>
     </main>
+  );
+}
+
+// Componente auxiliar para items de tecnologia
+function TechItem({ name, description }: { name: string; description: string }) {
+  return (
+    <div className="flex items-start gap-3 group">
+      <div className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full mt-2 group-hover:scale-150 transition-transform" />
+      <div>
+        <p className="font-semibold text-gray-900 dark:text-white text-sm">
+          {name}
+        </p>
+        <p className="text-xs text-gray-600 dark:text-gray-400">
+          {description}
+        </p>
+      </div>
+    </div>
   );
 }
