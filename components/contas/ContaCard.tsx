@@ -10,6 +10,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Conta } from "@/types/conta";
 
 import { 
@@ -21,7 +27,8 @@ import {
   TrendingDown,
   MoreVertical,
   Power,
-  PowerOff
+  PowerOff,
+  DollarSign,
 } from "lucide-react";
 
 interface Props {
@@ -30,7 +37,8 @@ interface Props {
   onExcluir?: (conta: Conta) => void;
   onExtrato?: (conta: Conta) => void;
   onTransferir: (contaOrigemId: string) => void;
-  onToggleAtivo?: (conta: Conta) => void; // Nova prop opcional
+  onToggleAtivo?: (conta: Conta) => void;
+  onAjustarSaldo?: (conta: Conta) => void;
 }
 
 export default function ContaCard({
@@ -40,6 +48,7 @@ export default function ContaCard({
   onExtrato,
   onTransferir,
   onToggleAtivo,
+  onAjustarSaldo,
 }: Props) {
   const bancoImagem = conta.banco
     ? `/contas/${conta.banco.toLowerCase()}.png`
@@ -112,11 +121,11 @@ export default function ContaCard({
               <span className="sr-only">Abrir menu</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent align="end" className="w-48 dark:bg-gray-800 dark:border-gray-700">
             {onEditar && (
               <DropdownMenuItem 
                 onClick={() => onEditar(conta)}
-                className="cursor-pointer"
+                className="cursor-pointer dark:hover:bg-gray-700"
               >
                 <Pencil size={14} className="mr-2" />
                 Editar conta
@@ -126,7 +135,7 @@ export default function ContaCard({
             {onToggleAtivo && (
               <DropdownMenuItem 
                 onClick={() => onToggleAtivo(conta)}
-                className="cursor-pointer"
+                className="cursor-pointer dark:hover:bg-gray-700"
               >
                 {conta.ativo ? (
                   <>
@@ -144,10 +153,10 @@ export default function ContaCard({
 
             {onExcluir && (
               <>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator className="dark:bg-gray-700" />
                 <DropdownMenuItem 
                   onClick={() => onExcluir(conta)}
-                  className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                  className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 dark:hover:bg-gray-700"
                 >
                   <Trash2 size={14} className="mr-2" />
                   Remover
@@ -184,30 +193,67 @@ export default function ContaCard({
           </span>
         </div>
 
-        {/* Ações principais em destaque */}
-        <div className="space-y-2">
-          {onExtrato && (
-            <Button
-              onClick={() => onExtrato(conta)}
-              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-md hover:shadow-lg transition-all duration-200"
-              size="lg"
-            >
-              <FileText size={16} className="mr-2" />
-              Ver Extrato
-            </Button>
-          )}
+        {/* ✅ NOVO: Ações principais compactas com ícones + tooltip */}
+        <TooltipProvider delayDuration={300}>
+          <div className="flex items-center justify-center gap-2">
+            {/* Ajustar Saldo */}
+            {onAjustarSaldo && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={() => onAjustarSaldo(conta)}
+                    variant="outline"
+                    size="lg"
+                    className="flex-1 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border-blue-200 text-blue-700 hover:text-blue-800 dark:from-blue-950/30 dark:to-blue-900/30 dark:border-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-all duration-200 shadow-sm hover:shadow-md"
+                  >
+                    <DollarSign size={20} className="flex-shrink-0" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="font-medium">Ajustar Saldo</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
 
-          {onTransferir && (
-            <Button
-              onClick={() => onTransferir(conta.id)}
-              className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-md hover:shadow-lg transition-all duration-200"
-              size="lg"
-            >
-              <Repeat size={16} className="mr-2" />
-              Nova Transferência
-            </Button>
-          )}
-        </div>
+            {/* Ver Extrato */}
+            {onExtrato && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={() => onExtrato(conta)}
+                    variant="outline"
+                    size="lg"
+                    className="flex-1 bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 border-purple-200 text-purple-700 hover:text-purple-800 dark:from-purple-950/30 dark:to-purple-900/30 dark:border-purple-800 dark:text-purple-400 dark:hover:text-purple-300 transition-all duration-200 shadow-sm hover:shadow-md"
+                  >
+                    <FileText size={20} className="flex-shrink-0" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="font-medium">Ver Extrato</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Nova Transferência */}
+            {onTransferir && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={() => onTransferir(conta.id)}
+                    variant="outline"
+                    size="lg"
+                    className="flex-1 bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 border-green-200 text-green-700 hover:text-green-800 dark:from-green-950/30 dark:to-green-900/30 dark:border-green-800 dark:text-green-400 dark:hover:text-green-300 transition-all duration-200 shadow-sm hover:shadow-md"
+                  >
+                    <Repeat size={20} className="flex-shrink-0" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="font-medium">Nova Transferência</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </TooltipProvider>
       </CardContent>
     </Card>
   );

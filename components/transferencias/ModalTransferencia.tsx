@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowRightLeft } from "lucide-react";
+import { ArrowRightLeft, ArrowRight } from "lucide-react";
 
 interface ModalTransferenciaProps {
   open: boolean;
@@ -34,7 +34,6 @@ export function ModalTransferencia({
   contas,
   contaOrigemInicialId,
 }: ModalTransferenciaProps) {
-  // ✅ React Query - hook separado para criar transferência
   const criarTransferencia = useCriarTransferencia();
 
   // Filtrar apenas contas ativas
@@ -78,7 +77,6 @@ export function ModalTransferencia({
     if (!formularioValido || criarTransferencia.isPending) return;
 
     try {
-      // ✅ Usa mutateAsync do React Query
       await criarTransferencia.mutateAsync({
         contaOrigemId,
         contaDestinoId,
@@ -87,11 +85,9 @@ export function ModalTransferencia({
         data,
       });
 
-      // ✅ Toast automático (no hook)
-      // ✅ Cache invalidado automaticamente (no hook)
       onClose();
     } catch {
-      // ✅ Erro já tratado no hook (toast automático)
+      // Erro já tratado no hook
     }
   };
 
@@ -102,140 +98,158 @@ export function ModalTransferencia({
         if (!isOpen) onClose();
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl dark:bg-gray-900 dark:border-gray-800">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ArrowRightLeft className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+            <ArrowRightLeft className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             Transferência entre contas
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Conta de Origem */}
-          <div>
-            <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
-              Conta de origem
-            </label>
-            <Select
-              value={contaOrigemId}
-              onValueChange={setContaOrigemId}
-              disabled={criarTransferencia.isPending}
-            >
-              <SelectTrigger className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100">
-                <SelectValue placeholder="Selecione a conta de origem" />
-              </SelectTrigger>
-              <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-                {contasAtivas.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    Nenhuma conta cadastrada
-                  </div>
-                ) : (
-                  contasAtivas.map((conta) => (
-                    <SelectItem
-                      key={conta.id}
-                      value={conta.id}
-                      className="dark:text-gray-100 dark:hover:bg-gray-700"
-                    >
-                      <div className="flex items-center justify-between w-full gap-3">
-                        <span>{conta.nome}</span>
-                        <span
-                          className={`text-xs font-medium ${
-                            Number(conta.saldoAtual) >= 0
-                              ? "text-green-600 dark:text-green-400"
-                              : "text-red-600 dark:text-red-400"
-                          }`}
-                        >
-                          {Number(conta.saldoAtual).toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          })}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+        <div className="space-y-4 py-2">
+          {/* ✅ NOVO: Contas Origem e Destino lado a lado com seta */}
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-end">
+            {/* Conta de Origem */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
+                Conta de origem
+              </label>
+              <Select
+                value={contaOrigemId}
+                onValueChange={setContaOrigemId}
+                disabled={criarTransferencia.isPending}
+              >
+                <SelectTrigger className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100">
+                  <SelectValue placeholder="Selecione a conta de origem" />
+                </SelectTrigger>
+                <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+                  {contasAtivas.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      Nenhuma conta cadastrada
+                    </div>
+                  ) : (
+                    contasAtivas.map((conta) => (
+                      <SelectItem
+                        key={conta.id}
+                        value={conta.id}
+                        className="dark:text-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <div className="flex items-center justify-between w-full gap-3">
+                          <span>{conta.nome}</span>
+                          <span
+                            className={`text-xs font-medium ${
+                              Number(conta.saldoAtual) >= 0
+                                ? "text-green-600 dark:text-green-400"
+                                : "text-red-600 dark:text-red-400"
+                            }`}
+                          >
+                            {Number(conta.saldoAtual).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* ✅ NOVO: Seta indicadora - Oculta em mobile */}
+            <div className="hidden sm:flex items-center justify-center pb-2">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                <ArrowRight className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+
+            {/* Conta de Destino */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
+                Conta de destino
+              </label>
+              <Select
+                value={contaDestinoId}
+                onValueChange={setContaDestinoId}
+                disabled={criarTransferencia.isPending || !contaOrigemId}
+              >
+                <SelectTrigger className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100">
+                  <SelectValue placeholder="Selecione a conta de destino" />
+                </SelectTrigger>
+                <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+                  {contasAtivas
+                    .filter((c) => c.id !== contaOrigemId)
+                    .map((conta) => (
+                      <SelectItem
+                        key={conta.id}
+                        value={conta.id}
+                        className="dark:text-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <div className="flex items-center justify-between w-full gap-3">
+                          <span>{conta.nome}</span>
+                          <span
+                            className={`text-xs font-medium ${
+                              Number(conta.saldoAtual) >= 0
+                                ? "text-green-600 dark:text-green-400"
+                                : "text-red-600 dark:text-red-400"
+                            }`}
+                          >
+                            {Number(conta.saldoAtual).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Conta de Destino */}
-          <div>
-            <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
-              Conta de destino
-            </label>
-            <Select
-              value={contaDestinoId}
-              onValueChange={setContaDestinoId}
-              disabled={criarTransferencia.isPending || !contaOrigemId}
-            >
-              <SelectTrigger className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100">
-                <SelectValue placeholder="Selecione a conta de destino" />
-              </SelectTrigger>
-              <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-                {contasAtivas
-                  .filter((c) => c.id !== contaOrigemId)
-                  .map((conta) => (
-                    <SelectItem
-                      key={conta.id}
-                      value={conta.id}
-                      className="dark:text-gray-100 dark:hover:bg-gray-700"
-                    >
-                      <div className="flex items-center justify-between w-full gap-3">
-                        <span>{conta.nome}</span>
-                        <span
-                          className={`text-xs font-medium ${
-                            Number(conta.saldoAtual) >= 0
-                              ? "text-green-600 dark:text-green-400"
-                              : "text-red-600 dark:text-red-400"
-                          }`}
-                        >
-                          {Number(conta.saldoAtual).toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          })}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+          {/* ✅ NOVO: Valor e Data lado a lado */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Valor */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
+                Valor <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm font-medium">
+                  R$
+                </span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={valor}
+                  onChange={(e) => setValor(e.target.value)}
+                  disabled={criarTransferencia.isPending}
+                  className="pl-10 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
+                />
+              </div>
+            </div>
+
+            {/* Data */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
+                Data <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="date"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                disabled={criarTransferencia.isPending}
+                className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+              />
+            </div>
           </div>
 
-          {/* Valor */}
+          {/* Descrição - Largura total */}
           <div>
             <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
-              Valor
-            </label>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="R$ 0,00"
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-              disabled={criarTransferencia.isPending}
-              className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
-            />
-          </div>
-
-          {/* Data */}
-          <div>
-            <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
-              Data
-            </label>
-            <Input
-              type="date"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              disabled={criarTransferencia.isPending}
-              className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-            />
-          </div>
-
-          {/* Descrição */}
-          <div>
-            <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
-              Descrição (opcional)
+              Descrição <span className="text-gray-400 dark:text-gray-500 text-xs">(opcional)</span>
             </label>
             <Input
               placeholder="Ex: Transferência para poupança"
@@ -246,7 +260,7 @@ export function ModalTransferencia({
             />
           </div>
 
-          {/* ✅ Erro do React Query */}
+          {/* Erro do React Query */}
           {criarTransferencia.isError && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
               <p className="text-sm text-red-600 dark:text-red-400">
@@ -258,26 +272,27 @@ export function ModalTransferencia({
 
           {/* Resumo da transferência */}
           {contaOrigemId && contaDestinoId && valorNumerico > 0 && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3 space-y-2">
-              <p className="text-xs font-medium text-blue-900 dark:text-blue-300">
-                📋 Resumo da transferência
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-4 space-y-2">
+              <p className="text-xs font-medium text-blue-900 dark:text-blue-300 flex items-center gap-1">
+                <span className="text-base">📋</span> Resumo da transferência
               </p>
-              <div className="space-y-1 text-xs text-blue-800 dark:text-blue-400">
-                <div className="flex justify-between">
+              <div className="space-y-1.5 text-sm text-blue-800 dark:text-blue-400">
+                <div className="flex justify-between items-center">
                   <span>De:</span>
-                  <span className="font-medium">
+                  <span className="font-semibold">
                     {contasAtivas.find((c) => c.id === contaOrigemId)?.nome}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span>Para:</span>
-                  <span className="font-medium">
+                  <span className="font-semibold">
                     {contasAtivas.find((c) => c.id === contaDestinoId)?.nome}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="h-px bg-blue-200 dark:bg-blue-800 my-1" />
+                <div className="flex justify-between items-center">
                   <span>Valor:</span>
-                  <span className="font-semibold">
+                  <span className="font-bold text-base">
                     {valorNumerico.toLocaleString("pt-BR", {
                       style: "currency",
                       currency: "BRL",
@@ -289,17 +304,19 @@ export function ModalTransferencia({
           )}
         </div>
 
-        <DialogFooter className="mt-6">
+        <DialogFooter className="gap-2 sm:gap-0">
           <Button
-            variant="secondary"
+            variant="outline"
             onClick={onClose}
             disabled={criarTransferencia.isPending}
+            className="dark:border-gray-700 dark:hover:bg-gray-800"
           >
             Cancelar
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!formularioValido || criarTransferencia.isPending}
+            className="bg-blue-700 hover:bg-blue-900"
           >
             {criarTransferencia.isPending
               ? "Transferindo..."

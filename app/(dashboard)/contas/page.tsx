@@ -16,6 +16,7 @@ import ContaModal from "@/components/contas/ContaModal";
 import ContaCard from "@/components/contas/ContaCard";
 import ConfirmDeleteModal from "@/components/contas/ConfirmDeleteModal";
 import { ModalTransferencia } from "@/components/transferencias/ModalTransferencia";
+import ModalAjustarSaldo from "@/components/contas/ModalAjustarSaldo"; // ✅ NOVO
 import { Conta, CreateContaDTO, UpdateContaDTO } from "@/types/conta";
 
 import { 
@@ -32,7 +33,6 @@ import { Search } from "lucide-react";
 type OrdenacaoType = "nome" | "saldo-maior" | "saldo-menor" | "recente";
 
 export default function ContasPage() {
-  // ✅ NOVO: Hooks React Query (substitui hook antigo)
   const { data: contas = [], isLoading: loading, error } = useContas();
   const criarConta = useCriarConta();
   const atualizarConta = useAtualizarConta();
@@ -45,6 +45,10 @@ export default function ContasPage() {
   const [contaParaExcluir, setContaParaExcluir] = useState<Conta | null>(null);
   const [modalTransferenciaOpen, setModalTransferenciaOpen] = useState(false);
   const [contaOrigemSelecionada, setContaOrigemSelecionada] = useState<string | null>(null);
+  
+  // ✅ NOVO: Estado para modal de ajuste de saldo
+  const [modalAjusteOpen, setModalAjusteOpen] = useState(false);
+  const [contaParaAjustar, setContaParaAjustar] = useState<Conta | null>(null);
   
   // Busca e ordenação
   const [busca, setBusca] = useState("");
@@ -86,7 +90,6 @@ export default function ContasPage() {
     setModalOpen(true);
   }
 
-  // ✅ NOVO: Usar hooks de mutation
   async function salvarConta(data: CreateContaDTO | UpdateContaDTO) {
     try {
       if (contaEdicao) {
@@ -98,13 +101,9 @@ export default function ContasPage() {
         await criarConta.mutateAsync(data as CreateContaDTO);
       }
 
-      // ✅ Cache invalidado automaticamente
-      // ✅ Toast mostrado automaticamente
-      
       setModalOpen(false);
       setContaEdicao(null);
     } catch (error) {
-      // ✅ Toast de erro mostrado automaticamente
       console.error("Erro ao salvar conta:", error);
     }
   }
@@ -118,19 +117,13 @@ export default function ContasPage() {
     setContaParaExcluir(conta);
   }
 
-  // ✅ NOVO: Usar hook de mutation
   async function confirmarExclusao() {
     if (!contaParaExcluir) return;
     
     try {
       await removerConta.mutateAsync(contaParaExcluir.id);
-      
-      // ✅ Cache invalidado automaticamente
-      // ✅ Toast mostrado automaticamente
-      
       setContaParaExcluir(null);
     } catch (error) {
-      // ✅ Toast de erro mostrado automaticamente
       console.error("Erro ao excluir conta:", error);
     }
   }
@@ -147,6 +140,18 @@ export default function ContasPage() {
   const handleFecharTransferencia = () => {
     setModalTransferenciaOpen(false);
     setContaOrigemSelecionada(null);
+  };
+
+  // ✅ NOVO: Handler para abrir modal de ajuste
+  const handleAbrirAjuste = (conta: Conta) => {
+    setContaParaAjustar(conta);
+    setModalAjusteOpen(true);
+  };
+
+  // ✅ NOVO: Handler para fechar modal de ajuste
+  const handleFecharAjuste = () => {
+    setModalAjusteOpen(false);
+    setContaParaAjustar(null);
   };
 
   // Empty State Component
@@ -279,6 +284,7 @@ export default function ContasPage() {
               onExcluir={solicitarExclusao}
               onExtrato={(c) => router.push(`/contas/${c.id}/extrato`)}
               onTransferir={handleAbrirTransferencia}
+              onAjustarSaldo={handleAbrirAjuste} // ✅ NOVO
             />
           ))}
         </div>
@@ -297,6 +303,13 @@ export default function ContasPage() {
         onClose={handleFecharTransferencia}
         contas={contas}
         contaOrigemInicialId={contaOrigemSelecionada}
+      />
+
+      {/* ✅ NOVO: Modal de Ajuste de Saldo */}
+      <ModalAjustarSaldo
+        open={modalAjusteOpen}
+        onClose={handleFecharAjuste}
+        conta={contaParaAjustar}
       />
 
       <ConfirmDeleteModal
