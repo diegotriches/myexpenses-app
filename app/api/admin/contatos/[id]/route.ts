@@ -12,13 +12,13 @@ import { verificarAdmin } from "@/lib/admin";
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 🔐 Verificar permissão admin
     await verificarAdmin();
 
-    const { id } = params;
+    const { id } = await params;
 
     // Buscar contato com dados do usuário (se existir)
     const resultado = await db
@@ -75,13 +75,13 @@ export async function GET(
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 🔐 Verificar permissão admin
     await verificarAdmin();
 
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
 
     const updates: any = {};
@@ -149,13 +149,13 @@ export async function PATCH(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // 🔐 Verificar permissão admin
     await verificarAdmin();
 
-    const { id } = params;
+    const { id } = await params;
 
     const [excluido] = await db
       .delete(contatos)
