@@ -25,11 +25,16 @@ import {
   TrendingUp, 
   MoreVertical,
   Power,
-  PowerOff
+  PowerOff,
+  Wallet,
+  Building2,
+  ArrowRightLeft,
+  TrendingDown
 } from "lucide-react";
 import { Cartao } from "@/types/cartao";
 import { useRouter } from "next/navigation";
 import { empresaOptions, bandeiraOptions } from "@/utils/cartaoOptions";
+import { useContas } from "@/hooks/useContas";
 
 interface Props {
   cartao: Cartao;
@@ -52,11 +57,17 @@ export default function CartaoItem({
   onToggleAtivo,
 }: Props) {
   const router = useRouter();
+  
+  // ✅ NOVO: Buscar contas para mostrar info do débito
+  const { data: contas = [] } = useContas();
+  
+  const contaVinculada = cartao.contaVinculadaId 
+    ? contas.find(c => c.id === cartao.contaVinculadaId)
+    : null;
 
   const empresaImg = getImgFromOption(empresaOptions, cartao.empresa ?? "");
   const bandeiraImg = getImgFromOption(bandeiraOptions, cartao.bandeira);
 
-  // Formatação monetária brasileira
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -64,7 +75,6 @@ export default function CartaoItem({
     }).format(valor);
   };
 
-  // Formatação compacta para valores grandes (ex: R$ 12,5 mil)
   const formatarMoedaCompacta = (valor: number) => {
     if (valor >= 1000000) {
       return `R$ ${(valor / 1000000).toFixed(1)} mi`;
@@ -108,6 +118,13 @@ export default function CartaoItem({
     router.push(`/cartoes/${cartao.id}/fatura`);
   };
 
+  // ✅ CORRIGIDO: Agora usa a rota que existe (/contas/[id]/extrato)
+  const abrirExtratoConta = () => {
+    if (contaVinculada) {
+      router.push(`/contas/${contaVinculada.id}/extrato`);
+    }
+  };
+
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200 dark:border-gray-700">
       <CardContent className="p-6 space-y-4">
@@ -141,7 +158,11 @@ export default function CartaoItem({
               
               {cartao.tipo && (
                 <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                  <CreditCard size={12} />
+                  {cartao.tipo === "credito" ? (
+                    <CreditCard size={12} />
+                  ) : (
+                    <Wallet size={12} />
+                  )}
                   <span>{cartao.tipo === "credito" ? "Crédito" : "Débito"}</span>
                 </div>
               )}
@@ -212,9 +233,9 @@ export default function CartaoItem({
           </div>
         </div>
 
+        {/* ===== CONTEÚDO PARA CRÉDITO ===== */}
         {cartao.tipo === "credito" && (
           <>
-            {/* Alertas */}
             {vencimentoProximo && (
               <div className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-900 rounded-lg">
                 <AlertCircle size={16} className="text-orange-600 dark:text-orange-400 flex-shrink-0" />
@@ -224,7 +245,6 @@ export default function CartaoItem({
               </div>
             )}
 
-            {/* Datas */}
             <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border dark:border-gray-700">
               <div className="text-center">
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Fecha dia</p>
@@ -236,7 +256,6 @@ export default function CartaoItem({
               </div>
             </div>
 
-            {/* Limites - CORRIGIDO */}
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <TooltipProvider>
                 <Tooltip>
@@ -293,7 +312,6 @@ export default function CartaoItem({
               </TooltipProvider>
             </div>
 
-            {/* Barra de Progresso */}
             <div className="space-y-2">
               <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div 
@@ -324,7 +342,6 @@ export default function CartaoItem({
               </div>
             </div>
 
-            {/* Botão Fatura em Destaque */}
             <Button
               onClick={abrirFatura}
               className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-md hover:shadow-lg transition-all duration-200"
@@ -336,17 +353,82 @@ export default function CartaoItem({
           </>
         )}
 
-        {/* Botão Fatura para Cartão de Débito */}
-        {cartao.tipo === "debito" && onFatura && (
-          <Button
-            onClick={abrirFatura}
-            variant="outline"
-            className="w-full hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 dark:hover:bg-purple-950 dark:hover:border-purple-800"
-            size="lg"
-          >
-            <FileText size={16} className="mr-2" />
-            Ver Movimentações
-          </Button>
+        {/* ===== CONTEÚDO PARA DÉBITO ===== */}
+        {cartao.tipo === "debito" && (
+          <>
+            {/* Conta Vinculada - Compacto */}
+            {contaVinculada ? (
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+                      <Building2 size={14} className="text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                        Conta Vinculada
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                        {contaVinculada.nome}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-blue-200 dark:border-blue-900">
+                  <span className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+                    Saldo Disponível
+                  </span>
+                  <span className="text-base font-bold text-blue-900 dark:text-blue-100">
+                    {formatarMoedaCompacta(Number(contaVinculada.saldoAtual))}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-2 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-900 rounded-lg">
+                <AlertCircle size={14} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+                <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                  Nenhuma conta vinculada
+                </p>
+              </div>
+            )}
+
+            {/* Info Compacta - 2 colunas */}
+            <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border dark:border-gray-700">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-1">
+                  <ArrowRightLeft size={14} className="text-gray-600 dark:text-gray-400" />
+                </div>
+                <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Tipo</p>
+                <p className="text-xs font-bold text-gray-900 dark:text-white">Débito Imediato</p>
+              </div>
+
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-1">
+                  <TrendingDown size={14} className="text-gray-600 dark:text-gray-400" />
+                </div>
+                <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Impacto</p>
+                <p className="text-xs font-bold text-gray-900 dark:text-white">Instantâneo</p>
+              </div>
+            </div>
+
+            {/* Alert compacto */}
+            <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg">
+              <Wallet size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-800 dark:text-blue-200">
+                <span className="font-medium">Desconto imediato</span> da conta vinculada
+              </p>
+            </div>
+
+            <Button
+              onClick={abrirExtratoConta}
+              disabled={!contaVinculada}
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              size="lg"
+            >
+              <FileText size={16} className="mr-2" />
+              {contaVinculada ? "Ver Extrato da Conta" : "Sem Conta Vinculada"}
+            </Button>
+          </>
         )}
       </CardContent>
     </Card>

@@ -1,5 +1,6 @@
+// app/api/cartoes/route.ts - ARQUIVO COMPLETO
 import { db } from "@/db";
-import { cartoes, faturas } from "@/db/schema";
+import { cartoes, faturas, contas } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
@@ -11,7 +12,6 @@ export async function GET() {
   try {
     const userId = await getUserId();
 
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -23,7 +23,7 @@ export async function GET() {
     const anoAtual = hoje.getFullYear();
     const mesAtual = hoje.getMonth() + 1;
 
-    // FILTRAR por userId
+    // Buscar cartões do usuário
     const listaCartoes = await db
       .select()
       .from(cartoes)
@@ -31,14 +31,12 @@ export async function GET() {
 
     const resultado = await Promise.all(
       listaCartoes.map(async (cartao) => {
-        // ✅ Converter string para number
         const limite = Number(cartao.limite ?? 0);
 
         // Calcular limite disponível baseado nas faturas não pagas
         let limiteUsado = 0;
 
         if (cartao.tipo === "credito") {
-          // Buscar faturas do usuário E do cartão
           const faturasNaoPagas = await db
             .select()
             .from(faturas)
@@ -50,7 +48,6 @@ export async function GET() {
               )
             );
 
-          // Somar o valor de todas as faturas em aberto
           limiteUsado = faturasNaoPagas.reduce((acc, f) => {
             return acc + Number(f.total);
           }, 0);
@@ -58,7 +55,7 @@ export async function GET() {
 
         const limiteDisponivel = Math.max(0, limite - limiteUsado);
 
-        // Buscar fatura atual com filtro de userId
+        // Buscar fatura atual
         const [faturaAtual] = await db
           .select()
           .from(faturas)
@@ -104,8 +101,8 @@ export async function GET() {
 
         return {
           ...cartao,
-          limite, // ✅ Já convertido para number
-          limiteDisponivel, // ✅ Calculado como number
+          limite,
+          limiteDisponivel,
           emUso: limiteUsado,
           faturaAtual: faturaInfo,
           contaVinculadaId: cartao.contaVinculadaId ?? null,
@@ -116,7 +113,6 @@ export async function GET() {
     return NextResponse.json(resultado, { status: 200 });
   } catch (err) {
     console.error("Erro no GET /api/cartoes:", err);
-
     const message = err instanceof Error ? err.message : "Erro desconhecido";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -129,7 +125,6 @@ export async function POST(req: Request) {
   try {
     const userId = await getUserId();
 
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -167,12 +162,47 @@ export async function POST(req: Request) {
       );
     }
 
+    // ✅ NOVO: Validação para cartão de débito
+    if (tipo === "debito") {
+      if (!contaVinculadaId) {
+        return NextResponse.json(
+          { error: "Cartão de débito precisa estar vinculado a uma conta" },
+          { status: 400 }
+        );
+      }
+
+      // Verificar se a conta existe e pertence ao usuário
+      const [contaVinculada] = await db
+        .select()
+        .from(contas)
+        .where(
+          and(
+            eq(contas.id, contaVinculadaId),
+            eq(contas.userId, userId)
+          )
+        )
+        .limit(1);
+
+      if (!contaVinculada) {
+        return NextResponse.json(
+          { error: "Conta vinculada não encontrada" },
+          { status: 404 }
+        );
+      }
+
+      if (!contaVinculada.ativo) {
+        return NextResponse.json(
+          { error: "A conta vinculada está inativa" },
+          { status: 400 }
+        );
+      }
+    }
+
     const isCartaoCredito = tipo === "credito";
 
     let limiteNum = 0;
 
     if (isCartaoCredito) {
-      // ✅ CORRIGIDO: Aceitar string ou number
       limiteNum = typeof limite === "string" ? parseFloat(limite) : Number(limite);
 
       if (!Number.isFinite(limiteNum) || limiteNum <= 0) {
@@ -218,7 +248,6 @@ export async function POST(req: Request) {
       tipo,
       bandeira: bandeira || "",
       empresa: empresa || "",
-      // ✅ CORRIGIDO: Converter para string com 2 casas decimais
       limite: limiteNum.toFixed(2),
       limiteDisponivel: limiteNum.toFixed(2),
       diaFechamento: fechamentoNum ?? null,
@@ -236,7 +265,6 @@ export async function POST(req: Request) {
     return NextResponse.json(novo, { status: 201 });
   } catch (err) {
     console.error("Erro no POST /api/cartoes:", err);
-
     const message = err instanceof Error ? err.message : "Erro desconhecido";
     return NextResponse.json({ error: message }, { status: 500 });
   }

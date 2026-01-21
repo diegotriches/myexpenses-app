@@ -1,3 +1,4 @@
+// app/api/transacoes/route.ts - ARQUIVO COMPLETO COM SUPORTE A DÉBITO
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
@@ -8,10 +9,8 @@ import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 // GET - Listar transações do usuário
 export async function GET(req: NextRequest) {
   try {
-    // 🔐 Autenticação
     const userId = await getUserId();
 
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -55,10 +54,8 @@ export async function GET(req: NextRequest) {
 // POST - Criar transação(ões) em BATCH
 export async function POST(req: NextRequest) {
   try {
-    // 🔐 Autenticação
     const userId = await getUserId();
 
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -68,16 +65,13 @@ export async function POST(req: NextRequest) {
 
     const json = await req.json();
     
-    // ✅ Suportar tanto objeto único quanto array
     const transacoesArray = Array.isArray(json) ? json : [json];
     
     console.log(`📥 Recebido ${transacoesArray.length} transação(ões)`);
 
-    // ✅ DETECTAR SE É PARCELAMENTO/RECORRÊNCIA
     const isParcelas = transacoesArray.length > 1 && transacoesArray[0].parcelado === true;
     const isRecorrencia = transacoesArray.length > 1 && transacoesArray[0].recorrente === true;
 
-    // ✅ GERAR IDs ÚNICOS PARA PARCELAMENTO/RECORRÊNCIA
     const parcelamentoId = isParcelas ? crypto.randomUUID() : null;
     const recorrenciaId = isRecorrencia ? crypto.randomUUID() : null;
 
@@ -93,7 +87,10 @@ export async function POST(req: NextRequest) {
     for (let index = 0; index < transacoesArray.length; index++) {
       const trans = transacoesArray[index];
 
-      // Validações básicas
+      // ========================================
+      // 1. VALIDAÇÕES BÁSICAS
+      // ========================================
+      
       if (!trans.tipo || !["entrada", "saida"].includes(trans.tipo)) {
         return NextResponse.json(
           { error: "Tipo de transação inválido" },
@@ -131,7 +128,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
       }
 
-      // 1. Verificar conta (se aplicável)
+      // ========================================
+      // 2. VERIFICAR CONTA (se aplicável)
+      // ========================================
+      
       if (trans.contaId) {
         const [conta] = await db
           .select()
@@ -156,9 +156,15 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 2. Verificar cartão (se aplicável)
+      // ========================================
+      // 3. ✅ VERIFICAR CARTÃO (DÉBITO OU CRÉDITO)
+      // ========================================
+      
+      let cartao = null;
+      let contaParaDebito = null;
+
       if (trans.cartaoId) {
-        const [cartao] = await db
+        [cartao] = await db
           .select()
           .from(cartoes)
           .where(and(eq(cartoes.id, Number(trans.cartaoId)), eq(cartoes.userId, userId)))
@@ -172,18 +178,71 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "Cartão inativo" }, { status: 400 });
         }
 
+        // ✅ NOVO: Tratar débito como PIX
+        if (cartao.tipo === "debito") {
+          if (!cartao.contaVinculadaId) {
+            return NextResponse.json(
+              { error: "Cartão de débito sem conta vinculada" },
+              { status: 400 }
+            );
+          }
+
+          // Buscar conta vinculada
+          const [conta] = await db
+            .select()
+            .from(contas)
+            .where(
+              and(
+                eq(contas.id, cartao.contaVinculadaId),
+                eq(contas.userId, userId)
+              )
+            )
+            .limit(1);
+
+          if (!conta) {
+            return NextResponse.json(
+              { error: "Conta vinculada ao cartão de débito não encontrada" },
+              { status: 404 }
+            );
+          }
+
+          if (!conta.ativo) {
+            return NextResponse.json(
+              { error: "Conta vinculada ao cartão de débito está inativa" },
+              { status: 400 }
+            );
+          }
+
+          // Verificar saldo
+          const saldoConta = Number(conta.saldoAtual);
+          if (saldoConta < valorNum) {
+            return NextResponse.json(
+              { 
+                error: `Saldo insuficiente na conta ${conta.nome} (vinculada ao cartão de débito)` 
+              },
+              { status: 400 }
+            );
+          }
+
+          contaParaDebito = conta;
+        }
+
+        // Validação para crédito
         if (cartao.tipo === "credito" && trans.tipo === "saida") {
           const limiteDisponivel = Number(cartao.limiteDisponivel);
           if (limiteDisponivel < valorNum) {
             return NextResponse.json(
-              { error: "Limite insuficiente no cartão" },
+              { error: "Limite insuficiente no cartão de crédito" },
               { status: 400 }
             );
           }
         }
       }
 
-      // ✅ 3. CRIAR TRANSAÇÃO COM CAMPOS CORRETOS
+      // ========================================
+      // 4. ✅ CRIAR TRANSAÇÃO
+      // ========================================
+      
       const [novaTransacao] = await db
         .insert(transacoes)
         .values({
@@ -197,33 +256,144 @@ export async function POST(req: NextRequest) {
           contaId: trans.contaId || null,
           cartaoId: trans.cartaoId ? Number(trans.cartaoId) : null,
           
-          // ✅ PARCELAMENTO: Atribuir IDs e numeração
           parcelado: isParcelas,
           parcelamentoId: isParcelas ? parcelamentoId : null,
           parcelas: isParcelas ? transacoesArray.length : null,
-          parcelaAtual: isParcelas ? index + 1 : null, // ✅ 1, 2, 3, 4...
+          parcelaAtual: isParcelas ? index + 1 : null,
           
-          // ✅ RECORRÊNCIA: Atribuir IDs
           recorrente: isRecorrencia,
           recorrenciaId: isRecorrencia ? recorrenciaId : null,
           repeticoes: isRecorrencia ? transacoesArray.length : null,
         })
         .returning();
 
-      // ✅ LOG para debug
+      transacoesCriadas.push(novaTransacao);
+
       if (isParcelas) {
         console.log(
           `📦 Parcela ${index + 1}/${transacoesArray.length} criada | ` +
           `Data: ${new Date(trans.data).toLocaleDateString('pt-BR')} | ` +
-          `Valor: R$ ${valorNum.toFixed(2)} | ` +
-          `ID Parcelamento: ${parcelamentoId?.slice(0, 8)}...`
+          `Valor: R$ ${valorNum.toFixed(2)}`
         );
       }
 
-      transacoesCriadas.push(novaTransacao);
+      // ========================================
+      // 5. ✅ PROCESSAMENTO: DÉBITO vs CRÉDITO vs DINHEIRO/PIX
+      // ========================================
+      
+      if (trans.cartaoId && cartao) {
+        if (cartao.tipo === "debito" && contaParaDebito) {
+          // ===== DÉBITO: Funciona igual PIX =====
+          
+          const saldoAtual = Number(contaParaDebito.saldoAtual);
+          const novoSaldo = saldoAtual - valorNum;
 
-      // 4. Atualizar saldo da conta (se não for cartão)
-      if (trans.contaId && trans.formaPagamento !== "cartao") {
+          // Atualizar saldo da conta
+          await db
+            .update(contas)
+            .set({
+              saldoAtual: novoSaldo.toFixed(2),
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(contas.id, contaParaDebito.id),
+                eq(contas.userId, userId)
+              )
+            );
+
+          // Registrar no extrato
+          const dataFormatada = new Date(trans.data).toISOString().split("T")[0];
+          
+          await db.insert(extratoConta).values({
+            userId,
+            contaId: contaParaDebito.id,
+            data: dataFormatada,
+            tipo: "saida",
+            valor: valorNum.toFixed(2),
+            descricao: trans.descricao || `Compra no débito - ${cartao.nome}`,
+            saldoApos: novoSaldo.toFixed(2),
+            origem: "TRANSACAO_MANUAL",
+            referenciaId: novaTransacao.id,
+          });
+
+          console.log(
+            `💳 Débito: R$ ${valorNum.toFixed(2)} debitado de ${contaParaDebito.nome} ` +
+            `(Saldo: R$ ${saldoAtual.toFixed(2)} → R$ ${novoSaldo.toFixed(2)})`
+          );
+
+        } else if (cartao.tipo === "credito") {
+          // ===== CRÉDITO: Vai para fatura =====
+          
+          const dataTransacao = new Date(trans.data);
+          const diaFechamento = cartao.diaFechamento || 1;
+
+          const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
+            dataTransacao,
+            diaFechamento
+          );
+
+          console.log(
+            `📅 Transação ${index + 1} em ${dataTransacao.toLocaleDateString('pt-BR')} → ` +
+            `Fatura ${mesFatura}/${anoFatura}`
+          );
+
+          const [faturaExistente] = await db
+            .select()
+            .from(faturas)
+            .where(
+              and(
+                eq(faturas.cartaoId, Number(trans.cartaoId)),
+                eq(faturas.userId, userId),
+                eq(faturas.mes, mesFatura),
+                eq(faturas.ano, anoFatura)
+              )
+            )
+            .limit(1);
+
+          if (faturaExistente && faturaExistente.paga) {
+            return NextResponse.json(
+              { 
+                error: `Fatura de ${mesFatura}/${anoFatura} já está paga. Não é possível adicionar transações.` 
+              },
+              { status: 400 }
+            );
+          }
+
+          if (faturaExistente) {
+            const totalAtual = Number(faturaExistente.total);
+            const novoTotal = totalAtual + valorNum;
+
+            await db
+              .update(faturas)
+              .set({
+                total: novoTotal.toFixed(2),
+                updatedAt: new Date(),
+              })
+              .where(eq(faturas.id, faturaExistente.id));
+          } else {
+            await db.insert(faturas).values({
+              userId,
+              cartaoId: Number(trans.cartaoId),
+              mes: mesFatura,
+              ano: anoFatura,
+              total: valorNum.toFixed(2),
+              paga: false,
+            });
+          }
+
+          // Atualizar limite
+          await db
+            .update(cartoes)
+            .set({
+              limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${valorNum}`,
+            })
+            .where(and(eq(cartoes.id, Number(trans.cartaoId)), eq(cartoes.userId, userId)));
+        }
+        
+      } else if (trans.contaId && trans.formaPagamento !== "cartao") {
+        // ===== DINHEIRO/PIX: Atualizar conta e extrato =====
+        
         const [conta] = await db
           .select()
           .from(contas)
@@ -258,89 +428,10 @@ export async function POST(req: NextRequest) {
           referenciaId: novaTransacao.id,
         });
       }
-
-      // 5. ✅ ATUALIZAR/CRIAR FATURA COM CICLO CORRETO
-      if (trans.cartaoId && trans.formaPagamento === "cartao") {
-        const [cartao] = await db
-          .select()
-          .from(cartoes)
-          .where(eq(cartoes.id, Number(trans.cartaoId)))
-          .limit(1);
-
-        const dataTransacao = new Date(trans.data);
-        const diaFechamento = cartao.diaFechamento || 1;
-
-        // ✅ CALCULAR FATURA CORRETA baseado no dia de fechamento
-        const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
-          dataTransacao,
-          diaFechamento
-        );
-
-        console.log(
-          `📅 Transação ${index + 1} em ${dataTransacao.toLocaleDateString('pt-BR')} → ` +
-          `Fatura ${mesFatura}/${anoFatura}`
-        );
-
-        // ✅ VERIFICAR SE FATURA JÁ ESTÁ PAGA
-        const [faturaExistente] = await db
-          .select()
-          .from(faturas)
-          .where(
-            and(
-              eq(faturas.cartaoId, Number(trans.cartaoId)),
-              eq(faturas.userId, userId),
-              eq(faturas.mes, mesFatura),
-              eq(faturas.ano, anoFatura)
-            )
-          )
-          .limit(1);
-
-        if (faturaExistente && faturaExistente.paga) {
-          return NextResponse.json(
-            { 
-              error: `Fatura de ${mesFatura}/${anoFatura} já está paga. Não é possível adicionar transações.` 
-            },
-            { status: 400 }
-          );
-        }
-
-        if (faturaExistente) {
-          // Atualizar fatura existente
-          const totalAtual = Number(faturaExistente.total);
-          const novoTotal = totalAtual + valorNum;
-
-          await db
-            .update(faturas)
-            .set({
-              total: novoTotal.toFixed(2),
-              updatedAt: new Date(),
-            })
-            .where(eq(faturas.id, faturaExistente.id));
-        } else {
-          // Criar nova fatura
-          await db.insert(faturas).values({
-            userId,
-            cartaoId: Number(trans.cartaoId),
-            mes: mesFatura,
-            ano: anoFatura,
-            total: valorNum.toFixed(2),
-            paga: false,
-          });
-        }
-
-        // Atualizar limite
-        await db
-          .update(cartoes)
-          .set({
-            limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${valorNum}`,
-          })
-          .where(and(eq(cartoes.id, Number(trans.cartaoId)), eq(cartoes.userId, userId)));
-      }
     }
 
     console.log(`✅ ${transacoesCriadas.length} transação(ões) criada(s)`);
 
-    // ✅ LOG FINAL para parcelamento
     if (isParcelas) {
       console.log(
         `✅ Parcelamento completo: ${transacoesCriadas.length}x | ` +
@@ -348,7 +439,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Retornar array se recebeu array, objeto único se recebeu objeto
     return NextResponse.json(
       Array.isArray(json) ? transacoesCriadas : transacoesCriadas[0],
       { status: 201 }

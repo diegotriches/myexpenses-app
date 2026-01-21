@@ -16,10 +16,10 @@ import CampoSelect from "./CampoSelect";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// ✅ NOVO: Importar hook React Query
 import { useContas } from "@/hooks/useContas";
-import { Info } from "lucide-react";
+import { Info, CreditCard, Wallet } from "lucide-react";
 
 type TipoCartao = "credito" | "debito";
 
@@ -30,7 +30,6 @@ interface Props {
 }
 
 export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props) {
-    // ✅ NOVO: Hook React Query para contas
     const { data: contas = [] } = useContas();
 
     const [form, setForm] = useState({
@@ -53,7 +52,6 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                 tipo: initialValues.tipo,
                 bandeira: initialValues.bandeira,
                 empresa: initialValues.empresa || "",
-                // ✅ Converter string para number antes de exibir
                 limite: initialValues.limite ? Number(initialValues.limite).toString() : "",
                 diaFechamento: initialValues.diaFechamento?.toString() ?? "",
                 diaVencimento: initialValues.diaVencimento?.toString() ?? "",
@@ -65,7 +63,20 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
     }, [initialValues]);
 
     function handleChange(field: string, value: any) {
-        setForm((f) => ({ ...f, [field]: value }));
+        setForm((f) => {
+            const updated = { ...f, [field]: value };
+            
+            // ✅ Ao mudar de crédito para débito, resetar campos de fatura
+            if (field === "tipo") {
+                if (value === "debito") {
+                    updated.limite = "";
+                    updated.diaFechamento = "";
+                    updated.diaVencimento = "";
+                }
+            }
+            
+            return updated;
+        });
     }
 
     async function handleSubmit() {
@@ -89,6 +100,15 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
             return;
         }
 
+        // ✅ NOVO: Validação para cartão de débito
+        if (form.tipo === "debito") {
+            if (!form.contaVinculadaId || form.contaVinculadaId === "none") {
+                alert("Cartão de débito precisa estar vinculado a uma conta");
+                return;
+            }
+        }
+
+        // Validações para crédito
         if (form.tipo === "credito") {
             const limite = Number(form.limite);
 
@@ -108,13 +128,11 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
             }
         }
 
-        // ✅ CORRIGIDO: Usar DTO correto
         const payload: CreateCartaoDTO | UpdateCartaoDTO = {
             nome: form.nome.trim(),
             tipo: form.tipo,
             bandeira: form.bandeira,
             empresa: form.empresa,
-            // ✅ Enviar como number (API espera number no DTO)
             limite: form.tipo === "credito" ? Number(form.limite) : 0,
             diaFechamento:
                 form.tipo === "credito" ? Number(form.diaFechamento) : null,
@@ -128,11 +146,10 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
         await onSubmit(payload);
     }
 
-    // Filtrar apenas contas ativas
     const contasAtivas = contas.filter(c => c.ativo);
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-4">
             {/* Descrição do modal */}
             <p className="text-gray-600 dark:text-gray-400 text-sm">
                 Preencha os dados abaixo para cadastrar ou editar um cartão.
@@ -159,8 +176,18 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                             <SelectValue placeholder="Tipo" />
                         </SelectTrigger>
                         <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-                            <SelectItem value="credito">Crédito</SelectItem>
-                            <SelectItem value="debito">Débito</SelectItem>
+                            <SelectItem value="credito">
+                                <div className="flex items-center gap-2">
+                                    <CreditCard className="h-4 w-4" />
+                                    Crédito
+                                </div>
+                            </SelectItem>
+                            <SelectItem value="debito">
+                                <div className="flex items-center gap-2">
+                                    <Wallet className="h-4 w-4" />
+                                    Débito
+                                </div>
+                            </SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -182,102 +209,137 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
                 />
             </div>
 
-            {/* Conta Vinculada (só para crédito) */}
-            {form.tipo === "credito" && (
-                <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Conta para pagamento da fatura
-                        </p>
-                        <Info className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <Select
-                        value={form.contaVinculadaId}
-                        onValueChange={(v) => handleChange("contaVinculadaId", v)}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma conta (opcional)" />
-                        </SelectTrigger>
-                        <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+            {/* ✅ CONTA VINCULADA - Crédito (opcional) ou Débito (obrigatório) */}
+            <div>
+                <div className="flex items-center gap-2 mb-1">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {form.tipo === "credito" 
+                            ? "Conta para pagamento da fatura" 
+                            : "Conta vinculada"}
+                    </p>
+                    <Info className="h-4 w-4 text-gray-400" />
+                    {form.tipo === "debito" && (
+                        <span className="text-xs text-red-500 font-medium">Obrigatório</span>
+                    )}
+                </div>
+                <Select
+                    value={form.contaVinculadaId}
+                    onValueChange={(v) => handleChange("contaVinculadaId", v)}
+                >
+                    <SelectTrigger>
+                        <SelectValue placeholder={
+                            form.tipo === "debito" 
+                                ? "Selecione a conta vinculada" 
+                                : "Selecione uma conta (opcional)"
+                        } />
+                    </SelectTrigger>
+                    <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+                        {form.tipo === "credito" && (
                             <SelectItem value="none">Nenhuma (definir depois)</SelectItem>
-                            {contasAtivas.length > 0 ? (
-                                contasAtivas.map(conta => (
-                                    <SelectItem key={conta.id} value={conta.id}>
-                                        {conta.nome} - R$ {Number(conta.saldoAtual).toFixed(2)}
-                                        {conta.banco && ` (${conta.banco})`}
-                                    </SelectItem>
-                                ))
-                            ) : (
-                                <SelectItem value="no-accounts" disabled>
-                                    Nenhuma conta cadastrada
+                        )}
+                        {contasAtivas.length > 0 ? (
+                            contasAtivas.map(conta => (
+                                <SelectItem key={conta.id} value={conta.id}>
+                                    {conta.nome} - R$ {Number(conta.saldoAtual).toFixed(2)}
+                                    {conta.banco && ` (${conta.banco})`}
                                 </SelectItem>
-                            )}
-                        </SelectContent>
-                    </Select>
+                            ))
+                        ) : (
+                            <SelectItem value="no-accounts" disabled>
+                                Nenhuma conta cadastrada
+                            </SelectItem>
+                        )}
+                    </SelectContent>
+                </Select>
+                
+                {/* ✅ Mensagens explicativas diferentes por tipo */}
+                {form.tipo === "credito" ? (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         💡 Esta conta será usada como padrão para pagar a fatura do cartão
                     </p>
-                </div>
+                ) : (
+                    <Alert className="mt-2 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+                        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <AlertDescription className="text-blue-800 dark:text-blue-300 text-sm">
+                            <p className="font-medium">Cartão de débito</p>
+                            <p className="text-xs mt-1">
+                                Transações com este cartão serão descontadas imediatamente da conta vinculada.
+                            </p>
+                        </AlertDescription>
+                    </Alert>
+                )}
+            </div>
+
+            {/* ✅ Campos de crédito (só aparecem para tipo crédito) */}
+            {form.tipo === "credito" && (
+                <>
+                    {/* Limite e Ativo */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                        <div>
+                            <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                                Limite (R$)
+                            </p>
+                            <Input
+                                type="number"
+                                placeholder="R$ 0,00"
+                                value={form.limite}
+                                onChange={(e) => handleChange("limite", e.target.value)}
+                            />
+                        </div>
+                        <div className="flex items-center gap-3 pt-2">
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Ativo</p>
+                            <Switch
+                                checked={form.ativo}
+                                onCheckedChange={(v) => handleChange("ativo", v)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Fechamento e Vencimento */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                                Dia de fechamento
+                            </p>
+                            <Input
+                                type="number"
+                                placeholder="Fechamento"
+                                min="1"
+                                max="31"
+                                value={form.diaFechamento}
+                                onChange={(e) =>
+                                    handleChange("diaFechamento", e.target.value)
+                                }
+                            />
+                        </div>
+
+                        <div>
+                            <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                                Dia de vencimento
+                            </p>
+                            <Input
+                                type="number"
+                                placeholder="Vencimento"
+                                min="1"
+                                max="31"
+                                value={form.diaVencimento}
+                                onChange={(e) =>
+                                    handleChange("diaVencimento", e.target.value)
+                                }
+                            />
+                        </div>
+                    </div>
+                </>
             )}
 
-            {/* Limite e Ativo */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                {form.tipo === "credito" && (
-                    <div>
-                        <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                            Limite (R$)
-                        </p>
-                        <Input
-                            type="number"
-                            placeholder="R$ 0,00"
-                            value={form.limite}
-                            onChange={(e) => handleChange("limite", e.target.value)}
-                        />
-                    </div>
-                )}
-                <div className="flex items-center gap-3 pt-2">
+            {/* ✅ Campo Ativo para débito */}
+            {form.tipo === "debito" && (
+                <div className="flex items-center gap-3">
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Ativo</p>
                     <Switch
                         checked={form.ativo}
                         onCheckedChange={(v) => handleChange("ativo", v)}
                     />
-                </div>
-            </div>
-
-            {/* Fechamento e Vencimento */}
-            {form.tipo === "credito" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                            Dia de fechamento
-                        </p>
-                        <Input
-                            type="number"
-                            placeholder="Fechamento"
-                            min="1"
-                            max="31"
-                            value={form.diaFechamento}
-                            onChange={(e) =>
-                                handleChange("diaFechamento", e.target.value)
-                            }
-                        />
-                    </div>
-
-                    <div>
-                        <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                            Dia de vencimento
-                        </p>
-                        <Input
-                            type="number"
-                            placeholder="Vencimento"
-                            min="1"
-                            max="31"
-                            value={form.diaVencimento}
-                            onChange={(e) =>
-                                handleChange("diaVencimento", e.target.value)
-                            }
-                        />
-                    </div>
                 </div>
             )}
 

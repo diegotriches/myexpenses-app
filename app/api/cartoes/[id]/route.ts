@@ -1,6 +1,7 @@
+// app/api/cartoes/[id]/route.ts - ARQUIVO COMPLETO
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { cartoes } from "@/db/schema";
+import { cartoes, contas } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 
@@ -12,7 +13,6 @@ export async function GET(
   try {
     const userId = await getUserId();
 
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -56,7 +56,6 @@ export async function PUT(
   try {
     const userId = await getUserId();
 
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -67,7 +66,7 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
 
-    // 🔐 Verificar se o cartão pertence ao usuário
+    // Verificar se o cartão pertence ao usuário
     const cartaoAtual = await db.query.cartoes.findFirst({
       where: and(
         eq(cartoes.id, Number(id)),
@@ -84,14 +83,80 @@ export async function PUT(
 
     const tipo = body.tipo ?? cartaoAtual.tipo;
 
-    // ✅ CORRIGIDO: Converter string para number
+    // ✅ NOVO: Validação para cartão de débito
+    if (tipo === "debito") {
+      // Se está mudando para débito OU já é débito, precisa ter conta vinculada
+      const contaVinculadaId = body.contaVinculadaId ?? cartaoAtual.contaVinculadaId;
+      
+      if (!contaVinculadaId) {
+        return NextResponse.json(
+          { error: "Cartão de débito precisa estar vinculado a uma conta" },
+          { status: 400 }
+        );
+      }
+
+      // Verificar se a conta existe e pertence ao usuário
+      const [contaVinculada] = await db
+        .select()
+        .from(contas)
+        .where(
+          and(
+            eq(contas.id, contaVinculadaId),
+            eq(contas.userId, userId)
+          )
+        )
+        .limit(1);
+
+      if (!contaVinculada) {
+        return NextResponse.json(
+          { error: "Conta vinculada não encontrada" },
+          { status: 404 }
+        );
+      }
+
+      if (!contaVinculada.ativo) {
+        return NextResponse.json(
+          { error: "A conta vinculada está inativa" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Se tem contaVinculadaId sendo enviada, validar
+    if (body.contaVinculadaId && body.contaVinculadaId !== cartaoAtual.contaVinculadaId) {
+      const [contaVinculada] = await db
+        .select()
+        .from(contas)
+        .where(
+          and(
+            eq(contas.id, body.contaVinculadaId),
+            eq(contas.userId, userId)
+          )
+        )
+        .limit(1);
+
+      if (!contaVinculada) {
+        return NextResponse.json(
+          { error: "Conta vinculada não encontrada" },
+          { status: 404 }
+        );
+      }
+
+      if (!contaVinculada.ativo) {
+        return NextResponse.json(
+          { error: "A conta vinculada está inativa" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Converter valores
     let novoLimite = Number(cartaoAtual.limite ?? 0);
     let novoLimiteDisponivel = Number(cartaoAtual.limiteDisponivel ?? 0);
 
     // Regra para cartão de crédito
     if (tipo === "credito") {
       if (body.limite !== undefined) {
-        // ✅ CORRIGIDO: Aceitar string ou number
         const limiteNum = typeof body.limite === "string" 
           ? parseFloat(body.limite) 
           : Number(body.limite);
@@ -103,7 +168,6 @@ export async function PUT(
           );
         }
 
-        // ✅ CORRIGIDO: Usar valores já convertidos para number
         const limiteAnterior = Number(cartaoAtual.limite ?? 0);
         const diferenca = limiteNum - limiteAnterior;
 
@@ -135,16 +199,15 @@ export async function PUT(
       ...(body.bandeira !== undefined && { bandeira: body.bandeira }),
       ...(body.empresa !== undefined && { empresa: body.empresa }),
 
-      // ✅ CORRIGIDO: Converter para string com 2 casas decimais
       limite: novoLimite.toFixed(2),
       limiteDisponivel: novoLimiteDisponivel.toFixed(2),
 
       ...(body.diaFechamento !== undefined && {
-        diaFechamento: Number(body.diaFechamento),
+        diaFechamento: tipo === "credito" ? Number(body.diaFechamento) : null,
       }),
 
       ...(body.diaVencimento !== undefined && {
-        diaVencimento: Number(body.diaVencimento),
+        diaVencimento: tipo === "credito" ? Number(body.diaVencimento) : null,
       }),
 
       ...(body.ativo !== undefined && { ativo: body.ativo }),
@@ -161,7 +224,14 @@ export async function PUT(
       }),
     };
 
-    // 🔐 Atualizar apenas se pertencer ao usuário
+    // Se mudando de crédito para débito, zerar campos de crédito
+    if (tipo === "debito" && cartaoAtual.tipo === "credito") {
+      dadosAtualizacao.limite = "0";
+      dadosAtualizacao.limiteDisponivel = "0";
+      dadosAtualizacao.diaFechamento = null;
+      dadosAtualizacao.diaVencimento = null;
+    }
+
     await db
       .update(cartoes)
       .set(dadosAtualizacao)
@@ -191,7 +261,6 @@ export async function DELETE(
   try {
     const userId = await getUserId();
 
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -208,7 +277,6 @@ export async function DELETE(
       );
     }
 
-    // 🔐 Deletar apenas se pertencer ao usuário
     const deleted = await db
       .delete(cartoes)
       .where(

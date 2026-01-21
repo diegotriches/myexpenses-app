@@ -1,4 +1,4 @@
-// app/api/transacoes/[id]/route.ts
+// app/api/transacoes/[id]/route.ts - ARQUIVO COMPLETO COM SUPORTE A DÉBITO
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, contas, extratoConta, cartoes, faturas } from "@/db/schema";
@@ -12,7 +12,6 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // 🔐 Autenticação
     const userId = await getUserId();
 
     if (!userId) {
@@ -35,7 +34,6 @@ export async function PUT(
     // EDIÇÃO DE UMA ÚNICA TRANSAÇÃO
     // ============================================
     if (modoEdicao === "unica") {
-      // 🔐 Verificar ownership antes de atualizar
       const [transacaoExistente] = await db
         .select()
         .from(transacoes)
@@ -54,12 +52,10 @@ export async function PUT(
         );
       }
 
-      // ✅ CORREÇÃO: Converter data
       const dataParaAtualizar = json.data
         ? (typeof json.data === 'string' ? new Date(json.data) : json.data)
         : undefined;
 
-      // ✅ NOVO: Atualizar transação
       const [updated] = await db
         .update(transacoes)
         .set({
@@ -81,10 +77,9 @@ export async function PUT(
         )
         .returning();
 
-      // ✅ NOVO: Atualizar extrato SE existir e SE não for cartão
+      // Atualizar extrato SE existir e SE não for cartão
       if (transacaoExistente.formaPagamento !== "cartao" && transacaoExistente.contaId) {
         try {
-          // Buscar registro do extrato vinculado
           const [extratoExistente] = await db
             .select()
             .from(extratoConta)
@@ -97,24 +92,21 @@ export async function PUT(
             .limit(1);
 
           if (extratoExistente) {
-            // Calcular novo saldo se o valor mudou
             const valorAntigo = Number(transacaoExistente.valor);
             const valorNovo = Number(json.valor);
             const saldoAntigoApos = Number(extratoExistente.saldoApos);
 
             let novoSaldoApos = saldoAntigoApos;
 
-            // Se o valor mudou, recalcular saldo
             if (valorAntigo !== valorNovo) {
               const diferenca = valorNovo - valorAntigo;
 
               if (transacaoExistente.tipo === "entrada") {
                 novoSaldoApos = saldoAntigoApos + diferenca;
               } else {
-                novoSaldoApos = saldoAntigoApos + diferenca; // diferença já considera o sinal
+                novoSaldoApos = saldoAntigoApos + diferenca;
               }
 
-              // ✅ IMPORTANTE: Atualizar saldo da conta também
               await db
                 .update(contas)
                 .set({
@@ -129,12 +121,10 @@ export async function PUT(
                 );
             }
 
-            // Formatar data para o extrato (YYYY-MM-DD)
             const dataExtrato = dataParaAtualizar
               ? dataParaAtualizar.toISOString().split('T')[0]
               : extratoExistente.data;
 
-            // Atualizar registro do extrato
             await db
               .update(extratoConta)
               .set({
@@ -155,7 +145,6 @@ export async function PUT(
           }
         } catch (extratoError) {
           console.error("⚠️ Erro ao atualizar extrato (não crítico):", extratoError);
-          // Não bloqueia a atualização da transação se o extrato falhar
         }
       }
 
@@ -173,7 +162,6 @@ export async function PUT(
         );
       }
 
-      // 🔐 Buscar parcelas do usuário
       const transacoesParceladas = await db
         .select()
         .from(transacoes)
@@ -222,7 +210,6 @@ export async function PUT(
 
         if (updated) atualizadas.push(updated);
 
-        // ✅ NOVO: Atualizar extrato de cada parcela
         if (t.formaPagamento !== "cartao" && t.contaId) {
           try {
             const [extratoExistente] = await db
@@ -271,7 +258,6 @@ export async function PUT(
         );
       }
 
-      // 🔐 Buscar recorrências do usuário
       const transacoesRecorrentes = await db
         .select()
         .from(transacoes)
@@ -318,7 +304,6 @@ export async function PUT(
 
         if (updated) atualizadas.push(updated);
 
-        // ✅ NOVO: Atualizar extrato de cada recorrência
         if (t.formaPagamento !== "cartao" && t.contaId) {
           try {
             const [extratoExistente] = await db
@@ -356,7 +341,6 @@ export async function PUT(
       return NextResponse.json(atualizadas);
     }
 
-    // FALLBACK
     return NextResponse.json(
       { error: "Modo de edição inválido" },
       { status: 400 }
@@ -374,10 +358,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // 🔐 Autenticação
     const userId = await getUserId();
 
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -399,14 +381,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Tipo inválido." }, { status: 400 });
     }
 
-    // 🔐 Buscar transação e verificar ownership
     const [mov] = await db
       .select()
       .from(transacoes)
       .where(
         and(
           eq(transacoes.id, id),
-          eq(transacoes.userId, userId) // 🔐 Verificar ownership
+          eq(transacoes.userId, userId)
         )
       )
       .limit(1);
@@ -418,7 +399,6 @@ export async function DELETE(
       );
     }
 
-    // Bloqueio de transferência
     if (mov.transferenciaId) {
       return NextResponse.json(
         { error: "Esta transação faz parte de uma transferência. Use exclusão de transferências." },
@@ -463,7 +443,7 @@ export async function DELETE(
     for (const transacao of transacoesParaDeletar) {
       const valor = Number(transacao.valor);
 
-      // 1. Reverter saldo da conta (se não for cartão de crédito)
+      // 1. Reverter saldo da conta (se não for cartão)
       if (transacao.contaId && transacao.formaPagamento !== "cartao") {
         const [conta] = await db
           .select()
@@ -473,7 +453,6 @@ export async function DELETE(
 
         if (conta) {
           const saldoAtual = Number(conta.saldoAtual);
-          // Reverter: entrada vira saída, saída vira entrada
           const novoSaldo = transacao.tipo === "entrada"
             ? saldoAtual - valor
             : saldoAtual + valor;
@@ -481,7 +460,7 @@ export async function DELETE(
           await db
             .update(contas)
             .set({
-              saldoAtual: novoSaldo.toFixed(2), // ✅ String
+              saldoAtual: novoSaldo.toFixed(2),
               updatedAt: new Date(),
             })
             .where(
@@ -503,9 +482,8 @@ export async function DELETE(
           )
         );
 
-      // 3. Reverter fatura se for cartão de crédito
+      // 3. ✅ Reverter fatura/limite (crédito) OU conta (débito)
       if (transacao.cartaoId && transacao.formaPagamento === "cartao") {
-        // ✅ BUSCAR CARTÃO PARA PEGAR DIA DE FECHAMENTO
         const [cartao] = await db
           .select()
           .from(cartoes)
@@ -513,72 +491,105 @@ export async function DELETE(
           .limit(1);
 
         if (cartao) {
-          const dataTransacao = new Date(transacao.data);
-          const diaFechamento = cartao.diaFechamento || 1;
+          if (cartao.tipo === "debito" && cartao.contaVinculadaId) {
+            // ===== DÉBITO: Reverter na conta vinculada =====
+            
+            const [conta] = await db
+              .select()
+              .from(contas)
+              .where(eq(contas.id, cartao.contaVinculadaId))
+              .limit(1);
 
-          // ✅ CRÍTICO: Calcular fatura correta usando o mesmo método da criação
-          const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
-            dataTransacao,
-            diaFechamento
-          );
+            if (conta) {
+              const saldoAtual = Number(conta.saldoAtual);
+              const novoSaldo = saldoAtual + valor; // Devolver o dinheiro
 
-          console.log(
-            `📅 Revertendo transação de ${dataTransacao.toLocaleDateString('pt-BR')} → Fatura ${mesFatura}/${anoFatura}`
-          );
-
-          const [fatura] = await db
-            .select()
-            .from(faturas)
-            .where(
-              and(
-                eq(faturas.cartaoId, transacao.cartaoId),
-                eq(faturas.userId, userId),
-                eq(faturas.mes, mesFatura),
-                eq(faturas.ano, anoFatura)
-              )
-            )
-            .limit(1);
-
-          if (fatura) {
-            const totalAtual = Number(fatura.total);
-            const novoTotal = totalAtual - valor;
-
-            if (novoTotal <= 0) {
-              // Deletar fatura se ficar zerada
               await db
-                .delete(faturas)
-                .where(eq(faturas.id, fatura.id));
-
-              console.log(`🗑️  Fatura ${mesFatura}/${anoFatura} deletada (zerada)`);
-            } else {
-              // Atualizar total da fatura
-              await db
-                .update(faturas)
+                .update(contas)
                 .set({
-                  total: novoTotal.toFixed(2), // ✅ String
+                  saldoAtual: novoSaldo.toFixed(2),
                   updatedAt: new Date(),
                 })
-                .where(eq(faturas.id, fatura.id));
+                .where(
+                  and(
+                    eq(contas.id, conta.id),
+                    eq(contas.userId, userId)
+                  )
+                );
 
               console.log(
-                `✅ Fatura ${mesFatura}/${anoFatura} atualizada: R$ ${totalAtual.toFixed(2)} → R$ ${novoTotal.toFixed(2)}`
+                `💳 Débito revertido: +R$ ${valor.toFixed(2)} em ${conta.nome} ` +
+                `(Saldo: R$ ${saldoAtual.toFixed(2)} → R$ ${novoSaldo.toFixed(2)})`
               );
             }
+
+          } else if (cartao.tipo === "credito") {
+            // ===== CRÉDITO: Reverter fatura =====
+            
+            const dataTransacao = new Date(transacao.data);
+            const diaFechamento = cartao.diaFechamento || 1;
+
+            const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
+              dataTransacao,
+              diaFechamento
+            );
+
+            console.log(
+              `📅 Revertendo transação de ${dataTransacao.toLocaleDateString('pt-BR')} → Fatura ${mesFatura}/${anoFatura}`
+            );
+
+            const [fatura] = await db
+              .select()
+              .from(faturas)
+              .where(
+                and(
+                  eq(faturas.cartaoId, transacao.cartaoId),
+                  eq(faturas.userId, userId),
+                  eq(faturas.mes, mesFatura),
+                  eq(faturas.ano, anoFatura)
+                )
+              )
+              .limit(1);
+
+            if (fatura) {
+              const totalAtual = Number(fatura.total);
+              const novoTotal = totalAtual - valor;
+
+              if (novoTotal <= 0) {
+                await db
+                  .delete(faturas)
+                  .where(eq(faturas.id, fatura.id));
+
+                console.log(`🗑️  Fatura ${mesFatura}/${anoFatura} deletada (zerada)`);
+              } else {
+                await db
+                  .update(faturas)
+                  .set({
+                    total: novoTotal.toFixed(2),
+                    updatedAt: new Date(),
+                  })
+                  .where(eq(faturas.id, fatura.id));
+
+                console.log(
+                  `✅ Fatura ${mesFatura}/${anoFatura} atualizada: R$ ${totalAtual.toFixed(2)} → R$ ${novoTotal.toFixed(2)}`
+                );
+              }
+            }
+
+            // Reverter limite disponível do cartão
+            await db
+              .update(cartoes)
+              .set({
+                limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valor}`,
+              })
+              .where(
+                and(
+                  eq(cartoes.id, transacao.cartaoId),
+                  eq(cartoes.userId, userId)
+                )
+              );
           }
         }
-
-        // Reverter limite disponível do cartão
-        await db
-          .update(cartoes)
-          .set({
-            limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valor}`,
-          })
-          .where(
-            and(
-              eq(cartoes.id, transacao.cartaoId),
-              eq(cartoes.userId, userId)
-            )
-          );
       }
     }
 
@@ -588,7 +599,6 @@ export async function DELETE(
     const idsParaDeletar = transacoesParaDeletar.map(t => t.id);
 
     if (idsParaDeletar.length === 1) {
-      // Deletar única transação
       await db
         .delete(transacoes)
         .where(
@@ -598,7 +608,6 @@ export async function DELETE(
           )
         );
     } else if (idsParaDeletar.length > 1) {
-      // ✅ Deletar múltiplas transações usando inArray
       await db
         .delete(transacoes)
         .where(
