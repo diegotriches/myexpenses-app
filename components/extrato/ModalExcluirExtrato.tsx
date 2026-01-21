@@ -12,8 +12,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AlertTriangle, Info } from "lucide-react";
 import { MovimentacaoExtrato } from "@/types/conta";
-
-// ✅ CORREÇÃO: Importar função de formatação de data
 import { formatarDataParaExibicao } from "@/utils/dateUtils";
 
 interface Props {
@@ -85,7 +83,6 @@ export default function ModalExcluirExtrato({ open, onClose, item, onConfirmar }
 
   const { titulo, descricao, podeExcluir, icon } = getMensagemPorOrigem();
 
-  // Formatar valor monetário (pt-BR)
   const formatarMoeda = (valor: number): string => {
     return valor.toLocaleString("pt-BR", {
       style: "currency",
@@ -103,34 +100,37 @@ export default function ModalExcluirExtrato({ open, onClose, item, onConfirmar }
               {titulo}
             </AlertDialogTitle>
           </div>
-          <AlertDialogDescription className="space-y-3 text-gray-600 dark:text-gray-400">
-            <p>{descricao}</p>
+          {/* ✅ CORRIGIDO: Removido <p> aninhado */}
+          <AlertDialogDescription asChild>
+            <div className="space-y-3 text-gray-600 dark:text-gray-400">
+              {/* ✅ Texto da descrição diretamente, sem <p> */}
+              <div>{descricao}</div>
 
-            <div className="bg-muted dark:bg-gray-900 p-3 rounded-md space-y-1 border border-gray-200 dark:border-gray-700">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground dark:text-gray-500">Data:</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">
-                  {/* ✅ CORRIGIDO: Usar formatarDataParaExibicao */}
-                  {formatarDataParaExibicao(item.data)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground dark:text-gray-500">Descrição:</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">
-                  {item.descricao}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground dark:text-gray-500">Valor:</span>
-                <span
-                  className={`font-bold ${
-                    item.tipo === "entrada" 
-                      ? "text-green-600 dark:text-green-400" 
-                      : "text-red-600 dark:text-red-400"
-                  }`}
-                >
-                  {item.tipo === "entrada" ? "+" : "-"} {formatarMoeda(item.valor)}
-                </span>
+              <div className="bg-muted dark:bg-gray-900 p-3 rounded-md space-y-1 border border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground dark:text-gray-500">Data:</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {formatarDataParaExibicao(item.data)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground dark:text-gray-500">Descrição:</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {item.descricao}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground dark:text-gray-500">Valor:</span>
+                  <span
+                    className={`font-bold ${
+                      item.tipo === "entrada" 
+                        ? "text-green-600 dark:text-green-400" 
+                        : "text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    {item.tipo === "entrada" ? "+" : "-"} {formatarMoeda(item.valor)}
+                  </span>
+                </div>
               </div>
             </div>
           </AlertDialogDescription>
