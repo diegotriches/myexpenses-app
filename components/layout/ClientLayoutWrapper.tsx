@@ -30,21 +30,39 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Sidebar - esconde em mobile, mostra em desktop */}
+      {/* ============================================
+          SIDEBAR - Modo Overlay (position: fixed)
+          ============================================ */}
       {!esconderNavbar && <Sidebar isCollapsed={isCollapsed} />}
 
-      {/* Main Content Area */}
+      {/* ============================================
+          MAIN CONTENT AREA
+          ============================================ 
+          
+          🎯 MUDANÇA PRINCIPAL:
+          - Quando sidebar colapsada → ml-0 (espaço liberado!)
+          - Quando sidebar expandida → ml-64 (256px)
+          
+          A sidebar está em position:fixed, então não precisa
+          mais reservar espaço quando colapsada.
+      */}
       <div
         className={`
           flex-1 flex flex-col min-h-screen
-          transition-all duration-300
+          transition-all duration-300 ease-in-out
           bg-gray-50 dark:bg-gray-950
-          ${!esconderNavbar && 'md:ml-20 lg:ml-64'}
-          ${!esconderNavbar && isCollapsed && 'md:ml-20'}
-          ${!esconderNavbar && !isCollapsed && 'md:ml-64'}
+          
+          ${!esconderNavbar 
+            ? isCollapsed 
+              ? 'md:ml-0'      // ← Colapsada: SEM margin (overlay!)
+              : 'md:ml-64'     // ← Expandida: COM margin (sidebar visível)
+            : ''               // ← Rotas públicas: sem margin
+          }
         `}
       >
-        {/* TopMenu */}
+        {/* ============================================
+            TOP MENU
+            ============================================ */}
         {!esconderNavbar && (
           <TopMenu
             isCollapsed={isCollapsed}
@@ -52,7 +70,9 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
           />
         )}
 
-        {/* Main Content */}
+        {/* ============================================
+            MAIN CONTENT
+            ============================================ */}
         <main
           className={`
             flex-1 p-4 md:p-6

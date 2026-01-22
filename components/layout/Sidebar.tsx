@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -47,10 +47,19 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   const [fotoError, setFotoError] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+
+  // ✅ Refs para detecção de swipe
+  const touchStartX = useRef<number>(0);
+  const touchEndX = useRef<number>(0);
+  const sheetContentRef = useRef<HTMLDivElement>(null);
+
+  // ✅ Define se deve mostrar expandido (não colapsado OU em hover)
+  const isExpanded = !isCollapsed || isHovered;
 
   // Evita hydration mismatch
   useEffect(() => {
@@ -61,6 +70,43 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  // ========================================
+  // 📱 SWIPE GESTURE DETECTION (Mobile)
+  // ========================================
+  useEffect(() => {
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX.current = e.touches[0].clientX;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      touchEndX.current = e.touches[0].clientX;
+    };
+
+    const handleTouchEnd = () => {
+      const swipeDistance = touchStartX.current - touchEndX.current;
+      const minSwipeDistance = 50; // Mínimo de 50px para considerar swipe
+
+      // ✅ Swipe para esquerda (fechar)
+      if (swipeDistance > minSwipeDistance && mobileOpen) {
+        setMobileOpen(false);
+      }
+    };
+
+    const sheetElement = sheetContentRef.current;
+    
+    if (sheetElement && mobileOpen) {
+      sheetElement.addEventListener('touchstart', handleTouchStart, { passive: true });
+      sheetElement.addEventListener('touchmove', handleTouchMove, { passive: true });
+      sheetElement.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+      return () => {
+        sheetElement.removeEventListener('touchstart', handleTouchStart);
+        sheetElement.removeEventListener('touchmove', handleTouchMove);
+        sheetElement.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+  }, [mobileOpen]);
 
   // ✅ Usa NextAuth signOut ao invés de localStorage
   const handleLogout = async () => {
@@ -121,8 +167,20 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     const content = (
       <Link href={href} className={linkClasses(href)}>
         <Icon size={20} className="flex-shrink-0" />
-        {!isCollapsed && <span className="font-medium">{label}</span>}
-        {isActive(href) && !isCollapsed && (
+        {/* ✅ Mostra label quando expandido (desktop) ou sempre (mobile) */}
+        <span 
+          className={`
+            font-medium whitespace-nowrap
+            transition-all duration-300
+            ${isExpanded || isMobile
+              ? "opacity-100 translate-x-0"
+              : "opacity-0 -translate-x-4 absolute pointer-events-none"
+            }
+          `}
+        >
+          {label}
+        </span>
+        {isActive(href) && (isExpanded || isMobile) && (
           <ChevronRight size={16} className="ml-auto opacity-70" />
         )}
         {isActive(href) && (
@@ -131,7 +189,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       </Link>
     );
 
-    if (isCollapsed && !isMobile) {
+    // ✅ Tooltip apenas quando colapsado no desktop
+    if (isCollapsed && !isHovered && !isMobile) {
       return (
         <TooltipProvider delayDuration={0}>
           <Tooltip>
@@ -192,29 +251,36 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         </div>
 
         {/* Nome e Email */}
-        {!isCollapsed && (
-          <div className="flex-1 text-left overflow-hidden min-w-0">
-            {loading ? (
-              <div className="space-y-1.5">
-                <div className="h-3.5 bg-blue-600 dark:bg-gray-600 rounded w-24 animate-pulse" />
-                <div className="h-2.5 bg-blue-600 dark:bg-gray-600 rounded w-32 animate-pulse" />
-              </div>
-            ) : (
-              <>
-                <p className="text-sm font-semibold truncate text-white">
-                  {displayName}
+        <div 
+          className={`
+            flex-1 text-left overflow-hidden min-w-0
+            transition-all duration-300
+            ${isExpanded || isMobile
+              ? "opacity-100 translate-x-0"
+              : "opacity-0 -translate-x-4 absolute pointer-events-none"
+            }
+          `}
+        >
+          {loading ? (
+            <div className="space-y-1.5">
+              <div className="h-3.5 bg-blue-600 dark:bg-gray-600 rounded w-24 animate-pulse" />
+              <div className="h-2.5 bg-blue-600 dark:bg-gray-600 rounded w-32 animate-pulse" />
+            </div>
+          ) : (
+            <>
+              <p className="text-sm font-semibold truncate text-white">
+                {displayName}
+              </p>
+              {displayEmail && (
+                <p className="text-xs text-blue-200 dark:text-gray-400 truncate">
+                  {displayEmail}
                 </p>
-                {displayEmail && (
-                  <p className="text-xs text-blue-200 dark:text-gray-400 truncate">
-                    {displayEmail}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-        )}
+              )}
+            </>
+          )}
+        </div>
 
-        {!isCollapsed && (
+        {(isExpanded || isMobile) && (
           <ChevronRight 
             size={16} 
             className="text-blue-200 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" 
@@ -223,7 +289,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       </button>
     );
 
-    if (isCollapsed && !isMobile) {
+    // ✅ Tooltip apenas quando colapsado no desktop
+    if (isCollapsed && !isHovered && !isMobile) {
       return (
         <TooltipProvider delayDuration={0}>
           <Tooltip>
@@ -252,9 +319,18 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-all border border-blue-100 dark:border-slate-700">
             <BsCashCoin size={24} className="text-blue-600 dark:text-blue-400" />
           </div>
-          {!isCollapsed && (
-            <span className="text-xl font-bold text-white">MyExpenses</span>
-          )}
+          <span 
+            className={`
+              text-xl font-bold text-white whitespace-nowrap
+              transition-all duration-300
+              ${isExpanded || isMobile
+                ? "opacity-100 translate-x-0"
+                : "opacity-0 -translate-x-4 absolute pointer-events-none"
+              }
+            `}
+          >
+            MyExpenses
+          </span>
         </Link>
       </div>
 
@@ -262,11 +338,20 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
         {navigationGroups.map((group) => (
           <div key={group.title}>
-            {!isCollapsed && (
-              <p className="text-xs font-semibold text-blue-200 dark:text-slate-400 uppercase tracking-wider mb-2 px-3">
-                {group.title}
-              </p>
-            )}
+            {/* ✅ Título do grupo aparece quando expandido */}
+            <p 
+              className={`
+                text-xs font-semibold text-blue-200 dark:text-slate-400 
+                uppercase tracking-wider mb-2 px-3
+                transition-all duration-300
+                ${isExpanded || isMobile
+                  ? "opacity-100 translate-x-0"
+                  : "opacity-0 -translate-x-4 absolute pointer-events-none"
+                }
+              `}
+            >
+              {group.title}
+            </p>
             <div className="flex flex-col gap-1">
               {group.links.map((link) => (
                 <NavLink key={link.href} {...link} isMobile={isMobile} />
@@ -295,24 +380,34 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
                   <Button
                     onClick={toggleTheme}
                     variant="ghost"
-                    size={isCollapsed ? "icon" : "default"}
-                    className={`text-yellow-200 hover:text-white hover:bg-yellow-600/80 dark:text-gray-300 dark:hover:bg-gray-700 transition-all cursor-pointer ${
-                      isCollapsed ? "w-full" : "flex-1"
-                    }`}
+                    size={(isExpanded || isMobile) ? "default" : "icon"}
+                    className={`
+                      text-yellow-200 hover:text-white hover:bg-yellow-600/80 
+                      dark:text-gray-300 dark:hover:bg-gray-700 
+                      transition-all cursor-pointer
+                      ${(isExpanded || isMobile) ? "flex-1" : "w-full"}
+                    `}
                   >
                     {theme === "dark" ? (
                       <Sun size={20} className="flex-shrink-0" />
                     ) : (
                       <Moon size={20} className="flex-shrink-0" />
                     )}
-                    {!isCollapsed && (
-                      <span className="ml-2 font-medium">
-                        {theme === "dark" ? "Claro" : "Escuro"}
-                      </span>
-                    )}
+                    <span 
+                      className={`
+                        ml-2 font-medium whitespace-nowrap
+                        transition-all duration-300
+                        ${isExpanded || isMobile
+                          ? "opacity-100 translate-x-0"
+                          : "opacity-0 -translate-x-4 absolute pointer-events-none"
+                        }
+                      `}
+                    >
+                      {theme === "dark" ? "Claro" : "Escuro"}
+                    </span>
                   </Button>
                 </TooltipTrigger>
-                {isCollapsed && !isMobile && (
+                {isCollapsed && !isHovered && !isMobile && (
                   <TooltipContent side="right" className="font-medium">
                     Modo {theme === "dark" ? "Claro" : "Escuro"}
                   </TooltipContent>
@@ -328,16 +423,30 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
                 <Button
                   onClick={() => setShowLogoutDialog(true)}
                   variant="ghost"
-                  size={isCollapsed ? "icon" : "default"}
-                  className={`text-red-200 hover:text-white hover:bg-red-600/80 dark:text-red-400 dark:hover:bg-red-600/80 transition-all cursor-pointer ${
-                    isCollapsed ? "w-full" : "flex-1"
-                  }`}
+                  size={(isExpanded || isMobile) ? "default" : "icon"}
+                  className={`
+                    text-red-200 hover:text-white hover:bg-red-600/80 
+                    dark:text-red-400 dark:hover:bg-red-600/80 
+                    transition-all cursor-pointer
+                    ${(isExpanded || isMobile) ? "flex-1" : "w-full"}
+                  `}
                 >
                   <LogOut size={20} className="flex-shrink-0" />
-                  {!isCollapsed && <span className="ml-2 font-medium">Sair</span>}
+                  <span 
+                    className={`
+                      ml-2 font-medium whitespace-nowrap
+                      transition-all duration-300
+                      ${isExpanded || isMobile
+                        ? "opacity-100 translate-x-0"
+                        : "opacity-0 -translate-x-4 absolute pointer-events-none"
+                      }
+                    `}
+                  >
+                    Sair
+                  </span>
                 </Button>
               </TooltipTrigger>
-              {isCollapsed && !isMobile && (
+              {isCollapsed && !isHovered && !isMobile && (
                 <TooltipContent side="right" className="font-medium">
                   Sair
                 </TooltipContent>
@@ -351,7 +460,19 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
 
   return (
     <>
-      {/* Desktop Sidebar */}
+      {/* ============================================
+          BACKDROP - Quando colapsado e em hover (Desktop only)
+          ============================================ */}
+      {isCollapsed && isHovered && (
+        <div
+          className="hidden md:block fixed inset-0 bg-black/10 backdrop-blur-[1px] z-30"
+          onClick={() => setIsHovered(false)}
+        />
+      )}
+
+      {/* ============================================
+          DESKTOP SIDEBAR - Modo Overlay
+          ============================================ */}
       <nav
         className={`
           hidden md:flex fixed top-0 left-0 h-screen
@@ -360,13 +481,17 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           text-white p-4 flex-col 
           transition-all duration-300 shadow-2xl z-40
           border-r border-blue-800 dark:border-slate-800
-          ${isCollapsed ? "w-20" : "w-64"}
+          ${isExpanded ? "w-64" : "w-20"}
         `}
+        onMouseEnter={() => isCollapsed && setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         <SidebarContent isMobile={false} />
       </nav>
 
-      {/* Mobile Sidebar */}
+      {/* ============================================
+          MOBILE SIDEBAR - Sheet com Swipe Gesture
+          ============================================ */}
       <div className="md:hidden">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
@@ -379,6 +504,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
             </Button>
           </SheetTrigger>
           <SheetContent 
+            ref={sheetContentRef}
             side="left" 
             className="
               w-64 p-4 
@@ -392,6 +518,12 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
               <SheetTitle>Menu de Navegação</SheetTitle>
             </VisuallyHidden>
             
+            {/* 👆 Indicador visual de swipe */}
+            <div className="absolute top-4 right-4 flex flex-col items-center gap-1 opacity-30 pointer-events-none">
+              <div className="text-xs text-white font-medium">←</div>
+              <div className="text-[10px] text-white">Deslize</div>
+            </div>
+            
             <div className="flex flex-col h-full">
               <SidebarContent isMobile={true} />
             </div>
@@ -399,7 +531,9 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         </Sheet>
       </div>
 
-      {/* Logout Confirmation Dialog */}
+      {/* ============================================
+          LOGOUT CONFIRMATION DIALOG
+          ============================================ */}
       <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
