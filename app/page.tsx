@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 import Link from "next/link";
 import { BsCashCoin } from "react-icons/bs";
 import { 
@@ -14,11 +15,20 @@ import {
   FiDatabase,
   FiLayers,
   FiZap,
-  FiLock
+  FiLock,
+  FiSun,
+  FiMoon
 } from "react-icons/fi";
 
 export default function LandingPage() {
   const [techStackOpen, setTechStackOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Evitar hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950">
@@ -30,6 +40,23 @@ export default function LandingPage() {
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-32">
+          {/* Theme Toggle Button - Posição Fixa no Topo Direito */}
+          {mounted && (
+            <div className="fixed top-6 right-6 z-50">
+              <button
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="group p-3 bg-white/10 backdrop-blur-sm hover:bg-white/20 rounded-full border border-white/20 transition-all shadow-lg hover:shadow-xl hover:scale-110"
+                aria-label="Alternar tema"
+              >
+                {theme === "dark" ? (
+                  <FiSun className="text-yellow-300 group-hover:rotate-180 transition-transform duration-500" size={24} />
+                ) : (
+                  <FiMoon className="text-blue-200 group-hover:-rotate-12 transition-transform duration-500" size={24} />
+                )}
+              </button>
+            </div>
+          )}
+
           {/* Logo */}
           <div className="flex justify-center mb-12">
             <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm px-6 py-3 rounded-full border border-white/20 hover:bg-white/20 transition-all">
