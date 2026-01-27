@@ -24,12 +24,12 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
     pathname === "/reset-password" ||
     pathname === "/verify-email" ||
     pathname === "/contato" ||
-    pathname?.startsWith("/auth/") || // Qualquer rota dentro de (auth)
+    pathname?.startsWith("/auth/") ||
     pathname?.includes("/404") ||
     pathname?.includes("/500");
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
       {/* ============================================
           SIDEBAR - Modo Overlay (position: fixed)
           ============================================ */}
@@ -37,26 +37,19 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
 
       {/* ============================================
           MAIN CONTENT AREA
-          ============================================ 
-          
-          🎯 MUDANÇA PRINCIPAL:
-          - Quando sidebar colapsada → ml-0 (espaço liberado!)
-          - Quando sidebar expandida → ml-64 (256px)
-          
-          A sidebar está em position:fixed, então não precisa
-          mais reservar espaço quando colapsada.
-      */}
+          ============================================ */}
       <div
         className={`
-          flex-1 flex flex-col min-h-screen
+          flex-1 flex flex-col min-h-screen w-full
           transition-all duration-300 ease-in-out
           bg-gray-50 dark:bg-gray-950
+          overflow-x-hidden
           
           ${!esconderNavbar 
             ? isCollapsed 
-              ? 'md:ml-0'      // ← Colapsada: SEM margin (overlay!)
-              : 'md:ml-64'     // ← Expandida: COM margin (sidebar visível)
-            : ''               // ← Rotas públicas: sem margin
+              ? 'md:ml-0'
+              : 'md:ml-64'
+            : ''
           }
         `}
       >
@@ -75,8 +68,10 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
             ============================================ */}
         <main
           className={`
-            flex-1 p-4 md:p-6
+            flex-1 w-full
+            p-4 md:p-6
             transition-all duration-300
+            overflow-x-hidden
             ${!esconderNavbar ? 'pt-20 md:pt-24' : 'pt-0'}
           `}
         >

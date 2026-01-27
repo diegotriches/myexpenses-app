@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppProviders } from "@/components/providers/AppProviders";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,15 +14,34 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata = {
+// VIEWPORT CONFIGURATION
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+  ],
+};
+
+export const metadata: Metadata = {
   title: "MyExpenses - Controle Financeiro",
   description: "Gerencie suas finanças pessoais de forma simples e eficiente",
+  appleWebApp: {
+    capable: true,
+    title: "MyExpenses",
+    statusBarStyle: "default",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-br" suppressHydrationWarning>
-      <meta name="apple-mobile-web-app-title" content="MyExpenses" />
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AppProviders>{children}</AppProviders>
       </body>

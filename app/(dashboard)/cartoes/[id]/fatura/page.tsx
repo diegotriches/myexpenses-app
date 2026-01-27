@@ -225,11 +225,11 @@ export default function FaturaPage() {
             </Badge>
 
             {/* Valor Total - Responsivo */}
-            <div>
+            <div className="min-w-0">
               <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
                 Total da Fatura
               </p>
-              <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white break-words">
+              <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white break-all">
                 {formatarMoeda(totalFatura)}
               </p>
             </div>
@@ -298,19 +298,19 @@ export default function FaturaPage() {
                 Sem categorias para exibir
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 overflow-x-hidden">
                 {categorias
                   .sort((a, b) => b[1] - a[1])
                   .slice(0, 5)
                   .map(([categoria, valor]) => {
                     const percentual = (valor / totalFatura) * 100;
                     return (
-                      <div key={categoria} className="space-y-1.5">
-                        <div className="flex justify-between text-xs md:text-sm gap-2">
-                          <span className="font-medium text-gray-700 dark:text-gray-300 truncate">
+                      <div key={categoria} className="space-y-1.5 min-w-0">
+                        <div className="flex justify-between text-xs md:text-sm gap-2 min-w-0">
+                          <span className="font-medium text-gray-700 dark:text-gray-300 truncate min-w-0">
                             {categoria}
                           </span>
-                          <span className="text-gray-900 dark:text-white font-semibold flex-shrink-0">
+                          <span className="text-gray-900 dark:text-white font-semibold flex-shrink-0 whitespace-nowrap">
                             {formatarMoeda(valor)}
                           </span>
                         </div>
