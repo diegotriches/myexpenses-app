@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
-import { signOut } from "next-auth/react";
 import { useProfile } from "@/hooks/useProfile";
 import {
   Tooltip,
@@ -14,16 +12,6 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, VisuallyHidden } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 import {
   BsHouse,
@@ -34,7 +22,7 @@ import {
   BsCreditCard,
   BsFillGearFill,
 } from "react-icons/bs";
-import { LogOut, Menu, ChevronRight, Moon, Sun } from "lucide-react";
+import { Menu, ChevronRight } from "lucide-react";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -45,13 +33,10 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   const { data: userData, isLoading: loading } = useProfile();
   
   const [fotoError, setFotoError] = useState(false);
-  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
 
   // ✅ Refs para detecção de swipe
   const touchStartX = useRef<number>(0);
@@ -61,64 +46,10 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   // ✅ Define se deve mostrar expandido (não colapsado OU em hover)
   const isExpanded = !isCollapsed || isHovered;
 
-  // Evita hydration mismatch
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   // ✅ Fecha sidebar mobile quando pathname muda
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
-
-  // ========================================
-  // 📱 SWIPE GESTURE DETECTION (Mobile)
-  // ========================================
-  useEffect(() => {
-    const handleTouchStart = (e: TouchEvent) => {
-      touchStartX.current = e.touches[0].clientX;
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      touchEndX.current = e.touches[0].clientX;
-    };
-
-    const handleTouchEnd = () => {
-      const swipeDistance = touchStartX.current - touchEndX.current;
-      const minSwipeDistance = 50; // Mínimo de 50px para considerar swipe
-
-      // ✅ Swipe para esquerda (fechar)
-      if (swipeDistance > minSwipeDistance && mobileOpen) {
-        setMobileOpen(false);
-      }
-    };
-
-    const sheetElement = sheetContentRef.current;
-    
-    if (sheetElement && mobileOpen) {
-      sheetElement.addEventListener('touchstart', handleTouchStart, { passive: true });
-      sheetElement.addEventListener('touchmove', handleTouchMove, { passive: true });
-      sheetElement.addEventListener('touchend', handleTouchEnd, { passive: true });
-
-      return () => {
-        sheetElement.removeEventListener('touchstart', handleTouchStart);
-        sheetElement.removeEventListener('touchmove', handleTouchMove);
-        sheetElement.removeEventListener('touchend', handleTouchEnd);
-      };
-    }
-  }, [mobileOpen]);
-
-  // ✅ Usa NextAuth signOut ao invés de localStorage
-  const handleLogout = async () => {
-    await signOut({ 
-      callbackUrl: "/login",
-      redirect: true 
-    });
-  };
-
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  };
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === href;
@@ -367,93 +298,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       </div>
 
       {/* User Profile Card */}
-      <div className="mt-4 space-y-2">
+      <div className="mt-4">
         <UserProfileCard isMobile={isMobile} />
-        
-        {/* Botões de ação */}
-        <div className="flex gap-2">
-          {/* Botão Tema */}
-          {mounted && (
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={toggleTheme}
-                    variant="ghost"
-                    size={(isExpanded || isMobile) ? "default" : "icon"}
-                    className={`
-                      text-yellow-200 hover:text-white hover:bg-yellow-600/80 
-                      dark:text-gray-300 dark:hover:bg-gray-700 
-                      transition-all cursor-pointer
-                      ${(isExpanded || isMobile) ? "flex-1" : "w-full"}
-                    `}
-                  >
-                    {theme === "dark" ? (
-                      <Sun size={20} className="flex-shrink-0" />
-                    ) : (
-                      <Moon size={20} className="flex-shrink-0" />
-                    )}
-                    <span 
-                      className={`
-                        ml-2 font-medium whitespace-nowrap
-                        transition-all duration-300
-                        ${isExpanded || isMobile
-                          ? "opacity-100 translate-x-0"
-                          : "opacity-0 -translate-x-4 absolute pointer-events-none"
-                        }
-                      `}
-                    >
-                      {theme === "dark" ? "Claro" : "Escuro"}
-                    </span>
-                  </Button>
-                </TooltipTrigger>
-                {isCollapsed && !isHovered && !isMobile && (
-                  <TooltipContent side="right" className="font-medium">
-                    Modo {theme === "dark" ? "Claro" : "Escuro"}
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
-          )}
-
-          {/* Botão Sair */}
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={() => setShowLogoutDialog(true)}
-                  variant="ghost"
-                  size={(isExpanded || isMobile) ? "default" : "icon"}
-                  className={`
-                    text-red-200 hover:text-white hover:bg-red-600/80 
-                    dark:text-red-400 dark:hover:bg-red-600/80 
-                    transition-all cursor-pointer
-                    ${(isExpanded || isMobile) ? "flex-1" : "w-full"}
-                  `}
-                >
-                  <LogOut size={20} className="flex-shrink-0" />
-                  <span 
-                    className={`
-                      ml-2 font-medium whitespace-nowrap
-                      transition-all duration-300
-                      ${isExpanded || isMobile
-                        ? "opacity-100 translate-x-0"
-                        : "opacity-0 -translate-x-4 absolute pointer-events-none"
-                      }
-                    `}
-                  >
-                    Sair
-                  </span>
-                </Button>
-              </TooltipTrigger>
-              {isCollapsed && !isHovered && !isMobile && (
-                <TooltipContent side="right" className="font-medium">
-                  Sair
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
-        </div>
       </div>
     </>
   );
@@ -505,12 +351,13 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           </SheetTrigger>
           <SheetContent 
             ref={sheetContentRef}
-            side="left" 
+            side="left"
             className="
               w-64 p-4 
               bg-gradient-to-b from-blue-600 to-blue-700 
               dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 
               text-white border-none
+              [&>button]:hidden
             "
           >
             {/* ✅ Título oculto para acessibilidade */}
@@ -518,41 +365,31 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
               <SheetTitle>Menu de Navegação</SheetTitle>
             </VisuallyHidden>
             
-            {/* 👆 Indicador visual de swipe */}
-            <div className="absolute top-4 right-4 flex flex-col items-center gap-1 opacity-30 pointer-events-none">
-              <div className="text-xs text-white font-medium">←</div>
-              <div className="text-[10px] text-white">Deslize</div>
+            {/* 👆 Área de swipe - camada invisível sobre o conteúdo */}
+            <div 
+              className="absolute inset-0 z-50"
+              onTouchStart={(e) => {
+                touchStartX.current = e.touches[0].clientX;
+                touchEndX.current = e.touches[0].clientX;
+              }}
+              onTouchMove={(e) => {
+                touchEndX.current = e.touches[0].clientX;
+              }}
+              onTouchEnd={() => {
+                const swipeDistance = touchStartX.current - touchEndX.current;
+                if (swipeDistance > 50) {
+                  setMobileOpen(false);
+                }
+              }}
+            >
             </div>
             
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full relative z-10">
               <SidebarContent isMobile={true} />
             </div>
           </SheetContent>
         </Sheet>
       </div>
-
-      {/* ============================================
-          LOGOUT CONFIRMATION DIALOG
-          ============================================ */}
-      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Saída</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja sair da sua conta? Você precisará fazer login novamente para acessar o sistema.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleLogout}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Sair
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 };
