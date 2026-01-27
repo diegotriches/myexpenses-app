@@ -29,7 +29,7 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
     pathname?.includes("/500");
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* ============================================
           SIDEBAR - Modo Overlay (position: fixed)
           ============================================ */}
@@ -40,10 +40,9 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
           ============================================ */}
       <div
         className={`
-          flex-1 flex flex-col min-h-screen w-full
+          flex-1 flex flex-col min-h-screen w-full max-w-full
           transition-all duration-300 ease-in-out
           bg-gray-50 dark:bg-gray-950
-          overflow-x-hidden
           
           ${!esconderNavbar 
             ? isCollapsed 
@@ -68,10 +67,9 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
             ============================================ */}
         <main
           className={`
-            flex-1 w-full
+            flex-1 w-full max-w-full
             p-4 md:p-6
             transition-all duration-300
-            overflow-x-hidden
             ${!esconderNavbar ? 'pt-20 md:pt-24' : 'pt-0'}
           `}
         >

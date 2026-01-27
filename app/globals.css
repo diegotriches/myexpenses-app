@@ -462,13 +462,6 @@
 }
 
 /* ============================================
-   SMOOTH SCROLLING
-   ============================================ */
-html {
-  scroll-behavior: smooth;
-}
-
-/* ============================================
    ACCESSIBILITY - REDUCED MOTION
    ============================================ */
 @media (prefers-reduced-motion: reduce) {
@@ -482,24 +475,9 @@ html {
   }
 }
 
-/* ===================================
-   MOBILE OPTIMIZATIONS
-   =================================== */
-
-/* Previne zoom horizontal em mobile */
-html {
-  overflow-x: hidden;
-  width: 100%;
-  scroll-behavior: smooth;
-}
-
-body {
-  overflow-x: hidden;
-  width: 100%;
-  position: relative;
-  /* Remove bounce scroll no iOS */
-  overscroll-behavior-y: none;
-}
+/* ============================================
+   ✅ MOBILE OPTIMIZATIONS - FORA DO @layer
+   ============================================ */
 
 /* Previne zoom automático em inputs (iOS Safari) */
 input[type="text"],
@@ -511,20 +489,17 @@ input[type="date"],
 input[type="datetime-local"],
 textarea,
 select {
-  font-size: 16px !important; /* Mínimo 16px previne zoom no iOS */
+  font-size: 16px !important;
 }
 
-/* Smooth scroll em toda aplicação */
-* {
-  -webkit-overflow-scrolling: touch;
+/* Touch optimizations */
+button, 
+a {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  touch-action: manipulation;
 }
 
-/* Otimiza performance de scroll */
-* {
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* Fix para elementos que podem causar overflow */
+/* Fix imagens */
 img, 
 video, 
 svg,
@@ -533,30 +508,11 @@ canvas {
   height: auto;
 }
 
-/* Touch-friendly buttons */
-button, 
-a {
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
-  touch-action: manipulation;
-}
-
-/* Previne texto muito largo */
-p, 
-span, 
-div {
-  overflow-wrap: break-word;
-  word-wrap: break-word;
-}
-
 /* ===================================
    PRINT STYLES
    =================================== */
 
 @media print {
-  html, body {
-    overflow: visible !important;
-  }
-  
   .no-print {
     display: none !important;
   }
