@@ -365,9 +365,9 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
               <SheetTitle>Menu de Navegação</SheetTitle>
             </VisuallyHidden>
             
-            {/* 👆 Área de swipe - camada invisível sobre o conteúdo */}
+            {/* Conteúdo da sidebar - eventos de swipe aqui */}
             <div 
-              className="absolute inset-0 z-50"
+              className="flex flex-col h-full relative"
               onTouchStart={(e) => {
                 touchStartX.current = e.touches[0].clientX;
                 touchEndX.current = e.touches[0].clientX;
@@ -382,9 +382,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
                 }
               }}
             >
-            </div>
-            
-            <div className="flex flex-col h-full relative z-10">
               <SidebarContent isMobile={true} />
             </div>
           </SheetContent>
