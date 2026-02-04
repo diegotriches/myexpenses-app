@@ -21,7 +21,6 @@ interface Props {
 }
 
 export default function MovCampoCategoria({ form, update }: Props) {
-  // ✅ REACT QUERY: Desestrutura data, isLoading, error
   const { data: categorias = [], isLoading, error } = useCategorias();
 
   // Filtra categorias pelo tipo (entrada/saida) OU tipo "ambos"
@@ -40,7 +39,6 @@ export default function MovCampoCategoria({ form, update }: Props) {
     (c) => c.nome === form.categoria
   );
 
-  // ✅ LOADING STATE
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -50,7 +48,6 @@ export default function MovCampoCategoria({ form, update }: Props) {
     );
   }
 
-  // ✅ ERROR STATE
   if (error) {
     return (
       <div className="space-y-2">
@@ -65,7 +62,6 @@ export default function MovCampoCategoria({ form, update }: Props) {
     );
   }
 
-  // ✅ EMPTY STATE
   if (categoriasFiltradas.length === 0) {
     return (
       <div className="space-y-2">
@@ -172,24 +168,6 @@ export default function MovCampoCategoria({ form, update }: Props) {
           })}
         </SelectContent>
       </Select>
-
-      {/* Info sobre tipo da categoria */}
-      {categoriaSelecionada && (
-        <div className="text-xs text-gray-600 dark:text-gray-400">
-          {categoriaSelecionada.tipo === "ambos" ? (
-            <span>🔄 Categoria universal (receitas e despesas)</span>
-          ) : categoriaSelecionada.tipo === "entrada" ? (
-            <span>📈 Categoria de receita</span>
-          ) : (
-            <span>📉 Categoria de despesa</span>
-          )}
-        </div>
-      )}
-
-      {/* Contador de categorias */}
-      <div className="text-xs text-gray-500 dark:text-gray-400 text-right">
-        {categoriasFiltradas.length} categoria{categoriasFiltradas.length !== 1 ? "s" : ""} disponível{categoriasFiltradas.length !== 1 ? "is" : ""}
-      </div>
     </div>
   );
 }

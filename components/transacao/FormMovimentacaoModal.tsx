@@ -25,9 +25,7 @@ import {
   UpdateTransacaoDTO,
 } from "@/types/transacao";
 
-// ✅ CORREÇÃO: Importar função de formatação de data
 import { formatarDataParaInput } from "@/utils/dateUtils";
-
 import { buildTransacoesFromForm } from "@/lib/buildTransacoesFromForm";
 
 import {
@@ -39,7 +37,7 @@ import {
 } from "@/components/ui/select";
 
 import { FaMoneyBill, FaSpinner, FaSyncAlt } from "react-icons/fa";
-import { Info, AlertCircle, Calendar, DollarSign, Tag, FileText } from "lucide-react";
+import { Info, AlertCircle, Minus, Plus } from "lucide-react";
 
 type TipoPagamento = "avista" | "parcelado" | "recorrente";
 
@@ -176,7 +174,6 @@ export default function FormMovimentacaoModal({
         ? Number(transacaoEdicao.valor) * transacaoEdicao.parcelas
         : Number(transacaoEdicao.valor ?? "");
 
-    // ✅ CORRIGIDO: Usar formatarDataParaInput
     const dataFormatada = formatarDataParaInput(transacaoEdicao.data);
 
     setForm({
@@ -254,14 +251,6 @@ export default function FormMovimentacaoModal({
           transacaoEdicao: null,
         });
 
-        console.log('🔍 Transações geradas:', {
-          total: transacoesParaCriar.length,
-          isParcelas: form.parcelado,
-          isRecorrente: form.recorrente,
-          datas: transacoesParaCriar.map(t => t.data),
-          valores: transacoesParaCriar.map(t => t.valor),
-        });
-
         const dadosParaSalvar = transacoesParaCriar.length === 1 
           ? transacoesParaCriar[0] 
           : transacoesParaCriar;
@@ -285,38 +274,73 @@ export default function FormMovimentacaoModal({
     onOpenChange(open);
   };
 
+  // ✅ Funções para incrementar/decrementar
+  const incrementarParcelas = () => {
+    const max = 48;
+    if (form.parcelas < max) {
+      update("parcelas", form.parcelas + 1);
+    }
+  };
+
+  const decrementarParcelas = () => {
+    const min = 2;
+    if (form.parcelas > min) {
+      update("parcelas", form.parcelas - 1);
+    }
+  };
+
+  const incrementarRepeticoes = () => {
+    const max = 999;
+    if (form.repeticoes < max) {
+      update("repeticoes", form.repeticoes + 1);
+    }
+  };
+
+  const decrementarRepeticoes = () => {
+    const min = 2;
+    if (form.repeticoes > min) {
+      update("repeticoes", form.repeticoes - 1);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-900 dark:border-gray-800">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-              {isEdit ? "Editar Movimentação" : "Nova Movimentação"}
+      <DialogContent className="w-full max-w-lg h-[100dvh] md:h-auto md:max-h-[85vh] flex flex-col p-0 gap-0 dark:bg-gray-900 dark:border-gray-800 md:rounded-lg rounded-none">
+        {/* ============================================
+            HEADER - Compacto e Fixo
+            ============================================ */}
+        <DialogHeader className="flex-shrink-0 px-4 pt-4 pb-3 border-b dark:border-gray-800 bg-background dark:bg-gray-900">
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white truncate">
+              {isEdit ? "Editar" : "Nova Movimentação"}
             </DialogTitle>
             {modoEdicao && (
-              <Badge variant="outline" className="text-xs">
-                {modoEdicao === "unica" ? "Apenas esta" :
-                  modoEdicao === "todas_parcelas" ? "Todas as parcelas" :
-                    "Toda a recorrência"}
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 flex-shrink-0">
+                {modoEdicao === "unica" ? "Única" :
+                  modoEdicao === "todas_parcelas" ? "Parcelas" :
+                    "Recorrência"}
               </Badge>
             )}
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+        {/* ============================================
+            FORM - Scrollable com padding otimizado
+            ============================================ */}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 space-y-4">
+            {/* Error Alert */}
+            {error && (
+              <Alert variant="destructive" className="py-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">{error}</AlertDescription>
+              </Alert>
+            )}
 
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
-              <Tag className="h-4 w-4" />
-              <span>Informações Básicas</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+            {/* ============================================
+                Tipo e Categoria - Grid 2 cols
+                ============================================ */}
+            <div className="grid grid-cols-2 gap-2">
               <MovCamposBasicos
                 form={form}
                 update={updateAny}
@@ -325,16 +349,11 @@ export default function FormMovimentacaoModal({
               />
               <MovCampoCategoria form={form} update={updateAny} />
             </div>
-          </div>
 
-          <Separator className="dark:bg-gray-800" />
-
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
-              <DollarSign className="h-4 w-4" />
-              <span>Valor e Data</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+            {/* ============================================
+                Valor e Data
+                ============================================ */}
+            <div className="grid grid-cols-2 gap-2">
               <MovCamposBasicos form={form} update={updateAny} campo="valor" />
               <MovCamposBasicos
                 form={form}
@@ -343,54 +362,68 @@ export default function FormMovimentacaoModal({
                 disabled={bloqueiaCampos.data}
               />
             </div>
-          </div>
 
-          <Separator className="dark:bg-gray-800" />
+            {/* ============================================
+                Forma de Pagamento + Conta/Cartão - Grid 2 cols
+                ============================================ */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block">
+                {textoFormaPagamento}
+              </label>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <MovCampoFormaPagamento
+                  form={form}
+                  update={updateAny}
+                  opcoesDisponiveis={opcoesFormaPagamento}
+                />
 
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
-              <FaMoneyBill className="h-4 w-4" />
-              <span>{textoFormaPagamento}</span>
-            </div>
+                {mostrarCampoConta && (
+                  <MovCampoConta 
+                    form={form} 
+                    update={updateAny}
+                    renderInfoBox={() => null}
+                  />
+                )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <MovCampoFormaPagamento
-                form={form}
-                update={updateAny}
-                opcoesDisponiveis={opcoesFormaPagamento}
-              />
+                {mostrarCampoCartao && (
+                  <MovCampoCartao 
+                    form={form} 
+                    update={updateAny}
+                    renderInfoBox={() => null}
+                  />
+                )}
+              </div>
 
-              {mostrarCampoConta && (
-                <MovCampoConta form={form} update={updateAny} />
+              {/* ✅ Info Box da Conta - FORA do grid, largura total */}
+              {mostrarCampoConta && form.contaId && (
+                <MovCampoConta 
+                  form={form} 
+                  update={updateAny}
+                  hideSelect={true}
+                  renderInfoBox={(content) => <div className="w-full">{content}</div>}
+                />
               )}
 
-              {mostrarCampoCartao && (
-                <MovCampoCartao form={form} update={updateAny} />
+              {/* ✅ Info Box do Cartão - FORA do grid, largura total */}
+              {mostrarCampoCartao && form.cartaoId && (
+                <MovCampoCartao 
+                  form={form} 
+                  update={updateAny}
+                  hideSelect={true}
+                  renderInfoBox={(content) => <div className="w-full">{content}</div>}
+                />
               )}
             </div>
 
-            {mostrarCampoCartao && (
-              <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
-                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <AlertDescription className="text-blue-800 dark:text-blue-300">
-                  <p className="font-medium">Despesa com cartão de crédito</p>
-                  <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                    O saldo da sua conta só será impactado quando você pagar a fatura do cartão.
-                  </p>
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-
-          <Separator className="dark:bg-gray-800" />
-
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
-              <Calendar className="h-4 w-4" />
-              <span>Tipo de Pagamento</span>
-            </div>
-
-            <div className="flex gap-2 items-start">
+            {/* ============================================
+                Tipo de Pagamento - REDESENHADO
+                ============================================ */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block">
+                Tipo de Pagamento
+              </label>
+              
               <Select
                 value={tipoPagamento}
                 onValueChange={(v: TipoPagamento) => {
@@ -405,18 +438,22 @@ export default function FormMovimentacaoModal({
                 }}
                 disabled={bloqueiaCampos.parcelas || bloqueiaCampos.repeticoes}
               >
-                <SelectTrigger className="flex-1 dark:bg-gray-800 dark:border-gray-700">
-                  <SelectValue placeholder="Selecione" />
+                <SelectTrigger className="w-full h-12 dark:bg-gray-800 dark:border-gray-700 touch-manipulation">
+                  <SelectValue />
                 </SelectTrigger>
 
                 <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                   {(Object.keys(tipoPagamentoIcons) as TipoPagamento[]).map((tipo) => {
                     const Icon = tipoPagamentoIcons[tipo];
                     return (
-                      <SelectItem key={tipo} value={tipo} className="dark:hover:bg-gray-700">
+                      <SelectItem 
+                        key={tipo} 
+                        value={tipo} 
+                        className="dark:hover:bg-gray-700 h-12 touch-manipulation"
+                      >
                         <div className="flex gap-2 items-center">
                           <Icon size={16} />
-                          {tipoPagamentoLabels[tipo]}
+                          <span>{tipoPagamentoLabels[tipo]}</span>
                         </div>
                       </SelectItem>
                     );
@@ -424,103 +461,120 @@ export default function FormMovimentacaoModal({
                 </SelectContent>
               </Select>
 
+              {/* ✅ CONTADOR VISUAL - Mais touch-friendly */}
               {(form.parcelado || form.recorrente) && (
-                <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-md px-3 py-2">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={2}
-                    max={form.parcelado ? 48 : 999}
-                    value={form.parcelado ? form.parcelas : form.repeticoes}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      
-                      if (value === "") {
-                        form.parcelado ? update("parcelas", 0) : update("repeticoes", 0);
-                        return;
-                      }
-
-                      const num = parseInt(value, 10);
-                      if (!isNaN(num)) {
-                        form.parcelado ? update("parcelas", num) : update("repeticoes", num);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      const value = parseInt(e.target.value, 10);
-                      const minValue = 2;
-                      const maxValue = form.parcelado ? 48 : 999;
-                      
-                      if (isNaN(value) || value < minValue) {
-                        form.parcelado ? update("parcelas", minValue) : update("repeticoes", minValue);
-                      } else if (value > maxValue) {
-                        form.parcelado ? update("parcelas", maxValue) : update("repeticoes", maxValue);
-                      }
-                    }}
-                    onFocus={(e) => {
-                      e.target.select();
-                    }}
-                    className="w-16 border dark:border-gray-700 dark:bg-gray-900 dark:text-white rounded-md p-1 text-center font-medium focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all"
-                    disabled={form.parcelado ? bloqueiaCampos.parcelas : bloqueiaCampos.repeticoes}
-                    aria-label={form.parcelado ? "Número de parcelas" : "Número de meses"}
-                  />
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    {form.parcelado ? "parcelas" : "meses"}
+                <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {form.parcelado ? "Parcelas" : "Meses"}
                   </span>
+                  
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 rounded-full touch-manipulation"
+                      onClick={form.parcelado ? decrementarParcelas : decrementarRepeticoes}
+                      disabled={form.parcelado 
+                        ? (form.parcelas <= 2 || bloqueiaCampos.parcelas) 
+                        : (form.repeticoes <= 2 || bloqueiaCampos.repeticoes)
+                      }
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+
+                    <div className="min-w-[60px] text-center">
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {form.parcelado ? form.parcelas : form.repeticoes}
+                      </div>
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        {form.parcelado ? "parcela" + (form.parcelas > 1 ? "s" : "") : "mês" + (form.repeticoes > 1 ? "es" : "")}
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 rounded-full touch-manipulation"
+                      onClick={form.parcelado ? incrementarParcelas : incrementarRepeticoes}
+                      disabled={form.parcelado 
+                        ? (form.parcelas >= 48 || bloqueiaCampos.parcelas) 
+                        : (form.repeticoes >= 999 || bloqueiaCampos.repeticoes)
+                      }
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Info Cards - Mais compactos */}
+              {form.parcelado && form.parcelas > 1 && parseFloat(form.valor) > 0 && (
+                <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-2.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-blue-700 dark:text-blue-300">Cada parcela:</span>
+                    <span className="text-sm font-bold text-blue-900 dark:text-blue-200">
+                      R$ {(parseFloat(form.valor) / form.parcelas).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {form.recorrente && form.repeticoes > 1 && parseFloat(form.valor) > 0 && (
+                <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-2.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-purple-700 dark:text-purple-300">Total ({form.repeticoes} meses):</span>
+                    <span className="text-sm font-bold text-purple-900 dark:text-purple-200">
+                      R$ {valorTotal.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
 
-            {form.parcelado && form.parcelas > 1 && parseFloat(form.valor) > 0 && (
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">Valor de cada parcela:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    R$ {(parseFloat(form.valor) / form.parcelas).toFixed(2)}
-                  </span>
-                </div>
+            {/* ============================================
+                Observações - Colapsável
+                ============================================ */}
+            <details className="group" open={!!form.descricao}>
+              <summary className="flex items-center justify-between cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-400 py-2">
+                <span>Observações (opcional)</span>
+                <span className="text-gray-400 group-open:rotate-180 transition-transform">▼</span>
+              </summary>
+              <div className="mt-2">
+                <MovCamposBasicos form={form} update={updateAny} campo="descricao" />
               </div>
-            )}
-            {form.recorrente && form.repeticoes > 1 && parseFloat(form.valor) > 0 && (
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">Valor total ({form.repeticoes} meses):</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    R$ {valorTotal.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            )}
+            </details>
+
+            {/* Espaçamento extra para não ficar colado no botão */}
+            <div className="h-2" />
           </div>
 
-          <Separator className="dark:bg-gray-800" />
-
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
-              <FileText className="h-4 w-4" />
-              <span>Observações</span>
-              <Badge variant="secondary" className="text-xs">Opcional</Badge>
-            </div>
-            <MovCamposBasicos form={form} update={updateAny} campo="descricao" />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-800 sticky bottom-0 bg-background dark:bg-gray-900">
+          {/* ============================================
+              FOOTER - Sticky com sombra
+              ============================================ */}
+          <div className="flex-shrink-0 flex gap-2 px-4 py-3 border-t dark:border-gray-800 bg-background dark:bg-gray-900 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
             <Button
               type="button"
               variant="outline"
               onClick={() => handleOpenChange(false)}
               disabled={loading}
-              className="dark:border-gray-700 dark:hover:bg-gray-800"
+              className="flex-1 h-12 text-sm font-medium touch-manipulation dark:border-gray-700 dark:hover:bg-gray-800"
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading} className="min-w-[120px]">
+            <Button 
+              type="submit" 
+              disabled={loading} 
+              className="flex-1 h-12 text-sm font-semibold touch-manipulation"
+            >
               {loading ? (
                 <>
-                  <FaSpinner className="animate-spin mr-2" />
+                  <FaSpinner className="animate-spin mr-2" size={14} />
                   Salvando...
                 </>
               ) : (
-                isEdit ? "Salvar Alterações" : "Adicionar"
+                isEdit ? "Salvar" : "Adicionar"
               )}
             </Button>
           </div>

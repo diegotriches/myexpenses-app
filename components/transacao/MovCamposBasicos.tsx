@@ -24,6 +24,43 @@ interface Props {
 }
 
 export default function MovCamposBasicos({ form, update, campo, disabled }: Props) {
+  // ✅ Formatação monetária (input como calculadora)
+  const formatarValorMonetario = (valorCentavos: number): string => {
+    const reais = (valorCentavos / 100).toFixed(2);
+    return reais.replace('.', ',');
+  };
+
+  const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Remove tudo que não é dígito
+    const apenasNumeros = e.target.value.replace(/\D/g, '');
+    
+    if (apenasNumeros === '') {
+      update('valor', '');
+      return;
+    }
+
+    // Converte para número (em centavos)
+    const valorEmCentavos = parseInt(apenasNumeros, 10);
+    
+    // Converte para formato decimal (ex: 150 centavos = 1.50 reais)
+    const valorDecimal = (valorEmCentavos / 100).toFixed(2);
+    
+    // Atualiza com valor decimal (ponto como separador)
+    update('valor', valorDecimal);
+  };
+
+  const getValorFormatadoParaInput = (): string => {
+    if (!form.valor || form.valor === '0' || form.valor === '0.00') {
+      return '0,00';
+    }
+    
+    // Formata o valor com vírgula para exibição
+    const valorNum = parseFloat(form.valor);
+    if (isNaN(valorNum)) return '0,00';
+    
+    return valorNum.toFixed(2).replace('.', ',');
+  };
+
   switch (campo) {
     case "tipo":
       return (
@@ -69,15 +106,6 @@ export default function MovCamposBasicos({ form, update, campo, disabled }: Prop
               </SelectItem>
             </SelectContent>
           </Select>
-          
-          {/* Info contextual */}
-          <div className="text-xs text-gray-600 dark:text-gray-400">
-            {form.tipo === "entrada" ? (
-              <span>📈 Receitas aumentam o saldo da conta</span>
-            ) : (
-              <span>📉 Despesas diminuem o saldo da conta</span>
-            )}
-          </div>
         </div>
       );
 
@@ -95,18 +123,6 @@ export default function MovCamposBasicos({ form, update, campo, disabled }: Prop
             className="dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             disabled={disabled}
           />
-          
-          {/* Info contextual */}
-          {form.data && (
-            <div className="text-xs text-gray-600 dark:text-gray-400">
-              {new Date(form.data + "T00:00:00").toLocaleDateString("pt-BR", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </div>
-          )}
         </div>
       );
 
@@ -118,29 +134,18 @@ export default function MovCamposBasicos({ form, update, campo, disabled }: Prop
             Valor
           </Label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm font-medium">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm font-medium pointer-events-none">
               R$
             </span>
             <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.valor}
-              onChange={(e) => update("valor", e.target.value)}
-              className="pl-10 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              type="text"
+              inputMode="numeric"
+              value={getValorFormatadoParaInput()}
+              onChange={handleValorChange}
+              className="pl-10 dark:bg-gray-800 dark:border-gray-700 dark:text-white font-medium text-lg"
               placeholder="0,00"
             />
           </div>
-          
-          {/* Info contextual */}
-          {form.valor && parseFloat(form.valor) > 0 && (
-            <div className="text-xs text-gray-600 dark:text-gray-400">
-              {new Intl.NumberFormat("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              }).format(parseFloat(form.valor))}
-            </div>
-          )}
         </div>
       );
 
@@ -159,13 +164,6 @@ export default function MovCamposBasicos({ form, update, campo, disabled }: Prop
             placeholder="Descrição da movimentação"
             maxLength={100}
           />
-          
-          {/* Contador de caracteres */}
-          {form.descricao && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 text-right">
-              {form.descricao.length}/100 caracteres
-            </div>
-          )}
         </div>
       );
 

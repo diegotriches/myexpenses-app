@@ -19,7 +19,6 @@ interface Props {
   opcoesDisponiveis?: readonly ("dinheiro" | "pix" | "cartao")[];
 }
 
-// Definindo opções de forma de pagamento com ícones e cores
 const formaPagamentoOptions = [
   { 
     value: "dinheiro", 
@@ -46,17 +45,14 @@ export default function MovCampoFormaPagamento({
   update,
   opcoesDisponiveis = ["dinheiro", "pix", "cartao"]
 }: Props) {
-  // Filtra as opções baseado no que está disponível
   const opcoesVisiveis = formaPagamentoOptions.filter((opt) =>
     opcoesDisponiveis.includes(opt.value as any)
   );
 
-  // ✅ Texto contextual baseado no tipo da transação
   const labelTexto = form.tipo === "entrada" 
     ? "Forma de Recebimento" 
     : "Forma de Pagamento";
 
-  // Opção selecionada
   const opcaoSelecionada = opcoesVisiveis.find(
     (opt) => opt.value === form.formaPagamento
   );
@@ -107,21 +103,6 @@ export default function MovCampoFormaPagamento({
           })}
         </SelectContent>
       </Select>
-
-      {/* Info contextual sobre a forma de pagamento */}
-      {form.formaPagamento && (
-        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-          {form.formaPagamento === "dinheiro" && (
-            <span>💵 Transação em dinheiro será registrada no extrato</span>
-          )}
-          {form.formaPagamento === "pix" && (
-            <span>🔄 Transação via Pix será registrada no extrato</span>
-          )}
-          {form.formaPagamento === "cartao" && (
-            <span>💳 Transação no cartão será incluída na fatura</span>
-          )}
-        </div>
-      )}
     </div>
   );
 }
