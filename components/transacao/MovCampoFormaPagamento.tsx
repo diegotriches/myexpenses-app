@@ -59,7 +59,7 @@ export default function MovCampoFormaPagamento({
 
   return (
     <div className="space-y-2">
-      <Label className="text-gray-900 dark:text-white">
+      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
         {labelTexto}
       </Label>
 
@@ -67,7 +67,7 @@ export default function MovCampoFormaPagamento({
         value={form.formaPagamento}
         onValueChange={(v) => update("formaPagamento", v)}
       >
-        <SelectTrigger className="dark:bg-gray-800 dark:border-gray-700">
+        <SelectTrigger className="dark:bg-gray-800 dark:border-gray-700 h-12">
           <SelectValue placeholder="Selecione">
             {opcaoSelecionada && (
               <div className="flex items-center gap-2">
@@ -90,7 +90,7 @@ export default function MovCampoFormaPagamento({
               <SelectItem
                 key={opt.value}
                 value={opt.value}
-                className="dark:hover:bg-gray-700"
+                className="dark:hover:bg-gray-700 h-10"
               >
                 <div className="flex items-center gap-2">
                   <IconComp className={opt.color} size={16} />

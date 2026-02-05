@@ -5,30 +5,21 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
-  Save, 
-  X, 
   Loader2, 
   AlertCircle, 
   TrendingUp, 
   TrendingDown,
   Tag,
-  Check
+  Check,
+  ChevronRight,
 } from "lucide-react";
 import { Categoria } from "@/types/categoria";
 import { iconOptions } from "@/utils/iconOptions";
@@ -53,12 +44,10 @@ export default function CategoriaFormModal({
   categoria,
 }: Props) {
   const [nome, setNome] = useState("");
-  const [tipo, setTipo] = useState<"entrada" | "saida" | "ambos">("entrada");
+  const [tipo, setTipo] = useState<"entrada" | "saida">("entrada");
   const [icone, setIcone] = useState("FaWallet");
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
-  
-  // ✅ NOVO: Validação em tempo real
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   // React Query hooks
@@ -71,7 +60,8 @@ export default function CategoriaFormModal({
     if (aberto) {
       if (categoria) {
         setNome(categoria.nome);
-        setTipo(categoria.tipo);
+        // Se a categoria for "ambos", converte para "entrada" por padrão
+        setTipo(categoria.tipo === "ambos" ? "entrada" : categoria.tipo);
         setIcone(categoria.icone);
       } else {
         setNome("");
@@ -83,7 +73,6 @@ export default function CategoriaFormModal({
     }
   }, [categoria, aberto]);
 
-  // ✅ MELHORADO: Validação com feedback mais detalhado
   const validarCampo = (campo: "nome" | "tipo", valor: string): string | undefined => {
     if (campo === "nome") {
       if (!valor || valor.trim() === "") {
@@ -95,7 +84,6 @@ export default function CategoriaFormModal({
       if (valor.trim().length > 50) {
         return "Nome deve ter no máximo 50 caracteres";
       }
-      // ✅ NOVO: Validar caracteres especiais inválidos
       if (!/^[a-zA-ZÀ-ÿ0-9\s-]+$/.test(valor)) {
         return "Apenas letras, números, espaços e hífens são permitidos";
       }
@@ -114,7 +102,6 @@ export default function CategoriaFormModal({
       tipo: validarCampo("tipo", tipo),
     };
 
-    // Remove erros undefined
     Object.keys(novosErros).forEach(key => {
       if (!novosErros[key as keyof FormErrors]) {
         delete novosErros[key as keyof FormErrors];
@@ -128,7 +115,6 @@ export default function CategoriaFormModal({
   const handleNomeChange = (value: string) => {
     setNome(value);
     
-    // ✅ NOVO: Validação em tempo real após campo ser "touched"
     if (touched.nome) {
       const erro = validarCampo("nome", value);
       setErrors(prev => ({ ...prev, nome: erro }));
@@ -141,15 +127,13 @@ export default function CategoriaFormModal({
     setErrors(prev => ({ ...prev, nome: erro }));
   };
 
-  const handleTipoChange = (value: "entrada" | "saida" | "ambos") => {
+  const handleTipoChange = (value: "entrada" | "saida") => {
     setTipo(value);
-    
-    // ✅ Limpa erro imediatamente ao selecionar
+    setTouched(prev => ({ ...prev, tipo: true }));
     setErrors(prev => ({ ...prev, tipo: undefined }));
   };
 
   const salvar = async () => {
-    // Marca todos como touched
     setTouched({ nome: true, tipo: true });
     
     if (!validarFormulario()) {
@@ -184,7 +168,6 @@ export default function CategoriaFormModal({
     }
   };
 
-  // ✅ NOVO: Enter para salvar (UX)
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey && nome.trim()) {
       e.preventDefault();
@@ -193,198 +176,265 @@ export default function CategoriaFormModal({
   };
 
   const IconComp = iconOptions.find(i => i.name === icone)?.component;
+  const iconeSelecionado = iconOptions.find(i => i.name === icone);
 
   const getCorGradiente = () => {
     if (tipo === "entrada") {
       return "from-green-500 to-green-600 dark:from-green-600 dark:to-green-700";
-    } else if (tipo === "saida") {
-      return "from-red-500 to-red-600 dark:from-red-600 dark:to-red-700";
     } else {
-      return "from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700";
+      return "from-red-500 to-red-600 dark:from-red-600 dark:to-red-700";
     }
   };
 
-  // ✅ NOVO: Indicador visual de campo válido
   const isNomeValido = nome.trim().length >= 2 && !errors.nome;
+  const temErros = Object.keys(errors).length > 0;
 
   return (
     <>
       <Dialog open={aberto} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
+        <DialogContent className="h-[100dvh] md:h-auto sm:max-w-[550px] p-0 gap-0 flex flex-col">
+          {/* Header Fixo */}
+          <DialogHeader className="px-6 pt-6 pb-4 border-b dark:border-gray-800 shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-white">
               <Tag className="text-blue-600 dark:text-blue-400" size={24} />
               {categoria ? "Editar Categoria" : "Nova Categoria"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
               {categoria
-                ? "Altere os detalhes da categoria selecionada"
+                ? "Atualize os detalhes da categoria selecionada"
                 : "Preencha as informações para criar uma nova categoria"}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            {/* Nome */}
-            <div className="space-y-2">
-              <Label htmlFor="nome" className="flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  Nome da Categoria
-                  <span className="text-red-500">*</span>
-                </span>
-                {/* ✅ NOVO: Indicador de caracteres */}
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {nome.length}/50
-                </span>
-              </Label>
-              <div className="relative">
-                <Input
-                  id="nome"
-                  type="text"
-                  value={nome}
-                  onChange={(e) => handleNomeChange(e.target.value)}
-                  onBlur={handleNomeBlur}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ex: Alimentação, Transporte, Saúde"
-                  className={`pr-10 ${errors.nome ? "border-red-500" : touched.nome && isNomeValido ? "border-green-500" : ""}`}
-                  disabled={loading}
-                  maxLength={50}
-                  aria-invalid={!!errors.nome}
-                  aria-describedby={errors.nome ? "nome-error" : undefined}
-                />
-                {/* ✅ NOVO: Check verde quando válido */}
-                {touched.nome && isNomeValido && !loading && (
-                  <Check 
-                    size={16} 
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-green-600 dark:text-green-400"
-                    aria-hidden="true"
+          {/* Conteúdo Scrollable */}
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            <div className="space-y-5">
+              {/* Nome */}
+              <div>
+                <Label htmlFor="nome" className="flex items-center justify-between mb-1.5">
+                  <span className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Nome da Categoria
+                    <span className="text-red-500">*</span>
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {nome.length}/50
+                  </span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="nome"
+                    type="text"
+                    value={nome}
+                    onChange={(e) => handleNomeChange(e.target.value)}
+                    onBlur={handleNomeBlur}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ex: Alimentação, Transporte, Saúde"
+                    className={`pr-10 ${
+                      errors.nome 
+                        ? "border-red-500 dark:border-red-500" 
+                        : touched.nome && isNomeValido 
+                        ? "border-green-500 dark:border-green-500" 
+                        : ""
+                    }`}
+                    disabled={loading}
+                    maxLength={50}
+                    aria-invalid={!!errors.nome}
+                    aria-describedby={errors.nome ? "nome-error" : undefined}
                   />
-                )}
-              </div>
-              {errors.nome && (
-                <div 
-                  id="nome-error" 
-                  className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400"
-                  role="alert"
-                >
-                  <AlertCircle size={12} />
-                  <span>{errors.nome}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Tipo */}
-            <div className="space-y-2">
-              <Label htmlFor="tipo" className="flex items-center gap-1">
-                Tipo da Categoria
-                <span className="text-red-500">*</span>
-              </Label>
-              <Select 
-                value={tipo} 
-                onValueChange={handleTipoChange}
-                disabled={loading}
-              >
-                <SelectTrigger 
-                  id="tipo" 
-                  className={errors.tipo ? "border-red-500" : ""}
-                  aria-invalid={!!errors.tipo}
-                >
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="entrada">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp size={14} className="text-green-600 dark:text-green-400" />
-                      <span>Receita</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="saida">
-                    <div className="flex items-center gap-2">
-                      <TrendingDown size={14} className="text-red-600 dark:text-red-400" />
-                      <span>Despesa</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="ambos">
-                    <div className="flex items-center gap-2">
-                      <Tag size={14} className="text-blue-600 dark:text-blue-400" />
-                      <span>Ambos (Receita e Despesa)</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.tipo && (
-                <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400" role="alert">
-                  <AlertCircle size={12} />
-                  <span>{errors.tipo}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Ícone */}
-            <div className="space-y-2">
-              <Label>Ícone</Label>
-              <div className="flex items-center gap-3">
-                {/* Preview do ícone */}
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getCorGradiente()} flex items-center justify-center shadow-md flex-shrink-0`}>
-                  {IconComp ? (
-                    <IconComp size={24} className="text-white" />
-                  ) : (
-                    <Tag size={24} className="text-white" />
+                  {touched.nome && isNomeValido && !loading && (
+                    <Check 
+                      size={16} 
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-green-600 dark:text-green-400"
+                      aria-hidden="true"
+                    />
                   )}
                 </div>
-
-                {/* Botão selecionar */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIconPickerOpen(true)}
-                  disabled={loading}
-                  className="flex-1 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  Selecionar Ícone
-                </Button>
+                {errors.nome && (
+                  <div 
+                    id="nome-error" 
+                    className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 mt-1"
+                    role="alert"
+                  >
+                    <AlertCircle size={12} />
+                    <span>{errors.nome}</span>
+                  </div>
+                )}
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Escolha um ícone para representar visualmente esta categoria
-              </p>
-            </div>
 
-            {/* Info */}
-            <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-900">
-              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <AlertDescription className="text-blue-800 dark:text-blue-200 text-xs">
-                Categorias ajudam a organizar suas transações e gerar relatórios mais precisos.
-              </AlertDescription>
-            </Alert>
+              {/* Tipo - Botões Visuais */}
+              <div>
+                <Label className="flex items-center gap-1 mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Tipo da Categoria
+                  <span className="text-red-500">*</span>
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Botão Receita */}
+                  <button
+                    type="button"
+                    onClick={() => handleTipoChange("entrada")}
+                    disabled={loading}
+                    className={`
+                      h-24 border-2 rounded-lg transition-all duration-200
+                      flex flex-col items-center justify-center gap-2
+                      ${
+                        tipo === "entrada"
+                          ? "border-green-500 bg-green-50 dark:bg-green-950 dark:border-green-400"
+                          : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-600"
+                      }
+                      ${loading ? "opacity-50 cursor-not-allowed" : ""}
+                    `}
+                  >
+                    <TrendingUp
+                      className={`h-8 w-8 ${
+                        tipo === "entrada"
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                    <span
+                      className={`text-sm font-medium ${
+                        tipo === "entrada"
+                          ? "text-green-700 dark:text-green-300"
+                          : "text-gray-600 dark:text-gray-400"
+                      }`}
+                    >
+                      Receita
+                    </span>
+                  </button>
+
+                  {/* Botão Despesa */}
+                  <button
+                    type="button"
+                    onClick={() => handleTipoChange("saida")}
+                    disabled={loading}
+                    className={`
+                      h-24 border-2 rounded-lg transition-all duration-200
+                      flex flex-col items-center justify-center gap-2
+                      ${
+                        tipo === "saida"
+                          ? "border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400"
+                          : "border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-600"
+                      }
+                      ${loading ? "opacity-50 cursor-not-allowed" : ""}
+                    `}
+                  >
+                    <TrendingDown
+                      className={`h-8 w-8 ${
+                        tipo === "saida"
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
+                    <span
+                      className={`text-sm font-medium ${
+                        tipo === "saida"
+                          ? "text-red-700 dark:text-red-300"
+                          : "text-gray-600 dark:text-gray-400"
+                      }`}
+                    >
+                      Despesa
+                    </span>
+                  </button>
+                </div>
+                {errors.tipo && (
+                  <div className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
+                    <AlertCircle size={12} />
+                    <span>{errors.tipo}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Ícone */}
+              <div>
+                <Label className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Ícone da Categoria
+                </Label>
+                
+                {/* Preview grande do ícone + botão */}
+                <div className="flex items-center gap-4">
+                  {/* Preview */}
+                  <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${getCorGradiente()} flex items-center justify-center shadow-md flex-shrink-0`}>
+                    {IconComp ? (
+                      <IconComp size={28} className="text-white" />
+                    ) : (
+                      <Tag size={28} className="text-white" />
+                    )}
+                  </div>
+
+                  {/* Info + Botão */}
+                  <div className="flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setIconPickerOpen(true)}
+                      disabled={loading}
+                      className={`
+                        w-full h-14 px-4 border rounded-lg
+                        flex items-center justify-between
+                        transition-colors duration-200
+                        border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500
+                        bg-white dark:bg-gray-800
+                        ${loading ? "opacity-50 cursor-not-allowed" : ""}
+                      `}
+                    >
+                      <div className="flex items-center gap-3">
+                        {IconComp && (
+                          <IconComp className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        )}
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {iconeSelecionado?.name || "Selecionar ícone"}
+                        </span>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  💡 Escolha um ícone para representar visualmente esta categoria
+                </p>
+              </div>
+
+              {/* Info */}
+              <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+                <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-blue-800 dark:text-blue-300 text-xs">
+                  <p className="font-medium">Organize suas finanças</p>
+                  <p className="mt-0.5">
+                    Categorias ajudam a organizar suas transações e gerar relatórios mais precisos.
+                  </p>
+                </AlertDescription>
+              </Alert>
+            </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={handleClose}
-              disabled={loading}
-              className="hover:bg-gray-50 dark:hover:bg-gray-800"
-            >
-              <X size={16} className="mr-2" />
-              Cancelar
-            </Button>
-            <Button
-              onClick={salvar}
-              disabled={loading || !nome.trim() || nome.trim().length < 2}
-              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={16} className="mr-2 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <Save size={16} className="mr-2" />
-                  Salvar Categoria
-                </>
-              )}
-            </Button>
-          </DialogFooter>
+          {/* Footer Fixo - Botões Lado a Lado */}
+          <div className="px-6 py-4 border-t dark:border-gray-800 shrink-0">
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={loading}
+                className="flex-1 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={salvar}
+                disabled={loading || temErros || !nome.trim() || nome.trim().length < 2}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>{categoria ? "Salvar Alterações" : "Criar Categoria"}</>
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
 import {
@@ -37,7 +36,7 @@ import {
 } from "@/components/ui/select";
 
 import { FaMoneyBill, FaSpinner, FaSyncAlt } from "react-icons/fa";
-import { Info, AlertCircle, Minus, Plus } from "lucide-react";
+import { AlertCircle, Minus, Plus } from "lucide-react";
 
 type TipoPagamento = "avista" | "parcelado" | "recorrente";
 
@@ -274,7 +273,6 @@ export default function FormMovimentacaoModal({
     onOpenChange(open);
   };
 
-  // ✅ Funções para incrementar/decrementar
   const incrementarParcelas = () => {
     const max = 48;
     if (form.parcelas < max) {
@@ -305,17 +303,17 @@ export default function FormMovimentacaoModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-full max-w-lg h-[100dvh] md:h-auto md:max-h-[85vh] flex flex-col p-0 gap-0 dark:bg-gray-900 dark:border-gray-800 md:rounded-lg rounded-none">
+      <DialogContent className="w-full max-w-lg h-[100dvh] md:h-auto md:max-h-[90vh] flex flex-col p-0 gap-0 dark:bg-gray-900 dark:border-gray-800 md:rounded-lg rounded-none">
         {/* ============================================
-            HEADER - Compacto e Fixo
+            HEADER - Fixo
             ============================================ */}
-        <DialogHeader className="flex-shrink-0 px-4 pt-4 pb-3 border-b dark:border-gray-800 bg-background dark:bg-gray-900">
+        <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b dark:border-gray-800 bg-background dark:bg-gray-900">
           <div className="flex items-center justify-between gap-2">
-            <DialogTitle className="text-base font-semibold text-gray-900 dark:text-white truncate">
-              {isEdit ? "Editar" : "Nova Movimentação"}
+            <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
+              {isEdit ? "Editar Movimentação" : "Nova Movimentação"}
             </DialogTitle>
             {modoEdicao && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 flex-shrink-0">
+              <Badge variant="outline" className="text-xs">
                 {modoEdicao === "unica" ? "Única" :
                   modoEdicao === "todas_parcelas" ? "Parcelas" :
                     "Recorrência"}
@@ -325,36 +323,39 @@ export default function FormMovimentacaoModal({
         </DialogHeader>
 
         {/* ============================================
-            FORM - Scrollable com padding otimizado
+            FORM - Scrollable
             ============================================ */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 space-y-4">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5 space-y-5">
             {/* Error Alert */}
             {error && (
-              <Alert variant="destructive" className="py-2">
+              <Alert variant="destructive" className="py-2.5">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-xs">{error}</AlertDescription>
+                <AlertDescription className="text-sm">{error}</AlertDescription>
               </Alert>
             )}
 
             {/* ============================================
-                Tipo e Categoria - Grid 2 cols
+                1. TIPO - Botões Visuais Grandes (Full Width)
                 ============================================ */}
-            <div className="grid grid-cols-2 gap-2">
-              <MovCamposBasicos
-                form={form}
-                update={updateAny}
-                campo="tipo"
-                disabled={bloqueiaCampos.tipo}
-              />
-              <MovCampoCategoria form={form} update={updateAny} />
-            </div>
+            <MovCamposBasicos
+              form={form}
+              update={updateAny}
+              campo="tipo"
+              disabled={bloqueiaCampos.tipo}
+            />
 
             {/* ============================================
-                Valor e Data
+                2. CATEGORIA - Full Width com Preview
                 ============================================ */}
-            <div className="grid grid-cols-2 gap-2">
+            <MovCampoCategoria form={form} update={updateAny} />
+
+            {/* ============================================
+                3. VALOR + DATA - Grid 2 cols
+                ============================================ */}
+            <div className="grid grid-cols-2 gap-3">
               <MovCamposBasicos form={form} update={updateAny} campo="valor" />
+              
               <MovCamposBasicos
                 form={form}
                 update={updateAny}
@@ -364,63 +365,57 @@ export default function FormMovimentacaoModal({
             </div>
 
             {/* ============================================
-                Forma de Pagamento + Conta/Cartão - Grid 2 cols
+                4. FORMA DE PAGAMENTO + CONTA/CARTÃO - Grid 2 cols
                 ============================================ */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block">
-                {textoFormaPagamento}
-              </label>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <MovCampoFormaPagamento
-                  form={form}
-                  update={updateAny}
-                  opcoesDisponiveis={opcoesFormaPagamento}
-                />
+            <div className="grid grid-cols-2 gap-3">
+              <MovCampoFormaPagamento
+                form={form}
+                update={updateAny}
+                opcoesDisponiveis={opcoesFormaPagamento}
+              />
 
-                {mostrarCampoConta && (
-                  <MovCampoConta 
-                    form={form} 
-                    update={updateAny}
-                    renderInfoBox={() => null}
-                  />
-                )}
-
-                {mostrarCampoCartao && (
-                  <MovCampoCartao 
-                    form={form} 
-                    update={updateAny}
-                    renderInfoBox={() => null}
-                  />
-                )}
-              </div>
-
-              {/* ✅ Info Box da Conta - FORA do grid, largura total */}
-              {mostrarCampoConta && form.contaId && (
+              {mostrarCampoConta && (
                 <MovCampoConta 
                   form={form} 
                   update={updateAny}
-                  hideSelect={true}
-                  renderInfoBox={(content) => <div className="w-full">{content}</div>}
+                  renderInfoBox={() => null}
                 />
               )}
 
-              {/* ✅ Info Box do Cartão - FORA do grid, largura total */}
-              {mostrarCampoCartao && form.cartaoId && (
+              {mostrarCampoCartao && (
                 <MovCampoCartao 
                   form={form} 
                   update={updateAny}
-                  hideSelect={true}
-                  renderInfoBox={(content) => <div className="w-full">{content}</div>}
+                  renderInfoBox={() => null}
                 />
               )}
             </div>
 
+            {/* Info Box da Conta - Full width abaixo do grid */}
+            {mostrarCampoConta && form.contaId && (
+              <MovCampoConta 
+                form={form} 
+                update={updateAny}
+                hideSelect={true}
+                renderInfoBox={(content) => <div className="w-full">{content}</div>}
+              />
+            )}
+
+            {/* Info Box do Cartão - Full width abaixo do grid */}
+            {mostrarCampoCartao && form.cartaoId && (
+              <MovCampoCartao 
+                form={form} 
+                update={updateAny}
+                hideSelect={true}
+                renderInfoBox={(content) => <div className="w-full">{content}</div>}
+              />
+            )}
+
             {/* ============================================
-                Tipo de Pagamento - REDESENHADO
+                5. TIPO DE PAGAMENTO
                 ============================================ */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block">
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block">
                 Tipo de Pagamento
               </label>
               
@@ -438,7 +433,7 @@ export default function FormMovimentacaoModal({
                 }}
                 disabled={bloqueiaCampos.parcelas || bloqueiaCampos.repeticoes}
               >
-                <SelectTrigger className="w-full h-12 dark:bg-gray-800 dark:border-gray-700 touch-manipulation">
+                <SelectTrigger className="w-full h-12 dark:bg-gray-800 dark:border-gray-700">
                   <SelectValue />
                 </SelectTrigger>
 
@@ -449,7 +444,7 @@ export default function FormMovimentacaoModal({
                       <SelectItem 
                         key={tipo} 
                         value={tipo} 
-                        className="dark:hover:bg-gray-700 h-12 touch-manipulation"
+                        className="dark:hover:bg-gray-700 h-12"
                       >
                         <div className="flex gap-2 items-center">
                           <Icon size={16} />
@@ -461,7 +456,7 @@ export default function FormMovimentacaoModal({
                 </SelectContent>
               </Select>
 
-              {/* ✅ CONTADOR VISUAL - Mais touch-friendly */}
+              {/* Contador Visual */}
               {(form.parcelado || form.recorrente) && (
                 <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -473,7 +468,7 @@ export default function FormMovimentacaoModal({
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="h-10 w-10 rounded-full touch-manipulation"
+                      className="h-10 w-10 rounded-full"
                       onClick={form.parcelado ? decrementarParcelas : decrementarRepeticoes}
                       disabled={form.parcelado 
                         ? (form.parcelas <= 2 || bloqueiaCampos.parcelas) 
@@ -496,7 +491,7 @@ export default function FormMovimentacaoModal({
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="h-10 w-10 rounded-full touch-manipulation"
+                      className="h-10 w-10 rounded-full"
                       onClick={form.parcelado ? incrementarParcelas : incrementarRepeticoes}
                       disabled={form.parcelado 
                         ? (form.parcelas >= 48 || bloqueiaCampos.parcelas) 
@@ -509,7 +504,7 @@ export default function FormMovimentacaoModal({
                 </div>
               )}
 
-              {/* Info Cards - Mais compactos */}
+              {/* Info Cards */}
               {form.parcelado && form.parcelas > 1 && parseFloat(form.valor) > 0 && (
                 <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-2.5">
                   <div className="flex justify-between items-center">
@@ -534,10 +529,10 @@ export default function FormMovimentacaoModal({
             </div>
 
             {/* ============================================
-                Observações - Colapsável
+                6. OBSERVAÇÕES - Colapsável
                 ============================================ */}
-            <details className="group" open={!!form.descricao}>
-              <summary className="flex items-center justify-between cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-400 py-2">
+            <details className="group" open>
+              <summary className="flex items-center justify-between cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 py-2">
                 <span>Observações (opcional)</span>
                 <span className="text-gray-400 group-open:rotate-180 transition-transform">▼</span>
               </summary>
@@ -545,28 +540,25 @@ export default function FormMovimentacaoModal({
                 <MovCamposBasicos form={form} update={updateAny} campo="descricao" />
               </div>
             </details>
-
-            {/* Espaçamento extra para não ficar colado no botão */}
-            <div className="h-2" />
           </div>
 
           {/* ============================================
-              FOOTER - Sticky com sombra
+              FOOTER - Fixo com Botões Lado a Lado
               ============================================ */}
-          <div className="flex-shrink-0 flex gap-2 px-4 py-3 border-t dark:border-gray-800 bg-background dark:bg-gray-900 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+          <div className="flex-shrink-0 flex gap-3 px-6 py-4 border-t dark:border-gray-800 bg-background dark:bg-gray-900">
             <Button
               type="button"
               variant="outline"
               onClick={() => handleOpenChange(false)}
               disabled={loading}
-              className="flex-1 h-12 text-sm font-medium touch-manipulation dark:border-gray-700 dark:hover:bg-gray-800"
+              className="flex-1 h-12 font-medium"
             >
               Cancelar
             </Button>
             <Button 
               type="submit" 
               disabled={loading} 
-              className="flex-1 h-12 text-sm font-semibold touch-manipulation"
+              className="flex-1 h-12 font-semibold"
             >
               {loading ? (
                 <>
@@ -574,7 +566,7 @@ export default function FormMovimentacaoModal({
                   Salvando...
                 </>
               ) : (
-                isEdit ? "Salvar" : "Adicionar"
+                isEdit ? "Salvar Alterações" : "Adicionar"
               )}
             </Button>
           </div>

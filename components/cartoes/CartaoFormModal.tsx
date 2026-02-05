@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 
 import { Cartao, CreateCartaoDTO, UpdateCartaoDTO } from "@/types/cartao";
@@ -30,18 +31,27 @@ export default function CartaoFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl text-gray-900 dark:text-white">
+      <DialogContent className="h-[100dvh] md:h-auto sm:max-w-[650px] p-0 gap-0 flex flex-col">
+        {/* Header Fixo */}
+        <DialogHeader className="px-6 pt-6 pb-4 border-b dark:border-gray-800 shrink-0">
+          <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
             {cartaoEdicao ? "Editar Cartão" : "Novo Cartão"}
           </DialogTitle>
+          <DialogDescription className="text-sm text-gray-600 dark:text-gray-400">
+            {cartaoEdicao
+              ? "Atualize as informações do seu cartão"
+              : "Adicione um novo cartão de crédito ou débito"}
+          </DialogDescription>
         </DialogHeader>
 
-        <CartaoForm
-          initialValues={cartaoEdicao}
-          onSubmit={handleSubmit}
-          onCancel={() => onOpenChange(false)}
-        />
+        {/* Conteúdo Scrollable */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <CartaoForm
+            initialValues={cartaoEdicao}
+            onSubmit={handleSubmit}
+            onCancel={() => onOpenChange(false)}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );

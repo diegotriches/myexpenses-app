@@ -3,369 +3,727 @@
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
-    Select,
-    SelectTrigger,
-    SelectValue,
-    SelectContent,
-    SelectItem,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from "@/components/ui/select";
-
-import { Cartao, CreateCartaoDTO, UpdateCartaoDTO } from "@/types/cartao";
-import { bandeiraOptions, empresaOptions } from "@/utils/cartaoOptions";
-import CampoSelect from "./CampoSelect";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+import { Cartao, CreateCartaoDTO, UpdateCartaoDTO } from "@/types/cartao";
+import { bandeiraOptions, empresaOptions } from "@/utils/cartaoOptions";
 import { useContas } from "@/hooks/useContas";
-import { Info, CreditCard, Wallet } from "lucide-react";
+
+import EmpresaPickerModal from "./EmpresaPickerModal";
+import BandeiraPickerModal from "./BandeiraPickerModal";
+
+import {
+  Info,
+  CreditCard,
+  Wallet,
+  Building2,
+  ChevronRight,
+  AlertCircle,
+} from "lucide-react";
+import Image from "next/image";
 
 type TipoCartao = "credito" | "debito";
 
 interface Props {
-    initialValues: Cartao | null;
-    onSubmit: (values: CreateCartaoDTO | UpdateCartaoDTO) => Promise<void>;
-    onCancel?: () => void;
+  initialValues: Cartao | null;
+  onSubmit: (values: CreateCartaoDTO | UpdateCartaoDTO) => Promise<void>;
+  onCancel?: () => void;
 }
 
-export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props) {
-    const { data: contas = [] } = useContas();
+export default function CartaoForm({
+  initialValues,
+  onSubmit,
+  onCancel,
+}: Props) {
+  const { data: contas = [] } = useContas();
 
-    const [form, setForm] = useState({
-        nome: "",
-        tipo: "credito" as TipoCartao,
-        bandeira: "",
-        empresa: "",
-        limite: "",
-        diaFechamento: "",
-        diaVencimento: "",
-        ativo: true,
-        observacoes: "",
-        contaVinculadaId: "none",
+  // Estados do formulário
+  const [form, setForm] = useState({
+    nome: "",
+    tipo: "credito" as TipoCartao,
+    bandeira: "",
+    empresa: "",
+    limite: "",
+    diaFechamento: "",
+    diaVencimento: "",
+    ativo: true,
+    observacoes: "",
+    contaVinculadaId: "none",
+  });
+
+  // Estados dos pickers
+  const [empresaPickerAberto, setEmpresaPickerAberto] = useState(false);
+  const [bandeiraPickerAberto, setBandeiraPickerAberto] = useState(false);
+
+  // Estado do input calculadora (dígitos do limite)
+  const [limitDigitos, setLimitDigitos] = useState("");
+
+  // Estados de validação
+  const [erros, setErros] = useState<Record<string, string>>({});
+  const [camposTocados, setCamposTocados] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  useEffect(() => {
+    if (initialValues) {
+      const limiteInicial = initialValues.limite
+        ? Math.round(Number(initialValues.limite) * 100).toString()
+        : "";
+
+      setForm({
+        nome: initialValues.nome,
+        tipo: initialValues.tipo,
+        bandeira: initialValues.bandeira,
+        empresa: initialValues.empresa || "",
+        limite: initialValues.limite ? Number(initialValues.limite).toFixed(2) : "",
+        diaFechamento: initialValues.diaFechamento?.toString() ?? "",
+        diaVencimento: initialValues.diaVencimento?.toString() ?? "",
+        ativo: initialValues.ativo,
+        observacoes: initialValues.observacoes ?? "",
+        contaVinculadaId: initialValues.contaVinculadaId ?? "none",
+      });
+
+      setLimitDigitos(limiteInicial);
+    }
+  }, [initialValues]);
+
+  // Função para formatar valor tipo calculadora
+  function formatarValorCalculadora(digitos: string): string {
+    if (!digitos) return "R$ 0,00";
+    const valorEmCentavos = parseInt(digitos, 10);
+    const valorEmReais = valorEmCentavos / 100;
+    return `R$ ${valorEmReais.toFixed(2).replace(".", ",")}`;
+  }
+
+  // Handler do input calculadora
+  function handleLimiteChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const apenasNumeros = e.target.value.replace(/\D/g, "");
+
+    // Limita a 10 dígitos (R$ 99.999.999,99)
+    const limitado = apenasNumeros.slice(0, 10);
+
+    setLimitDigitos(limitado);
+
+    // Converte para valor decimal e atualiza o form
+    const valorEmReais = limitado ? (parseInt(limitado, 10) / 100).toFixed(2) : "";
+    handleChange("limite", valorEmReais);
+  }
+
+  function handleChange(field: string, value: any) {
+    setForm((f) => {
+      const updated = { ...f, [field]: value };
+
+      // Ao mudar de crédito para débito, resetar campos de fatura
+      if (field === "tipo") {
+        if (value === "debito") {
+          updated.limite = "";
+          updated.diaFechamento = "";
+          updated.diaVencimento = "";
+          setLimitDigitos("");
+        }
+      }
+
+      return updated;
     });
 
-    useEffect(() => {
-        if (initialValues) {
-            setForm({
-                nome: initialValues.nome,
-                tipo: initialValues.tipo,
-                bandeira: initialValues.bandeira,
-                empresa: initialValues.empresa || "",
-                limite: initialValues.limite ? Number(initialValues.limite).toString() : "",
-                diaFechamento: initialValues.diaFechamento?.toString() ?? "",
-                diaVencimento: initialValues.diaVencimento?.toString() ?? "",
-                ativo: initialValues.ativo,
-                observacoes: initialValues.observacoes ?? "",
-                contaVinculadaId: initialValues.contaVinculadaId ?? "none",
-            });
+    // Marcar campo como tocado
+    setCamposTocados((prev) => ({ ...prev, [field]: true }));
+
+    // Validar campo
+    validarCampo(field, value);
+  }
+
+  function validarCampo(field: string, value: any) {
+    const novosErros = { ...erros };
+
+    switch (field) {
+      case "nome":
+        if (!value?.trim()) {
+          novosErros.nome = "Nome é obrigatório";
+        } else {
+          delete novosErros.nome;
         }
-    }, [initialValues]);
+        break;
 
-    function handleChange(field: string, value: any) {
-        setForm((f) => {
-            const updated = { ...f, [field]: value };
-            
-            // ✅ Ao mudar de crédito para débito, resetar campos de fatura
-            if (field === "tipo") {
-                if (value === "debito") {
-                    updated.limite = "";
-                    updated.diaFechamento = "";
-                    updated.diaVencimento = "";
-                }
-            }
-            
-            return updated;
-        });
-    }
-
-    async function handleSubmit() {
-        if (!form.nome?.trim()) {
-            alert("Informe o nome do cartão");
-            return;
+      case "empresa":
+        if (!value) {
+          novosErros.empresa = "Selecione o banco emissor";
+        } else {
+          delete novosErros.empresa;
         }
+        break;
 
-        if (!form.tipo) {
-            alert("Informe o tipo do cartão");
-            return;
+      case "bandeira":
+        if (!value) {
+          novosErros.bandeira = "Selecione a bandeira";
+        } else {
+          delete novosErros.bandeira;
         }
+        break;
 
-        if (!form.bandeira) {
-            alert("Informe a bandeira do cartão");
-            return;
+      case "contaVinculadaId":
+        if (form.tipo === "debito" && (!value || value === "none")) {
+          novosErros.contaVinculadaId =
+            "Conta vinculada é obrigatória para cartão de débito";
+        } else {
+          delete novosErros.contaVinculadaId;
         }
+        break;
 
-        if (!form.empresa) {
-            alert("Informe a empresa do cartão");
-            return;
-        }
-
-        // ✅ NOVO: Validação para cartão de débito
-        if (form.tipo === "debito") {
-            if (!form.contaVinculadaId || form.contaVinculadaId === "none") {
-                alert("Cartão de débito precisa estar vinculado a uma conta");
-                return;
-            }
-        }
-
-        // Validações para crédito
+      case "limite":
         if (form.tipo === "credito") {
-            const limite = Number(form.limite);
-
-            if (!Number.isFinite(limite) || limite <= 0) {
-                alert("Informe um limite válido para o cartão de crédito");
-                return;
-            }
-
-            if (!form.diaFechamento) {
-                alert("Informe o dia de fechamento da fatura");
-                return;
-            }
-
-            if (!form.diaVencimento) {
-                alert("Informe o dia de vencimento da fatura");
-                return;
-            }
+          const limite = Number(value);
+          if (!Number.isFinite(limite) || limite <= 0) {
+            novosErros.limite = "Informe um limite válido";
+          } else {
+            delete novosErros.limite;
+          }
         }
+        break;
 
-        const payload: CreateCartaoDTO | UpdateCartaoDTO = {
-            nome: form.nome.trim(),
-            tipo: form.tipo,
-            bandeira: form.bandeira,
-            empresa: form.empresa,
-            limite: form.tipo === "credito" ? Number(form.limite) : 0,
-            diaFechamento:
-                form.tipo === "credito" ? Number(form.diaFechamento) : null,
-            diaVencimento:
-                form.tipo === "credito" ? Number(form.diaVencimento) : null,
-            ativo: form.ativo,
-            observacoes: form.observacoes || null,
-            contaVinculadaId: form.contaVinculadaId === "none" ? null : form.contaVinculadaId,
-        };
+      case "diaFechamento":
+        if (form.tipo === "credito" && !value) {
+          novosErros.diaFechamento = "Informe o dia de fechamento";
+        } else {
+          delete novosErros.diaFechamento;
+        }
+        break;
 
-        await onSubmit(payload);
+      case "diaVencimento":
+        if (form.tipo === "credito" && !value) {
+          novosErros.diaVencimento = "Informe o dia de vencimento";
+        } else {
+          delete novosErros.diaVencimento;
+        }
+        break;
     }
 
-    const contasAtivas = contas.filter(c => c.ativo);
+    setErros(novosErros);
+  }
 
-    return (
-        <div className="space-y-4">
-            {/* Descrição do modal */}
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Preencha os dados abaixo para cadastrar ou editar um cartão.
-            </p>
+  function validarFormulario(): boolean {
+    const todosErros: Record<string, string> = {};
 
-            {/* Nome + Tipo */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                <div>
-                    <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Nome</p>
-                    <Input
-                        placeholder="Nome do cartão"
-                        value={form.nome}
-                        onChange={(e) => handleChange("nome", e.target.value)}
-                    />
-                </div>
+    if (!form.nome?.trim()) {
+      todosErros.nome = "Nome é obrigatório";
+    }
 
-                <div>
-                    <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Tipo</p>
-                    <Select
-                        value={form.tipo}
-                        onValueChange={(v: TipoCartao) => handleChange("tipo", v)}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Tipo" />
-                        </SelectTrigger>
-                        <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-                            <SelectItem value="credito">
-                                <div className="flex items-center gap-2">
-                                    <CreditCard className="h-4 w-4" />
-                                    Crédito
-                                </div>
-                            </SelectItem>
-                            <SelectItem value="debito">
-                                <div className="flex items-center gap-2">
-                                    <Wallet className="h-4 w-4" />
-                                    Débito
-                                </div>
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
+    if (!form.empresa) {
+      todosErros.empresa = "Selecione o banco emissor";
+    }
 
-            {/* Banco e Bandeira */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <CampoSelect
-                    label="Banco emissor"
-                    value={form.empresa}
-                    onChange={(v) => handleChange("empresa", v)}
-                    options={empresaOptions}
-                />
-                <CampoSelect
-                    label="Bandeira"
-                    value={form.bandeira}
-                    onChange={(v) => handleChange("bandeira", v)}
-                    options={bandeiraOptions}
-                />
-            </div>
+    if (!form.bandeira) {
+      todosErros.bandeira = "Selecione a bandeira";
+    }
 
-            {/* ✅ CONTA VINCULADA - Crédito (opcional) ou Débito (obrigatório) */}
-            <div>
-                <div className="flex items-center gap-2 mb-1">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {form.tipo === "credito" 
-                            ? "Conta para pagamento da fatura" 
-                            : "Conta vinculada"}
-                    </p>
-                    <Info className="h-4 w-4 text-gray-400" />
-                    {form.tipo === "debito" && (
-                        <span className="text-xs text-red-500 font-medium">Obrigatório</span>
-                    )}
-                </div>
-                <Select
-                    value={form.contaVinculadaId}
-                    onValueChange={(v) => handleChange("contaVinculadaId", v)}
-                >
-                    <SelectTrigger>
-                        <SelectValue placeholder={
-                            form.tipo === "debito" 
-                                ? "Selecione a conta vinculada" 
-                                : "Selecione uma conta (opcional)"
-                        } />
-                    </SelectTrigger>
-                    <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-                        {form.tipo === "credito" && (
-                            <SelectItem value="none">Nenhuma (definir depois)</SelectItem>
-                        )}
-                        {contasAtivas.length > 0 ? (
-                            contasAtivas.map(conta => (
-                                <SelectItem key={conta.id} value={conta.id}>
-                                    {conta.nome} - R$ {Number(conta.saldoAtual).toFixed(2)}
-                                    {conta.banco && ` (${conta.banco})`}
-                                </SelectItem>
-                            ))
-                        ) : (
-                            <SelectItem value="no-accounts" disabled>
-                                Nenhuma conta cadastrada
-                            </SelectItem>
-                        )}
-                    </SelectContent>
-                </Select>
-                
-                {/* ✅ Mensagens explicativas diferentes por tipo */}
-                {form.tipo === "credito" ? (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        💡 Esta conta será usada como padrão para pagar a fatura do cartão
-                    </p>
-                ) : (
-                    <Alert className="mt-2 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
-                        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        <AlertDescription className="text-blue-800 dark:text-blue-300 text-sm">
-                            <p className="font-medium">Cartão de débito</p>
-                            <p className="text-xs mt-1">
-                                Transações com este cartão serão descontadas imediatamente da conta vinculada.
-                            </p>
-                        </AlertDescription>
-                    </Alert>
-                )}
-            </div>
+    if (form.tipo === "debito") {
+      if (!form.contaVinculadaId || form.contaVinculadaId === "none") {
+        todosErros.contaVinculadaId =
+          "Conta vinculada é obrigatória para cartão de débito";
+      }
+    }
 
-            {/* ✅ Campos de crédito (só aparecem para tipo crédito) */}
-            {form.tipo === "credito" && (
-                <>
-                    {/* Limite e Ativo */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                        <div>
-                            <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                                Limite (R$)
-                            </p>
-                            <Input
-                                type="number"
-                                placeholder="R$ 0,00"
-                                value={form.limite}
-                                onChange={(e) => handleChange("limite", e.target.value)}
-                            />
-                        </div>
-                        <div className="flex items-center gap-3 pt-2">
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Ativo</p>
-                            <Switch
-                                checked={form.ativo}
-                                onCheckedChange={(v) => handleChange("ativo", v)}
-                            />
-                        </div>
-                    </div>
+    if (form.tipo === "credito") {
+      const limite = Number(form.limite);
+      if (!Number.isFinite(limite) || limite <= 0) {
+        todosErros.limite = "Informe um limite válido";
+      }
 
-                    {/* Fechamento e Vencimento */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                                Dia de fechamento
-                            </p>
-                            <Input
-                                type="number"
-                                placeholder="Fechamento"
-                                min="1"
-                                max="31"
-                                value={form.diaFechamento}
-                                onChange={(e) =>
-                                    handleChange("diaFechamento", e.target.value)
-                                }
-                            />
-                        </div>
+      if (!form.diaFechamento) {
+        todosErros.diaFechamento = "Informe o dia de fechamento";
+      }
 
-                        <div>
-                            <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                                Dia de vencimento
-                            </p>
-                            <Input
-                                type="number"
-                                placeholder="Vencimento"
-                                min="1"
-                                max="31"
-                                value={form.diaVencimento}
-                                onChange={(e) =>
-                                    handleChange("diaVencimento", e.target.value)
-                                }
-                            />
-                        </div>
-                    </div>
-                </>
-            )}
+      if (!form.diaVencimento) {
+        todosErros.diaVencimento = "Informe o dia de vencimento";
+      }
+    }
 
-            {/* ✅ Campo Ativo para débito */}
-            {form.tipo === "debito" && (
-                <div className="flex items-center gap-3">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Ativo</p>
-                    <Switch
-                        checked={form.ativo}
-                        onCheckedChange={(v) => handleChange("ativo", v)}
-                    />
-                </div>
-            )}
+    setErros(todosErros);
 
-            {/* Observações */}
-            <div>
-                <p className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    Observações
-                </p>
-                <Textarea
-                    placeholder="Informações adicionais, lembretes, regras do cartão, etc."
-                    value={form.observacoes}
-                    onChange={(e) => handleChange("observacoes", e.target.value)}
-                    className="min-h-[80px]"
-                />
-            </div>
-
-            {/* Botões */}
-            <div className="pt-4 flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={onCancel}>
-                    Cancelar
-                </Button>
-
-                <Button type="submit" onClick={handleSubmit}>
-                    {initialValues ? "Salvar" : "Adicionar"}
-                </Button>
-            </div>
-        </div>
+    // Marca todos os campos como tocados
+    const todosCamposTocados = Object.keys(form).reduce(
+      (acc, key) => ({ ...acc, [key]: true }),
+      {}
     );
+    setCamposTocados(todosCamposTocados);
+
+    return Object.keys(todosErros).length === 0;
+  }
+
+  async function handleSubmit() {
+    if (!validarFormulario()) {
+      return;
+    }
+
+    const payload: CreateCartaoDTO | UpdateCartaoDTO = {
+      nome: form.nome.trim(),
+      tipo: form.tipo,
+      bandeira: form.bandeira,
+      empresa: form.empresa,
+      limite: form.tipo === "credito" ? Number(form.limite) : 0,
+      diaFechamento:
+        form.tipo === "credito" ? Number(form.diaFechamento) : null,
+      diaVencimento:
+        form.tipo === "credito" ? Number(form.diaVencimento) : null,
+      ativo: form.ativo,
+      observacoes: form.observacoes || null,
+      contaVinculadaId:
+        form.contaVinculadaId === "none" ? null : form.contaVinculadaId,
+    };
+
+    await onSubmit(payload);
+  }
+
+  const contasAtivas = contas.filter((c) => c.ativo);
+  const empresaSelecionada = empresaOptions.find((e) => e.value === form.empresa);
+  const bandeiraSelecionada = bandeiraOptions.find(
+    (b) => b.value === form.bandeira
+  );
+
+  const temErros = Object.keys(erros).length > 0;
+
+  return (
+    <div className="space-y-5">
+      {/* Nome do Cartão */}
+      <div>
+        <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
+          Nome do Cartão <span className="text-red-500">*</span>
+        </label>
+        <Input
+          placeholder="Ex: Nubank Roxo, C6 Carbon, etc."
+          value={form.nome}
+          onChange={(e) => handleChange("nome", e.target.value)}
+          onBlur={() => setCamposTocados((prev) => ({ ...prev, nome: true }))}
+          className={
+            camposTocados.nome && erros.nome
+              ? "border-red-500 dark:border-red-500"
+              : ""
+          }
+        />
+        {camposTocados.nome && erros.nome && (
+          <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            {erros.nome}
+          </p>
+        )}
+      </div>
+
+      {/* Tipo de Cartão - Botões Visuais */}
+      <div>
+        <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
+          Tipo de Cartão <span className="text-red-500">*</span>
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => handleChange("tipo", "credito")}
+            className={`
+              h-24 border-2 rounded-lg transition-all duration-200
+              flex flex-col items-center justify-center gap-2
+              ${
+                form.tipo === "credito"
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-950 dark:border-blue-400"
+                  : "border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600"
+              }
+            `}
+          >
+            <CreditCard
+              className={`h-8 w-8 ${
+                form.tipo === "credito"
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-gray-400 dark:text-gray-500"
+              }`}
+            />
+            <span
+              className={`text-sm font-medium ${
+                form.tipo === "credito"
+                  ? "text-blue-700 dark:text-blue-300"
+                  : "text-gray-600 dark:text-gray-400"
+              }`}
+            >
+              Crédito
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleChange("tipo", "debito")}
+            className={`
+              h-24 border-2 rounded-lg transition-all duration-200
+              flex flex-col items-center justify-center gap-2
+              ${
+                form.tipo === "debito"
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-950 dark:border-blue-400"
+                  : "border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600"
+              }
+            `}
+          >
+            <Wallet
+              className={`h-8 w-8 ${
+                form.tipo === "debito"
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-gray-400 dark:text-gray-500"
+              }`}
+            />
+            <span
+              className={`text-sm font-medium ${
+                form.tipo === "debito"
+                  ? "text-blue-700 dark:text-blue-300"
+                  : "text-gray-600 dark:text-gray-400"
+              }`}
+            >
+              Débito
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Banco Emissor - Picker Visual */}
+      <div>
+        <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
+          Banco Emissor <span className="text-red-500">*</span>
+        </label>
+        <button
+          type="button"
+          onClick={() => setEmpresaPickerAberto(true)}
+          className={`
+            w-full h-14 px-4 border rounded-lg
+            flex items-center justify-between
+            transition-colors duration-200
+            ${
+              camposTocados.empresa && erros.empresa
+                ? "border-red-500 dark:border-red-500"
+                : "border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500"
+            }
+            ${
+              empresaSelecionada
+                ? "bg-white dark:bg-gray-800"
+                : "bg-gray-50 dark:bg-gray-900"
+            }
+          `}
+        >
+          <div className="flex items-center gap-3">
+            {empresaSelecionada?.imgSrc ? (
+              <Image
+                src={empresaSelecionada.imgSrc}
+                alt={empresaSelecionada.label}
+                width={28}
+                height={28}
+                className="object-contain"
+              />
+            ) : (
+              <Building2 className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+            )}
+            <span
+              className={
+                empresaSelecionada
+                  ? "text-gray-900 dark:text-gray-100 font-medium"
+                  : "text-gray-500 dark:text-gray-400"
+              }
+            >
+              {empresaSelecionada?.label || "Selecionar banco emissor"}
+            </span>
+          </div>
+          <ChevronRight className="h-5 w-5 text-gray-400" />
+        </button>
+        {camposTocados.empresa && erros.empresa && (
+          <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            {erros.empresa}
+          </p>
+        )}
+      </div>
+
+      {/* Bandeira - Picker Visual */}
+      <div>
+        <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
+          Bandeira <span className="text-red-500">*</span>
+        </label>
+        <button
+          type="button"
+          onClick={() => setBandeiraPickerAberto(true)}
+          className={`
+            w-full h-14 px-4 border rounded-lg
+            flex items-center justify-between
+            transition-colors duration-200
+            ${
+              camposTocados.bandeira && erros.bandeira
+                ? "border-red-500 dark:border-red-500"
+                : "border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500"
+            }
+            ${
+              bandeiraSelecionada
+                ? "bg-white dark:bg-gray-800"
+                : "bg-gray-50 dark:bg-gray-900"
+            }
+          `}
+        >
+          <div className="flex items-center gap-3">
+            {bandeiraSelecionada?.imgSrc ? (
+              <Image
+                src={bandeiraSelecionada.imgSrc}
+                alt={bandeiraSelecionada.label}
+                width={32}
+                height={32}
+                className="object-contain"
+              />
+            ) : (
+              <CreditCard className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+            )}
+            <span
+              className={
+                bandeiraSelecionada
+                  ? "text-gray-900 dark:text-gray-100 font-medium"
+                  : "text-gray-500 dark:text-gray-400"
+              }
+            >
+              {bandeiraSelecionada?.label || "Selecionar bandeira"}
+            </span>
+          </div>
+          <ChevronRight className="h-5 w-5 text-gray-400" />
+        </button>
+        {camposTocados.bandeira && erros.bandeira && (
+          <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            {erros.bandeira}
+          </p>
+        )}
+      </div>
+
+      {/* Limite (apenas para crédito) - Input Calculadora */}
+      {form.tipo === "credito" && (
+        <div>
+          <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
+            Limite do Cartão <span className="text-red-500">*</span>
+          </label>
+          <Input
+            type="text"
+            inputMode="numeric"
+            placeholder="R$ 0,00"
+            value={formatarValorCalculadora(limitDigitos)}
+            onChange={handleLimiteChange}
+            onBlur={() =>
+              setCamposTocados((prev) => ({ ...prev, limite: true }))
+            }
+            className={`text-lg font-semibold ${
+              camposTocados.limite && erros.limite
+                ? "border-red-500 dark:border-red-500"
+                : ""
+            }`}
+          />
+          {camposTocados.limite && erros.limite && (
+            <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {erros.limite}
+            </p>
+          )}
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            💡 Digite apenas números. Ex: 500000 = R$ 5.000,00
+          </p>
+        </div>
+      )}
+
+      {/* Dias de Fechamento e Vencimento (apenas para crédito) */}
+      {form.tipo === "credito" && (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
+              Dia Fechamento <span className="text-red-500">*</span>
+            </label>
+            <Input
+              type="number"
+              placeholder="1-31"
+              min="1"
+              max="31"
+              value={form.diaFechamento}
+              onChange={(e) => handleChange("diaFechamento", e.target.value)}
+              onBlur={() =>
+                setCamposTocados((prev) => ({ ...prev, diaFechamento: true }))
+              }
+              className={
+                camposTocados.diaFechamento && erros.diaFechamento
+                  ? "border-red-500 dark:border-red-500"
+                  : ""
+              }
+            />
+            {camposTocados.diaFechamento && erros.diaFechamento && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {erros.diaFechamento}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
+              Dia Vencimento <span className="text-red-500">*</span>
+            </label>
+            <Input
+              type="number"
+              placeholder="1-31"
+              min="1"
+              max="31"
+              value={form.diaVencimento}
+              onChange={(e) => handleChange("diaVencimento", e.target.value)}
+              onBlur={() =>
+                setCamposTocados((prev) => ({ ...prev, diaVencimento: true }))
+              }
+              className={
+                camposTocados.diaVencimento && erros.diaVencimento
+                  ? "border-red-500 dark:border-red-500"
+                  : ""
+              }
+            />
+            {camposTocados.diaVencimento && erros.diaVencimento && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {erros.diaVencimento}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Conta Vinculada */}
+      <div>
+        <div className="flex items-center gap-2 mb-1.5">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {form.tipo === "credito"
+              ? "Conta para Pagamento da Fatura"
+              : "Conta Vinculada"}
+          </label>
+          {form.tipo === "debito" && (
+            <span className="text-xs text-red-500 font-medium">*</span>
+          )}
+        </div>
+        <Select
+          value={form.contaVinculadaId}
+          onValueChange={(v) => handleChange("contaVinculadaId", v)}
+        >
+          <SelectTrigger
+            className={
+              camposTocados.contaVinculadaId && erros.contaVinculadaId
+                ? "border-red-500 dark:border-red-500"
+                : ""
+            }
+          >
+            <SelectValue
+              placeholder={
+                form.tipo === "debito"
+                  ? "Selecione a conta vinculada"
+                  : "Selecione uma conta (opcional)"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+            {form.tipo === "credito" && (
+              <SelectItem value="none">Nenhuma (definir depois)</SelectItem>
+            )}
+            {contasAtivas.length > 0 ? (
+              contasAtivas.map((conta) => (
+                <SelectItem key={conta.id} value={conta.id}>
+                  {conta.nome} - R$ {Number(conta.saldoAtual).toFixed(2)}
+                  {conta.banco && ` (${conta.banco})`}
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem value="no-accounts" disabled>
+                Nenhuma conta cadastrada
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+        {camposTocados.contaVinculadaId && erros.contaVinculadaId && (
+          <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            {erros.contaVinculadaId}
+          </p>
+        )}
+
+        {/* Info de acordo com o tipo */}
+        {form.tipo === "credito" ? (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+            💡 Esta conta será usada como padrão para pagar a fatura do cartão
+          </p>
+        ) : (
+          <Alert className="mt-2 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="text-blue-800 dark:text-blue-300 text-xs">
+              <p className="font-medium">Cartão de débito</p>
+              <p className="mt-0.5">
+                Transações com este cartão serão descontadas imediatamente da
+                conta vinculada.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
+
+      {/* Observações - Colapsável */}
+      <details className="group">
+        <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2 select-none">
+          Observações (opcional)
+          <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />
+        </summary>
+        <div className="mt-2">
+          <Textarea
+            placeholder="Informações adicionais, lembretes, regras do cartão, etc."
+            value={form.observacoes}
+            onChange={(e) => handleChange("observacoes", e.target.value)}
+            className="min-h-[80px] resize-none"
+          />
+        </div>
+      </details>
+
+      {/* Botões de Ação */}
+      <div className="pt-2 flex gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="flex-1"
+        >
+          Cancelar
+        </Button>
+
+        <Button
+          type="button"
+          onClick={handleSubmit}
+          disabled={temErros}
+          className="flex-1"
+        >
+          {initialValues ? "Salvar Alterações" : "Adicionar Cartão"}
+        </Button>
+      </div>
+
+      {/* Modais Pickers */}
+      <EmpresaPickerModal
+        aberto={empresaPickerAberto}
+        onClose={() => setEmpresaPickerAberto(false)}
+        onSelect={(value) => {
+          handleChange("empresa", value);
+          setCamposTocados((prev) => ({ ...prev, empresa: true }));
+        }}
+        empresaAtual={form.empresa}
+      />
+
+      <BandeiraPickerModal
+        aberto={bandeiraPickerAberto}
+        onClose={() => setBandeiraPickerAberto(false)}
+        onSelect={(value) => {
+          handleChange("bandeira", value);
+          setCamposTocados((prev) => ({ ...prev, bandeira: true }));
+        }}
+        bandeiraAtual={form.bandeira}
+      />
+    </div>
+  );
 }
