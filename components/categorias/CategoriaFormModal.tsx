@@ -69,7 +69,8 @@ export default function CategoriaFormModal({
         setIcone("FaWallet");
       }
       setErrors({});
-      setTouched({});
+      // ✅ FIX: Tipo já tem valor padrão, marcar como touched
+      setTouched({ tipo: true });
     }
   }, [categoria, aberto]);
 
@@ -130,7 +131,12 @@ export default function CategoriaFormModal({
   const handleTipoChange = (value: "entrada" | "saida") => {
     setTipo(value);
     setTouched(prev => ({ ...prev, tipo: true }));
-    setErrors(prev => ({ ...prev, tipo: undefined }));
+    // ✅ FIX: Limpar erro de tipo imediatamente
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors.tipo;
+      return newErrors;
+    });
   };
 
   const salvar = async () => {
@@ -187,7 +193,13 @@ export default function CategoriaFormModal({
   };
 
   const isNomeValido = nome.trim().length >= 2 && !errors.nome;
-  const temErros = Object.keys(errors).length > 0;
+  
+  // ✅ FIX: Validação mais precisa do botão
+  // Desabilita apenas se:
+  // 1. Está carregando
+  // 2. Nome está vazio ou muito curto
+  // 3. Nome tem erro de validação real
+  const botaoDesabilitado = loading || !nome.trim() || nome.trim().length < 2 || !!errors.nome;
 
   return (
     <>
@@ -229,7 +241,7 @@ export default function CategoriaFormModal({
                     onBlur={handleNomeBlur}
                     onKeyDown={handleKeyDown}
                     placeholder="Ex: Alimentação, Transporte, Saúde"
-                    className={`pr-10 ${
+                    className={`pr-10 h-12 ${
                       errors.nome 
                         ? "border-red-500 dark:border-red-500" 
                         : touched.nome && isNomeValido 
@@ -274,7 +286,7 @@ export default function CategoriaFormModal({
                     onClick={() => handleTipoChange("entrada")}
                     disabled={loading}
                     className={`
-                      h-24 border-2 rounded-lg transition-all duration-200
+                      h-20 border-2 rounded-lg transition-all duration-200
                       flex flex-col items-center justify-center gap-2
                       ${
                         tipo === "entrada"
@@ -285,7 +297,7 @@ export default function CategoriaFormModal({
                     `}
                   >
                     <TrendingUp
-                      className={`h-8 w-8 ${
+                      className={`h-7 w-7 ${
                         tipo === "entrada"
                           ? "text-green-600 dark:text-green-400"
                           : "text-gray-400 dark:text-gray-500"
@@ -308,7 +320,7 @@ export default function CategoriaFormModal({
                     onClick={() => handleTipoChange("saida")}
                     disabled={loading}
                     className={`
-                      h-24 border-2 rounded-lg transition-all duration-200
+                      h-20 border-2 rounded-lg transition-all duration-200
                       flex flex-col items-center justify-center gap-2
                       ${
                         tipo === "saida"
@@ -319,7 +331,7 @@ export default function CategoriaFormModal({
                     `}
                   >
                     <TrendingDown
-                      className={`h-8 w-8 ${
+                      className={`h-7 w-7 ${
                         tipo === "saida"
                           ? "text-red-600 dark:text-red-400"
                           : "text-gray-400 dark:text-gray-500"
@@ -368,7 +380,7 @@ export default function CategoriaFormModal({
                       onClick={() => setIconPickerOpen(true)}
                       disabled={loading}
                       className={`
-                        w-full h-14 px-4 border rounded-lg
+                        w-full h-12 px-4 border rounded-lg
                         flex items-center justify-between
                         transition-colors duration-200
                         border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500
@@ -414,15 +426,15 @@ export default function CategoriaFormModal({
                 variant="outline"
                 onClick={handleClose}
                 disabled={loading}
-                className="flex-1 hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="flex-1 h-12 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Cancelar
               </Button>
               <Button
                 type="button"
                 onClick={salvar}
-                disabled={loading || temErros || !nome.trim() || nome.trim().length < 2}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
+                disabled={botaoDesabilitado}
+                className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
               >
                 {loading ? (
                   <>
