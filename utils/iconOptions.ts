@@ -495,10 +495,234 @@ export const iconOptions = [
   { name: "FaRocket", component: FaRocket, category: "Tecnologia" },
   { name: "FaRobot", component: FaRobot, category: "Tecnologia" },
 
-  // === OUTROS ===
+  // === ESPORTES ===
+  { name: "FaBasketballBall", component: FaBasketballBall, category: "Esportes" },
+  { name: "FaFootballBall", component: FaFootballBall, category: "Esportes" },
+  { name: "FaVolleyballBall", component: FaVolleyballBall, category: "Esportes" },
+  { name: "FaTableTennis", component: FaTableTennis, category: "Esportes" },
+  { name: "FaSwimmer", component: FaSwimmer, category: "Esportes" },
+  { name: "FaSkiing", component: FaSkiing, category: "Esportes" },
+  { name: "FaHiking", component: FaHiking, category: "Esportes" },
+  { name: "MdPool", component: MdPool, category: "Esportes" },
+
+  // === BEBIDAS ===
+  { name: "FaGlassMartini", component: FaGlassMartini, category: "Bebidas" },
+  { name: "FaGlassWhiskey", component: FaGlassWhiskey, category: "Bebidas" },
+  { name: "FaGlassCheers", component: FaGlassCheers, category: "Bebidas" },
+  { name: "FaMugHot", component: FaMugHot, category: "Bebidas" },
+  { name: "FaWineBottle", component: FaWineBottle, category: "Bebidas" },
+  { name: "MdLocalDrink", component: MdLocalDrink, category: "Bebidas" },
+  { name: "MdCoffeeMaker", component: MdCoffeeMaker, category: "Bebidas" },
+
+  // === FAMÍLIA & CRIANÇAS ===
+  { name: "FaBaby", component: FaBaby, category: "Família" },
+  { name: "FaBabyCarriage", component: FaBabyCarriage, category: "Família" },
+  { name: "MdChildCare", component: MdChildCare, category: "Família" },
+
+  // === NATUREZA & CLIMA ===
+  { name: "FaSeedling", component: FaSeedling, category: "Natureza" },
+  { name: "FaSun", component: FaSun, category: "Natureza" },
+  { name: "FaMoon", component: FaMoon, category: "Natureza" },
+  { name: "FaSnowflake", component: FaSnowflake, category: "Natureza" },
+  { name: "FaCompass", component: FaCompass, category: "Natureza" },
+
+  // === COMUNICAÇÃO ===
+  { name: "FaEnvelope", component: FaEnvelope, category: "Comunicação" },
+  { name: "FaMailBulk", component: FaMailBulk, category: "Comunicação" },
+  { name: "FaInbox", component: FaInbox, category: "Comunicação" },
+  { name: "FaPaperPlane", component: FaPaperPlane, category: "Comunicação" },
+  { name: "FaComment", component: FaComment, category: "Comunicação" },
+  { name: "FaComments", component: FaComments, category: "Comunicação" },
+  { name: "FaBullhorn", component: FaBullhorn, category: "Comunicação" },
+  { name: "MdLocalPostOffice", component: MdLocalPostOffice, category: "Comunicação" },
+
+  // === DOCUMENTOS & ARQUIVOS ===
+  { name: "FaBookmark", component: FaBookmark, category: "Documentos" },
+  { name: "FaClipboard", component: FaClipboard, category: "Documentos" },
+  { name: "FaStickyNote", component: FaStickyNote, category: "Documentos" },
+  { name: "FaFolderOpen", component: FaFolderOpen, category: "Documentos" },
+  { name: "FaArchive", component: FaArchive, category: "Documentos" },
+  { name: "FaFileContract", component: FaFileContract, category: "Documentos" },
+  { name: "FaFileSignature", component: FaFileSignature, category: "Documentos" },
+  { name: "FaStamp", component: FaStamp, category: "Documentos" },
+  { name: "FaSignature", component: FaSignature, category: "Documentos" },
+  { name: "FaScroll", component: FaScroll, category: "Documentos" },
+
+  // === ESCRITÓRIO & MATERIAL ===
+  { name: "FaPen", component: FaPen, category: "Escritório" },
+  { name: "FaHighlighter", component: FaHighlighter, category: "Escritório" },
+  { name: "FaEraser", component: FaEraser, category: "Escritório" },
+  { name: "FaRuler", component: FaRuler, category: "Escritório" },
+  { name: "FaPrint", component: FaPrint, category: "Escritório" },
+
+  // === CIÊNCIA & PESQUISA ===
+  { name: "FaFlask", component: FaFlask, category: "Ciência" },
+  { name: "FaMicroscope", component: FaMicroscope, category: "Ciência" },
+  { name: "FaAtom", component: FaAtom, category: "Ciência" },
+  { name: "FaDna", component: FaDna, category: "Ciência" },
+  { name: "FaBrain", component: FaBrain, category: "Ciência" },
+
+  // === MEDICINA & EMERGÊNCIA ===
+  { name: "FaBandAid", component: FaBandAid, category: "Medicina" },
+  { name: "FaThermometer", component: FaThermometer, category: "Medicina" },
+  { name: "FaXRay", component: FaXRay, category: "Medicina" },
+  { name: "FaEye", component: FaEye, category: "Medicina" },
+  { name: "FaUserNurse", component: FaUserNurse, category: "Medicina" },
+  { name: "FaBriefcaseMedical", component: FaBriefcaseMedical, category: "Medicina" },
+  { name: "FaAmbulance", component: FaAmbulance, category: "Medicina" },
+  { name: "FaHeartbeat", component: FaHeartbeat, category: "Medicina" },
+
+  // === RELIGIÃO & ESPIRITUALIDADE ===
+  { name: "FaHandHoldingHeart", component: FaHandHoldingHeart, category: "Religião" },
+  { name: "FaHandsHelping", component: FaHandsHelping, category: "Religião" },
+  { name: "FaPrayingHands", component: FaPrayingHands, category: "Religião" },
+  { name: "FaChurch", component: FaChurch, category: "Religião" },
+  { name: "FaMosque", component: FaMosque, category: "Religião" },
+  { name: "FaSynagogue", component: FaSynagogue, category: "Religião" },
+  { name: "FaYinYang", component: FaYinYang, category: "Religião" },
+  { name: "FaPeace", component: FaPeace, category: "Religião" },
+  { name: "FaDove", component: FaDove, category: "Religião" },
+
+  // === EMOÇÕES ===
+  { name: "FaSmile", component: FaSmile, category: "Emoções" },
+  { name: "FaLaugh", component: FaLaugh, category: "Emoções" },
+  { name: "FaGrinHearts", component: FaGrinHearts, category: "Emoções" },
+  { name: "FaKiss", component: FaKiss, category: "Emoções" },
+  { name: "FaAngry", component: FaAngry, category: "Emoções" },
+  { name: "FaSadTear", component: FaSadTear, category: "Emoções" },
+  { name: "FaTired", component: FaTired, category: "Emoções" },
+
+  // === FANTASIA & PERSONAGENS ===
+  { name: "FaGhost", component: FaGhost, category: "Fantasia" },
+  { name: "FaSkull", component: FaSkull, category: "Fantasia" },
+  { name: "FaHatWizard", component: FaHatWizard, category: "Fantasia" },
+  { name: "FaMask", component: FaMask, category: "Fantasia" },
+  { name: "FaUserNinja", component: FaUserNinja, category: "Fantasia" },
+  { name: "FaUserSecret", component: FaUserSecret, category: "Fantasia" },
+  { name: "FaDragon", component: FaDragon, category: "Fantasia" },
+  { name: "FaFeather", component: FaFeather, category: "Fantasia" },
+
+  // === USUÁRIOS & PERFIS ===
+  { name: "FaUserGraduate", component: FaUserGraduate, category: "Usuários" },
+  { name: "FaUserAstronaut", component: FaUserAstronaut, category: "Usuários" },
+  { name: "FaUserCog", component: FaUserCog, category: "Usuários" },
+  { name: "FaIdCard", component: FaIdCard, category: "Usuários" },
+  { name: "FaAddressCard", component: FaAddressCard, category: "Usuários" },
+
+  // === LOGÍSTICA & ENTREGA ===
+  { name: "FaShippingFast", component: FaShippingFast, category: "Logística" },
+  { name: "FaTruckMoving", component: FaTruckMoving, category: "Logística" },
+  { name: "FaAnchor", component: FaAnchor, category: "Logística" },
+  { name: "MdLocalShipping", component: MdLocalShipping, category: "Logística" },
+
+  // === MANUTENÇÃO & FERRAMENTAS ===
+  { name: "FaOilCan", component: FaOilCan, category: "Ferramentas" },
+  { name: "FaWrench", component: FaWrench, category: "Ferramentas" },
+  { name: "FaHammer", component: FaHammer, category: "Ferramentas" },
+  { name: "FaScrewdriver", component: FaScrewdriver, category: "Ferramentas" },
+  { name: "FaCog", component: FaCog, category: "Ferramentas" },
+  { name: "FaCogs", component: FaCogs, category: "Ferramentas" },
+  { name: "FaBug", component: FaBug, category: "Ferramentas" },
+
+  // === ENERGIA & UTILIDADES ===
+  { name: "FaBatteryFull", component: FaBatteryFull, category: "Energia" },
+  { name: "FaPlug", component: FaPlug, category: "Energia" },
+  { name: "FaLightbulb", component: FaLightbulb, category: "Energia" },
+  { name: "FaThunderbolt", component: FaThunderbolt, category: "Energia" },
+  { name: "FaLightning", component: FaLightning, category: "Energia" },
+
+  // === LIMPEZA & HIGIENE ===
+  { name: "FaTrash", component: FaTrash, category: "Limpeza" },
+  { name: "FaRecycle", component: FaRecycle, category: "Limpeza" },
+  { name: "FaSoap", component: FaSoap, category: "Limpeza" },
+  { name: "FaToiletPaper", component: FaToiletPaper, category: "Limpeza" },
+  { name: "FaShower", component: FaShower, category: "Limpeza" },
+  { name: "FaBath", component: FaBath, category: "Limpeza" },
+  { name: "FaFaucet", component: FaFaucet, category: "Limpeza" },
+  { name: "MdLocalCarWash", component: MdLocalCarWash, category: "Limpeza" },
+
+  // === SEGURANÇA ===
+  { name: "FaDoorClosed", component: FaDoorClosed, category: "Segurança" },
+  { name: "FaLock", component: FaLock, category: "Segurança" },
+  { name: "FaUnlock", component: FaUnlock, category: "Segurança" },
+  { name: "FaShieldAlt", component: FaShieldAlt, category: "Segurança" },
+  { name: "FaUserShield", component: FaUserShield, category: "Segurança" },
+  { name: "FaSecurityUser", component: FaSecurityUser, category: "Segurança" },
+  { name: "FaFingerprint", component: FaFingerprint, category: "Segurança" },
+  { name: "MdLocalPolice", component: MdLocalPolice, category: "Segurança" },
+  { name: "MdLocalFireDepartment", component: MdLocalFireDepartment, category: "Segurança" },
+  { name: "FaFireExtinguisher", component: FaFireExtinguisher, category: "Segurança" },
+  { name: "FaFireAlt", component: FaFireAlt, category: "Segurança" },
+
+  // === JURÍDICO ===
+  { name: "FaBalanceScale", component: FaBalanceScale, category: "Jurídico" },
+  { name: "FaGavel", component: FaGavel, category: "Jurídico" },
+  { name: "FaBalanceScaleLeft", component: FaBalanceScaleLeft, category: "Jurídico" },
+  { name: "FaBalanceScaleRight", component: FaBalanceScaleRight, category: "Jurídico" },
+
+  // === MOEDAS INTERNACIONAIS ===
+  { name: "FaPoundSign", component: FaPoundSign, category: "Moedas" },
+  { name: "FaRubleSign", component: FaRubleSign, category: "Moedas" },
+  { name: "FaYenSign", component: FaYenSign, category: "Moedas" },
+  { name: "FaRupeeSign", component: FaRupeeSign, category: "Moedas" },
+  { name: "FaEthereum", component: FaEthereum, category: "Moedas" },
+
+  // === GRÁFICOS & ANÁLISE ===
+  { name: "FaChartBar", component: FaChartBar, category: "Análise" },
+  { name: "FaChartArea", component: FaChartArea, category: "Análise" },
+
+  // === DOAÇÃO & CARIDADE ===
+  { name: "FaDonate", component: FaDonate, category: "Caridade" },
+  { name: "FaFunnelDollar", component: FaFunnelDollar, category: "Caridade" },
+
+  // === INSTITUIÇÕES ===
+  { name: "FaCity", component: FaCity, category: "Instituições" },
+  { name: "FaLandmark", component: FaLandmark, category: "Instituições" },
+  { name: "FaUniversity", component: FaUniversity, category: "Instituições" },
+  { name: "FaIndustry", component: FaIndustry, category: "Instituições" },
+  { name: "FaStoreAlt", component: FaStoreAlt, category: "Instituições" },
+
+  // === HOSPEDAGEM & SERVIÇOS ===
+  { name: "FaConciergeBell", component: FaConciergeBell, category: "Serviços" },
+  { name: "MdRoomService", component: MdRoomService, category: "Serviços" },
+  { name: "MdMeetingRoom", component: MdMeetingRoom, category: "Serviços" },
+  { name: "MdLocalConvenienceStore", component: MdLocalConvenienceStore, category: "Serviços" },
+  { name: "MdLocalFlorist", component: MdLocalFlorist, category: "Serviços" },
+
+  // === FUMO & SUBSTÂNCIAS ===
+  { name: "FaSmokingBan", component: FaSmokingBan, category: "Fumo" },
+  { name: "FaCannabis", component: FaCannabis, category: "Fumo" },
+  { name: "FaSmoking", component: FaSmoking, category: "Fumo" },
+  { name: "FaBong", component: FaBong, category: "Fumo" },
+  { name: "FaPrescriptionBottle", component: FaPrescriptionBottle, category: "Fumo" },
+  { name: "MdSmokeFree", component: MdSmokeFree, category: "Fumo" },
+  { name: "MdSmokingRooms", component: MdSmokingRooms, category: "Fumo" },
+
+  // === PESO & MEDIDAS ===
+  { name: "FaWeight", component: FaWeight, category: "Medidas" },
+
+  // === ANIMAIS EXÓTICOS ===
+  { name: "FaKiwiBird", component: FaKiwiBird, category: "Animais" },
+  { name: "FaSpider", component: FaSpider, category: "Animais" },
+
+  // === JOGOS & ESTRATÉGIA ===
+  { name: "FaChess", component: FaChess, category: "Jogos" },
+
+  // === TECNOLOGIA AVANÇADA ===
+  { name: "FaSpaceShuttle", component: FaSpaceShuttle, category: "Tech Avançada" },
+  { name: "FaSatellite", component: FaSatellite, category: "Tech Avançada" },
+  { name: "FaCloudUploadAlt", component: FaCloudUploadAlt, category: "Tech Avançada" },
+  { name: "FaDatabase", component: FaDatabase, category: "Tech Avançada" },
+  { name: "FaServer", component: FaServer, category: "Tech Avançada" },
+
+  // === ARTE & CRIATIVIDADE ===
+  { name: "FaPalette", component: FaPalette, category: "Arte" },
+
+  // === DIVERSOS ===
   { name: "FaRegSmile", component: FaRegSmile, category: "Diversos" },
   { name: "FaStar", component: FaStar, category: "Diversos" },
   { name: "FaTrophy", component: FaTrophy, category: "Diversos" },
+  { name: "FaMedal", component: FaMedal, category: "Diversos" },
   { name: "FaCrown", component: FaCrown, category: "Diversos" },
   { name: "FaFire", component: FaFire, category: "Diversos" },
   { name: "FaLeaf", component: FaLeaf, category: "Diversos" },
@@ -506,4 +730,5 @@ export const iconOptions = [
   { name: "FaUmbrella", component: FaUmbrella, category: "Diversos" },
   { name: "FaBell", component: FaBell, category: "Diversos" },
   { name: "FaFlag", component: FaFlag, category: "Diversos" },
+  { name: "FaFork", component: FaFork, category: "Diversos" },
 ];
