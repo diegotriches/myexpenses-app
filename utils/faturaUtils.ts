@@ -8,23 +8,16 @@ import type { Fatura, StatusFatura } from "@/types/fatura";
 
 /**
  * Calcula qual fatura (mês/ano) uma transação pertence
- * baseado na data da transação e no dia de fechamento do cartão
- * 
- * **REGRA DO CICLO:**
+ * baseado na data da transação e no dia de fechamento do cartão.
+ *
+ * REGRA DO CICLO:
  * - Transação ANTES ou NO dia de fechamento → Fatura do mês ATUAL
  * - Transação APÓS o dia de fechamento → Fatura do PRÓXIMO mês
- * 
- * @param dataTransacao - Data da transação
- * @param diaFechamento - Dia de fechamento do cartão (1-31)
- * @returns { mes: number, ano: number } - Mês (1-12) e ano da fatura
- * 
+ *
  * @example
  * // Cartão fecha dia 10
- * calcularFaturaDaTransacao(new Date('2026-01-05'), 10)
- * // Retorna: { mes: 1, ano: 2026 } (Janeiro - antes do fechamento)
- * 
- * calcularFaturaDaTransacao(new Date('2026-01-12'), 10)
- * // Retorna: { mes: 2, ano: 2026 } (Fevereiro - após o fechamento)
+ * calcularFaturaDaTransacao(new Date('2026-01-05'), 10) → { mes: 1, ano: 2026 }
+ * calcularFaturaDaTransacao(new Date('2026-01-12'), 10) → { mes: 2, ano: 2026 }
  */
 export function calcularFaturaDaTransacao(
   dataTransacao: Date,
@@ -35,20 +28,15 @@ export function calcularFaturaDaTransacao(
   const mesTransacao = data.getMonth() + 1; // 1-12
   const anoTransacao = data.getFullYear();
 
-  // Se a transação é APÓS o dia de fechamento,
-  // ela vai para a fatura do PRÓXIMO mês
   if (diaTransacao > diaFechamento) {
-    // Criar data do próximo mês
-    const proximaFatura = new Date(anoTransacao, mesTransacao, 1); // Primeiro dia do próximo mês
-    
+    // Próximo mês — usa new Date(ano, mes, 1) que é seguro para qualquer mês
+    const proximaFatura = new Date(anoTransacao, mesTransacao, 1);
     return {
-      mes: proximaFatura.getMonth() + 1, // 1-12
+      mes: proximaFatura.getMonth() + 1,
       ano: proximaFatura.getFullYear(),
     };
   }
 
-  // Se a transação é ANTES ou NO dia de fechamento,
-  // ela vai para a fatura do mês ATUAL
   return {
     mes: mesTransacao,
     ano: anoTransacao,
@@ -56,51 +44,53 @@ export function calcularFaturaDaTransacao(
 }
 
 /**
- * Calcula o período (início e fim) de uma fatura
- * 
- * **REGRA DO PERÍODO:**
- * - Início: (diaFechamento + 1) do mês ANTERIOR
- * - Fim: diaFechamento do mês ATUAL
- * 
- * @param mes - Mês da fatura (1-12)
- * @param ano - Ano da fatura
- * @param diaFechamento - Dia de fechamento do cartão (1-31)
- * @returns { inicio: Date, fim: Date }
- * 
+ * Calcula o período (início e fim) de uma fatura.
+ *
+ * REGRA DO PERÍODO:
+ * - Início: dia seguinte ao fechamento do mês anterior
+ * - Fim: dia de fechamento do mês atual
+ *
+ * ✅ CORRIGIDO: usa clamp para dias inválidos (ex: diaFechamento=31 em fevereiro).
+ * O JavaScript trata new Date(2026, 1, 31) como 03/mar — isso causava períodos errados.
+ * Agora o fim é travado no último dia do mês quando necessário.
+ *
  * @example
- * // Fatura de Janeiro/2026, cartão fecha dia 10
- * calcularPeriodoFatura(1, 2026, 10)
- * // Retorna: { inicio: 11/Dez/2025, fim: 10/Jan/2026 }
+ * // Fatura Jan/2026, fecha dia 10
+ * calcularPeriodoFatura(1, 2026, 10) → { inicio: 11/dez/2025, fim: 10/jan/2026 }
+ *
+ * // Fatura Fev/2026, fecha dia 31 (fevereiro tem 28 dias)
+ * calcularPeriodoFatura(2, 2026, 31) → { inicio: 01/fev/2026, fim: 28/fev/2026 }
  */
 export function calcularPeriodoFatura(
   mes: number,
   ano: number,
   diaFechamento: number
 ): { inicio: Date; fim: Date } {
-  // Fatura de Janeiro (mes=1):
-  // Início: 11 de Dezembro do ano anterior
-  // Fim: 10 de Janeiro do ano atual
-  
-  // Data de fechamento (último dia do ciclo)
-  const fim = new Date(ano, mes - 1, diaFechamento, 23, 59, 59);
-  
-  // Data de início (dia seguinte ao fechamento do mês anterior)
-  const inicio = new Date(ano, mes - 2, diaFechamento + 1, 0, 0, 0);
-  
+  // ── Fim: diaFechamento do mês atual, travado no último dia do mês ──────────
+  const ultimoDiaDoMesFim = new Date(ano, mes, 0).getDate(); // dia 0 do próximo mês = último dia do mês atual
+  const diaFim = Math.min(diaFechamento, ultimoDiaDoMesFim);
+  const fim = new Date(ano, mes - 1, diaFim, 23, 59, 59);
+
+  // ── Início: dia seguinte ao fechamento do mês anterior ────────────────────
+  // Calcula o último dia do mês anterior para travar o diaFechamento
+  const anoMesAnterior = mes === 1 ? ano - 1 : ano;
+  const mesAnterior = mes === 1 ? 12 : mes - 1;
+  const ultimoDiaDoMesInicio = new Date(anoMesAnterior, mesAnterior, 0).getDate();
+  const diaFechamentoAnterior = Math.min(diaFechamento, ultimoDiaDoMesInicio);
+
+  // Início = dia seguinte ao fechamento do mês anterior
+  // Usar new Date(ano, mes, dia) com dia=diaFechamentoAnterior+1 é seguro:
+  // se diaFechamentoAnterior = último dia do mês, +1 avança corretamente para o dia 1 do mês seguinte
+  const inicio = new Date(anoMesAnterior, mesAnterior - 1, diaFechamentoAnterior + 1, 0, 0, 0);
+
   return { inicio, fim };
 }
 
 /**
- * Formata período da fatura para exibição
- * 
- * @param mes - Mês da fatura (1-12)
- * @param ano - Ano da fatura
- * @param diaFechamento - Dia de fechamento do cartão (1-31)
- * @returns string - Ex: "11/12/2025 - 10/01/2026"
- * 
+ * Formata período da fatura para exibição.
+ *
  * @example
- * formatarPeriodoFatura(1, 2026, 10)
- * // Retorna: "11/12/2025 - 10/01/2026"
+ * formatarPeriodoFatura(1, 2026, 10) → "11/12/2025 - 10/01/2026"
  */
 export function formatarPeriodoFatura(
   mes: number,
@@ -108,16 +98,15 @@ export function formatarPeriodoFatura(
   diaFechamento: number
 ): string {
   const { inicio, fim } = calcularPeriodoFatura(mes, ano, diaFechamento);
-  
-  const formatarData = (data: Date) => {
-    return data.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
+
+  const fmt = (data: Date) =>
+    data.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     });
-  };
-  
-  return `${formatarData(inicio)} - ${formatarData(fim)}`;
+
+  return `${fmt(inicio)} - ${fmt(fim)}`;
 }
 
 // ========================================
@@ -125,37 +114,30 @@ export function formatarPeriodoFatura(
 // ========================================
 
 /**
- * Calcula a data de vencimento de uma fatura
- * 
- * @param mes - Mês da fatura (1-12)
- * @param ano - Ano da fatura
- * @param diaVencimento - Dia de vencimento do cartão (1-31)
- * @returns Date - Data de vencimento
- * 
+ * Calcula a data de vencimento de uma fatura.
+ *
+ * ✅ CORRIGIDO: trava no último dia do mês quando diaVencimento > dias do mês.
+ *
  * @example
- * calcularDataVencimento(1, 2026, 15)
- * // Retorna: 15/Jan/2026
+ * calcularDataVencimento(1, 2026, 15) → 15/jan/2026
+ * calcularDataVencimento(2, 2026, 31) → 28/fev/2026 (não 03/mar)
  */
 export function calcularDataVencimento(
   mes: number,
   ano: number,
   diaVencimento: number
 ): Date {
-  return new Date(ano, mes - 1, diaVencimento);
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  const dia = Math.min(diaVencimento, ultimoDia);
+  return new Date(ano, mes - 1, dia);
 }
 
 /**
- * Calcula quantos dias faltam até o vencimento
- * 
- * @param ano - Ano da fatura
- * @param mes - Mês da fatura (1-12)
- * @param diaVencimento - Dia de vencimento do cartão (1-31)
- * @returns number - Dias até vencimento (negativo se vencida)
- * 
+ * Calcula quantos dias faltam até o vencimento.
+ *
  * @example
- * calcularDiasAteVencimento(2026, 1, 15)
- * // Se hoje é 10/01/2026, retorna: 5
- * // Se hoje é 20/01/2026, retorna: -5
+ * // Hoje: 10/jan/2026, vencimento: 15/jan/2026 → 5
+ * // Hoje: 20/jan/2026, vencimento: 15/jan/2026 → -5
  */
 export function calcularDiasAteVencimento(
   ano: number,
@@ -165,26 +147,20 @@ export function calcularDiasAteVencimento(
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
 
-  const dataVencimento = new Date(ano, mes - 1, diaVencimento);
+  const dataVencimento = calcularDataVencimento(mes, ano, diaVencimento);
   dataVencimento.setHours(0, 0, 0, 0);
 
   const diffTime = dataVencimento.getTime() - hoje.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  return diffDays;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
 /**
- * Calcula o status da fatura baseado na data de vencimento
- * 
- * @param fatura - Dados da fatura (paga, ano, mes)
- * @param diaVencimento - Dia de vencimento do cartão
- * @returns StatusFatura - "PAGA" | "EM_ABERTO" | "ATRASADA"
- * 
+ * Calcula o status da fatura baseado na data de vencimento.
+ *
  * @example
  * calcularStatusFatura({ paga: false, ano: 2026, mes: 1 }, 15)
- * // Se hoje < 15/01/2026, retorna: "EM_ABERTO"
- * // Se hoje >= 15/01/2026, retorna: "ATRASADA"
+ * // Hoje < 15/jan → "EM_ABERTO"
+ * // Hoje >= 15/jan → "ATRASADA"
  */
 export function calcularStatusFatura(
   fatura: Pick<Fatura, "paga" | "ano" | "mes">,
@@ -194,8 +170,8 @@ export function calcularStatusFatura(
 
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
-  
-  const dataVencimento = new Date(fatura.ano, fatura.mes - 1, diaVencimento);
+
+  const dataVencimento = calcularDataVencimento(fatura.mes, fatura.ano, diaVencimento);
   dataVencimento.setHours(0, 0, 0, 0);
 
   return dataVencimento < hoje ? "ATRASADA" : "EM_ABERTO";
@@ -206,17 +182,11 @@ export function calcularStatusFatura(
 // ========================================
 
 /**
- * Verifica se uma fatura está fechada (passou da data de fechamento)
- * 
- * @param mes - Mês da fatura (1-12)
- * @param ano - Ano da fatura
- * @param diaFechamento - Dia de fechamento do cartão (1-31)
- * @returns boolean - true se a fatura está fechada
- * 
+ * Verifica se uma fatura está fechada (passou da data de fechamento).
+ *
  * @example
- * // Se hoje é 15/01/2026 e cartão fecha dia 10
- * faturaEstaFechada(1, 2026, 10)
- * // Retorna: true (fatura de Janeiro já fechou)
+ * // Hoje: 15/jan/2026, fecha dia 10
+ * faturaEstaFechada(1, 2026, 10) → true
  */
 export function faturaEstaFechada(
   mes: number,
@@ -225,42 +195,27 @@ export function faturaEstaFechada(
 ): boolean {
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
-  
-  const dataFechamento = new Date(ano, mes - 1, diaFechamento, 23, 59, 59);
-  
+
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  const dia = Math.min(diaFechamento, ultimoDia);
+  const dataFechamento = new Date(ano, mes - 1, dia, 23, 59, 59);
+
   return hoje > dataFechamento;
 }
 
 /**
- * Verifica se é possível adicionar transação em uma fatura
- * 
- * @param fatura - Dados da fatura
- * @param diaFechamento - Dia de fechamento do cartão
- * @returns { podeAdicionar: boolean, motivo?: string }
- * 
- * @example
- * validarAdicaoTransacao({ paga: true, ano: 2026, mes: 1 }, 10)
- * // Retorna: { podeAdicionar: false, motivo: "Fatura já está paga" }
+ * Verifica se é possível adicionar transação em uma fatura.
  */
 export function validarAdicaoTransacao(
   fatura: Pick<Fatura, "paga" | "ano" | "mes">,
   diaFechamento: number
 ): { podeAdicionar: boolean; motivo?: string } {
-  // Validação 1: Fatura já paga
   if (fatura.paga) {
-    return {
-      podeAdicionar: false,
-      motivo: "Fatura já está paga",
-    };
+    return { podeAdicionar: false, motivo: "Fatura já está paga" };
   }
 
-  // Validação 2: Fatura já fechou
-  const fechada = faturaEstaFechada(fatura.mes, fatura.ano, diaFechamento);
-  if (fechada) {
-    return {
-      podeAdicionar: false,
-      motivo: "Fatura já está fechada",
-    };
+  if (faturaEstaFechada(fatura.mes, fatura.ano, diaFechamento)) {
+    return { podeAdicionar: false, motivo: "Fatura já está fechada" };
   }
 
   return { podeAdicionar: true };
@@ -271,41 +226,23 @@ export function validarAdicaoTransacao(
 // ========================================
 
 /**
- * Formata o nome do mês/ano da fatura
- * 
- * @param mes - Mês da fatura (1-12)
- * @param ano - Ano da fatura
- * @returns string - Ex: "Janeiro/2026"
- * 
- * @example
- * formatarNomeFatura(1, 2026)
- * // Retorna: "Janeiro/2026"
+ * @example formatarNomeFatura(1, 2026) → "Janeiro/2026"
  */
 export function formatarNomeFatura(mes: number, ano: number): string {
   const meses = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
   ];
-
   return `${meses[mes - 1]}/${ano}`;
 }
 
 /**
- * Formata o nome abreviado do mês/ano da fatura
- * 
- * @param mes - Mês da fatura (1-12)
- * @param ano - Ano da fatura
- * @returns string - Ex: "Jan/26"
- * 
- * @example
- * formatarNomeFaturaAbreviado(1, 2026)
- * // Retorna: "Jan/26"
+ * @example formatarNomeFaturaAbreviado(1, 2026) → "Jan/26"
  */
 export function formatarNomeFaturaAbreviado(mes: number, ano: number): string {
   const meses = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-    "Jul", "Ago", "Set", "Out", "Nov", "Dez"
+    "Jul", "Ago", "Set", "Out", "Nov", "Dez",
   ];
-
   return `${meses[mes - 1]}/${ano.toString().slice(-2)}`;
 }

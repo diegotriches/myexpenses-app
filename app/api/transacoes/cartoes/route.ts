@@ -6,12 +6,49 @@ import { and, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
+// ============================================================================
+// HELPER: Adicionar meses sem overflow de dias
+// ============================================================================
+
+/**
+ * Avança N meses a partir de uma data sem overflow de dias.
+ *
+ * O JavaScript nativo faz:
+ *   new Date(2026, 0, 31).setMonth(1) → 3 de março (31/fev não existe)
+ *
+ * Esta função trava no último dia do mês destino quando necessário:
+ *   31/jan + 1 mês → 28/fev (não 03/mar)
+ *   30/jan + 1 mês → 28/fev
+ *   31/jan + 2 meses → 31/mar ✅
+ */
+function adicionarMeses(data: Date, meses: number): Date {
+  const diaOriginal = data.getDate();
+
+  // Avança para o dia 1 antes de mudar o mês — evita overflow
+  const resultado = new Date(data);
+  resultado.setDate(1);
+  resultado.setMonth(resultado.getMonth() + meses);
+
+  // Usa o menor entre o dia original e o último dia do mês destino
+  const ultimoDiaDoMes = new Date(
+    resultado.getFullYear(),
+    resultado.getMonth() + 1,
+    0
+  ).getDate();
+
+  resultado.setDate(Math.min(diaOriginal, ultimoDiaDoMes));
+  return resultado;
+}
+
+// ============================================================================
+// POST - Criar transação de cartão (à vista ou parcelada)
+// ============================================================================
+
 export async function POST(req: NextRequest) {
   try {
     // 🔐 Autenticação
     const userId = await getUserId();
 
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -78,7 +115,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ Converter string para number
     const limiteDisponivel = Number(cartao.limiteDisponivel);
 
     if (limiteDisponivel < valorTotal) {
@@ -95,11 +131,10 @@ export async function POST(req: NextRequest) {
     const transacoesCriadas = [];
 
     for (let i = 1; i <= parcelas; i++) {
-      // Calcular data da parcela
-      const dataParcela = new Date(dataCompra);
-      dataParcela.setMonth(dataParcela.getMonth() + (i - 1));
+      // ✅ CORRIGIDO: usa adicionarMeses() em vez de setMonth()
+      // Evita overflow: 31/jan + 1 mês = 28/fev (não 03/mar)
+      const dataParcela = adicionarMeses(dataCompra, i - 1);
 
-      // ✅ CRÍTICO: Calcular fatura correta para CADA parcela
       const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
         dataParcela,
         diaFechamento
@@ -109,7 +144,6 @@ export async function POST(req: NextRequest) {
         `📅 Parcela ${i}/${parcelas} em ${dataParcela.toLocaleDateString('pt-BR')} → Fatura ${mesFatura}/${anoFatura}`
       );
 
-      // ✅ Buscar ou criar fatura (filtrando por userId)
       const [faturaExistente] = await db
         .select()
         .from(faturas)
@@ -122,11 +156,10 @@ export async function POST(req: NextRequest) {
           )
         );
 
-      // ✅ Verificar se fatura está paga
       if (faturaExistente && faturaExistente.paga) {
         return NextResponse.json(
-          { 
-            error: `Parcela ${i}/${parcelas} cairia na fatura ${mesFatura}/${anoFatura} que já está paga. Não é possível adicionar.`
+          {
+            error: `Parcela ${i}/${parcelas} cairia na fatura ${mesFatura}/${anoFatura} que já está paga.`,
           },
           { status: 400 }
         );
@@ -135,7 +168,6 @@ export async function POST(req: NextRequest) {
       let faturaId: number;
 
       if (!faturaExistente) {
-        // Criar nova fatura
         const [novaFatura] = await db
           .insert(faturas)
           .values({
@@ -154,7 +186,6 @@ export async function POST(req: NextRequest) {
         faturaId = faturaExistente.id;
       }
 
-      // ✅ Criar transação
       const [transacao] = await db
         .insert(transacoes)
         .values({
@@ -176,10 +207,7 @@ export async function POST(req: NextRequest) {
 
       transacoesCriadas.push(transacao);
 
-      // ✅ Atualizar total da fatura
-      const totalAtual = faturaExistente 
-        ? Number(faturaExistente.total) 
-        : 0;
+      const totalAtual = faturaExistente ? Number(faturaExistente.total) : 0;
       const novoTotal = totalAtual + valorParcela;
 
       await db
@@ -191,11 +219,11 @@ export async function POST(req: NextRequest) {
         .where(eq(faturas.id, faturaId));
 
       console.log(
-        `✅ Fatura ${mesFatura}/${anoFatura} atualizada: R$ ${totalAtual.toFixed(2)} → R$ ${novoTotal.toFixed(2)}`
+        `✅ Fatura ${mesFatura}/${anoFatura}: R$ ${totalAtual.toFixed(2)} → R$ ${novoTotal.toFixed(2)}`
       );
     }
 
-    /* 2.3 Atualizar limite disponível (apenas 1 vez, com valor total) */
+    /* 2.3 Atualizar limite disponível (valor total, uma vez) */
     const novoLimiteDisponivel = limiteDisponivel - valorTotal;
 
     await db
@@ -211,13 +239,13 @@ export async function POST(req: NextRequest) {
       );
 
     console.log(
-      `💳 Limite atualizado: R$ ${limiteDisponivel.toFixed(2)} → R$ ${novoLimiteDisponivel.toFixed(2)}`
+      `💳 Limite: R$ ${limiteDisponivel.toFixed(2)} → R$ ${novoLimiteDisponivel.toFixed(2)}`
     );
 
     return NextResponse.json(
       {
         success: true,
-        message: parcelado 
+        message: parcelado
           ? `Compra parcelada em ${parcelas}x criada com sucesso`
           : "Transação criada com sucesso",
         transacoes: transacoesCriadas,
