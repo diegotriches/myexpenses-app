@@ -55,6 +55,18 @@ export default function CartoesPage() {
     return temTransacoes;
   };
 
+  // ✅ NOVO: Alterna ativo/inativo do cartão
+  const toggleAtivo = async (cartao: Cartao) => {
+    try {
+      await atualizarCartao.mutateAsync({
+        id: cartao.id,
+        dados: { ativo: !cartao.ativo } as UpdateCartaoDTO,
+      });
+    } catch (error) {
+      console.error("Erro ao alterar status do cartão:", error);
+    }
+  };
+
   const cartoesFiltrados = useMemo(() => {
     let resultado = [...cartoes];
 
@@ -178,7 +190,7 @@ export default function CartoesPage() {
   const EmptyState = () => (
     <div className="text-center py-16 bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
       <CreditCard className="text-6xl text-gray-300 dark:text-gray-600 mx-auto mb-4" size={64} />
-      <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+      <h3 className="text-xl font--semibold text-gray-700 dark:text-gray-300 mb-2">
         Nenhum cartão cadastrado
       </h3>
       <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
@@ -276,7 +288,6 @@ export default function CartoesPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Tente ajustar a busca ou filtros</p>
               </div>
             ) : (
-              // ✅ MUDANÇA PRINCIPAL: 2 colunas ao invés de 3
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                 {cartoesFiltrados.map((cartao) => (
                   <CartaoItem
@@ -285,6 +296,7 @@ export default function CartoesPage() {
                     onEditar={abrirEdicao}
                     onExcluir={abrirExclusao}
                     onFatura={abrirFatura}
+                    onToggleAtivo={toggleAtivo} // ✅ ADICIONADO
                   />
                 ))}
               </div>
@@ -295,7 +307,6 @@ export default function CartoesPage() {
 
       {/* Loading */}
       {loading && (
-        // ✅ SKELETON TAMBÉM COM 2 COLUNAS
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <SkeletonCard key={i} />
