@@ -1,9 +1,10 @@
-// app/api/cartoes/route.ts - ARQUIVO COMPLETO
+// app/api/cartoes/route.ts
 import { db } from "@/db";
 import { cartoes, faturas, contas } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 // ============================================
 // GET - Buscar todos os cartões do usuário
@@ -13,17 +14,14 @@ export async function GET() {
     const userId = await getUserId();
 
     if (!userId) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0); // ✅ normaliza hora para comparações de data
     const anoAtual = hoje.getFullYear();
     const mesAtual = hoje.getMonth() + 1;
 
-    // Buscar cartões do usuário
     const listaCartoes = await db
       .select()
       .from(cartoes)
@@ -33,7 +31,7 @@ export async function GET() {
       listaCartoes.map(async (cartao) => {
         const limite = Number(cartao.limite ?? 0);
 
-        // Calcular limite disponível baseado nas faturas não pagas
+        // ── Limite usado: soma das faturas não pagas ────────────────────────
         let limiteUsado = 0;
 
         if (cartao.tipo === "credito") {
@@ -48,14 +46,31 @@ export async function GET() {
               )
             );
 
-          limiteUsado = faturasNaoPagas.reduce((acc, f) => {
-            return acc + Number(f.total);
-          }, 0);
+          limiteUsado = faturasNaoPagas.reduce(
+            (acc, f) => acc + Number(f.total),
+            0
+          );
         }
 
         const limiteDisponivel = Math.max(0, limite - limiteUsado);
 
-        // Buscar fatura atual
+        // ── Fatura atual ────────────────────────────────────────────────────
+        // ✅ CORRIGIDO: usa calcularFaturaDaTransacao para obter o mês correto
+        // da fatura ativa, respeitando o diaFechamento do cartão.
+        // Sem isso, cartões com fechamento passado (ex: fecha dia 2, hoje dia 17)
+        // buscavam a fatura do mês calendário (fevereiro) em vez da ativa (março).
+        const diaFechamento = cartao.diaFechamento ?? 1;
+        const diaVencimento = cartao.diaVencimento ?? 1;
+
+        let mesFaturaAtiva  = mesAtual;
+        let anoFaturaAtiva  = anoAtual;
+
+        if (cartao.tipo === "credito" && cartao.diaFechamento) {
+          const faturaAtiva = calcularFaturaDaTransacao(hoje, diaFechamento);
+          mesFaturaAtiva = faturaAtiva.mes;
+          anoFaturaAtiva = faturaAtiva.ano;
+        }
+
         const [faturaAtual] = await db
           .select()
           .from(faturas)
@@ -63,22 +78,29 @@ export async function GET() {
             and(
               eq(faturas.cartaoId, cartao.id),
               eq(faturas.userId, userId),
-              eq(faturas.ano, anoAtual),
-              eq(faturas.mes, mesAtual)
+              eq(faturas.ano, anoFaturaAtiva),
+              eq(faturas.mes, mesFaturaAtiva)
             )
           );
 
         let faturaInfo = null;
 
         if (faturaAtual) {
-          const diaVencimento = cartao.diaVencimento ?? 1;
-
-          const vencimento = new Date(
+          // ✅ CORRIGIDO: clamp do diaVencimento no último dia do mês
+          // Sem isso, diaVencimento=31 em fevereiro transbordava para março
+          const ultimoDiaDoMes = new Date(
             faturaAtual.ano,
-            faturaAtual.mes - 1,
-            diaVencimento
-          );
+            faturaAtual.mes, // dia 0 do mês seguinte = último dia do mês atual
+            0
+          ).getDate();
+          const diaVenc = Math.min(diaVencimento, ultimoDiaDoMes);
 
+          const vencimento = new Date(faturaAtual.ano, faturaAtual.mes - 1, diaVenc);
+          vencimento.setHours(0, 0, 0, 0); // ✅ normaliza para comparação correta
+
+          // ✅ CORRIGIDO: hoje já está normalizado (setHours acima)
+          // Sem normalização, hoje > vencimento poderia ser true no próprio dia
+          // do vencimento (hora atual > 00:00), marcando como ATRASADA indevidamente
           let status: "PAGA" | "EM_ABERTO" | "ATRASADA";
 
           if (faturaAtual.paga) {
@@ -126,10 +148,7 @@ export async function POST(req: Request) {
     const userId = await getUserId();
 
     if (!userId) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     const body = await req.json();
@@ -147,7 +166,6 @@ export async function POST(req: Request) {
       contaVinculadaId,
     } = body;
 
-    // Validações básicas
     if (!nome || !tipo) {
       return NextResponse.json(
         { error: "Nome e tipo são obrigatórios" },
@@ -162,7 +180,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ NOVO: Validação para cartão de débito
     if (tipo === "debito") {
       if (!contaVinculadaId) {
         return NextResponse.json(
@@ -171,16 +188,10 @@ export async function POST(req: Request) {
         );
       }
 
-      // Verificar se a conta existe e pertence ao usuário
       const [contaVinculada] = await db
         .select()
         .from(contas)
-        .where(
-          and(
-            eq(contas.id, contaVinculadaId),
-            eq(contas.userId, userId)
-          )
-        )
+        .where(and(eq(contas.id, contaVinculadaId), eq(contas.userId, userId)))
         .limit(1);
 
       if (!contaVinculada) {
@@ -234,7 +245,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validação da conta vinculada
     if (contaVinculadaId && typeof contaVinculadaId !== "string") {
       return NextResponse.json(
         { error: "Conta vinculada inválida" },
@@ -242,24 +252,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const novoCartao = {
-      userId,
-      nome,
-      tipo,
-      bandeira: bandeira || "",
-      empresa: empresa || "",
-      limite: limiteNum.toFixed(2),
-      limiteDisponivel: limiteNum.toFixed(2),
-      diaFechamento: fechamentoNum ?? null,
-      diaVencimento: vencimentoNum ?? null,
-      ativo: ativo ?? true,
-      observacoes: observacoes || null,
-      contaVinculadaId: contaVinculadaId || null,
-    };
-
     const [novo] = await db
       .insert(cartoes)
-      .values(novoCartao)
+      .values({
+        userId,
+        nome,
+        tipo,
+        bandeira: bandeira || "",
+        empresa: empresa || "",
+        limite: limiteNum.toFixed(2),
+        limiteDisponivel: limiteNum.toFixed(2),
+        diaFechamento: fechamentoNum ?? null,
+        diaVencimento: vencimentoNum ?? null,
+        ativo: ativo ?? true,
+        observacoes: observacoes || null,
+        contaVinculadaId: contaVinculadaId || null,
+      })
       .returning();
 
     return NextResponse.json(novo, { status: 201 });
