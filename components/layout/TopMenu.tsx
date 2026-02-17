@@ -81,8 +81,6 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
   };
 
   const breadcrumbs = getBreadcrumbs();
-  const currentPageTitle =
-    breadcrumbs[breadcrumbs.length - 1]?.label || "MyExpenses";
 
   if (!mounted) {
     return (
@@ -193,11 +191,6 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
                 </div>
               ))}
             </nav>
-
-            {/* Page title - mobile */}
-            <h1 className="lg:hidden font-semibold text-gray-900 dark:text-white truncate text-base md:text-lg">
-              {currentPageTitle}
-            </h1>
           </div>
 
           {/* ── CENTER ── */}
