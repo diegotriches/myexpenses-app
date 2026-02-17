@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Conta } from "@/types/conta";
 
 import { 
@@ -29,6 +35,8 @@ import {
   Power,
   PowerOff,
   DollarSign,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface Props {
@@ -50,11 +58,12 @@ export default function ContaCard({
   onToggleAtivo,
   onAjustarSaldo,
 }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   const bancoImagem = conta.banco
     ? `/contas/${conta.banco.toLowerCase()}.png`
     : null;
 
-  // Formata valor em Real brasileiro
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -62,14 +71,12 @@ export default function ContaCard({
     }).format(valor);
   };
 
-  // Define cor do saldo baseado no valor
   const getCorSaldo = () => {
     if (conta.saldoAtual > 0) return "text-green-600 dark:text-green-400";
     if (conta.saldoAtual < 0) return "text-red-600 dark:text-red-400";
     return "text-gray-600 dark:text-gray-400";
   };
 
-  // Ícone do saldo
   const IconeSaldo = conta.saldoAtual >= 0 ? TrendingUp : TrendingDown;
 
   return (
@@ -92,7 +99,6 @@ export default function ContaCard({
               <span className="font-semibold text-base leading-tight text-gray-900 dark:text-white">
                 {conta.nome}
               </span>
-              {/* Badge de Status */}
               <Badge 
                 variant={conta.ativo ? "default" : "secondary"}
                 className={conta.ativo 
@@ -193,10 +199,9 @@ export default function ContaCard({
           </span>
         </div>
 
-        {/* ✅ NOVO: Ações principais compactas com ícones + tooltip */}
+        {/* ✅ DESKTOP: Botões com tooltips (mantido igual) */}
         <TooltipProvider delayDuration={300}>
-          <div className="flex items-center justify-center gap-2">
-            {/* Ajustar Saldo */}
+          <div className="hidden md:flex items-center justify-center gap-2">
             {onAjustarSaldo && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -215,7 +220,6 @@ export default function ContaCard({
               </Tooltip>
             )}
 
-            {/* Ver Extrato */}
             {onExtrato && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -234,7 +238,6 @@ export default function ContaCard({
               </Tooltip>
             )}
 
-            {/* Nova Transferência */}
             {onTransferir && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -254,6 +257,68 @@ export default function ContaCard({
             )}
           </div>
         </TooltipProvider>
+
+        {/* ✅ MOBILE: Menu colapsável com texto */}
+        <Collapsible open={menuOpen} onOpenChange={setMenuOpen} className="md:hidden">
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full flex items-center justify-between"
+            >
+              <span className="text-sm font-medium">Mais Opções</span>
+              {menuOpen ? (
+                <ChevronUp size={16} className="ml-2" />
+              ) : (
+                <ChevronDown size={16} className="ml-2" />
+              )}
+            </Button>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent className="mt-2 space-y-2">
+            {onAjustarSaldo && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onAjustarSaldo(conta);
+                  setMenuOpen(false);
+                }}
+                className="w-full justify-start bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border-blue-200 text-blue-700 dark:from-blue-950/30 dark:to-blue-900/30 dark:border-blue-800 dark:text-blue-400"
+              >
+                <DollarSign size={16} className="mr-2" />
+                Ajustar Saldo
+              </Button>
+            )}
+            {onExtrato && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onExtrato(conta);
+                  setMenuOpen(false);
+                }}
+                className="w-full justify-start bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 border-purple-200 text-purple-700 dark:from-purple-950/30 dark:to-purple-900/30 dark:border-purple-800 dark:text-purple-400"
+              >
+                <FileText size={16} className="mr-2" />
+                Ver Extrato
+              </Button>
+            )}
+            {onTransferir && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onTransferir(conta.id);
+                  setMenuOpen(false);
+                }}
+                className="w-full justify-start bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 border-green-200 text-green-700 dark:from-green-950/30 dark:to-green-900/30 dark:border-green-800 dark:text-green-400"
+              >
+                <Repeat size={16} className="mr-2" />
+                Nova Transferência
+              </Button>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
       </CardContent>
     </Card>
   );
