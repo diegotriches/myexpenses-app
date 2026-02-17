@@ -1,7 +1,7 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,259 +16,331 @@ import {
   PieChart,
   Receipt,
   Loader2,
+  Lock,
+  Unlock,
+  Info,
 } from "lucide-react";
 
-// ✅ NOVOS IMPORTS - React Query
 import { useFaturaCartao, usePagarFatura } from "@/hooks/useFaturas";
+import { useFaturasPendentes } from "@/hooks/useFaturasPendentes";
 import { useContas } from "@/hooks/useContas";
 import FaturaItem from "@/components/fatura/FaturaItem";
 import PagarFaturaModal from "@/components/fatura/PagarFaturaModal";
+import AlertaFaturasPendentes from "@/components/fatura/AlertaFaturasPendentes";
 import { usePeriodo } from "@/contexts/PeriodoContext";
+
+// ============================================================================
+// CONSTANTES
+// ============================================================================
 
 const meses = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
+const mesesAbreviados = [
+  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+];
+
+const hoje     = new Date();
+const diaAtual = hoje.getDate();
+const mesAtual = hoje.getMonth();    // 0-11
+const anoAtual = hoje.getFullYear();
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+function calcularFaturaAtiva(diaFechamento: number): { mes: number; ano: number } {
+  if (diaAtual >= diaFechamento) {
+    if (mesAtual === 11) return { mes: 0, ano: anoAtual + 1 };
+    return { mes: mesAtual + 1, ano: anoAtual };
+  }
+  return { mes: mesAtual, ano: anoAtual };
+}
+
+// ============================================================================
+// COMPONENTE
+// ============================================================================
+
 export default function FaturaPage() {
-  const params = useParams();
-  const router = useRouter();
-  const { mesSelecionado, anoSelecionado } = usePeriodo();
+  const params       = useParams();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const { mesSelecionado, anoSelecionado, setMesSelecionado, setAnoSelecionado } = usePeriodo();
+  const { id } = params as { id: string };
 
   const [modalAberto, setModalAberto] = useState(false);
+  const pagarFaturaMutation = usePagarFatura();
 
-  const { id } = params as { id: string };
-  const cartaoId = id;
+  // ── Cleanup: restaura seletor ao sair da página ───────────────────────────
+  useEffect(() => {
+    return () => {
+      setMesSelecionado(mesAtual);
+      setAnoSelecionado(anoAtual);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const anoNum = anoSelecionado;
-  const mesNum = mesSelecionado + 1;
-
-  // ✅ HOOK 1: Buscar contas (React Query)
   const { data: contas = [], isLoading: contasLoading } = useContas();
 
-  // ✅ HOOK 2: Buscar fatura (React Query)
+  // ── Override via URL (?mes=1&ano=2026) ────────────────────────────────────
+  // Usado pelo AlertaFaturasPendentes para abrir mês específico sem depender
+  // do seletor global (que é sempre resetado para o mês atual)
+  const mesUrl  = searchParams.get("mes")  ? Number(searchParams.get("mes"))  - 1 : null; // 0-11
+  const anoUrl  = searchParams.get("ano")  ? Number(searchParams.get("ano"))      : null;
+  const temOverrideUrl = mesUrl !== null && anoUrl !== null;
+
+  // ── 1º fetch: período de referência (para obter cartão + diaFechamento) ───
+  const periodoRef = temOverrideUrl
+    ? { mes: mesUrl!, ano: anoUrl! }
+    : { mes: mesSelecionado, ano: anoSelecionado };
+
   const {
     fatura,
+    cartao,
     transacoes,
     porCategoria,
     isLoading: faturaLoading,
   } = useFaturaCartao({
-    cartaoId,
-    ano: anoNum,
-    mes: mesNum,
+    cartaoId: id,
+    ano: periodoRef.ano,
+    mes: periodoRef.mes + 1,
   });
 
-  // ✅ HOOK 3: Mutation de pagar fatura (React Query)
-  const pagarFaturaMutation = usePagarFatura();
-
-  // Fecha modal quando fatura for paga
-  useEffect(() => {
-    if (fatura?.paga) {
-      setModalAberto(false);
+  // ── Período final ─────────────────────────────────────────────────────────
+  const { mesFinal, anoFinal, automatico } = useMemo(() => {
+    // Prioridade 1: override via URL (?mes=2&ano=2026 → exibe Fevereiro)
+    if (temOverrideUrl) {
+      return { mesFinal: mesUrl!, anoFinal: anoUrl!, automatico: false };
     }
-  }, [fatura?.paga]);
 
-  // Formatação monetária
-  const formatarMoeda = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor);
-  };
+    // Prioridade 2: seletor global alterado pelo usuário no TopMenu
+    const seletorAlterado = mesSelecionado !== mesAtual || anoSelecionado !== anoAtual;
+    if (seletorAlterado) {
+      return { mesFinal: mesSelecionado, anoFinal: anoSelecionado, automatico: false };
+    }
 
-  // Handler do modal
-  const handlePagarFatura = async (dados: {
-    contaId: string;
-    dataPagamento?: string;
-  }) => {
+    // Prioridade 3: cálculo automático pelo diaFechamento
+    if (cartao?.diaFechamento) {
+      const { mes, ano } = calcularFaturaAtiva(cartao.diaFechamento);
+      return { mesFinal: mes, anoFinal: ano, automatico: true };
+    }
+
+    // Fallback
+    return { mesFinal: mesSelecionado, anoFinal: anoSelecionado, automatico: false };
+  }, [temOverrideUrl, mesUrl, anoUrl, mesSelecionado, anoSelecionado, cartao?.diaFechamento]);
+
+  const periodoMudou = mesFinal !== periodoRef.mes || anoFinal !== periodoRef.ano;
+
+  // ── 2º fetch: período final quando difere do de referência ────────────────
+  const {
+    fatura: faturaFinal,
+    transacoes: transacoesFinal,
+    porCategoria: porCategoriaFinal,
+    isLoading: faturaFinalLoading,
+  } = useFaturaCartao({
+    cartaoId: id,
+    ano: anoFinal,
+    mes: mesFinal + 1,
+  });
+
+  const dadosFatura       = periodoMudou ? faturaFinal       : fatura;
+  const dadosTransacoes   = periodoMudou ? transacoesFinal   : transacoes;
+  const dadosPorCategoria = periodoMudou ? porCategoriaFinal : porCategoria;
+
+  // ── Faturas pendentes (últimos 4 meses) ───────────────────────────────────
+  const { pendentes, isLoading: pendentesLoading } = useFaturasPendentes(id);
+
+  const pendentesOutrosMeses = pendentes.filter(
+    (p) => !(p.mes === mesFinal + 1 && p.ano === anoFinal)
+  );
+
+  // ── Fatura ativa de referência ────────────────────────────────────────────
+  const faturaAtiva = useMemo(
+    () => cartao?.diaFechamento ? calcularFaturaAtiva(cartao.diaFechamento) : null,
+    [cartao?.diaFechamento]
+  );
+
+  const isExibindoFaturaAtiva =
+    faturaAtiva &&
+    mesFinal === faturaAtiva.mes &&
+    anoFinal === faturaAtiva.ano;
+
+  // ── Pagar fatura ──────────────────────────────────────────────────────────
+  const handlePagarFatura = async (dados: { contaId: string; dataPagamento?: string }) => {
     await pagarFaturaMutation.mutateAsync({
-      cartaoId: Number(cartaoId),
-      ano: anoNum,
-      mes: mesNum,
+      cartaoId: Number(id),
+      ano: anoFinal,
+      mes: mesFinal + 1,
       contaId: dados.contaId,
       dataPagamento: dados.dataPagamento,
     });
+    setModalAberto(false);
   };
 
-  // ✅ VALIDAÇÕES
-  if (!cartaoId || isNaN(anoNum) || isNaN(mesNum)) {
+  const formatarMoeda = (valor: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+
+  if (!id) {
     return (
       <div className="max-w-3xl mx-auto p-4 md:p-6">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Parâmetros inválidos. Verifique a URL e tente novamente.
-          </AlertDescription>
+          <AlertDescription>Parâmetros inválidos.</AlertDescription>
         </Alert>
       </div>
     );
   }
 
-  // ✅ LOADING
-  const loading = faturaLoading || contasLoading;
-  
+  const loading = faturaLoading || faturaFinalLoading || contasLoading;
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
-        {/* Header Skeleton */}
-        <div className="space-y-3 md:space-y-4">
-          <div className="h-6 md:h-8 bg-gray-200 dark:bg-gray-800 rounded w-32 md:w-48 animate-pulse" />
-          <div className="h-24 md:h-32 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+        <div className="space-y-3">
+          <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded w-48 animate-pulse" />
+          <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
         </div>
-
-        {/* Cards Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          <div className="h-32 md:h-40 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
-          <div className="h-32 md:h-40 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="h-40 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+          <div className="h-40 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
         </div>
-
-        {/* Lista Skeleton */}
-        <div className="space-y-2 md:space-y-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-16 md:h-20 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
-          ))}
-        </div>
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-20 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+        ))}
       </div>
     );
   }
 
-  // ✅ FATURA NÃO ENCONTRADA
-  if (!fatura) {
-    return (
-      <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
-        <Button
-          variant="ghost"
-          onClick={() => router.back()}
-          className="mb-4"
-          size="sm"
-        >
-          <ArrowLeft size={16} className="mr-2" />
-          Voltar
-        </Button>
-
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Fatura não encontrada para o período {meses[mesSelecionado]}/{anoNum}.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  // ✅ DADOS DERIVADOS
-  const faturaVazia = transacoes.length === 0;
-  const totalFatura = Number(fatura?.total ?? 0);
-
-  // Categoria com maior gasto
-  const categorias = Object.entries(porCategoria || {});
-  const categoriaComMaiorGasto = categorias.length > 0
-    ? categorias.reduce((max, cat) => cat[1] > max[1] ? cat : max)
-    : null;
+  const totalFatura = Number(dadosFatura?.total ?? 0);
+  const faturaVazia = dadosTransacoes.length === 0;
+  const categorias  = Object.entries(dadosPorCategoria || {});
+  const categoriaComMaiorGasto =
+    categorias.length > 0
+      ? categorias.reduce((max, cat) => (cat[1] > max[1] ? cat : max))
+      : null;
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
-      {/* ============================================
-          HEADER - Mobile Optimized
-          ============================================ */}
-      <div className="flex items-center gap-2 md:gap-4">
+
+      {/* ── HEADER ── */}
+      <div className="flex items-start gap-2 md:gap-4">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => router.back()}
-          className="h-9 w-9 md:h-10 md:w-10"
+          className="h-9 w-9 mt-0.5 flex-shrink-0"
         >
-          <ArrowLeft size={18} className="md:hidden" />
-          <ArrowLeft size={20} className="hidden md:block" />
+          <ArrowLeft size={18} />
         </Button>
 
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white truncate">
-            Fatura - {meses[mesSelecionado]} {anoNum}
-          </h1>
-          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 truncate">
-            Visualize e gerencie sua fatura
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
+              Fatura — {meses[mesFinal]} {anoFinal}
+            </h1>
+
+            {cartao?.diaFechamento && (
+              <Badge className={`text-xs flex items-center gap-1 ${
+                isExibindoFaturaAtiva && !dadosFatura?.paga
+                  ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border border-green-200 dark:border-green-800"
+                  : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
+              }`}>
+                {isExibindoFaturaAtiva && !dadosFatura?.paga
+                  ? <><Unlock size={11} /> Fatura Aberta</>
+                  : <><Lock   size={11} /> Fatura Fechada</>
+                }
+              </Badge>
+            )}
+          </div>
+
+          <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            {cartao?.diaFechamento
+              ? `Fechamento dia ${cartao.diaFechamento} • Vencimento dia ${cartao.diaVencimento ?? "—"}`
+              : "Visualize e gerencie sua fatura"}
           </p>
         </div>
       </div>
 
-      {/* ============================================
-          CARD DE RESUMO - Mobile First
-          ============================================ */}
-      <Card className={fatura.paga 
-        ? "border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-900" 
-        : "border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-900"
+      {/* ── ALERTA: faturas pendentes de outros meses ── */}
+      {(pendentesOutrosMeses.length > 0 || pendentesLoading) && (
+        <AlertaFaturasPendentes
+          cartaoId={id}
+          pendentes={pendentesOutrosMeses}
+          isLoading={pendentesLoading}
+        />
+      )}
+
+      {/* ── INFO: mês calculado automaticamente ── */}
+      {automatico && cartao?.diaFechamento && (
+        <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900 py-2.5">
+          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+          <AlertDescription className="text-xs text-blue-800 dark:text-blue-300">
+            {diaAtual >= cartao.diaFechamento
+              ? `A fatura de ${mesesAbreviados[mesAtual]} fechou no dia ${cartao.diaFechamento}. Exibindo a fatura aberta de ${meses[mesFinal]} ${anoFinal}.`
+              : `Fatura aberta — fecha no dia ${cartao.diaFechamento} de ${meses[mesFinal]}.`
+            }
+            {" "}<span className="opacity-70">Use o seletor de período para ver outros meses.</span>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* ── CARD DE RESUMO ── */}
+      <Card className={
+        dadosFatura?.paga
+          ? "border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-900"
+          : "border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-900"
       }>
-        <CardContent className="p-4 md:p-6">
-          <div className="space-y-4">
-            {/* Badge de Status */}
-            <Badge 
-              className={`
-                ${fatura.paga
-                  ? "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900 dark:text-green-300"
-                  : "bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-300"
-                }
-                text-xs md:text-sm
-              `}
-            >
-              {fatura.paga ? (
-                <>
-                  <CheckCircle size={12} className="mr-1 md:mr-1.5" />
-                  Fatura Paga
-                </>
-              ) : (
-                <>
-                  <AlertCircle size={12} className="mr-1 md:mr-1.5" />
-                  Em Aberto
-                </>
-              )}
-            </Badge>
+        <CardContent className="p-4 md:p-6 space-y-4">
+          <Badge className={`${
+            dadosFatura?.paga
+              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+              : "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
+          } text-xs md:text-sm`}>
+            {dadosFatura?.paga
+              ? <><CheckCircle size={12} className="mr-1" /> Fatura Paga</>
+              : <><AlertCircle size={12} className="mr-1" /> Em Aberto</>
+            }
+          </Badge>
 
-            {/* Valor Total - Responsivo */}
-            <div className="min-w-0">
-              <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                Total da Fatura
-              </p>
-              <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white break-all">
-                {formatarMoeda(totalFatura)}
-              </p>
-            </div>
-
-            {/* Info de Transações */}
-            {!fatura.paga && transacoes.length > 0 && (
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                {transacoes.length} {transacoes.length === 1 ? "transação" : "transações"} neste período
-              </p>
-            )}
-
-            {/* Botão de Pagar - Full Width no Mobile */}
-            {!fatura.paga && transacoes.length > 0 && (
-              <Button
-                onClick={() => setModalAberto(true)}
-                disabled={pagarFaturaMutation.isPending}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-sm md:text-base"
-                size="default"
-              >
-                {pagarFaturaMutation.isPending ? (
-                  <>
-                    <Loader2 size={16} className="mr-2 animate-spin" />
-                    Pagando...
-                  </>
-                ) : (
-                  <>
-                    <DollarSign size={16} className="mr-2" />
-                    Pagar Fatura
-                  </>
-                )}
-              </Button>
-            )}
+          <div>
+            <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Total da Fatura</p>
+            <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white break-all">
+              {dadosFatura ? formatarMoeda(totalFatura) : "—"}
+            </p>
           </div>
+
+          {!dadosFatura?.paga && dadosTransacoes.length > 0 && (
+            <p className="text-xs text-gray-600 dark:text-gray-400">
+              {dadosTransacoes.length}{" "}
+              {dadosTransacoes.length === 1 ? "transação" : "transações"} neste período
+            </p>
+          )}
+
+          {!dadosFatura?.paga && dadosTransacoes.length > 0 && (
+            <Button
+              onClick={() => setModalAberto(true)}
+              disabled={pagarFaturaMutation.isPending}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              {pagarFaturaMutation.isPending
+                ? <><Loader2 size={16} className="mr-2 animate-spin" /> Pagando...</>
+                : <><DollarSign size={16} className="mr-2" /> Pagar Fatura</>
+              }
+            </Button>
+          )}
+
+          {!dadosFatura && !loading && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Nenhuma fatura encontrada para {meses[mesFinal]}/{anoFinal}.
+            </p>
+          )}
         </CardContent>
       </Card>
 
-      {/* ============================================
-          INSIGHTS - Mobile Optimized
-          ============================================ */}
+      {/* ── INSIGHT ── */}
       {categoriaComMaiorGasto && !faturaVazia && (
         <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-900">
           <PieChart className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
@@ -280,15 +352,12 @@ export default function FaturaPage() {
         </Alert>
       )}
 
-      {/* ============================================
-          GRID DE CARDS - Stack no Mobile
-          ============================================ */}
+      {/* ── GRID: Categorias + Informações ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-        {/* Resumo por Categoria */}
         <Card>
-          <CardHeader className="pb-3 md:pb-6">
+          <CardHeader className="pb-3">
             <CardTitle className="text-sm md:text-base flex items-center gap-2">
-              <PieChart size={16} className="md:w-[18px] md:h-[18px] text-blue-600" />
+              <PieChart size={16} className="text-blue-600" />
               Resumo por Categoria
             </CardTitle>
           </CardHeader>
@@ -298,29 +367,26 @@ export default function FaturaPage() {
                 Sem categorias para exibir
               </p>
             ) : (
-              <div className="space-y-3 overflow-x-hidden">
+              <div className="space-y-3">
                 {categorias
                   .sort((a, b) => b[1] - a[1])
                   .slice(0, 5)
                   .map(([categoria, valor]) => {
-                    const percentual = (valor / totalFatura) * 100;
+                    const pct = (valor / totalFatura) * 100;
                     return (
-                      <div key={categoria} className="space-y-1.5 min-w-0">
-                        <div className="flex justify-between text-xs md:text-sm gap-2 min-w-0">
-                          <span className="font-medium text-gray-700 dark:text-gray-300 truncate min-w-0">
+                      <div key={categoria} className="space-y-1.5">
+                        <div className="flex justify-between text-xs md:text-sm gap-2">
+                          <span className="font-medium text-gray-700 dark:text-gray-300 truncate">
                             {categoria}
                           </span>
-                          <span className="text-gray-900 dark:text-white font-semibold flex-shrink-0 whitespace-nowrap">
+                          <span className="text-gray-900 dark:text-white font-semibold flex-shrink-0">
                             {formatarMoeda(valor)}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Progress 
-                            value={percentual} 
-                            className="h-1.5 md:h-2 flex-1"
-                          />
-                          <span className="text-xs text-gray-500 w-10 md:w-12 text-right flex-shrink-0">
-                            {percentual.toFixed(0)}%
+                          <Progress value={pct} className="h-1.5 flex-1" />
+                          <span className="text-xs text-gray-500 w-10 text-right flex-shrink-0">
+                            {pct.toFixed(0)}%
                           </span>
                         </div>
                       </div>
@@ -331,78 +397,59 @@ export default function FaturaPage() {
           </CardContent>
         </Card>
 
-        {/* Informações da Fatura */}
         <Card>
-          <CardHeader className="pb-3 md:pb-6">
+          <CardHeader className="pb-3">
             <CardTitle className="text-sm md:text-base flex items-center gap-2">
-              <Calendar size={16} className="md:w-[18px] md:h-[18px] text-blue-600" />
+              <Calendar size={16} className="text-blue-600" />
               Informações
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 md:space-y-3 pt-0">
-            <div className="flex items-center justify-between p-2.5 md:p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Receipt size={14} className="md:w-4 md:h-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                  Transações
-                </span>
+          <CardContent className="space-y-2 pt-0">
+            {[
+              { icon: Receipt,  label: "Transações", value: dadosTransacoes.length },
+              { icon: PieChart, label: "Categorias",  value: categorias.length },
+              { icon: Calendar, label: "Período",     value: `${meses[mesFinal]}/${anoFinal}` },
+              ...(cartao?.diaFechamento
+                ? [{ icon: Lock, label: "Fechamento", value: `Dia ${cartao.diaFechamento}` }]
+                : []),
+            ].map(({ icon: Icon, label, value }) => (
+              <div
+                key={label}
+                className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-900 rounded-lg"
+              >
+                <div className="flex items-center gap-2">
+                  <Icon size={14} className="text-gray-600 dark:text-gray-400 flex-shrink-0" />
+                  <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">{label}</span>
+                </div>
+                <span className="font-semibold text-sm text-gray-900 dark:text-white">{value}</span>
               </div>
-              <span className="font-semibold text-sm md:text-base text-gray-900 dark:text-white">
-                {transacoes.length}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between p-2.5 md:p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-              <div className="flex items-center gap-2">
-                <PieChart size={14} className="md:w-4 md:h-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                  Categorias
-                </span>
-              </div>
-              <span className="font-semibold text-sm md:text-base text-gray-900 dark:text-white">
-                {categorias.length}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between p-2.5 md:p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Calendar size={14} className="md:w-4 md:h-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                  Período
-                </span>
-              </div>
-              <span className="font-semibold text-sm md:text-base text-gray-900 dark:text-white">
-                {meses[mesSelecionado]}/{anoNum}
-              </span>
-            </div>
+            ))}
           </CardContent>
         </Card>
       </div>
 
-      {/* ============================================
-          LISTA DE TRANSAÇÕES - Mobile Optimized
-          ============================================ */}
+      {/* ── LISTA DE TRANSAÇÕES ── */}
       <Card>
-        <CardHeader className="pb-3 md:pb-6">
+        <CardHeader className="pb-3">
           <CardTitle className="text-sm md:text-base flex items-center gap-2">
-            <Receipt size={16} className="md:w-[18px] md:h-[18px] text-blue-600" />
-            Transações ({transacoes.length})
+            <Receipt size={16} className="text-blue-600" />
+            Transações ({dadosTransacoes.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           {faturaVazia ? (
             <div className="text-center py-8 md:py-12">
-              <Receipt className="mx-auto mb-3 md:mb-4 text-gray-300" size={40} />
-              <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 font-medium">
+              <Receipt className="mx-auto mb-3 text-gray-300" size={40} />
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
                 Nenhuma transação encontrada
               </p>
-              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-500 mt-1">
-                Não há transações registradas para este período
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                Não há transações para {meses[mesFinal]}/{anoFinal}
               </p>
             </div>
           ) : (
             <div className="space-y-2">
-              {transacoes.map((t) => (
+              {dadosTransacoes.map((t) => (
                 <FaturaItem key={t.id} transacao={t} />
               ))}
             </div>
@@ -410,9 +457,7 @@ export default function FaturaPage() {
         </CardContent>
       </Card>
 
-      {/* ============================================
-          MODAL DE PAGAMENTO
-          ============================================ */}
+      {/* ── MODAL ── */}
       <PagarFaturaModal
         aberto={modalAberto}
         onClose={() => setModalAberto(false)}

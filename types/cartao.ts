@@ -22,7 +22,6 @@ export interface Cartao {
   contaVinculadaId: string | null;
   ativo: boolean;
   createdAt: string | Date;
-  // ⚠️ REMOVIDO: updatedAt (não existe no schema)
   
   // ✅ CAMPOS CALCULADOS PELA API (GET /api/cartoes)
   emUso?: number; // Total de faturas não pagas
