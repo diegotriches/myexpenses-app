@@ -1,18 +1,19 @@
 "use client";
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Transacao } from '@/types/transacao';
 import { ArrowUpCircle, ArrowDownCircle, Calendar, Clock } from 'lucide-react';
+import { useTransacoesRecentes } from '@/hooks/useDashboard';
+import { Skeleton } from '@/components/ui/skeleton';
 
-type Props = { 
-  transacoes: Transacao[] 
-};
+export function CardTransacoesRecentes() {
+  const { data, isLoading } = useTransacoesRecentes(5);
 
-export function CardTransacoesRecentes({ transacoes }: Props) {
+  const transacoes = data?.transacoes ?? [];
+
   const formatarData = (data: string | Date) => {
     const date = typeof data === 'string' ? new Date(data) : data;
-    return date.toLocaleDateString('pt-BR', { 
-      day: '2-digit', 
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
       month: 'short',
       year: 'numeric'
     });
@@ -24,6 +25,17 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
       currency: 'BRL'
     }).format(valor);
   };
+
+  if (isLoading) {
+    return (
+      <Card className="dark:bg-gray-900 dark:border-gray-800">
+        <CardHeader><Skeleton className="h-4 w-[180px]" /></CardHeader>
+        <CardContent className="space-y-2">
+          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="dark:bg-gray-900 dark:border-gray-800">
@@ -48,17 +60,16 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
           <ul className="space-y-2">
             {transacoes.map(t => {
               const isReceita = t.tipo === 'entrada';
-              
+
               return (
-                <li 
-                  key={t.id} 
+                <li
+                  key={t.id}
                   className="flex items-center justify-between p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {/* Ícone */}
                     <div className={`p-1.5 rounded-full flex-shrink-0 group-hover:scale-110 transition-transform ${
-                      isReceita 
-                        ? 'bg-green-100 dark:bg-green-900/30' 
+                      isReceita
+                        ? 'bg-green-100 dark:bg-green-900/30'
                         : 'bg-red-100 dark:bg-red-900/30'
                     }`}>
                       {isReceita ? (
@@ -67,13 +78,12 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
                         <ArrowDownCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
                       )}
                     </div>
-                    
-                    {/* Descrição e Detalhes */}
+
                     <div className="flex flex-col min-w-0 flex-1">
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                         {t.descricao || (isReceita ? 'Receita' : 'Despesa')}
                       </span>
-                      
+
                       <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                         {t.data && (
                           <div className="flex items-center gap-1">
@@ -81,7 +91,7 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
                             {formatarData(t.data)}
                           </div>
                         )}
-                        
+
                         {t.categoria && (
                           <>
                             <span>•</span>
@@ -89,7 +99,6 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
                           </>
                         )}
 
-                        {/* Indicador de parcelado/recorrente */}
                         {t.parcelado && t.parcelas && (
                           <>
                             <span>•</span>
@@ -98,7 +107,7 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
                             </span>
                           </>
                         )}
-                        
+
                         {t.recorrente && (
                           <>
                             <span>•</span>
@@ -110,16 +119,13 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
                       </div>
                     </div>
                   </div>
-                  
-                  {/* Valor */}
-                  <span 
-                    className={`text-sm font-bold whitespace-nowrap ml-2 ${
-                      isReceita 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : 'text-red-600 dark:text-red-400'
-                    }`}
-                  >
-                    {isReceita ? '+' : '-'} {formatarMoeda(Number(t.valor))}
+
+                  <span className={`text-sm font-bold whitespace-nowrap ml-2 ${
+                    isReceita
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {isReceita ? '+' : '-'} {formatarMoeda(t.valor)}
                   </span>
                 </li>
               );
@@ -127,7 +133,6 @@ export function CardTransacoesRecentes({ transacoes }: Props) {
           </ul>
         )}
 
-        {/* Rodapé com contagem */}
         {transacoes.length > 0 && (
           <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400">

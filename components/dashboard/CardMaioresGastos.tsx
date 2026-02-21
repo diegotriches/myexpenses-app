@@ -1,36 +1,21 @@
-// src/components/dashboard/CardMaioresGastos.tsx
 "use client";
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Transacao } from '@/types/transacao';
-import { maioresGastos } from '@/utils/dashboardUtils';
 import { AlertTriangle, Calendar, Tag } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMaioresGastos } from '@/hooks/useDashboard';
+import { Skeleton } from '@/components/ui/skeleton';
 
-type Props = { 
-  transacoes: Transacao[];
-  mesAno: string;
-};
+export function CardMaioresGastos() {
+  const { data, isLoading } = useMaioresGastos(5);
 
-export function CardMaioresGastos({ transacoes, mesAno }: Props) {
-  // Filtra transações do período e pega os maiores gastos
-  const topGastos = useMemo(() => {
-    const transacoesPeriodo = transacoes.filter(t => {
-      const dataStr = typeof t.data === 'string' ? t.data : t.data.toISOString();
-      return dataStr.startsWith(mesAno) && t.tipo === 'saida';
-    });
-    return maioresGastos(transacoesPeriodo, 5);
-  }, [transacoes, mesAno]);
-  
-  const totalGastos = useMemo(
-    () => topGastos.reduce((acc, t) => acc + Number(t.valor), 0),
-    [topGastos]
-  );
+  const gastos = data?.gastos ?? [];
+  const total = data?.total ?? 0;
+  const media = data?.media ?? 0;
 
   const formatarData = (data: string | Date) => {
     const date = typeof data === 'string' ? new Date(data) : data;
-    return date.toLocaleDateString('pt-BR', { 
-      day: '2-digit', 
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
       month: 'short',
       year: 'numeric'
     });
@@ -43,6 +28,17 @@ export function CardMaioresGastos({ transacoes, mesAno }: Props) {
     }).format(valor);
   };
 
+  if (isLoading) {
+    return (
+      <Card className="dark:bg-gray-900 dark:border-gray-800">
+        <CardHeader><Skeleton className="h-4 w-[200px]" /></CardHeader>
+        <CardContent className="space-y-2.5">
+          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardHeader>
@@ -52,10 +48,9 @@ export function CardMaioresGastos({ transacoes, mesAno }: Props) {
           <span className="sm:hidden">Top 5 Gastos</span>
         </CardTitle>
       </CardHeader>
-      
+
       <CardContent>
-        {/* Empty State */}
-        {topGastos.length === 0 ? (
+        {gastos.length === 0 ? (
           <div className="text-center py-8">
             <AlertTriangle className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -67,34 +62,31 @@ export function CardMaioresGastos({ transacoes, mesAno }: Props) {
           </div>
         ) : (
           <div className="space-y-2.5">
-            {topGastos.map((t, index) => {
-              const porcentagem = totalGastos > 0 ? (Number(t.valor) / totalGastos) * 100 : 0;
-              
+            {gastos.map((t, index) => {
+              const porcentagem = total > 0 ? (t.valor / total) * 100 : 0;
+
               return (
-                <div 
+                <div
                   key={t.id}
                   className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
                 >
-                  {/* Badge com Posição */}
                   <div className="flex items-center justify-center w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-bold flex-shrink-0 group-hover:scale-110 transition-transform">
                     {index + 1}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
-                    {/* Descrição e Valor */}
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                        {t.descricao || 'Despesa sem descrição'}
+                        {t.descricao}
                       </span>
                       <span className="text-sm font-bold text-red-600 dark:text-red-400 ml-2 whitespace-nowrap">
-                        {formatarMoeda(Number(t.valor))}
+                        {formatarMoeda(t.valor)}
                       </span>
                     </div>
-                    
-                    {/* Barra de Progresso + Percentual */}
+
                     <div className="flex items-center gap-2 mb-1">
                       <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className="h-full bg-red-500 transition-all duration-300"
                           style={{ width: `${porcentagem}%` }}
                         />
@@ -103,8 +95,7 @@ export function CardMaioresGastos({ transacoes, mesAno }: Props) {
                         {porcentagem.toFixed(1)}%
                       </span>
                     </div>
-                    
-                    {/* Data e Categoria */}
+
                     <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                       {t.data && (
                         <div className="flex items-center gap-1">
@@ -125,8 +116,7 @@ export function CardMaioresGastos({ transacoes, mesAno }: Props) {
                 </div>
               );
             })}
-            
-            {/* Total e Média */}
+
             <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -134,20 +124,16 @@ export function CardMaioresGastos({ transacoes, mesAno }: Props) {
                   <span className="sm:hidden">Total:</span>
                 </span>
                 <span className="text-base font-bold text-red-600 dark:text-red-400">
-                  {formatarMoeda(totalGastos)}
+                  {formatarMoeda(total)}
                 </span>
               </div>
-              
-              {/* Média */}
-              {topGastos.length > 0 && (
+              {gastos.length > 0 && (
                 <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
                   <span>
                     <span className="hidden sm:inline">Média dos maiores gastos:</span>
                     <span className="sm:hidden">Média:</span>
                   </span>
-                  <span className="font-semibold">
-                    {formatarMoeda(totalGastos / topGastos.length)}
-                  </span>
+                  <span className="font-semibold">{formatarMoeda(media)}</span>
                 </div>
               )}
             </div>

@@ -1,16 +1,15 @@
 "use client";
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Transacao } from '@/types/transacao';
 import { categoriasDespesa } from '@/utils/dashboardUtils';
 import { TrendingDown } from 'lucide-react';
 import { useMemo } from 'react';
+import { useTransacoes } from '@/hooks/useTransacoes';
+import { Skeleton } from '@/components/ui/skeleton';
 
-type Props = { 
-  transacoes: Transacao[] 
-};
+export function CardCategoriasDespesa() {
+  const { data: transacoes = [], isLoading } = useTransacoes();
 
-export function CardCategoriasDespesa({ transacoes }: Props) {
   const categorias = useMemo(() => {
     return categoriasDespesa(transacoes);
   }, [transacoes]);
@@ -26,6 +25,17 @@ export function CardCategoriasDespesa({ transacoes }: Props) {
     }).format(valor);
   };
 
+  if (isLoading) {
+    return (
+      <Card className="dark:bg-gray-900 dark:border-gray-800">
+        <CardHeader><Skeleton className="h-4 w-[200px]" /></CardHeader>
+        <CardContent className="space-y-2.5">
+          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardHeader>
@@ -38,9 +48,7 @@ export function CardCategoriasDespesa({ transacoes }: Props) {
         {categorias.length === 0 ? (
           <div className="text-center py-8">
             <TrendingDown className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Nenhuma despesa encontrada
-            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma despesa encontrada</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               As despesas aparecerão aqui quando você registrá-las
             </p>
@@ -49,19 +57,17 @@ export function CardCategoriasDespesa({ transacoes }: Props) {
           <div className="space-y-2.5">
             {categorias.slice(0, 5).map((c, index) => {
               const porcentagem = totalDespesas > 0 ? (c.total / totalDespesas) * 100 : 0;
-              
+
               return (
-                <div 
+                <div
                   key={c.categoria}
                   className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
                 >
-                  {/* Ranking Badge */}
                   <div className="flex items-center justify-center w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-bold flex-shrink-0 group-hover:scale-110 transition-transform">
                     {index + 1}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
-                    {/* Categoria e Valor */}
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                         {c.categoria}
@@ -70,11 +76,10 @@ export function CardCategoriasDespesa({ transacoes }: Props) {
                         {formatarMoeda(c.total)}
                       </span>
                     </div>
-                    
-                    {/* Barra de Progresso */}
+
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className="h-full bg-gradient-to-r from-red-500 to-red-600 transition-all duration-300"
                           style={{ width: `${porcentagem}%` }}
                         />
@@ -83,8 +88,7 @@ export function CardCategoriasDespesa({ transacoes }: Props) {
                         {porcentagem.toFixed(1)}%
                       </span>
                     </div>
-                    
-                    {/* Quantidade */}
+
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       {c.quantidade} lançamento{c.quantidade !== 1 ? 's' : ''}
                     </p>
@@ -92,8 +96,7 @@ export function CardCategoriasDespesa({ transacoes }: Props) {
                 </div>
               );
             })}
-            
-            {/* Indicador de mais categorias */}
+
             {categorias.length > 5 && (
               <div className="text-center pt-1">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -101,8 +104,7 @@ export function CardCategoriasDespesa({ transacoes }: Props) {
                 </p>
               </div>
             )}
-            
-            {/* Total */}
+
             <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                 Total em despesas:
