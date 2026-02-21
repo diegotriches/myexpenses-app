@@ -1,18 +1,11 @@
 "use client";
 
 import { useMemo } from 'react';
-import { usePeriodo } from '@/contexts/PeriodoContext';
 
-// ✅ REACT QUERY: Hooks específicos do dashboard
 import { useDashboard, useDespesasFuturas } from '@/hooks/useDashboard';
 import { useContas } from '@/hooks/useContas';
 import { useCartoes } from '@/hooks/useCartoes';
-import { useTransacoes } from '@/hooks/useTransacoes';
 
-// Utils (apenas para cálculos locais necessários)
-import { ultimasTransacoes } from '@/utils/dashboardUtils';
-
-// Components
 import { CardResumo } from '@/components/dashboard/CardResumo';
 import { CardTransacoesRecentes } from '@/components/dashboard/CardTransacoesRecentes';
 import { CardCondicoesPagamento } from '@/components/dashboard/CardCondicoesPagamento';
@@ -35,48 +28,20 @@ import { Wallet, CreditCard, PieChart, BarChart3, DollarSign } from 'lucide-reac
 import { BsHouse } from "react-icons/bs";
 
 export default function Dashboard() {
-  const { mesSelecionado, anoSelecionado } = usePeriodo();
-
-  // Formata período no formato YYYY-MM para componentes que precisam
-  const periodo = `${anoSelecionado}-${String(mesSelecionado + 1).padStart(2, '0')}`;
-
-  // ✅ HOOKS DO DASHBOARD (dados agregados do backend)
   const { data: dashboard, isLoading: loadingDashboard } = useDashboard();
   const { data: despesasFuturas, isLoading: loadingDespesasFuturas } = useDespesasFuturas();
-
-  // ✅ HOOKS DE DADOS BRUTOS (necessários para cards específicos)
   const { data: contas = [], isLoading: loadingContas } = useContas();
   const { data: cartoes = [], isLoading: loadingCartoes } = useCartoes();
-  const { data: transacoes = [], isLoading: loadingTransacoes } = useTransacoes();
 
-  // ✅ Cálculo de últimas transações (não tem endpoint específico ainda)
-  const ultimas = useMemo(() => {
-    return transacoes.length ? ultimasTransacoes(transacoes, 5) : [];
-  }, [transacoes]);
-
-  // ✅ Cálculos de totais de contas e cartões
   const totais = useMemo(() => {
     if (!contas.length && !cartoes.length) return null;
 
-    // Total de todas as contas ativas
     const contasAtivas = contas.filter(c => c.ativo);
-    const totalContas = contasAtivas.reduce(
-      (acc, c) => acc + Number(c.saldoAtual), 
-      0
-    );
+    const totalContas = contasAtivas.reduce((acc, c) => acc + Number(c.saldoAtual), 0);
 
-    // Cartões de crédito ativos
     const cartoesCredito = cartoes.filter(c => c.tipo === 'credito' && c.ativo);
-    const limiteTotal = cartoesCredito.reduce(
-      (acc, c) => acc + Number(c.limite), 
-      0
-    );
-
-    // Calcular limite usado
-    const limiteDisponivel = cartoesCredito.reduce(
-      (acc, c) => acc + Number(c.limiteDisponivel), 
-      0
-    );
+    const limiteTotal = cartoesCredito.reduce((acc, c) => acc + Number(c.limite), 0);
+    const limiteDisponivel = cartoesCredito.reduce((acc, c) => acc + Number(c.limiteDisponivel), 0);
     const limiteUsado = limiteTotal - limiteDisponivel;
     const percentualUso = limiteTotal > 0 ? (limiteUsado / limiteTotal) * 100 : 0;
 
@@ -87,26 +52,18 @@ export default function Dashboard() {
       limiteUsado: Math.max(0, limiteUsado),
       percentualUso: Math.max(0, percentualUso),
       quantidadeContas: contasAtivas.length,
-      quantidadeCartoes: cartoesCredito.length
+      quantidadeCartoes: cartoesCredito.length,
     };
   }, [contas, cartoes]);
 
-  const formatarMoeda = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor);
-  };
+  const formatarMoeda = (valor: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 
-  // ✅ LOADING UNIFICADO
   const isLoading = loadingDashboard || loadingContas || loadingCartoes || loadingDespesasFuturas;
 
-  // ✅ SKELETON COMPONENT
   const CardSkeleton = () => (
     <Card className="dark:bg-gray-900 dark:border-gray-800">
-      <CardHeader>
-        <Skeleton className="h-4 w-[200px]" />
-      </CardHeader>
+      <CardHeader><Skeleton className="h-4 w-[200px]" /></CardHeader>
       <CardContent>
         <Skeleton className="h-8 w-full mb-2" />
         <Skeleton className="h-4 w-3/4" />
@@ -120,22 +77,16 @@ export default function Dashboard() {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <BsHouse className="text-3xl text-blue-700 dark:text-blue-500" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Dashboard
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
         </div>
-        <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Visão geral das suas finanças
-        </p>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">Visão geral das suas finanças</p>
         <hr className="border-t border-gray-300 dark:border-gray-700" />
       </div>
 
-      {/* Cards de resumo principal - AGORA COM 5 CARDS */}
+      {/* Cards de resumo principal */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {[...Array(5)].map((_, i) => (
-            <CardSkeleton key={i} />
-          ))}
+          {[...Array(5)].map((_, i) => <CardSkeleton key={i} />)}
         </div>
       ) : (
         <CardResumo
@@ -146,12 +97,9 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Cards de Cartões - 2 colunas */}
+      {/* Limite de crédito + Contas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Limite Total de Crédito */}
-        {isLoading ? (
-          <CardSkeleton />
-        ) : (
+        {isLoading ? <CardSkeleton /> : (
           <Card className="dark:bg-gray-900 dark:border-gray-800">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-900 dark:text-white">
@@ -179,11 +127,9 @@ export default function Dashboard() {
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
                   <div
                     className={`h-2 rounded-full transition-all ${
-                      (totais?.percentualUso || 0) > 80
-                        ? 'bg-red-500'
-                        : (totais?.percentualUso || 0) > 50
-                        ? 'bg-yellow-500'
-                        : 'bg-green-500'
+                      (totais?.percentualUso || 0) > 80 ? 'bg-red-500'
+                      : (totais?.percentualUso || 0) > 50 ? 'bg-yellow-500'
+                      : 'bg-green-500'
                     }`}
                     style={{ width: `${Math.min(totais?.percentualUso || 0, 100)}%` }}
                   />
@@ -201,10 +147,7 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {/* Lista de Contas */}
-        {isLoading ? (
-          <CardSkeleton />
-        ) : (
+        {isLoading ? <CardSkeleton /> : (
           <Card className="dark:bg-gray-900 dark:border-gray-800">
             <CardHeader>
               <CardTitle className="text-sm font-medium flex items-center justify-between text-gray-900 dark:text-white">
@@ -213,38 +156,26 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {contas
-                ?.filter(c => c.ativo)
-                .slice(0, 3)
-                .map((conta) => (
-                  <div
-                    key={conta.id}
-                    className="flex items-center justify-between p-2 rounded-md bg-gray-100 dark:bg-gray-800"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Wallet className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {conta.nome}
-                        </p>
-                        {conta.banco && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {conta.banco}
-                          </p>
-                        )}
-                      </div>
+              {contas.filter(c => c.ativo).slice(0, 3).map((conta) => (
+                <div key={conta.id} className="flex items-center justify-between p-2 rounded-md bg-gray-100 dark:bg-gray-800">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{conta.nome}</p>
+                      {conta.banco && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{conta.banco}</p>
+                      )}
                     </div>
-                    <span
-                      className={`text-sm font-semibold ${
-                        Number(conta.saldoAtual) >= 0 
-                          ? 'text-green-600 dark:text-green-400' 
-                          : 'text-red-600 dark:text-red-400'
-                      }`}
-                    >
-                      {formatarMoeda(Number(conta.saldoAtual))}
-                    </span>
                   </div>
-                ))}
+                  <span className={`text-sm font-semibold ${
+                    Number(conta.saldoAtual) >= 0
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {formatarMoeda(Number(conta.saldoAtual))}
+                  </span>
+                </div>
+              ))}
               {(totais?.quantidadeContas || 0) === 0 && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
                   Nenhuma conta cadastrada
@@ -260,103 +191,48 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Tabs de visualização */}
+      {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="dark:bg-gray-800">
           <TabsTrigger value="overview" className="gap-2 dark:data-[state=active]:bg-gray-700">
-            <PieChart className="h-4 w-4" />
-            Visão Geral
+            <PieChart className="h-4 w-4" />Visão Geral
           </TabsTrigger>
           <TabsTrigger value="analytics" className="gap-2 dark:data-[state=active]:bg-gray-700">
-            <BarChart3 className="h-4 w-4" />
-            Análises
+            <BarChart3 className="h-4 w-4" />Análises
           </TabsTrigger>
           <TabsTrigger value="details" className="gap-2 dark:data-[state=active]:bg-gray-700">
-            <DollarSign className="h-4 w-4" />
-            Detalhes
+            <DollarSign className="h-4 w-4" />Detalhes
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab: Visão Geral */}
         <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {isLoading ? (
-              <>
-                <CardSkeleton />
-                <CardSkeleton />
-              </>
-            ) : (
-              <>
-                <CardGraficoMeses />
-                <CardTransacoesRecentes transacoes={ultimas} />
-              </>
-            )}
+            <CardGraficoMeses />
+            <CardTransacoesRecentes />
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {isLoading ? (
-              <>
-                <CardSkeleton />
-                <CardSkeleton />
-                <CardSkeleton />
-              </>
-            ) : (
-              <>
-                <CardCondicoesPagamento />
-                <CardFormasPagamento />
-                <CardFaturas />
-              </>
-            )}
+            <CardCondicoesPagamento />
+            <CardFormasPagamento />
+            <CardFaturas />
           </div>
         </TabsContent>
 
-        {/* Tab: Análises */}
         <TabsContent value="analytics" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {loadingTransacoes ? (
-              <>
-                <CardSkeleton />
-                <CardSkeleton />
-                <CardSkeleton />
-              </>
-            ) : (
-              <>
-                <CardCategoriasLancamentos transacoes={transacoes} />
-                <CardCategoriasReceita transacoes={transacoes} />
-                <CardCategoriasDespesa transacoes={transacoes} />
-              </>
-            )}
+            <CardCategoriasLancamentos />
+            <CardCategoriasReceita />
+            <CardCategoriasDespesa />
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {loadingTransacoes ? (
-              <>
-                <CardSkeleton />
-                <CardSkeleton />
-              </>
-            ) : (
-              <>
-                <CardMaioresGastos transacoes={transacoes} mesAno={periodo} />
-                <CardValores transacoes={transacoes} />
-              </>
-            )}
+            <CardMaioresGastos />
+            <CardValores />
           </div>
         </TabsContent>
 
-        {/* Tab: Detalhes */}
         <TabsContent value="details" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {loadingTransacoes ? (
-              <>
-                <CardSkeleton />
-                <CardSkeleton />
-              </>
-            ) : (
-              <>
-                <CardParcelados transacoes={transacoes} />
-                <CardRecorrentes />
-              </>
-            )}
+            <CardParcelados />
+            <CardRecorrentes />
           </div>
         </TabsContent>
       </Tabs>
