@@ -138,28 +138,83 @@ export interface ExtratoResponse {
 }
 
 /**
- * ✨ NOVO: Despesas futuras (transações de cartão em faturas posteriores)
- * 
+ * Despesas futuras (transações de cartão em faturas posteriores)
  * Retornado por GET /api/dashboard/despesas-futuras
- * 
- * @example
- * {
- *   total: 2450.00,      // Soma dos valores das despesas futuras
- *   quantidade: 8        // Número de transações pendentes
- * }
  */
 export interface DespesasFuturas {
-  total: number;      // Soma dos valores de todas as despesas futuras
-  quantidade: number; // Quantidade de transações pendentes
+  total: number;
+  quantidade: number;
+}
+
+// ========================================
+// ✅ TIPOS NOVOS: Endpoints adicionados na refatoração
+// ========================================
+
+/**
+ * Retornado por GET /api/dashboard/valores-periodo
+ * Usado pelo CardValores
+ */
+export interface ValoresPeriodoResponse {
+  recebidos: number;
+  aReceber: number;
+  aPagar: number;
+  projecao: number;
+}
+
+/**
+ * Item individual de gasto
+ * Usado em MaioresGastosResponse
+ */
+export interface GastoItem {
+  id: number;
+  descricao: string;
+  valor: number;
+  data: Date | string;
+  categoria: string | null;
+}
+
+/**
+ * Retornado por GET /api/dashboard/maiores-gastos
+ * Usado pelo CardMaioresGastos
+ */
+export interface MaioresGastosResponse {
+  gastos: GastoItem[];
+  total: number;
+  media: number;
+}
+
+/**
+ * Item individual de transação recente
+ * Usado em TransacoesRecentesResponse
+ */
+export interface TransacaoRecenteItem {
+  id: number;
+  descricao: string | null;
+  valor: number;
+  data: Date | string;
+  tipo: "entrada" | "saida";
+  categoria: string | null;
+  parcelado: boolean;
+  parcelas: number | null;
+  parcelaAtual: number | null;
+  recorrente: boolean;
+}
+
+/**
+ * Retornado por GET /api/dashboard/transacoes-recentes
+ * Usado pelo CardTransacoesRecentes
+ */
+export interface TransacoesRecentesResponse {
+  transacoes: TransacaoRecenteItem[];
 }
 
 // ========================================
 // TIPOS: Resposta da API (para TypeScript)
 // ========================================
 
-/**
- * Tipo de resposta do gráfico de meses
- */
+// ⚠️ GraficoMesesResponse mantido por compatibilidade, mas não é mais usado ativamente
+// Pode ser removido futuramente se não houver outras referências
+/** @deprecated Use DadosGraficoMeses[] diretamente */
 export type GraficoMesesResponse = DadosGraficoMeses[];
 
 /**
@@ -177,11 +232,9 @@ export interface Recorrente {
   categoria?: string;
   tipo: "entrada" | "saida";
   recorrente: boolean;
-  
-  // ✨ Campos adicionais para agrupamento e exibição
-  recorrenciaId?: string;  // ID do grupo de recorrência (agrupa transações relacionadas)
-  repeticoes?: number;     // Quantidade de repetições/meses
-  data?: string | Date;    // Data da transação
+  recorrenciaId?: string;
+  repeticoes?: number;
+  data?: string | Date;
 }
 
 // ========================================
