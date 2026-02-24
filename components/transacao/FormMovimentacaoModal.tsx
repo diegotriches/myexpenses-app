@@ -227,6 +227,16 @@ export default function FormMovimentacaoModal({
           contaId: form.contaId || undefined,
           formaPagamento: form.formaPagamento,
           cartaoId: form.cartaoId ? Number(form.cartaoId) : null,
+
+          // ✅ Campos de parcelamento — necessários para converter à vista → parcelado
+          parcelado: form.parcelado,
+          parcelas: form.parcelado ? form.parcelas : null,
+          parcelamentoId: transacaoEdicao.parcelamentoId ?? null,
+
+          // ✅ Campos de recorrência — necessários para converter à vista → recorrente
+          recorrente: form.recorrente,
+          repeticoes: form.recorrente ? form.repeticoes : null,
+          recorrenciaId: transacaoEdicao.recorrenciaId ?? null,
         };
 
         await salvar(dadosAtualizacao);
@@ -250,8 +260,8 @@ export default function FormMovimentacaoModal({
           transacaoEdicao: null,
         });
 
-        const dadosParaSalvar = transacoesParaCriar.length === 1 
-          ? transacoesParaCriar[0] 
+        const dadosParaSalvar = transacoesParaCriar.length === 1
+          ? transacoesParaCriar[0]
           : transacoesParaCriar;
 
         await salvar(dadosParaSalvar);
@@ -355,7 +365,7 @@ export default function FormMovimentacaoModal({
                 ============================================ */}
             <div className="grid grid-cols-2 gap-3">
               <MovCamposBasicos form={form} update={updateAny} campo="valor" />
-              
+
               <MovCamposBasicos
                 form={form}
                 update={updateAny}
@@ -375,16 +385,16 @@ export default function FormMovimentacaoModal({
               />
 
               {mostrarCampoConta && (
-                <MovCampoConta 
-                  form={form} 
+                <MovCampoConta
+                  form={form}
                   update={updateAny}
                   renderInfoBox={() => null}
                 />
               )}
 
               {mostrarCampoCartao && (
-                <MovCampoCartao 
-                  form={form} 
+                <MovCampoCartao
+                  form={form}
                   update={updateAny}
                   renderInfoBox={() => null}
                 />
@@ -393,8 +403,8 @@ export default function FormMovimentacaoModal({
 
             {/* Info Box da Conta - Full width abaixo do grid */}
             {mostrarCampoConta && form.contaId && (
-              <MovCampoConta 
-                form={form} 
+              <MovCampoConta
+                form={form}
                 update={updateAny}
                 hideSelect={true}
                 renderInfoBox={(content) => <div className="w-full">{content}</div>}
@@ -403,8 +413,8 @@ export default function FormMovimentacaoModal({
 
             {/* Info Box do Cartão - Full width abaixo do grid */}
             {mostrarCampoCartao && form.cartaoId && (
-              <MovCampoCartao 
-                form={form} 
+              <MovCampoCartao
+                form={form}
                 update={updateAny}
                 hideSelect={true}
                 renderInfoBox={(content) => <div className="w-full">{content}</div>}
@@ -418,7 +428,7 @@ export default function FormMovimentacaoModal({
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block">
                 Tipo de Pagamento
               </label>
-              
+
               <Select
                 value={tipoPagamento}
                 onValueChange={(v: TipoPagamento) => {
@@ -441,9 +451,9 @@ export default function FormMovimentacaoModal({
                   {(Object.keys(tipoPagamentoIcons) as TipoPagamento[]).map((tipo) => {
                     const Icon = tipoPagamentoIcons[tipo];
                     return (
-                      <SelectItem 
-                        key={tipo} 
-                        value={tipo} 
+                      <SelectItem
+                        key={tipo}
+                        value={tipo}
                         className="dark:hover:bg-gray-700 h-12"
                       >
                         <div className="flex gap-2 items-center">
@@ -462,7 +472,7 @@ export default function FormMovimentacaoModal({
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {form.parcelado ? "Parcelas" : "Meses"}
                   </span>
-                  
+
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"
@@ -470,8 +480,8 @@ export default function FormMovimentacaoModal({
                       size="icon"
                       className="h-10 w-10 rounded-full"
                       onClick={form.parcelado ? decrementarParcelas : decrementarRepeticoes}
-                      disabled={form.parcelado 
-                        ? (form.parcelas <= 2 || bloqueiaCampos.parcelas) 
+                      disabled={form.parcelado
+                        ? (form.parcelas <= 2 || bloqueiaCampos.parcelas)
                         : (form.repeticoes <= 2 || bloqueiaCampos.repeticoes)
                       }
                     >
@@ -493,8 +503,8 @@ export default function FormMovimentacaoModal({
                       size="icon"
                       className="h-10 w-10 rounded-full"
                       onClick={form.parcelado ? incrementarParcelas : incrementarRepeticoes}
-                      disabled={form.parcelado 
-                        ? (form.parcelas >= 48 || bloqueiaCampos.parcelas) 
+                      disabled={form.parcelado
+                        ? (form.parcelas >= 48 || bloqueiaCampos.parcelas)
                         : (form.repeticoes >= 999 || bloqueiaCampos.repeticoes)
                       }
                     >
@@ -515,7 +525,7 @@ export default function FormMovimentacaoModal({
                   </div>
                 </div>
               )}
-              
+
               {form.recorrente && form.repeticoes > 1 && parseFloat(form.valor) > 0 && (
                 <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-2.5">
                   <div className="flex justify-between items-center">
@@ -555,9 +565,9 @@ export default function FormMovimentacaoModal({
             >
               Cancelar
             </Button>
-            <Button 
-              type="submit" 
-              disabled={loading} 
+            <Button
+              type="submit"
+              disabled={loading}
               className="flex-1 h-12 font-semibold"
             >
               {loading ? (

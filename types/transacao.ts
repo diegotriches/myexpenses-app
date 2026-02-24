@@ -83,9 +83,15 @@ export interface UpdateTransacaoDTO {
   contaId?: string;
   cartaoId?: number | null;
   
-  // Mantém estrutura de parcelamento/recorrência
-  parcelamentoId?: string;
-  recorrenciaId?: string;
+  // ✅ Parcelamento — necessário para converter à vista → parcelado
+  parcelado?: boolean;
+  parcelas?: number | null;
+  parcelamentoId?: string | null;
+
+  // ✅ Recorrência — necessário para converter à vista → recorrente
+  recorrente?: boolean;
+  repeticoes?: number | null;
+  recorrenciaId?: string | null;
 }
 
 /**

@@ -54,27 +54,186 @@ export async function PUT(
 
       const dataParaAtualizar = json.data
         ? (typeof json.data === 'string' ? new Date(json.data) : json.data)
-        : undefined;
+        : new Date(transacaoExistente.data);
+
+      const isParcelado  = json.parcelado  === true;
+      const isRecorrente = json.recorrente === true;
+      const eraParcelado  = transacaoExistente.parcelado  === true;
+      const eraRecorrente = transacaoExistente.recorrente === true;
+
+      // ============================================================
+      // CASO ESPECIAL: Convertendo à vista → parcelado
+      // Atualiza o registro existente como parcela 1 e cria as demais
+      // ============================================================
+      if (isParcelado && !eraParcelado) {
+        const totalParcelas  = json.parcelas as number;
+        const valorParcela   = Number(json.valor) / totalParcelas;
+        const parcelamentoId = crypto.randomUUID();
+
+        // 1. Atualiza a transação existente como parcela 1
+        const [parcela1] = await db
+          .update(transacoes)
+          .set({
+            tipo:           json.tipo,
+            descricao:      json.descricao,
+            valor:          valorParcela.toFixed(2),
+            data:           dataParaAtualizar,
+            categoria:      json.categoria,
+            contaId:        json.formaPagamento === "cartao" ? null : (json.contaId || null),
+            formaPagamento: json.formaPagamento,
+            cartaoId:       json.formaPagamento === "cartao" ? json.cartaoId : null,
+            parcelado:      true,
+            parcelas:       totalParcelas,
+            parcelaAtual:   1,
+            parcelamentoId,
+            recorrente:     false,
+            recorrenciaId:  null,
+            repeticoes:     null,
+            updatedAt:      new Date(),
+          })
+          .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
+          .returning();
+
+        console.log(`✅ Parcela 1/${totalParcelas} atualizada: ${id}`);
+
+        // 2. Cria as parcelas 2..N com datas mensais subsequentes
+        const parcelasParaCriar = [];
+        for (let i = 2; i <= totalParcelas; i++) {
+          const dataParcela = new Date(dataParaAtualizar);
+          dataParcela.setMonth(dataParcela.getMonth() + (i - 1));
+
+          parcelasParaCriar.push({
+            userId,
+            tipo:           json.tipo           as string,
+            descricao:      json.descricao      as string | null,
+            valor:          valorParcela.toFixed(2),
+            data:           dataParcela,
+            categoria:      json.categoria      as string | null,
+            contaId:        json.formaPagamento === "cartao" ? null : (json.contaId || null),
+            formaPagamento: json.formaPagamento as string,
+            cartaoId:       json.formaPagamento === "cartao" ? json.cartaoId : null,
+            parcelado:      true,
+            parcelas:       totalParcelas,
+            parcelaAtual:   i,
+            parcelamentoId,
+            recorrente:     false,
+            recorrenciaId:  null,
+            repeticoes:     null,
+          });
+        }
+
+        const novasParcelas = await db
+          .insert(transacoes)
+          .values(parcelasParaCriar)
+          .returning();
+
+        console.log(`✅ ${novasParcelas.length} parcelas criadas — parcelamentoId: ${parcelamentoId}`);
+
+        return NextResponse.json({ parcela1, novasParcelas, parcelamentoId, totalParcelas });
+      }
+
+      // ============================================================
+      // CASO ESPECIAL: Convertendo à vista → recorrente
+      // Atualiza o registro existente como repetição 1 e cria as demais
+      // ============================================================
+      if (isRecorrente && !eraRecorrente) {
+        const totalRepeticoes = json.repeticoes as number;
+        const recorrenciaId   = crypto.randomUUID();
+
+        // 1. Atualiza a transação existente como repetição 1
+        const [repeticao1] = await db
+          .update(transacoes)
+          .set({
+            tipo:           json.tipo,
+            descricao:      json.descricao,
+            valor:          String(json.valor),
+            data:           dataParaAtualizar,
+            categoria:      json.categoria,
+            contaId:        json.contaId || null,
+            formaPagamento: json.formaPagamento,
+            cartaoId:       json.formaPagamento === "cartao" ? json.cartaoId : null,
+            recorrente:     true,
+            recorrenciaId,
+            repeticoes:     totalRepeticoes,
+            parcelado:      false,
+            parcelamentoId: null,
+            parcelas:       null,
+            parcelaAtual:   null,
+            updatedAt:      new Date(),
+          })
+          .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
+          .returning();
+
+        console.log(`✅ Repetição 1/${totalRepeticoes} atualizada: ${id}`);
+
+        // 2. Cria as repetições 2..N com datas mensais subsequentes
+        const repeticoesParaCriar = [];
+        for (let i = 2; i <= totalRepeticoes; i++) {
+          const dataRepeticao = new Date(dataParaAtualizar);
+          dataRepeticao.setMonth(dataRepeticao.getMonth() + (i - 1));
+
+          repeticoesParaCriar.push({
+            userId,
+            tipo:           json.tipo           as string,
+            descricao:      json.descricao      as string | null,
+            valor:          String(json.valor),
+            data:           dataRepeticao,
+            categoria:      json.categoria      as string | null,
+            contaId:        json.contaId        as string | null,
+            formaPagamento: json.formaPagamento as string,
+            cartaoId:       json.formaPagamento === "cartao" ? json.cartaoId : null,
+            recorrente:     true,
+            recorrenciaId,
+            repeticoes:     totalRepeticoes,
+            parcelado:      false,
+            parcelamentoId: null,
+            parcelas:       null,
+            parcelaAtual:   null,
+          });
+        }
+
+        const novasRepeticoes = await db
+          .insert(transacoes)
+          .values(repeticoesParaCriar)
+          .returning();
+
+        console.log(`✅ ${novasRepeticoes.length} repetições criadas — recorrenciaId: ${recorrenciaId}`);
+
+        return NextResponse.json({ repeticao1, novasRepeticoes, recorrenciaId, totalRepeticoes });
+      }
+
+      // ============================================================
+      // CASO PADRÃO: Edição simples sem mudança de tipo de pagamento
+      // ============================================================
+      const parcelamentoId = isParcelado
+        ? (transacaoExistente.parcelamentoId || crypto.randomUUID())
+        : null;
+
+      const recorrenciaId = isRecorrente
+        ? (transacaoExistente.recorrenciaId || crypto.randomUUID())
+        : null;
 
       const [updated] = await db
         .update(transacoes)
         .set({
-          tipo: json.tipo,
-          descricao: json.descricao,
-          valor: String(json.valor),
-          data: dataParaAtualizar,
-          categoria: json.categoria,
-          contaId: json.contaId,
+          tipo:           json.tipo,
+          descricao:      json.descricao,
+          valor:          String(json.valor),
+          data:           dataParaAtualizar,
+          categoria:      json.categoria,
+          contaId:        json.contaId,
           formaPagamento: json.formaPagamento,
-          cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
-          updatedAt: new Date(),
+          cartaoId:       json.formaPagamento === "cartao" ? json.cartaoId : null,
+          parcelado:      isParcelado,
+          parcelas:       isParcelado  ? (json.parcelas   ?? null) : null,
+          parcelaAtual:   isParcelado  ? (transacaoExistente.parcelaAtual ?? 1) : null,
+          parcelamentoId,
+          recorrente:     isRecorrente,
+          repeticoes:     isRecorrente ? (json.repeticoes ?? null) : null,
+          recorrenciaId,
+          updatedAt:      new Date(),
         })
-        .where(
-          and(
-            eq(transacoes.id, id),
-            eq(transacoes.userId, userId)
-          )
-        )
+        .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
         .returning();
 
       // Atualizar extrato SE existir e SE não for cartão
@@ -92,33 +251,18 @@ export async function PUT(
             .limit(1);
 
           if (extratoExistente) {
-            const valorAntigo = Number(transacaoExistente.valor);
-            const valorNovo = Number(json.valor);
+            const valorAntigo     = Number(transacaoExistente.valor);
+            const valorNovo       = Number(json.valor);
             const saldoAntigoApos = Number(extratoExistente.saldoApos);
-
-            let novoSaldoApos = saldoAntigoApos;
+            let novoSaldoApos     = saldoAntigoApos;
 
             if (valorAntigo !== valorNovo) {
-              const diferenca = valorNovo - valorAntigo;
-
-              if (transacaoExistente.tipo === "entrada") {
-                novoSaldoApos = saldoAntigoApos + diferenca;
-              } else {
-                novoSaldoApos = saldoAntigoApos + diferenca;
-              }
+              novoSaldoApos = saldoAntigoApos + (valorNovo - valorAntigo);
 
               await db
                 .update(contas)
-                .set({
-                  saldoAtual: novoSaldoApos.toFixed(2),
-                  updatedAt: new Date(),
-                })
-                .where(
-                  and(
-                    eq(contas.id, transacaoExistente.contaId),
-                    eq(contas.userId, userId)
-                  )
-                );
+                .set({ saldoAtual: novoSaldoApos.toFixed(2), updatedAt: new Date() })
+                .where(and(eq(contas.id, transacaoExistente.contaId), eq(contas.userId, userId)));
             }
 
             const dataExtrato = dataParaAtualizar
@@ -128,18 +272,13 @@ export async function PUT(
             await db
               .update(extratoConta)
               .set({
-                data: dataExtrato,
-                tipo: json.tipo === "entrada" ? "entrada" : "saida",
-                valor: Math.abs(Number(json.valor)).toFixed(2),
+                data:      dataExtrato,
+                tipo:      json.tipo === "entrada" ? "entrada" : "saida",
+                valor:     Math.abs(Number(json.valor)).toFixed(2),
                 descricao: json.descricao || extratoExistente.descricao,
                 saldoApos: novoSaldoApos.toFixed(2),
               })
-              .where(
-                and(
-                  eq(extratoConta.id, extratoExistente.id),
-                  eq(extratoConta.userId, userId)
-                )
-              );
+              .where(and(eq(extratoConta.id, extratoExistente.id), eq(extratoConta.userId, userId)));
 
             console.log(`✅ Extrato atualizado: ${id} | Novo saldo: R$ ${novoSaldoApos.toFixed(2)}`);
           }
@@ -493,7 +632,7 @@ export async function DELETE(
         if (cartao) {
           if (cartao.tipo === "debito" && cartao.contaVinculadaId) {
             // ===== DÉBITO: Reverter na conta vinculada =====
-            
+
             const [conta] = await db
               .select()
               .from(contas)
@@ -525,7 +664,7 @@ export async function DELETE(
 
           } else if (cartao.tipo === "credito") {
             // ===== CRÉDITO: Reverter fatura =====
-            
+
             const dataTransacao = new Date(transacao.data);
             const diaFechamento = cartao.diaFechamento || 1;
 
