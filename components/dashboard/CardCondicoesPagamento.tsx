@@ -2,19 +2,38 @@
 "use client";
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Banknote, Smartphone, CreditCard, Loader2 } from 'lucide-react';
+import { Banknote, Smartphone, CreditCard, Loader2, Wallet } from 'lucide-react';
 import { useCondicoesPagamento } from '@/hooks/useDashboard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+
+const CORES = {
+  dinheiro: '#22c55e',
+  pix:      '#14b8a6',
+  cartao:   '#a855f7',
+};
+
+const CustomTooltip = ({ active, payload }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shadow-lg text-xs">
+      <p className="font-semibold text-gray-800 dark:text-gray-200">{payload[0].name}</p>
+      <p className="text-gray-600 dark:text-gray-400">
+        {payload[0].value} transações ({payload[0].payload.porcentagem.toFixed(0)}%)
+      </p>
+    </div>
+  );
+};
 
 export function CardCondicoesPagamento() {
   const { data: dados, isLoading, error } = useCondicoesPagamento();
 
-  // Loading state
   if (isLoading) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
         <CardHeader>
-          <CardTitle className="text-gray-900 dark:text-white">
+          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+            <Wallet className="w-5 h-5 text-purple-500" />
             Condições de Pagamento
           </CardTitle>
         </CardHeader>
@@ -25,86 +44,62 @@ export function CardCondicoesPagamento() {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
         <CardHeader>
-          <CardTitle className="text-gray-900 dark:text-white">
+          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+            <Wallet className="w-5 h-5 text-purple-500" />
             Condições de Pagamento
           </CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
-            <AlertDescription>
-              Erro ao carregar dados: {error.message}
-            </AlertDescription>
+            <AlertDescription>Erro ao carregar dados: {error.message}</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
     );
   }
 
-  // Empty state
   if (!dados) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
         <CardHeader>
-          <CardTitle className="text-gray-900 dark:text-white">
+          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+            <Wallet className="w-5 h-5 text-purple-500" />
             Condições de Pagamento
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-            Nenhum dado disponível
-          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Nenhum dado disponível</p>
         </CardContent>
       </Card>
     );
   }
 
   const total = dados.dinheiro + dados.pix + dados.cartao;
-  
+
   const condicoes = [
-    {
-      key: 'dinheiro',
-      label: 'Dinheiro',
-      valor: dados.dinheiro,
-      icon: Banknote,
-      color: 'text-green-600 dark:text-green-400',
-      bg: 'bg-green-50 dark:bg-green-950/30',
-      border: 'border-green-200 dark:border-green-800',
-      iconBg: 'bg-green-100 dark:bg-green-900/50',
-      barColor: 'bg-green-500'
-    },
-    {
-      key: 'pix',
-      label: 'PIX',
-      valor: dados.pix,
-      icon: Smartphone,
-      color: 'text-teal-600 dark:text-teal-400',
-      bg: 'bg-teal-50 dark:bg-teal-950/30',
-      border: 'border-teal-200 dark:border-teal-800',
-      iconBg: 'bg-teal-100 dark:bg-teal-900/50',
-      barColor: 'bg-teal-500'
-    },
-    {
-      key: 'cartao',
-      label: 'Cartão',
-      valor: dados.cartao,
-      icon: CreditCard,
-      color: 'text-purple-600 dark:text-purple-400',
-      bg: 'bg-purple-50 dark:bg-purple-950/30',
-      border: 'border-purple-200 dark:border-purple-800',
-      iconBg: 'bg-purple-100 dark:bg-purple-900/50',
-      barColor: 'bg-purple-500'
-    }
+    { key: 'dinheiro', label: 'Dinheiro', valor: dados.dinheiro, icon: Banknote,   cor: CORES.dinheiro },
+    { key: 'pix',      label: 'PIX',      valor: dados.pix,      icon: Smartphone, cor: CORES.pix      },
+    { key: 'cartao',   label: 'Cartão',   valor: dados.cartao,   icon: CreditCard, cor: CORES.cartao   },
   ];
+
+  const chartData = condicoes
+    .filter(c => c.valor > 0)
+    .map(c => ({
+      name:        c.label,
+      value:       c.valor,
+      porcentagem: total > 0 ? (c.valor / total) * 100 : 0,
+      cor:         c.cor,
+    }));
 
   return (
     <Card className="dark:bg-gray-900 dark:border-gray-800">
-      <CardHeader>
-        <CardTitle className="text-gray-900 dark:text-white">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+          <Wallet className="w-5 h-5 text-purple-500" />
           Condições de Pagamento
         </CardTitle>
       </CardHeader>
@@ -112,59 +107,57 @@ export function CardCondicoesPagamento() {
         {total === 0 ? (
           <div className="text-center py-8">
             <Banknote className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Nenhuma transação encontrada
-            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma transação encontrada</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               Suas transações por forma de pagamento aparecerão aqui
             </p>
           </div>
         ) : (
-          <div className="space-y-2.5">
-            {condicoes.map((condicao) => {
-              const Icon = condicao.icon;
-              const porcentagem = total > 0 ? (condicao.valor / total) * 100 : 0;
-              
-              return (
-                <div 
-                  key={condicao.key}
-                  className={`flex items-center justify-between p-2.5 rounded-lg border ${condicao.bg} ${condicao.border} hover:opacity-90 transition-opacity`}
-                >
-                  <div className="flex items-center gap-2.5 flex-1">
-                    <div className={`p-1.5 rounded-full ${condicao.iconBg}`}>
-                      <Icon className={`w-4 h-4 ${condicao.color}`} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                        {condicao.label}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full ${condicao.barColor} transition-all duration-300`}
-                            style={{ width: `${porcentagem}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap">
-                          {porcentagem.toFixed(0)}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <span className={`text-base font-bold ${condicao.color} ml-2`}>
-                    {condicao.valor}
-                  </span>
-                </div>
-              );
-            })}
-            
-            {/* Total */}
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Total de transações:
-              </span>
-              <span className="text-base font-bold text-gray-800 dark:text-gray-200">{total}</span>
+          <div className="flex flex-col items-center gap-4">
+
+            {/* Donut — sempre centralizado */}
+            <div className="relative w-[140px] h-[140px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={35}
+                    outerRadius={65}
+                    dataKey="value"
+                    strokeWidth={0}
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={index} fill={entry.cor} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
+
+            {/* Legenda — sempre largura total */}
+            <div className="w-full space-y-2">
+              {condicoes.map((condicao) => {
+                const Icon = condicao.icon;
+                const porcentagem = total > 0 ? (condicao.valor / total) * 100 : 0;
+                return (
+                  <div key={condicao.key} className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: condicao.cor }} />
+                    <Icon className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">{condicao.label}</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 w-9 text-right flex-shrink-0">{porcentagem.toFixed(0)}%</span>
+                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 w-5 text-right flex-shrink-0">{condicao.valor}</span>
+                  </div>
+                );
+              })}
+              <div className="pt-2 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Total</span>
+                <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{total}</span>
+              </div>
+            </div>
+
           </div>
         )}
       </CardContent>

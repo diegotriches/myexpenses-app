@@ -136,7 +136,7 @@ export function CardTransacoesRecentes() {
         {transacoes.length > 0 && (
           <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Mostrando {transacoes.length} transação{transacoes.length !== 1 ? 'ões' : ''} mais recente{transacoes.length !== 1 ? 's' : ''}
+              Mostrando {transacoes.length} transação{transacoes.length !== 1 ? '(ões)' : ''} mais recente{transacoes.length !== 1 ? 's' : ''}
             </p>
           </div>
         )}
