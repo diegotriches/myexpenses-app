@@ -7,6 +7,7 @@ import { useContas } from '@/hooks/useContas';
 import { useCartoes } from '@/hooks/useCartoes';
 
 import { CardResumo } from '@/components/dashboard/CardResumo';
+import { CardLimiteCredito } from '@/components/dashboard/CardLimiteCredito';
 import { CardTransacoesRecentes } from '@/components/dashboard/CardTransacoesRecentes';
 import { CardCondicoesPagamento } from '@/components/dashboard/CardCondicoesPagamento';
 import { CardFormasPagamento } from '@/components/dashboard/CardFormasPagamento';
@@ -99,53 +100,7 @@ export default function Dashboard() {
 
       {/* Limite de crédito + Contas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {isLoading ? <CardSkeleton /> : (
-          <Card className="dark:bg-gray-900 dark:border-gray-800">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-900 dark:text-white">
-                Limite Total de Crédito
-              </CardTitle>
-              <CreditCard className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                {formatarMoeda(totais?.limiteTotal || 0)}
-              </div>
-              <div className="mt-3 space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Disponível:</span>
-                  <span className="font-medium text-green-600 dark:text-green-400">
-                    {formatarMoeda(totais?.limiteDisponivel || 0)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Usado:</span>
-                  <span className="font-medium text-red-600 dark:text-red-400">
-                    {formatarMoeda(totais?.limiteUsado || 0)}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
-                  <div
-                    className={`h-2 rounded-full transition-all ${
-                      (totais?.percentualUso || 0) > 80 ? 'bg-red-500'
-                      : (totais?.percentualUso || 0) > 50 ? 'bg-yellow-500'
-                      : 'bg-green-500'
-                    }`}
-                    style={{ width: `${Math.min(totais?.percentualUso || 0, 100)}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400 text-right">
-                  {(totais?.percentualUso || 0).toFixed(1)}% utilizado
-                </p>
-              </div>
-              {totais?.quantidadeCartoes === 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-4">
-                  Nenhum cartão de crédito cadastrado
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        <CardLimiteCredito />
 
         {isLoading ? <CardSkeleton /> : (
           <Card className="dark:bg-gray-900 dark:border-gray-800">
