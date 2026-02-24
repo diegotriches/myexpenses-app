@@ -23,7 +23,7 @@ export default function ConfirmarEdicaoModal({
   transacao,
   onConfirmar,
 }: Props) {
-  const isParcelada = !!transacao?.parcelamentoId;
+  const isParcelada  = !!transacao?.parcelamentoId;
   const isRecorrente = !!transacao?.recorrenciaId;
 
   const modoEdicao: "parcelada" | "recorrente" | "simples" =
@@ -32,8 +32,13 @@ export default function ConfirmarEdicaoModal({
   const [tipoEdicao, setTipoEdicao] = useState<TipoEdicao>("unica");
 
   useEffect(() => {
-    setTipoEdicao("unica");
-  }, [transacao]);
+    // ✅ Para parceladas, força sempre "todas_parcelas" — único modo disponível
+    if (isParcelada) {
+      setTipoEdicao("todas_parcelas");
+    } else {
+      setTipoEdicao("unica");
+    }
+  }, [transacao, isParcelada]);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -51,34 +56,16 @@ export default function ConfirmarEdicaoModal({
           ?
         </p>
 
+        {/* ✅ Parcelada: apenas "Todas as parcelas" — sem opção única */}
         {modoEdicao === "parcelada" && (
-          <div className="space-y-2 mb-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                checked={tipoEdicao === "unica"}
-                onChange={() => setTipoEdicao("unica")}
-                className="cursor-pointer"
-              />
-              <span className="text-gray-700 dark:text-gray-300">
-                Somente esta parcela
-              </span>
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                checked={tipoEdicao === "todas_parcelas"}
-                onChange={() => setTipoEdicao("todas_parcelas")}
-                className="cursor-pointer"
-              />
-              <span className="text-gray-700 dark:text-gray-300">
-                Todas as parcelas a partir desta
-              </span>
-            </label>
+          <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              As alterações serão aplicadas a <strong>todas as parcelas</strong> deste parcelamento.
+            </p>
           </div>
         )}
 
+        {/* Recorrente: mantém as duas opções */}
         {modoEdicao === "recorrente" && (
           <div className="space-y-2 mb-4">
             <label className="flex items-center gap-2 cursor-pointer">
@@ -111,7 +98,6 @@ export default function ConfirmarEdicaoModal({
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-
           <Button disabled={!transacao} onClick={() => onConfirmar(tipoEdicao)}>
             Continuar
           </Button>

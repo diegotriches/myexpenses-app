@@ -93,11 +93,9 @@ export default function FormMovimentacaoModal({
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => {
       const updated = { ...prev, [key]: value };
-
       if (key === "tipo" && value === "entrada" && prev.formaPagamento === "cartao") {
         updated.formaPagamento = "dinheiro";
       }
-
       return updated;
     });
     setError(null);
@@ -118,17 +116,13 @@ export default function FormMovimentacaoModal({
   }, [form.tipo]);
 
   const opcoesFormaPagamento = useMemo(() => {
-    if (form.tipo === "entrada") {
-      return ["dinheiro", "pix"] as const;
-    }
+    if (form.tipo === "entrada") return ["dinheiro", "pix"] as const;
     return ["dinheiro", "pix", "cartao"] as const;
   }, [form.tipo]);
 
   const mostrarCampoConta = useMemo(() => {
     if (form.tipo === "entrada") return true;
-    if (form.tipo === "saida" && (form.formaPagamento === "dinheiro" || form.formaPagamento === "pix")) {
-      return true;
-    }
+    if (form.tipo === "saida" && (form.formaPagamento === "dinheiro" || form.formaPagamento === "pix")) return true;
     return false;
   }, [form.tipo, form.formaPagamento]);
 
@@ -143,19 +137,16 @@ export default function FormMovimentacaoModal({
       tipo: editarTodos,
       data: editarTodos,
       formaPagamento: editarTodos,
-      parcelas: transacaoEdicao.parcelado && modoEdicao === "todas_parcelas",
+      // ✅ Parcelas desbloqueadas no modo todas_parcelas para permitir redimensionamento
+      parcelas: false,
       repeticoes: transacaoEdicao.recorrente && modoEdicao === "toda_recorrencia",
     };
   }, [transacaoEdicao, modoEdicao]);
 
   const valorTotal = useMemo(() => {
     const valor = parseFloat(form.valor) || 0;
-    if (form.parcelado && form.parcelas > 1) {
-      return valor;
-    }
-    if (form.recorrente && form.repeticoes > 1) {
-      return valor * form.repeticoes;
-    }
+    if (form.parcelado && form.parcelas > 1) return valor;
+    if (form.recorrente && form.repeticoes > 1) return valor * form.repeticoes;
     return valor;
   }, [form.valor, form.parcelado, form.parcelas, form.recorrente, form.repeticoes]);
 
@@ -227,13 +218,9 @@ export default function FormMovimentacaoModal({
           contaId: form.contaId || undefined,
           formaPagamento: form.formaPagamento,
           cartaoId: form.cartaoId ? Number(form.cartaoId) : null,
-
-          // ✅ Campos de parcelamento — necessários para converter à vista → parcelado
           parcelado: form.parcelado,
           parcelas: form.parcelado ? form.parcelas : null,
           parcelamentoId: transacaoEdicao.parcelamentoId ?? null,
-
-          // ✅ Campos de recorrência — necessários para converter à vista → recorrente
           recorrente: form.recorrente,
           repeticoes: form.recorrente ? form.repeticoes : null,
           recorrenciaId: transacaoEdicao.recorrenciaId ?? null,
@@ -284,39 +271,25 @@ export default function FormMovimentacaoModal({
   };
 
   const incrementarParcelas = () => {
-    const max = 48;
-    if (form.parcelas < max) {
-      update("parcelas", form.parcelas + 1);
-    }
+    if (form.parcelas < 48) update("parcelas", form.parcelas + 1);
   };
 
   const decrementarParcelas = () => {
-    const min = 2;
-    if (form.parcelas > min) {
-      update("parcelas", form.parcelas - 1);
-    }
+    if (form.parcelas > 2) update("parcelas", form.parcelas - 1);
   };
 
   const incrementarRepeticoes = () => {
-    const max = 999;
-    if (form.repeticoes < max) {
-      update("repeticoes", form.repeticoes + 1);
-    }
+    if (form.repeticoes < 999) update("repeticoes", form.repeticoes + 1);
   };
 
   const decrementarRepeticoes = () => {
-    const min = 2;
-    if (form.repeticoes > min) {
-      update("repeticoes", form.repeticoes - 1);
-    }
+    if (form.repeticoes > 2) update("repeticoes", form.repeticoes - 1);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="w-full max-w-lg h-[100dvh] md:h-auto md:max-h-[90vh] flex flex-col p-0 gap-0 dark:bg-gray-900 dark:border-gray-800 md:rounded-lg rounded-none">
-        {/* ============================================
-            HEADER - Fixo
-            ============================================ */}
+        {/* HEADER */}
         <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b dark:border-gray-800 bg-background dark:bg-gray-900">
           <div className="flex items-center justify-between gap-2">
             <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -332,12 +305,10 @@ export default function FormMovimentacaoModal({
           </div>
         </DialogHeader>
 
-        {/* ============================================
-            FORM - Scrollable
-            ============================================ */}
+        {/* FORM */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5 space-y-5">
-            {/* Error Alert */}
+
             {error && (
               <Alert variant="destructive" className="py-2.5">
                 <AlertCircle className="h-4 w-4" />
@@ -345,9 +316,7 @@ export default function FormMovimentacaoModal({
               </Alert>
             )}
 
-            {/* ============================================
-                1. TIPO - Botões Visuais Grandes (Full Width)
-                ============================================ */}
+            {/* 1. TIPO */}
             <MovCamposBasicos
               form={form}
               update={updateAny}
@@ -355,17 +324,12 @@ export default function FormMovimentacaoModal({
               disabled={bloqueiaCampos.tipo}
             />
 
-            {/* ============================================
-                2. CATEGORIA - Full Width com Preview
-                ============================================ */}
+            {/* 2. CATEGORIA */}
             <MovCampoCategoria form={form} update={updateAny} />
 
-            {/* ============================================
-                3. VALOR + DATA - Grid 2 cols
-                ============================================ */}
+            {/* 3. VALOR + DATA */}
             <div className="grid grid-cols-2 gap-3">
               <MovCamposBasicos form={form} update={updateAny} campo="valor" />
-
               <MovCamposBasicos
                 form={form}
                 update={updateAny}
@@ -374,34 +338,21 @@ export default function FormMovimentacaoModal({
               />
             </div>
 
-            {/* ============================================
-                4. FORMA DE PAGAMENTO + CONTA/CARTÃO - Grid 2 cols
-                ============================================ */}
+            {/* 4. FORMA DE PAGAMENTO + CONTA/CARTÃO */}
             <div className="grid grid-cols-2 gap-3">
               <MovCampoFormaPagamento
                 form={form}
                 update={updateAny}
                 opcoesDisponiveis={opcoesFormaPagamento}
               />
-
               {mostrarCampoConta && (
-                <MovCampoConta
-                  form={form}
-                  update={updateAny}
-                  renderInfoBox={() => null}
-                />
+                <MovCampoConta form={form} update={updateAny} renderInfoBox={() => null} />
               )}
-
               {mostrarCampoCartao && (
-                <MovCampoCartao
-                  form={form}
-                  update={updateAny}
-                  renderInfoBox={() => null}
-                />
+                <MovCampoCartao form={form} update={updateAny} renderInfoBox={() => null} />
               )}
             </div>
 
-            {/* Info Box da Conta - Full width abaixo do grid */}
             {mostrarCampoConta && form.contaId && (
               <MovCampoConta
                 form={form}
@@ -411,7 +362,6 @@ export default function FormMovimentacaoModal({
               />
             )}
 
-            {/* Info Box do Cartão - Full width abaixo do grid */}
             {mostrarCampoCartao && form.cartaoId && (
               <MovCampoCartao
                 form={form}
@@ -421,9 +371,7 @@ export default function FormMovimentacaoModal({
               />
             )}
 
-            {/* ============================================
-                5. TIPO DE PAGAMENTO
-                ============================================ */}
+            {/* 5. TIPO DE PAGAMENTO */}
             <div className="space-y-3">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block">
                 Tipo de Pagamento
@@ -432,13 +380,11 @@ export default function FormMovimentacaoModal({
               <Select
                 value={tipoPagamento}
                 onValueChange={(v: TipoPagamento) => {
-                  const isParcelado = v === "parcelado";
+                  const isParcelado  = v === "parcelado";
                   const isRecorrente = v === "recorrente";
-
                   update("parcelado", isParcelado);
                   update("recorrente", isRecorrente);
-
-                  if (isParcelado && form.parcelas < 2) update("parcelas", 2);
+                  if (isParcelado  && form.parcelas   < 2) update("parcelas", 2);
                   if (isRecorrente && form.repeticoes < 2) update("repeticoes", 2);
                 }}
                 disabled={bloqueiaCampos.parcelas || bloqueiaCampos.repeticoes}
@@ -446,16 +392,11 @@ export default function FormMovimentacaoModal({
                 <SelectTrigger className="w-full h-12 dark:bg-gray-800 dark:border-gray-700">
                   <SelectValue />
                 </SelectTrigger>
-
                 <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                   {(Object.keys(tipoPagamentoIcons) as TipoPagamento[]).map((tipo) => {
                     const Icon = tipoPagamentoIcons[tipo];
                     return (
-                      <SelectItem
-                        key={tipo}
-                        value={tipo}
-                        className="dark:hover:bg-gray-700 h-12"
-                      >
+                      <SelectItem key={tipo} value={tipo} className="dark:hover:bg-gray-700 h-12">
                         <div className="flex gap-2 items-center">
                           <Icon size={16} />
                           <span>{tipoPagamentoLabels[tipo]}</span>
@@ -465,6 +406,16 @@ export default function FormMovimentacaoModal({
                   })}
                 </SelectContent>
               </Select>
+
+              {/* ✅ Aviso: edição aplicada a todas as parcelas */}
+              {modoEdicao === "todas_parcelas" && (
+                <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">
+                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    As alterações serão aplicadas a <strong>todas as parcelas</strong> deste parcelamento.
+                  </p>
+                </div>
+              )}
 
               {/* Contador Visual */}
               {(form.parcelado || form.recorrente) && (
@@ -493,7 +444,9 @@ export default function FormMovimentacaoModal({
                         {form.parcelado ? form.parcelas : form.repeticoes}
                       </div>
                       <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        {form.parcelado ? "parcela" + (form.parcelas > 1 ? "s" : "") : "mês" + (form.repeticoes > 1 ? "es" : "")}
+                        {form.parcelado
+                          ? "parcela" + (form.parcelas > 1 ? "s" : "")
+                          : "mês" + (form.repeticoes > 1 ? "es" : "")}
                       </div>
                     </div>
 
@@ -538,9 +491,7 @@ export default function FormMovimentacaoModal({
               )}
             </div>
 
-            {/* ============================================
-                6. OBSERVAÇÕES - Colapsável
-                ============================================ */}
+            {/* 6. OBSERVAÇÕES */}
             <details className="group" open>
               <summary className="flex items-center justify-between cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 py-2">
                 <span>Observações (opcional)</span>
@@ -552,9 +503,7 @@ export default function FormMovimentacaoModal({
             </details>
           </div>
 
-          {/* ============================================
-              FOOTER - Fixo com Botões Lado a Lado
-              ============================================ */}
+          {/* FOOTER */}
           <div className="flex-shrink-0 flex gap-3 px-6 py-4 border-t dark:border-gray-800 bg-background dark:bg-gray-900">
             <Button
               type="button"
@@ -565,11 +514,7 @@ export default function FormMovimentacaoModal({
             >
               Cancelar
             </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="flex-1 h-12 font-semibold"
-            >
+            <Button type="submit" disabled={loading} className="flex-1 h-12 font-semibold">
               {loading ? (
                 <>
                   <FaSpinner className="animate-spin mr-2" size={14} />
