@@ -71,7 +71,19 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true, // Permite vincular contas com mesmo email
+      allowDangerousEmailAccountLinking: true,
+      authorization: {
+        params: {
+          // ✅ drive.file: acesso apenas aos arquivos criados pelo próprio app
+          scope: "openid email profile https://www.googleapis.com/auth/drive.file",
+          // ✅ offline: garante que o refresh_token seja retornado
+          access_type: "offline",
+          // ✅ consent: força a tela de consentimento para garantir o refresh_token
+          //    Necessário pois o Google só retorna refresh_token no primeiro login
+          //    ou quando o usuário revoga e reconecta
+          prompt: "consent",
+        },
+      },
     }),
 
     // ============================================
