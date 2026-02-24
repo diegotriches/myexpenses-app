@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 
 import { useDashboard, useDespesasFuturas } from '@/hooks/useDashboard';
 import { useContas } from '@/hooks/useContas';
@@ -25,14 +26,55 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Wallet, CreditCard, PieChart, BarChart3, DollarSign } from 'lucide-react';
+import { Wallet, CreditCard, PieChart, BarChart3, DollarSign, Calendar } from 'lucide-react';
 import { BsHouse } from "react-icons/bs";
 
+function useSaudacao() {
+  const [saudacao, setSaudacao] = useState("");
+  const [dataFormatada, setDataFormatada] = useState("");
+
+  useEffect(() => {
+    function atualizar() {
+      const agora = new Date();
+      const hora  = agora.getHours();
+
+      const periodo =
+        hora >= 5 && hora < 12 ? "Bom dia"      :
+        hora >= 12 && hora < 18 ? "Boa tarde"   :
+        "Boa noite";
+
+      const data = agora.toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day:     "numeric",
+        month:   "long",
+      });
+
+      // Capitaliza primeira letra
+      setSaudacao(periodo);
+      setDataFormatada(data.charAt(0).toUpperCase() + data.slice(1));
+    }
+
+    atualizar();
+  }, []);
+
+  return { saudacao, dataFormatada };
+}
+
 export default function Dashboard() {
+  const { data: session } = useSession();
+  const { saudacao, dataFormatada } = useSaudacao();
+
   const { data: dashboard, isLoading: loadingDashboard } = useDashboard();
   const { data: despesasFuturas, isLoading: loadingDespesasFuturas } = useDespesasFuturas();
   const { data: contas = [], isLoading: loadingContas } = useContas();
   const { data: cartoes = [], isLoading: loadingCartoes } = useCartoes();
+
+  // Primeiro nome apenas
+  const primeiroNome = useMemo(() => {
+    const nome = session?.user?.name;
+    if (!nome) return "";
+    return nome.split(" ")[0];
+  }, [session]);
 
   const totais = useMemo(() => {
     if (!contas.length && !cartoes.length) return null;
@@ -76,11 +118,37 @@ export default function Dashboard() {
     <div className="max-w-[1200px] mx-auto p-6 space-y-6">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2 mb-3">
-          <BsHouse className="text-3xl text-blue-700 dark:text-blue-500" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        {/* Título + Badge de data */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            <BsHouse className="text-3xl text-blue-700 dark:text-blue-500" />
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+          </div>
+          {/* Badge: oculto no mobile, visível a partir de sm */}
+          {dataFormatada && (
+            <span className="hidden sm:flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 whitespace-nowrap">
+              <Calendar className="w-3.5 h-3.5" />
+              {dataFormatada}
+            </span>
+          )}
         </div>
-        <p className="text-gray-600 dark:text-gray-400 mb-4">Visão geral das suas finanças</p>
+
+        {/* Saudação */}
+        <div className="mb-4">
+          <p className="text-gray-600 dark:text-gray-400">
+            {saudacao}{primeiroNome ? `, ${primeiroNome}!` : "!"}{" "}
+            <span className="text-gray-400 dark:text-gray-500">
+              Aqui está o resumo das suas finanças.
+            </span>
+          </p>
+          {/* Data por extenso no mobile — abaixo da saudação, sem badge */}
+          {dataFormatada && (
+            <p className="sm:hidden text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              {dataFormatada}
+            </p>
+          )}
+        </div>
+
         <hr className="border-t border-gray-300 dark:border-gray-700" />
       </div>
 
