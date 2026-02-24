@@ -12,7 +12,6 @@ interface Props {
 }
 
 export default function FaturaItem({ transacao }: Props) {
-  // ✅ Busca categorias do cache React Query (sem fetch extra — já está em cache)
   const { data: categorias = [] } = useCategorias();
 
   const formatarMoeda = (valor: number | string) => {
@@ -29,19 +28,18 @@ export default function FaturaItem({ transacao }: Props) {
       : transacao.valor;
 
   const isParcelado = transacao.parcelas && transacao.parcelas > 1;
-  const valorParcela = isParcelado ? valorNum / transacao.parcelas! : valorNum;
 
-  // ✅ Busca categoria pelo nome para obter ícone e tipo
+  // ✅ O banco já armazena o valor por parcela — não dividir novamente
+  const valorParcela = valorNum;
+
   const categoriaObj = categorias.find(
     (c) => c.nome.toLowerCase() === transacao.categoria?.toLowerCase()
   );
 
-  // ✅ Resolve o componente do ícone via iconOptions
   const IconeCategoria = categoriaObj?.icone
     ? iconOptions.find((i) => i.name === categoriaObj.icone)?.component ?? null
     : null;
 
-  // ✅ Gradiente baseado no tipo da categoria
   const gradiente = (() => {
     switch (categoriaObj?.tipo) {
       case "entrada": return "from-green-500 to-green-600";
@@ -56,7 +54,6 @@ export default function FaturaItem({ transacao }: Props) {
 
         {/* ── LEFT ── */}
         <div className="flex items-start gap-3 flex-1 min-w-0">
-          {/* Ícone da categoria */}
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${gradiente}`}>
             {IconeCategoria
               ? <IconeCategoria size={18} className="text-white" />
@@ -64,7 +61,6 @@ export default function FaturaItem({ transacao }: Props) {
             }
           </div>
 
-          {/* Informações */}
           <div className="flex flex-col gap-1 flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-gray-900 dark:text-white truncate">
@@ -104,7 +100,7 @@ export default function FaturaItem({ transacao }: Props) {
           <div className="flex items-center gap-1">
             <TrendingDown size={15} className="text-red-500 dark:text-red-400" />
             <span className="font-bold text-base text-red-600 dark:text-red-400">
-              {formatarMoeda(valorNum)}
+              {formatarMoeda(valorParcela)}
             </span>
           </div>
 
