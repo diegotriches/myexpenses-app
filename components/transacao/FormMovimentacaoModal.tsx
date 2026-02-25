@@ -133,13 +133,15 @@ export default function FormMovimentacaoModal({
   const bloqueiaCampos = useMemo(() => {
     if (!transacaoEdicao || !modoEdicao) return {};
     const editarTodos = modoEdicao === "todas_parcelas" || modoEdicao === "toda_recorrencia";
+    // ✅ Edição de ocorrência única de recorrente: trava tipo de pagamento em "à vista"
+    const unicaOcorrencia = modoEdicao === "unica" && !!transacaoEdicao.recorrente;
     return {
-      tipo:        editarTodos,
-      data:        editarTodos,
+      tipo:           isEdit || editarTodos, // ✅ sempre travado na edição
+      data:           editarTodos,
       formaPagamento: editarTodos,
-      // ✅ Ambos desbloqueados para permitir redimensionamento
-      parcelas:    false,
-      repeticoes:  false,
+      tipoPagamento:  unicaOcorrencia, // ✅ trava o Select de parcelado/recorrente
+      parcelas:       false,
+      repeticoes:     false,
     };
   }, [transacaoEdicao, modoEdicao]);
 
@@ -177,9 +179,10 @@ export default function FormMovimentacaoModal({
         ? (transacaoEdicao.formaPagamento as "dinheiro" | "pix" | "cartao")
         : "dinheiro",
       cartaoId: transacaoEdicao.cartaoId ? String(transacaoEdicao.cartaoId) : "",
-      parcelado: transacaoEdicao.parcelado ?? false,
-      parcelas: transacaoEdicao.parcelas ?? 1,
-      recorrente: transacaoEdicao.recorrente ?? false,
+      // ✅ Edição de ocorrência única: força à vista e ignora recorrência original
+      parcelado:  modoEdicao === "unica" && transacaoEdicao.recorrente ? false : (transacaoEdicao.parcelado ?? false),
+      parcelas:   transacaoEdicao.parcelas ?? 1,
+      recorrente: modoEdicao === "unica" && transacaoEdicao.recorrente ? false : (transacaoEdicao.recorrente ?? false),
       repeticoes: transacaoEdicao.repeticoes ?? 1,
     });
   }, [transacaoEdicao, open, modoEdicao]);
@@ -387,7 +390,7 @@ export default function FormMovimentacaoModal({
                   if (isParcelado  && form.parcelas   < 2) update("parcelas", 2);
                   if (isRecorrente && form.repeticoes < 2) update("repeticoes", 2);
                 }}
-                disabled={bloqueiaCampos.parcelas || bloqueiaCampos.repeticoes}
+                disabled={bloqueiaCampos.parcelas || bloqueiaCampos.repeticoes || bloqueiaCampos.tipoPagamento}
               >
                 <SelectTrigger className="w-full h-12 dark:bg-gray-800 dark:border-gray-700">
                   <SelectValue />
