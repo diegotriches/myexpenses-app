@@ -8,7 +8,6 @@ import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 // ============================================================
 // HELPER: processa extrato + saldo para uma transação criada
-// Replica exatamente a lógica do POST
 // ============================================================
 async function processarExtratoESaldo(
   transacao: typeof transacoes.$inferSelect,
@@ -17,44 +16,35 @@ async function processarExtratoESaldo(
   const valorNum = Number(transacao.valor);
 
   if (transacao.cartaoId && transacao.formaPagamento === "cartao") {
-    const [cartao] = await db
-      .select().from(cartoes)
+    const [cartao] = await db.select().from(cartoes)
       .where(eq(cartoes.id, transacao.cartaoId)).limit(1);
-
     if (!cartao) return;
 
     if (cartao.tipo === "debito" && cartao.contaVinculadaId) {
-      const [conta] = await db
-        .select().from(contas)
+      const [conta] = await db.select().from(contas)
         .where(eq(contas.id, cartao.contaVinculadaId)).limit(1);
-
       if (!conta) return;
 
       const novoSaldo = Number(conta.saldoAtual) - valorNum;
-
       await db.update(contas)
         .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
         .where(and(eq(contas.id, conta.id), eq(contas.userId, userId)));
 
       await db.insert(extratoConta).values({
-        userId,
-        contaId: conta.id,
+        userId, contaId: conta.id,
         data: new Date(transacao.data).toISOString().split("T")[0],
-        tipo: "saida",
-        valor: valorNum.toFixed(2),
+        tipo: "saida", valor: valorNum.toFixed(2),
         descricao: transacao.descricao || `Compra no débito - ${cartao.nome}`,
         saldoApos: novoSaldo.toFixed(2),
-        origem: "TRANSACAO_MANUAL",
-        referenciaId: transacao.id,
+        origem: "TRANSACAO_MANUAL", referenciaId: transacao.id,
       });
 
     } else if (cartao.tipo === "credito") {
-      const dataTransacao = new Date(transacao.data);
-      const diaFechamento = cartao.diaFechamento || 1;
-      const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(dataTransacao, diaFechamento);
+      const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
+        new Date(transacao.data), cartao.diaFechamento || 1
+      );
 
-      const [faturaExistente] = await db
-        .select().from(faturas)
+      const [faturaExistente] = await db.select().from(faturas)
         .where(and(
           eq(faturas.cartaoId, transacao.cartaoId),
           eq(faturas.userId, userId),
@@ -68,11 +58,9 @@ async function processarExtratoESaldo(
           .where(eq(faturas.id, faturaExistente.id));
       } else {
         await db.insert(faturas).values({
-          userId,
-          cartaoId: transacao.cartaoId,
+          userId, cartaoId: transacao.cartaoId,
           mes: mesFatura, ano: anoFatura,
-          total: valorNum.toFixed(2),
-          paga: false,
+          total: valorNum.toFixed(2), paga: false,
         });
       }
 
@@ -82,10 +70,8 @@ async function processarExtratoESaldo(
     }
 
   } else if (transacao.contaId && transacao.formaPagamento !== "cartao") {
-    const [conta] = await db
-      .select().from(contas)
+    const [conta] = await db.select().from(contas)
       .where(eq(contas.id, transacao.contaId)).limit(1);
-
     if (!conta) return;
 
     const saldoAtual = Number(conta.saldoAtual);
@@ -98,15 +84,13 @@ async function processarExtratoESaldo(
       .where(and(eq(contas.id, transacao.contaId), eq(contas.userId, userId)));
 
     await db.insert(extratoConta).values({
-      userId,
-      contaId: transacao.contaId,
+      userId, contaId: transacao.contaId,
       data: new Date(transacao.data).toISOString().split("T")[0],
       tipo: transacao.tipo === "entrada" ? "entrada" : "saida",
       valor: valorNum.toFixed(2),
       descricao: transacao.descricao || "Transação manual",
       saldoApos: novoSaldo.toFixed(2),
-      origem: "TRANSACAO_MANUAL",
-      referenciaId: transacao.id,
+      origem: "TRANSACAO_MANUAL", referenciaId: transacao.id,
     });
   }
 }
@@ -121,8 +105,7 @@ async function reverterExtratoESaldo(
   const valor = Number(transacao.valor);
 
   if (transacao.contaId && transacao.formaPagamento !== "cartao") {
-    const [conta] = await db
-      .select().from(contas)
+    const [conta] = await db.select().from(contas)
       .where(eq(contas.id, transacao.contaId)).limit(1);
 
     if (conta) {
@@ -138,6 +121,85 @@ async function reverterExtratoESaldo(
 
   await db.delete(extratoConta)
     .where(and(eq(extratoConta.referenciaId, transacao.id), eq(extratoConta.userId, userId)));
+}
+
+// ============================================================
+// HELPER: atualiza extrato de uma transação existente,
+// tratando troca de conta corretamente
+// ============================================================
+async function atualizarExtratoESaldo(
+  transacaoAntiga: typeof transacoes.$inferSelect,
+  transacaoNova: typeof transacoes.$inferSelect,
+  userId: string
+) {
+  const contaAntiga = transacaoAntiga.contaId;
+  const contaNova   = transacaoNova.contaId;
+  const formaNova   = transacaoNova.formaPagamento;
+
+  // Se a nova forma de pagamento é cartão, apenas remove extrato/saldo antigos
+  if (formaNova === "cartao") {
+    if (contaAntiga && transacaoAntiga.formaPagamento !== "cartao") {
+      await reverterExtratoESaldo(transacaoAntiga, userId);
+    }
+    return;
+  }
+
+  // Sem conta nova — remove extrato/saldo antigos se havia
+  if (!contaNova) {
+    if (contaAntiga && transacaoAntiga.formaPagamento !== "cartao") {
+      await reverterExtratoESaldo(transacaoAntiga, userId);
+    }
+    return;
+  }
+
+  const contaMudou = contaAntiga !== contaNova;
+
+  if (contaMudou) {
+    // ── Reverte conta antiga ──────────────────────────────────────────
+    if (contaAntiga && transacaoAntiga.formaPagamento !== "cartao") {
+      await reverterExtratoESaldo(transacaoAntiga, userId);
+    }
+    // ── Aplica na conta nova ──────────────────────────────────────────
+    await processarExtratoESaldo(transacaoNova, userId);
+  } else {
+    // ── Mesma conta: atualiza valor e descrição no extrato existente ──
+    const valorNovo  = Number(transacaoNova.valor);
+    const valorAntigo = Number(transacaoAntiga.valor);
+
+    try {
+      const [extratoExistente] = await db.select().from(extratoConta)
+        .where(and(
+          eq(extratoConta.referenciaId, transacaoAntiga.id),
+          eq(extratoConta.userId, userId)
+        )).limit(1);
+
+      if (extratoExistente) {
+        let novoSaldoApos = Number(extratoExistente.saldoApos);
+
+        if (valorAntigo !== valorNovo) {
+          novoSaldoApos = novoSaldoApos + (valorNovo - valorAntigo);
+          await db.update(contas)
+            .set({ saldoAtual: novoSaldoApos.toFixed(2), updatedAt: new Date() })
+            .where(and(eq(contas.id, contaNova), eq(contas.userId, userId)));
+        }
+
+        await db.update(extratoConta)
+          .set({
+            data: new Date(transacaoNova.data).toISOString().split("T")[0],
+            tipo: transacaoNova.tipo === "entrada" ? "entrada" : "saida",
+            valor: Math.abs(valorNovo).toFixed(2),
+            descricao: transacaoNova.descricao || extratoExistente.descricao,
+            saldoApos: novoSaldoApos.toFixed(2),
+          })
+          .where(and(eq(extratoConta.id, extratoExistente.id), eq(extratoConta.userId, userId)));
+      } else {
+        // Não havia extrato — cria do zero
+        await processarExtratoESaldo(transacaoNova, userId);
+      }
+    } catch (e) {
+      console.error("⚠️ Erro ao atualizar extrato:", e);
+    }
+  }
 }
 
 // PUT - Atualizar transação
@@ -159,8 +221,7 @@ export async function PUT(
     // EDIÇÃO DE UMA ÚNICA TRANSAÇÃO
     // ============================================
     if (modoEdicao === "unica") {
-      const [transacaoExistente] = await db
-        .select().from(transacoes)
+      const [transacaoExistente] = await db.select().from(transacoes)
         .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
         .limit(1);
 
@@ -257,36 +318,29 @@ export async function PUT(
       }
 
       // ── Editar única ocorrência de uma recorrência ────────────────────
-      // Reverte a ocorrência original, deleta e cria nova transação à vista
       if (eraRecorrente && !isRecorrente) {
-        // 1. Reverte extrato + saldo da ocorrência original
         await reverterExtratoESaldo(transacaoExistente, userId);
 
-        // 2. Deleta a ocorrência original
         await db.delete(transacoes)
           .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)));
 
-        // 3. Cria nova transação à vista
         const [novaTransacao] = await db.insert(transacoes)
           .values({
             userId,
-            tipo:           json.tipo           as string,
-            descricao:      json.descricao       as string | null,
+            tipo:           json.tipo          as string,
+            descricao:      json.descricao      as string | null,
             valor:          String(json.valor),
             data:           dataParaAtualizar,
-            categoria:      json.categoria       as string | null,
+            categoria:      json.categoria      as string | null,
             contaId:        json.formaPagamento === "cartao" ? null : (json.contaId || null),
-            formaPagamento: json.formaPagamento  as string,
+            formaPagamento: json.formaPagamento as string,
             cartaoId:       json.formaPagamento === "cartao" ? json.cartaoId : null,
             recorrente: false, recorrenciaId: null, repeticoes: null,
             parcelado:  false, parcelamentoId: null, parcelas: null, parcelaAtual: null,
           })
           .returning();
 
-        // 4. ✅ Processa extrato + saldo da nova transação à vista
         await processarExtratoESaldo(novaTransacao, userId);
-
-        console.log(`✅ Ocorrência destacada da recorrência → nova transação: ${novaTransacao.id}`);
         return NextResponse.json({ novaTransacao, ocorrenciaOriginalId: id });
       }
 
@@ -300,7 +354,8 @@ export async function PUT(
         .set({
           tipo: json.tipo, descricao: json.descricao,
           valor: String(json.valor), data: dataParaAtualizar,
-          categoria: json.categoria, contaId: json.contaId,
+          categoria: json.categoria,
+          contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null),
           formaPagamento: json.formaPagamento,
           cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
           parcelado: isParcelado,
@@ -315,38 +370,8 @@ export async function PUT(
         .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
         .returning();
 
-      if (transacaoExistente.formaPagamento !== "cartao" && transacaoExistente.contaId) {
-        try {
-          const [extratoExistente] = await db
-            .select().from(extratoConta)
-            .where(and(eq(extratoConta.referenciaId, id), eq(extratoConta.userId, userId)))
-            .limit(1);
-
-          if (extratoExistente) {
-            const valorAntigo     = Number(transacaoExistente.valor);
-            const valorNovo       = Number(json.valor);
-            const saldoAntigoApos = Number(extratoExistente.saldoApos);
-            let novoSaldoApos     = saldoAntigoApos;
-
-            if (valorAntigo !== valorNovo) {
-              novoSaldoApos = saldoAntigoApos + (valorNovo - valorAntigo);
-              await db.update(contas)
-                .set({ saldoAtual: novoSaldoApos.toFixed(2), updatedAt: new Date() })
-                .where(and(eq(contas.id, transacaoExistente.contaId), eq(contas.userId, userId)));
-            }
-
-            await db.update(extratoConta)
-              .set({
-                data: dataParaAtualizar.toISOString().split("T")[0],
-                tipo: json.tipo === "entrada" ? "entrada" : "saida",
-                valor: Math.abs(Number(json.valor)).toFixed(2),
-                descricao: json.descricao || extratoExistente.descricao,
-                saldoApos: novoSaldoApos.toFixed(2),
-              })
-              .where(and(eq(extratoConta.id, extratoExistente.id), eq(extratoConta.userId, userId)));
-          }
-        } catch (e) { console.error("⚠️ Erro ao atualizar extrato:", e); }
-      }
+      // ✅ Usa helper que trata troca de conta corretamente
+      await atualizarExtratoESaldo(transacaoExistente, updated, userId);
 
       return NextResponse.json(updated);
     }
@@ -359,8 +384,7 @@ export async function PUT(
         return NextResponse.json({ error: "parcelamentoId é obrigatório" }, { status: 400 });
       }
 
-      const transacoesParceladas = await db
-        .select().from(transacoes)
+      const transacoesParceladas = await db.select().from(transacoes)
         .where(and(eq(transacoes.parcelamentoId, json.parcelamentoId), eq(transacoes.userId, userId)))
         .orderBy(transacoes.parcelaAtual);
 
@@ -376,6 +400,7 @@ export async function PUT(
 
       for (let i = 0; i < quantidadeManter; i++) {
         const t = transacoesParceladas[i];
+
         const [updated] = await db.update(transacoes)
           .set({
             tipo: json.tipo, descricao: json.descricao,
@@ -390,25 +415,10 @@ export async function PUT(
           .where(and(eq(transacoes.id, t.id), eq(transacoes.userId, userId)))
           .returning();
 
-        if (updated) atualizadas.push(updated);
-
-        if (t.formaPagamento !== "cartao" && t.contaId) {
-          try {
-            const [extratoExistente] = await db
-              .select().from(extratoConta)
-              .where(and(eq(extratoConta.referenciaId, t.id), eq(extratoConta.userId, userId)))
-              .limit(1);
-
-            if (extratoExistente) {
-              await db.update(extratoConta)
-                .set({
-                  tipo: json.tipo === "entrada" ? "entrada" : "saida",
-                  valor: Math.abs(valorParcela).toFixed(2),
-                  descricao: json.descricao || extratoExistente.descricao,
-                })
-                .where(and(eq(extratoConta.id, extratoExistente.id), eq(extratoConta.userId, userId)));
-            }
-          } catch (e) { console.error("⚠️ Erro extrato parcela:", e); }
+        if (updated) {
+          atualizadas.push(updated);
+          // ✅ Usa helper que trata troca de conta corretamente
+          await atualizarExtratoESaldo(t, updated, userId);
         }
       }
 
@@ -417,14 +427,9 @@ export async function PUT(
       if (totalParcelasNovo < totalParcelasAtuais) {
         const excedentes    = transacoesParceladas.slice(totalParcelasNovo);
         const idsExcedentes = excedentes.map(t => t.id);
-
-        for (const t of excedentes) {
-          await reverterExtratoESaldo(t, userId);
-        }
-
+        for (const t of excedentes) await reverterExtratoESaldo(t, userId);
         await db.delete(transacoes)
           .where(and(inArray(transacoes.id, idsExcedentes), eq(transacoes.userId, userId)));
-
         deletadas = idsExcedentes.length;
       }
 
@@ -451,11 +456,7 @@ export async function PUT(
         }
 
         criadas = await db.insert(transacoes).values(novasData).returning();
-
-        // ✅ Processa extrato + saldo para cada nova parcela criada
-        for (const nova of criadas) {
-          await processarExtratoESaldo(nova, userId);
-        }
+        for (const nova of criadas) await processarExtratoESaldo(nova, userId);
       }
 
       return NextResponse.json({ atualizadas, deletadas, criadas });
@@ -469,8 +470,7 @@ export async function PUT(
         return NextResponse.json({ error: "recorrenciaId é obrigatório" }, { status: 400 });
       }
 
-      const transacoesRecorrentes = await db
-        .select().from(transacoes)
+      const transacoesRecorrentes = await db.select().from(transacoes)
         .where(and(eq(transacoes.recorrenciaId, json.recorrenciaId), eq(transacoes.userId, userId)))
         .orderBy(transacoes.data);
 
@@ -485,11 +485,13 @@ export async function PUT(
 
       for (let i = 0; i < quantidadeManter; i++) {
         const t = transacoesRecorrentes[i];
+
         const [updated] = await db.update(transacoes)
           .set({
             tipo: json.tipo, descricao: json.descricao,
             valor: String(json.valor), categoria: json.categoria,
-            contaId: json.contaId, formaPagamento: json.formaPagamento,
+            contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null),
+            formaPagamento: json.formaPagamento,
             cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
             recorrente: true, recorrenciaId: json.recorrenciaId,
             repeticoes: totalRepeticoesNovo,
@@ -498,25 +500,10 @@ export async function PUT(
           .where(and(eq(transacoes.id, t.id), eq(transacoes.userId, userId)))
           .returning();
 
-        if (updated) atualizadas.push(updated);
-
-        if (t.formaPagamento !== "cartao" && t.contaId) {
-          try {
-            const [extratoExistente] = await db
-              .select().from(extratoConta)
-              .where(and(eq(extratoConta.referenciaId, t.id), eq(extratoConta.userId, userId)))
-              .limit(1);
-
-            if (extratoExistente) {
-              await db.update(extratoConta)
-                .set({
-                  tipo: json.tipo === "entrada" ? "entrada" : "saida",
-                  valor: Math.abs(Number(json.valor)).toFixed(2),
-                  descricao: json.descricao || extratoExistente.descricao,
-                })
-                .where(and(eq(extratoConta.id, extratoExistente.id), eq(extratoConta.userId, userId)));
-            }
-          } catch (e) { console.error("⚠️ Erro extrato recorrência:", e); }
+        if (updated) {
+          atualizadas.push(updated);
+          // ✅ Usa helper que trata troca de conta corretamente
+          await atualizarExtratoESaldo(t, updated, userId);
         }
       }
 
@@ -525,14 +512,9 @@ export async function PUT(
       if (totalRepeticoesNovo < totalRepeticoesAtuais) {
         const excedentes    = transacoesRecorrentes.slice(totalRepeticoesNovo);
         const idsExcedentes = excedentes.map(t => t.id);
-
-        for (const t of excedentes) {
-          await reverterExtratoESaldo(t, userId);
-        }
-
+        for (const t of excedentes) await reverterExtratoESaldo(t, userId);
         await db.delete(transacoes)
           .where(and(inArray(transacoes.id, idsExcedentes), eq(transacoes.userId, userId)));
-
         deletadas = idsExcedentes.length;
       }
 
@@ -553,7 +535,7 @@ export async function PUT(
             valor:          String(json.valor),
             data:           dataNova,
             categoria:      json.categoria     as string | null,
-            contaId:        json.contaId       as string | null,
+            contaId:        json.formaPagamento === "cartao" ? null : (json.contaId || null),
             formaPagamento: json.formaPagamento as string,
             cartaoId:       json.formaPagamento === "cartao" ? json.cartaoId : null,
             recorrente: true, recorrenciaId: json.recorrenciaId,
@@ -563,14 +545,9 @@ export async function PUT(
         }
 
         criadas = await db.insert(transacoes).values(novasData).returning();
-
-        // ✅ Processa extrato + saldo para cada nova repetição criada
-        for (const nova of criadas) {
-          await processarExtratoESaldo(nova, userId);
-        }
+        for (const nova of criadas) await processarExtratoESaldo(nova, userId);
       }
 
-      console.log(`✅ Recorrência: ${atualizadas.length} atualizadas, ${deletadas} deletadas, ${criadas.length} criadas`);
       return NextResponse.json({ atualizadas, deletadas, criadas });
     }
 
@@ -605,8 +582,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Tipo inválido." }, { status: 400 });
     }
 
-    const [mov] = await db
-      .select().from(transacoes)
+    const [mov] = await db.select().from(transacoes)
       .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
       .limit(1);
 
@@ -626,12 +602,10 @@ export async function DELETE(
     if (!tipo || tipo === "unica") {
       transacoesParaDeletar = [mov];
     } else if (tipo === "todas_parcelas" && mov.parcelamentoId) {
-      transacoesParaDeletar = await db
-        .select().from(transacoes)
+      transacoesParaDeletar = await db.select().from(transacoes)
         .where(and(eq(transacoes.parcelamentoId, mov.parcelamentoId), eq(transacoes.userId, userId)));
     } else if (tipo === "toda_recorrencia" && mov.recorrenciaId) {
-      transacoesParaDeletar = await db
-        .select().from(transacoes)
+      transacoesParaDeletar = await db.select().from(transacoes)
         .where(and(eq(transacoes.recorrenciaId, mov.recorrenciaId), eq(transacoes.userId, userId)));
     }
 
