@@ -134,12 +134,12 @@ export default function FormMovimentacaoModal({
     if (!transacaoEdicao || !modoEdicao) return {};
     const editarTodos = modoEdicao === "todas_parcelas" || modoEdicao === "toda_recorrencia";
     return {
-      tipo: editarTodos,
-      data: editarTodos,
+      tipo:        editarTodos,
+      data:        editarTodos,
       formaPagamento: editarTodos,
-      // ✅ Parcelas desbloqueadas no modo todas_parcelas para permitir redimensionamento
-      parcelas: false,
-      repeticoes: transacaoEdicao.recorrente && modoEdicao === "toda_recorrencia",
+      // ✅ Ambos desbloqueados para permitir redimensionamento
+      parcelas:    false,
+      repeticoes:  false,
     };
   }, [transacaoEdicao, modoEdicao]);
 

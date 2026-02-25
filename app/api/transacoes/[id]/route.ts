@@ -1,10 +1,144 @@
-// app/api/transacoes/[id]/route.ts - ARQUIVO COMPLETO COM SUPORTE A DÉBITO
+// app/api/transacoes/[id]/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, contas, extratoConta, cartoes, faturas } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
+
+// ============================================================
+// HELPER: processa extrato + saldo para uma transação criada
+// Replica exatamente a lógica do POST
+// ============================================================
+async function processarExtratoESaldo(
+  transacao: typeof transacoes.$inferSelect,
+  userId: string
+) {
+  const valorNum = Number(transacao.valor);
+
+  if (transacao.cartaoId && transacao.formaPagamento === "cartao") {
+    const [cartao] = await db
+      .select().from(cartoes)
+      .where(eq(cartoes.id, transacao.cartaoId)).limit(1);
+
+    if (!cartao) return;
+
+    if (cartao.tipo === "debito" && cartao.contaVinculadaId) {
+      const [conta] = await db
+        .select().from(contas)
+        .where(eq(contas.id, cartao.contaVinculadaId)).limit(1);
+
+      if (!conta) return;
+
+      const novoSaldo = Number(conta.saldoAtual) - valorNum;
+
+      await db.update(contas)
+        .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
+        .where(and(eq(contas.id, conta.id), eq(contas.userId, userId)));
+
+      await db.insert(extratoConta).values({
+        userId,
+        contaId: conta.id,
+        data: new Date(transacao.data).toISOString().split("T")[0],
+        tipo: "saida",
+        valor: valorNum.toFixed(2),
+        descricao: transacao.descricao || `Compra no débito - ${cartao.nome}`,
+        saldoApos: novoSaldo.toFixed(2),
+        origem: "TRANSACAO_MANUAL",
+        referenciaId: transacao.id,
+      });
+
+    } else if (cartao.tipo === "credito") {
+      const dataTransacao = new Date(transacao.data);
+      const diaFechamento = cartao.diaFechamento || 1;
+      const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(dataTransacao, diaFechamento);
+
+      const [faturaExistente] = await db
+        .select().from(faturas)
+        .where(and(
+          eq(faturas.cartaoId, transacao.cartaoId),
+          eq(faturas.userId, userId),
+          eq(faturas.mes, mesFatura),
+          eq(faturas.ano, anoFatura)
+        )).limit(1);
+
+      if (faturaExistente) {
+        await db.update(faturas)
+          .set({ total: (Number(faturaExistente.total) + valorNum).toFixed(2), updatedAt: new Date() })
+          .where(eq(faturas.id, faturaExistente.id));
+      } else {
+        await db.insert(faturas).values({
+          userId,
+          cartaoId: transacao.cartaoId,
+          mes: mesFatura, ano: anoFatura,
+          total: valorNum.toFixed(2),
+          paga: false,
+        });
+      }
+
+      await db.update(cartoes)
+        .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${valorNum}` })
+        .where(and(eq(cartoes.id, transacao.cartaoId), eq(cartoes.userId, userId)));
+    }
+
+  } else if (transacao.contaId && transacao.formaPagamento !== "cartao") {
+    const [conta] = await db
+      .select().from(contas)
+      .where(eq(contas.id, transacao.contaId)).limit(1);
+
+    if (!conta) return;
+
+    const saldoAtual = Number(conta.saldoAtual);
+    const novoSaldo  = transacao.tipo === "entrada"
+      ? saldoAtual + valorNum
+      : saldoAtual - valorNum;
+
+    await db.update(contas)
+      .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
+      .where(and(eq(contas.id, transacao.contaId), eq(contas.userId, userId)));
+
+    await db.insert(extratoConta).values({
+      userId,
+      contaId: transacao.contaId,
+      data: new Date(transacao.data).toISOString().split("T")[0],
+      tipo: transacao.tipo === "entrada" ? "entrada" : "saida",
+      valor: valorNum.toFixed(2),
+      descricao: transacao.descricao || "Transação manual",
+      saldoApos: novoSaldo.toFixed(2),
+      origem: "TRANSACAO_MANUAL",
+      referenciaId: transacao.id,
+    });
+  }
+}
+
+// ============================================================
+// HELPER: reverte extrato + saldo de uma transação existente
+// ============================================================
+async function reverterExtratoESaldo(
+  transacao: typeof transacoes.$inferSelect,
+  userId: string
+) {
+  const valor = Number(transacao.valor);
+
+  if (transacao.contaId && transacao.formaPagamento !== "cartao") {
+    const [conta] = await db
+      .select().from(contas)
+      .where(eq(contas.id, transacao.contaId)).limit(1);
+
+    if (conta) {
+      const novoSaldo = transacao.tipo === "entrada"
+        ? Number(conta.saldoAtual) - valor
+        : Number(conta.saldoAtual) + valor;
+
+      await db.update(contas)
+        .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
+        .where(and(eq(contas.id, transacao.contaId), eq(contas.userId, userId)));
+    }
+  }
+
+  await db.delete(extratoConta)
+    .where(and(eq(extratoConta.referenciaId, transacao.id), eq(extratoConta.userId, userId)));
+}
 
 // PUT - Atualizar transação
 export async function PUT(
@@ -13,19 +147,10 @@ export async function PUT(
 ) {
   try {
     const userId = await getUserId();
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
+    if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const { id } = await params;
-
-    if (!id) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
-    }
+    if (!id) return NextResponse.json({ error: "ID inválido" }, { status: 400 });
 
     const json = await req.json();
     const { modoEdicao } = json;
@@ -35,193 +160,147 @@ export async function PUT(
     // ============================================
     if (modoEdicao === "unica") {
       const [transacaoExistente] = await db
-        .select()
-        .from(transacoes)
-        .where(
-          and(
-            eq(transacoes.id, id),
-            eq(transacoes.userId, userId)
-          )
-        )
+        .select().from(transacoes)
+        .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
         .limit(1);
 
       if (!transacaoExistente) {
-        return NextResponse.json(
-          { error: "Transação não encontrada ou acesso negado" },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: "Transação não encontrada" }, { status: 404 });
       }
 
       const dataParaAtualizar = json.data
-        ? (typeof json.data === 'string' ? new Date(json.data) : json.data)
+        ? (typeof json.data === "string" ? new Date(json.data) : json.data)
         : new Date(transacaoExistente.data);
 
-      const isParcelado = json.parcelado === true;
-      const isRecorrente = json.recorrente === true;
-      const eraParcelado = transacaoExistente.parcelado === true;
+      const isParcelado   = json.parcelado  === true;
+      const isRecorrente  = json.recorrente === true;
+      const eraParcelado  = transacaoExistente.parcelado  === true;
       const eraRecorrente = transacaoExistente.recorrente === true;
 
-      // ============================================================
-      // CASO ESPECIAL: Convertendo à vista → parcelado
-      // Atualiza o registro existente como parcela 1 e cria as demais
-      // ============================================================
+      // ── Convertendo à vista → parcelado ──────────────────────────────
       if (isParcelado && !eraParcelado) {
-        const totalParcelas = json.parcelas as number;
-        const valorParcela = Number(json.valor) / totalParcelas;
+        const totalParcelas  = json.parcelas as number;
+        const valorParcela   = Number(json.valor) / totalParcelas;
         const parcelamentoId = crypto.randomUUID();
 
-        // 1. Atualiza a transação existente como parcela 1
-        const [parcela1] = await db
-          .update(transacoes)
+        const [parcela1] = await db.update(transacoes)
           .set({
-            tipo: json.tipo,
-            descricao: json.descricao,
-            valor: valorParcela.toFixed(2),
-            data: dataParaAtualizar,
+            tipo: json.tipo, descricao: json.descricao,
+            valor: valorParcela.toFixed(2), data: dataParaAtualizar,
             categoria: json.categoria,
             contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null),
             formaPagamento: json.formaPagamento,
             cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
-            parcelado: true,
-            parcelas: totalParcelas,
-            parcelaAtual: 1,
-            parcelamentoId,
-            recorrente: false,
-            recorrenciaId: null,
-            repeticoes: null,
+            parcelado: true, parcelas: totalParcelas, parcelaAtual: 1, parcelamentoId,
+            recorrente: false, recorrenciaId: null, repeticoes: null,
             updatedAt: new Date(),
           })
           .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
           .returning();
 
-        console.log(`✅ Parcela 1/${totalParcelas} atualizada: ${id}`);
-
-        // 2. Cria as parcelas 2..N com datas mensais subsequentes
         const parcelasParaCriar = [];
         for (let i = 2; i <= totalParcelas; i++) {
           const dataParcela = new Date(dataParaAtualizar);
           dataParcela.setMonth(dataParcela.getMonth() + (i - 1));
-
           parcelasParaCriar.push({
-            userId,
-            tipo: json.tipo as string,
-            descricao: json.descricao as string | null,
-            valor: valorParcela.toFixed(2),
-            data: dataParcela,
+            userId, tipo: json.tipo as string, descricao: json.descricao as string | null,
+            valor: valorParcela.toFixed(2), data: dataParcela,
             categoria: json.categoria as string | null,
             contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null),
             formaPagamento: json.formaPagamento as string,
             cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
-            parcelado: true,
-            parcelas: totalParcelas,
-            parcelaAtual: i,
-            parcelamentoId,
-            recorrente: false,
-            recorrenciaId: null,
-            repeticoes: null,
+            parcelado: true, parcelas: totalParcelas, parcelaAtual: i, parcelamentoId,
+            recorrente: false, recorrenciaId: null, repeticoes: null,
           });
         }
 
-        const novasParcelas = await db
-          .insert(transacoes)
-          .values(parcelasParaCriar)
-          .returning();
-
-        console.log(`✅ ${novasParcelas.length} parcelas criadas — parcelamentoId: ${parcelamentoId}`);
-
+        const novasParcelas = await db.insert(transacoes).values(parcelasParaCriar).returning();
         return NextResponse.json({ parcela1, novasParcelas, parcelamentoId, totalParcelas });
       }
 
-      // ============================================================
-      // CASO ESPECIAL: Convertendo à vista → recorrente
-      // Atualiza o registro existente como repetição 1 e cria as demais
-      // ============================================================
+      // ── Convertendo à vista → recorrente ─────────────────────────────
       if (isRecorrente && !eraRecorrente) {
         const totalRepeticoes = json.repeticoes as number;
-        const recorrenciaId = crypto.randomUUID();
+        const recorrenciaId   = crypto.randomUUID();
 
-        // 1. Atualiza a transação existente como repetição 1
-        const [repeticao1] = await db
-          .update(transacoes)
+        const [repeticao1] = await db.update(transacoes)
           .set({
-            tipo: json.tipo,
-            descricao: json.descricao,
-            valor: String(json.valor),
-            data: dataParaAtualizar,
-            categoria: json.categoria,
-            contaId: json.contaId || null,
+            tipo: json.tipo, descricao: json.descricao,
+            valor: String(json.valor), data: dataParaAtualizar,
+            categoria: json.categoria, contaId: json.contaId || null,
             formaPagamento: json.formaPagamento,
             cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
-            recorrente: true,
-            recorrenciaId,
-            repeticoes: totalRepeticoes,
-            parcelado: false,
-            parcelamentoId: null,
-            parcelas: null,
-            parcelaAtual: null,
+            recorrente: true, recorrenciaId, repeticoes: totalRepeticoes,
+            parcelado: false, parcelamentoId: null, parcelas: null, parcelaAtual: null,
             updatedAt: new Date(),
           })
           .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
           .returning();
 
-        console.log(`✅ Repetição 1/${totalRepeticoes} atualizada: ${id}`);
-
-        // 2. Cria as repetições 2..N com datas mensais subsequentes
         const repeticoesParaCriar = [];
         for (let i = 2; i <= totalRepeticoes; i++) {
           const dataRepeticao = new Date(dataParaAtualizar);
           dataRepeticao.setMonth(dataRepeticao.getMonth() + (i - 1));
-
           repeticoesParaCriar.push({
-            userId,
-            tipo: json.tipo as string,
-            descricao: json.descricao as string | null,
-            valor: String(json.valor),
-            data: dataRepeticao,
-            categoria: json.categoria as string | null,
-            contaId: json.contaId as string | null,
+            userId, tipo: json.tipo as string, descricao: json.descricao as string | null,
+            valor: String(json.valor), data: dataRepeticao,
+            categoria: json.categoria as string | null, contaId: json.contaId as string | null,
             formaPagamento: json.formaPagamento as string,
             cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
-            recorrente: true,
-            recorrenciaId,
-            repeticoes: totalRepeticoes,
-            parcelado: false,
-            parcelamentoId: null,
-            parcelas: null,
-            parcelaAtual: null,
+            recorrente: true, recorrenciaId, repeticoes: totalRepeticoes,
+            parcelado: false, parcelamentoId: null, parcelas: null, parcelaAtual: null,
           });
         }
 
-        const novasRepeticoes = await db
-          .insert(transacoes)
-          .values(repeticoesParaCriar)
-          .returning();
-
-        console.log(`✅ ${novasRepeticoes.length} repetições criadas — recorrenciaId: ${recorrenciaId}`);
-
+        const novasRepeticoes = await db.insert(transacoes).values(repeticoesParaCriar).returning();
         return NextResponse.json({ repeticao1, novasRepeticoes, recorrenciaId, totalRepeticoes });
       }
 
-      // ============================================================
-      // CASO PADRÃO: Edição simples sem mudança de tipo de pagamento
-      // ============================================================
+      // ── Editar única ocorrência de uma recorrência ────────────────────
+      // Reverte a ocorrência original, deleta e cria nova transação à vista
+      if (eraRecorrente && !isRecorrente) {
+        // 1. Reverte extrato + saldo da ocorrência original
+        await reverterExtratoESaldo(transacaoExistente, userId);
+
+        // 2. Deleta a ocorrência original
+        await db.delete(transacoes)
+          .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)));
+
+        // 3. Cria nova transação à vista
+        const [novaTransacao] = await db.insert(transacoes)
+          .values({
+            userId,
+            tipo:           json.tipo           as string,
+            descricao:      json.descricao       as string | null,
+            valor:          String(json.valor),
+            data:           dataParaAtualizar,
+            categoria:      json.categoria       as string | null,
+            contaId:        json.formaPagamento === "cartao" ? null : (json.contaId || null),
+            formaPagamento: json.formaPagamento  as string,
+            cartaoId:       json.formaPagamento === "cartao" ? json.cartaoId : null,
+            recorrente: false, recorrenciaId: null, repeticoes: null,
+            parcelado:  false, parcelamentoId: null, parcelas: null, parcelaAtual: null,
+          })
+          .returning();
+
+        // 4. ✅ Processa extrato + saldo da nova transação à vista
+        await processarExtratoESaldo(novaTransacao, userId);
+
+        console.log(`✅ Ocorrência destacada da recorrência → nova transação: ${novaTransacao.id}`);
+        return NextResponse.json({ novaTransacao, ocorrenciaOriginalId: id });
+      }
+
+      // ── Caso padrão: edição simples ───────────────────────────────────
       const parcelamentoId = isParcelado
-        ? (transacaoExistente.parcelamentoId || crypto.randomUUID())
-        : null;
-
+        ? (transacaoExistente.parcelamentoId || crypto.randomUUID()) : null;
       const recorrenciaId = isRecorrente
-        ? (transacaoExistente.recorrenciaId || crypto.randomUUID())
-        : null;
+        ? (transacaoExistente.recorrenciaId  || crypto.randomUUID()) : null;
 
-      const [updated] = await db
-        .update(transacoes)
+      const [updated] = await db.update(transacoes)
         .set({
-          tipo: json.tipo,
-          descricao: json.descricao,
-          valor: String(json.valor),
-          data: dataParaAtualizar,
-          categoria: json.categoria,
-          contaId: json.contaId,
+          tipo: json.tipo, descricao: json.descricao,
+          valor: String(json.valor), data: dataParaAtualizar,
+          categoria: json.categoria, contaId: json.contaId,
           formaPagamento: json.formaPagamento,
           cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
           parcelado: isParcelado,
@@ -236,55 +315,37 @@ export async function PUT(
         .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
         .returning();
 
-      // Atualizar extrato SE existir e SE não for cartão
       if (transacaoExistente.formaPagamento !== "cartao" && transacaoExistente.contaId) {
         try {
           const [extratoExistente] = await db
-            .select()
-            .from(extratoConta)
-            .where(
-              and(
-                eq(extratoConta.referenciaId, id),
-                eq(extratoConta.userId, userId)
-              )
-            )
+            .select().from(extratoConta)
+            .where(and(eq(extratoConta.referenciaId, id), eq(extratoConta.userId, userId)))
             .limit(1);
 
           if (extratoExistente) {
-            const valorAntigo = Number(transacaoExistente.valor);
-            const valorNovo = Number(json.valor);
+            const valorAntigo     = Number(transacaoExistente.valor);
+            const valorNovo       = Number(json.valor);
             const saldoAntigoApos = Number(extratoExistente.saldoApos);
-            let novoSaldoApos = saldoAntigoApos;
+            let novoSaldoApos     = saldoAntigoApos;
 
             if (valorAntigo !== valorNovo) {
               novoSaldoApos = saldoAntigoApos + (valorNovo - valorAntigo);
-
-              await db
-                .update(contas)
+              await db.update(contas)
                 .set({ saldoAtual: novoSaldoApos.toFixed(2), updatedAt: new Date() })
                 .where(and(eq(contas.id, transacaoExistente.contaId), eq(contas.userId, userId)));
             }
 
-            const dataExtrato = dataParaAtualizar
-              ? dataParaAtualizar.toISOString().split('T')[0]
-              : extratoExistente.data;
-
-            await db
-              .update(extratoConta)
+            await db.update(extratoConta)
               .set({
-                data: dataExtrato,
+                data: dataParaAtualizar.toISOString().split("T")[0],
                 tipo: json.tipo === "entrada" ? "entrada" : "saida",
                 valor: Math.abs(Number(json.valor)).toFixed(2),
                 descricao: json.descricao || extratoExistente.descricao,
                 saldoApos: novoSaldoApos.toFixed(2),
               })
               .where(and(eq(extratoConta.id, extratoExistente.id), eq(extratoConta.userId, userId)));
-
-            console.log(`✅ Extrato atualizado: ${id} | Novo saldo: R$ ${novoSaldoApos.toFixed(2)}`);
           }
-        } catch (extratoError) {
-          console.error("⚠️ Erro ao atualizar extrato (não crítico):", extratoError);
-        }
+        } catch (e) { console.error("⚠️ Erro ao atualizar extrato:", e); }
       }
 
       return NextResponse.json(updated);
@@ -295,193 +356,107 @@ export async function PUT(
     // ============================================
     if (modoEdicao === "todas_parcelas") {
       if (!json.parcelamentoId) {
-        return NextResponse.json(
-          { error: "parcelamentoId é obrigatório" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "parcelamentoId é obrigatório" }, { status: 400 });
       }
 
-      // Busca todas as parcelas existentes ordenadas por parcelaAtual
       const transacoesParceladas = await db
-        .select()
-        .from(transacoes)
-        .where(
-          and(
-            eq(transacoes.parcelamentoId, json.parcelamentoId),
-            eq(transacoes.userId, userId)
-          )
-        )
+        .select().from(transacoes)
+        .where(and(eq(transacoes.parcelamentoId, json.parcelamentoId), eq(transacoes.userId, userId)))
         .orderBy(transacoes.parcelaAtual);
 
       if (!transacoesParceladas.length) {
-        return NextResponse.json(
-          { error: "Parcelamento não encontrado" },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: "Parcelamento não encontrado" }, { status: 404 });
       }
 
       const totalParcelasAtuais = transacoesParceladas.length;
       const totalParcelasNovo   = json.parcelas ? Number(json.parcelas) : totalParcelasAtuais;
       const valorParcela        = Number(json.valor) / totalParcelasNovo;
-
-      // ── Atualiza as parcelas existentes que continuam ──────────────────
-      const quantidadeManter = Math.min(totalParcelasAtuais, totalParcelasNovo);
-      const atualizadas = [];
+      const quantidadeManter    = Math.min(totalParcelasAtuais, totalParcelasNovo);
+      const atualizadas         = [];
 
       for (let i = 0; i < quantidadeManter; i++) {
         const t = transacoesParceladas[i];
-
-        const [updated] = await db
-          .update(transacoes)
+        const [updated] = await db.update(transacoes)
           .set({
-            tipo:           json.tipo,
-            descricao:      json.descricao,
-            valor:          valorParcela.toFixed(2),
-            categoria:      json.categoria,
-            contaId:        json.formaPagamento === "cartao" ? null : (json.contaId || null),
+            tipo: json.tipo, descricao: json.descricao,
+            valor: valorParcela.toFixed(2), categoria: json.categoria,
+            contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null),
             formaPagamento: json.formaPagamento,
-            cartaoId:       json.formaPagamento === "cartao" ? json.cartaoId : null,
-            parcelado:      true,
-            parcelas:       totalParcelasNovo,
-            parcelaAtual:   t.parcelaAtual,
-            parcelamentoId: json.parcelamentoId,
-            updatedAt:      new Date(),
+            cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
+            parcelado: true, parcelas: totalParcelasNovo,
+            parcelaAtual: t.parcelaAtual, parcelamentoId: json.parcelamentoId,
+            updatedAt: new Date(),
           })
-          .where(
-            and(
-              eq(transacoes.id, t.id),
-              eq(transacoes.userId, userId)
-            )
-          )
+          .where(and(eq(transacoes.id, t.id), eq(transacoes.userId, userId)))
           .returning();
 
         if (updated) atualizadas.push(updated);
 
-        // Atualiza extrato se não for cartão
         if (t.formaPagamento !== "cartao" && t.contaId) {
           try {
             const [extratoExistente] = await db
-              .select()
-              .from(extratoConta)
-              .where(
-                and(
-                  eq(extratoConta.referenciaId, t.id),
-                  eq(extratoConta.userId, userId)
-                )
-              )
+              .select().from(extratoConta)
+              .where(and(eq(extratoConta.referenciaId, t.id), eq(extratoConta.userId, userId)))
               .limit(1);
 
             if (extratoExistente) {
-              await db
-                .update(extratoConta)
+              await db.update(extratoConta)
                 .set({
-                  tipo:      json.tipo === "entrada" ? "entrada" : "saida",
-                  valor:     Math.abs(valorParcela).toFixed(2),
+                  tipo: json.tipo === "entrada" ? "entrada" : "saida",
+                  valor: Math.abs(valorParcela).toFixed(2),
                   descricao: json.descricao || extratoExistente.descricao,
                 })
-                .where(
-                  and(
-                    eq(extratoConta.id, extratoExistente.id),
-                    eq(extratoConta.userId, userId)
-                  )
-                );
+                .where(and(eq(extratoConta.id, extratoExistente.id), eq(extratoConta.userId, userId)));
             }
-          } catch (extratoError) {
-            console.error("⚠️ Erro ao atualizar extrato da parcela:", extratoError);
-          }
+          } catch (e) { console.error("⚠️ Erro extrato parcela:", e); }
         }
       }
 
-      // ── Deleta parcelas excedentes (reduziu número de parcelas) ────────
+      // ── Deleta excedentes (reduziu parcelas) ──────────────────────────
       let deletadas = 0;
       if (totalParcelasNovo < totalParcelasAtuais) {
-        const parcelasExcedentes = transacoesParceladas.slice(totalParcelasNovo);
-        const idsExcedentes = parcelasExcedentes.map(t => t.id);
+        const excedentes    = transacoesParceladas.slice(totalParcelasNovo);
+        const idsExcedentes = excedentes.map(t => t.id);
 
-        // Reverte saldo/extrato de cada excedente
-        for (const t of parcelasExcedentes) {
-          const valor = Number(t.valor);
-
-          if (t.contaId && t.formaPagamento !== "cartao") {
-            const [conta] = await db
-              .select()
-              .from(contas)
-              .where(eq(contas.id, t.contaId))
-              .limit(1);
-
-            if (conta) {
-              const novoSaldo = t.tipo === "entrada"
-                ? Number(conta.saldoAtual) - valor
-                : Number(conta.saldoAtual) + valor;
-
-              await db
-                .update(contas)
-                .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
-                .where(and(eq(contas.id, t.contaId), eq(contas.userId, userId)));
-            }
-          }
-
-          await db
-            .delete(extratoConta)
-            .where(
-              and(
-                eq(extratoConta.referenciaId, t.id),
-                eq(extratoConta.userId, userId)
-              )
-            );
+        for (const t of excedentes) {
+          await reverterExtratoESaldo(t, userId);
         }
 
-        await db
-          .delete(transacoes)
-          .where(
-            and(
-              inArray(transacoes.id, idsExcedentes),
-              eq(transacoes.userId, userId)
-            )
-          );
+        await db.delete(transacoes)
+          .where(and(inArray(transacoes.id, idsExcedentes), eq(transacoes.userId, userId)));
 
         deletadas = idsExcedentes.length;
-        console.log(`🗑️ ${deletadas} parcela(s) excedente(s) deletada(s)`);
       }
 
-      // ── Cria novas parcelas (aumentou número de parcelas) ───────────────
+      // ── Cria novas parcelas (aumentou parcelas) ───────────────────────
       let criadas: (typeof transacoes.$inferSelect)[] = [];
       if (totalParcelasNovo > totalParcelasAtuais) {
-        // Data base: data da última parcela existente
         const ultimaParcela = transacoesParceladas[transacoesParceladas.length - 1];
-        const dataBase = new Date(ultimaParcela.data);
+        const dataBase      = new Date(ultimaParcela.data);
+        const novasData     = [];
 
-        const novasParcelasData = [];
         for (let i = totalParcelasAtuais + 1; i <= totalParcelasNovo; i++) {
           const dataNova = new Date(dataBase);
           dataNova.setMonth(dataBase.getMonth() + (i - totalParcelasAtuais));
-
-          novasParcelasData.push({
-            userId,
-            tipo:           json.tipo           as string,
-            descricao:      json.descricao      as string | null,
-            valor:          valorParcela.toFixed(2),
-            data:           dataNova,
-            categoria:      json.categoria      as string | null,
-            contaId:        json.formaPagamento === "cartao" ? null : (json.contaId || null),
+          novasData.push({
+            userId, tipo: json.tipo as string, descricao: json.descricao as string | null,
+            valor: valorParcela.toFixed(2), data: dataNova,
+            categoria: json.categoria as string | null,
+            contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null),
             formaPagamento: json.formaPagamento as string,
-            cartaoId:       json.formaPagamento === "cartao" ? json.cartaoId : null,
-            parcelado:      true,
-            parcelas:       totalParcelasNovo,
-            parcelaAtual:   i,
-            parcelamentoId: json.parcelamentoId,
+            cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
+            parcelado: true, parcelas: totalParcelasNovo,
+            parcelaAtual: i, parcelamentoId: json.parcelamentoId,
           });
         }
 
-        criadas = await db
-          .insert(transacoes)
-          .values(novasParcelasData)
-          .returning();
+        criadas = await db.insert(transacoes).values(novasData).returning();
 
-        console.log(`✅ ${criadas.length} nova(s) parcela(s) criada(s)`);
+        // ✅ Processa extrato + saldo para cada nova parcela criada
+        for (const nova of criadas) {
+          await processarExtratoESaldo(nova, userId);
+        }
       }
-
-      console.log(`✅ Parcelamento atualizado: ${atualizadas.length} atualizadas, ${deletadas} deletadas, ${criadas.length} criadas`);
 
       return NextResponse.json({ atualizadas, deletadas, criadas });
     }
@@ -491,54 +466,36 @@ export async function PUT(
     // ============================================
     if (modoEdicao === "toda_recorrencia") {
       if (!json.recorrenciaId) {
-        return NextResponse.json(
-          { error: "recorrenciaId é obrigatório" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "recorrenciaId é obrigatório" }, { status: 400 });
       }
 
       const transacoesRecorrentes = await db
-        .select()
-        .from(transacoes)
-        .where(
-          and(
-            eq(transacoes.recorrenciaId, json.recorrenciaId),
-            eq(transacoes.userId, userId)
-          )
-        );
+        .select().from(transacoes)
+        .where(and(eq(transacoes.recorrenciaId, json.recorrenciaId), eq(transacoes.userId, userId)))
+        .orderBy(transacoes.data);
 
       if (!transacoesRecorrentes.length) {
-        return NextResponse.json(
-          { error: "Recorrência não encontrada" },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: "Recorrência não encontrada" }, { status: 404 });
       }
 
-      const atualizadas = [];
+      const totalRepeticoesAtuais = transacoesRecorrentes.length;
+      const totalRepeticoesNovo   = json.repeticoes ? Number(json.repeticoes) : totalRepeticoesAtuais;
+      const quantidadeManter      = Math.min(totalRepeticoesAtuais, totalRepeticoesNovo);
+      const atualizadas           = [];
 
-      for (const t of transacoesRecorrentes) {
-        const [updated] = await db
-          .update(transacoes)
+      for (let i = 0; i < quantidadeManter; i++) {
+        const t = transacoesRecorrentes[i];
+        const [updated] = await db.update(transacoes)
           .set({
-            tipo: json.tipo,
-            descricao: json.descricao,
-            valor: String(json.valor),
-            categoria: json.categoria,
-            contaId: json.contaId,
-            formaPagamento: json.formaPagamento,
+            tipo: json.tipo, descricao: json.descricao,
+            valor: String(json.valor), categoria: json.categoria,
+            contaId: json.contaId, formaPagamento: json.formaPagamento,
             cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
-
-            recorrente: true,
-            recorrenciaId: json.recorrenciaId,
-            repeticoes: json.repeticoes,
+            recorrente: true, recorrenciaId: json.recorrenciaId,
+            repeticoes: totalRepeticoesNovo,
             updatedAt: new Date(),
           })
-          .where(
-            and(
-              eq(transacoes.id, t.id),
-              eq(transacoes.userId, userId)
-            )
-          )
+          .where(and(eq(transacoes.id, t.id), eq(transacoes.userId, userId)))
           .returning();
 
         if (updated) atualizadas.push(updated);
@@ -546,71 +503,99 @@ export async function PUT(
         if (t.formaPagamento !== "cartao" && t.contaId) {
           try {
             const [extratoExistente] = await db
-              .select()
-              .from(extratoConta)
-              .where(
-                and(
-                  eq(extratoConta.referenciaId, t.id),
-                  eq(extratoConta.userId, userId)
-                )
-              )
+              .select().from(extratoConta)
+              .where(and(eq(extratoConta.referenciaId, t.id), eq(extratoConta.userId, userId)))
               .limit(1);
 
             if (extratoExistente) {
-              await db
-                .update(extratoConta)
+              await db.update(extratoConta)
                 .set({
                   tipo: json.tipo === "entrada" ? "entrada" : "saida",
                   valor: Math.abs(Number(json.valor)).toFixed(2),
                   descricao: json.descricao || extratoExistente.descricao,
                 })
-                .where(
-                  and(
-                    eq(extratoConta.id, extratoExistente.id),
-                    eq(extratoConta.userId, userId)
-                  )
-                );
+                .where(and(eq(extratoConta.id, extratoExistente.id), eq(extratoConta.userId, userId)));
             }
-          } catch (extratoError) {
-            console.error("⚠️ Erro ao atualizar extrato da recorrência:", extratoError);
-          }
+          } catch (e) { console.error("⚠️ Erro extrato recorrência:", e); }
         }
       }
 
-      return NextResponse.json(atualizadas);
+      // ── Deleta excedentes (reduziu meses) ─────────────────────────────
+      let deletadas = 0;
+      if (totalRepeticoesNovo < totalRepeticoesAtuais) {
+        const excedentes    = transacoesRecorrentes.slice(totalRepeticoesNovo);
+        const idsExcedentes = excedentes.map(t => t.id);
+
+        for (const t of excedentes) {
+          await reverterExtratoESaldo(t, userId);
+        }
+
+        await db.delete(transacoes)
+          .where(and(inArray(transacoes.id, idsExcedentes), eq(transacoes.userId, userId)));
+
+        deletadas = idsExcedentes.length;
+      }
+
+      // ── Cria novas repetições (aumentou meses) ────────────────────────
+      let criadas: (typeof transacoes.$inferSelect)[] = [];
+      if (totalRepeticoesNovo > totalRepeticoesAtuais) {
+        const ultimaRepeticao = transacoesRecorrentes[transacoesRecorrentes.length - 1];
+        const dataBase        = new Date(ultimaRepeticao.data);
+        const novasData       = [];
+
+        for (let i = totalRepeticoesAtuais + 1; i <= totalRepeticoesNovo; i++) {
+          const dataNova = new Date(dataBase);
+          dataNova.setMonth(dataBase.getMonth() + (i - totalRepeticoesAtuais));
+          novasData.push({
+            userId,
+            tipo:           json.tipo          as string,
+            descricao:      json.descricao     as string | null,
+            valor:          String(json.valor),
+            data:           dataNova,
+            categoria:      json.categoria     as string | null,
+            contaId:        json.contaId       as string | null,
+            formaPagamento: json.formaPagamento as string,
+            cartaoId:       json.formaPagamento === "cartao" ? json.cartaoId : null,
+            recorrente: true, recorrenciaId: json.recorrenciaId,
+            repeticoes: totalRepeticoesNovo,
+            parcelado: false, parcelamentoId: null, parcelas: null, parcelaAtual: null,
+          });
+        }
+
+        criadas = await db.insert(transacoes).values(novasData).returning();
+
+        // ✅ Processa extrato + saldo para cada nova repetição criada
+        for (const nova of criadas) {
+          await processarExtratoESaldo(nova, userId);
+        }
+      }
+
+      console.log(`✅ Recorrência: ${atualizadas.length} atualizadas, ${deletadas} deletadas, ${criadas.length} criadas`);
+      return NextResponse.json({ atualizadas, deletadas, criadas });
     }
 
-    return NextResponse.json(
-      { error: "Modo de edição inválido" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Modo de edição inválido" }, { status: 400 });
+
   } catch (error: any) {
     console.error("Erro ao atualizar transação:", error);
-    const message = error instanceof Error ? error.message : "Erro ao atualizar transação";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Erro ao atualizar transação" },
+      { status: 500 }
+    );
   }
 }
 
-// DELETE - Deletar transação (com remoção de extrato e ajuste de saldo)
+// DELETE - Deletar transação
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await getUserId();
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
-    }
+    if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const { id } = await params;
-
-    if (!id) {
-      return NextResponse.json({ error: "ID inválido." }, { status: 400 });
-    }
+    if (!id) return NextResponse.json({ error: "ID inválido." }, { status: 400 });
 
     const { searchParams } = new URL(req.url);
     const tipo = searchParams.get("tipo");
@@ -621,21 +606,12 @@ export async function DELETE(
     }
 
     const [mov] = await db
-      .select()
-      .from(transacoes)
-      .where(
-        and(
-          eq(transacoes.id, id),
-          eq(transacoes.userId, userId)
-        )
-      )
+      .select().from(transacoes)
+      .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
       .limit(1);
 
     if (!mov) {
-      return NextResponse.json(
-        { error: "Transação não encontrada ou acesso negado" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Transação não encontrada" }, { status: 404 });
     }
 
     if (mov.transferenciaId) {
@@ -645,228 +621,104 @@ export async function DELETE(
       );
     }
 
-    // ===================================================================
-    // BUSCAR TRANSAÇÕES A SEREM DELETADAS
-    // ===================================================================
     let transacoesParaDeletar: typeof mov[] = [];
 
     if (!tipo || tipo === "unica") {
       transacoesParaDeletar = [mov];
     } else if (tipo === "todas_parcelas" && mov.parcelamentoId) {
       transacoesParaDeletar = await db
-        .select()
-        .from(transacoes)
-        .where(
-          and(
-            eq(transacoes.parcelamentoId, mov.parcelamentoId),
-            eq(transacoes.userId, userId)
-          )
-        );
+        .select().from(transacoes)
+        .where(and(eq(transacoes.parcelamentoId, mov.parcelamentoId), eq(transacoes.userId, userId)));
     } else if (tipo === "toda_recorrencia" && mov.recorrenciaId) {
       transacoesParaDeletar = await db
-        .select()
-        .from(transacoes)
-        .where(
-          and(
-            eq(transacoes.recorrenciaId, mov.recorrenciaId),
-            eq(transacoes.userId, userId)
-          )
-        );
+        .select().from(transacoes)
+        .where(and(eq(transacoes.recorrenciaId, mov.recorrenciaId), eq(transacoes.userId, userId)));
     }
 
-    console.log(`🗑️  Deletando ${transacoesParaDeletar.length} transação(ões)`);
-
-    // ===================================================================
-    // PROCESSAR CADA TRANSAÇÃO
-    // ===================================================================
     for (const transacao of transacoesParaDeletar) {
       const valor = Number(transacao.valor);
 
-      // 1. Reverter saldo da conta (se não for cartão)
       if (transacao.contaId && transacao.formaPagamento !== "cartao") {
-        const [conta] = await db
-          .select()
-          .from(contas)
-          .where(eq(contas.id, transacao.contaId))
-          .limit(1);
+        const [conta] = await db.select().from(contas)
+          .where(eq(contas.id, transacao.contaId)).limit(1);
 
         if (conta) {
-          const saldoAtual = Number(conta.saldoAtual);
           const novoSaldo = transacao.tipo === "entrada"
-            ? saldoAtual - valor
-            : saldoAtual + valor;
+            ? Number(conta.saldoAtual) - valor
+            : Number(conta.saldoAtual) + valor;
 
-          await db
-            .update(contas)
-            .set({
-              saldoAtual: novoSaldo.toFixed(2),
-              updatedAt: new Date(),
-            })
-            .where(
-              and(
-                eq(contas.id, transacao.contaId),
-                eq(contas.userId, userId)
-              )
-            );
+          await db.update(contas)
+            .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
+            .where(and(eq(contas.id, transacao.contaId), eq(contas.userId, userId)));
         }
       }
 
-      // 2. Remover do extrato (se existir)
-      await db
-        .delete(extratoConta)
-        .where(
-          and(
-            eq(extratoConta.referenciaId, transacao.id),
-            eq(extratoConta.userId, userId)
-          )
-        );
+      await db.delete(extratoConta)
+        .where(and(eq(extratoConta.referenciaId, transacao.id), eq(extratoConta.userId, userId)));
 
-      // 3. ✅ Reverter fatura/limite (crédito) OU conta (débito)
       if (transacao.cartaoId && transacao.formaPagamento === "cartao") {
-        const [cartao] = await db
-          .select()
-          .from(cartoes)
-          .where(eq(cartoes.id, transacao.cartaoId))
-          .limit(1);
+        const [cartao] = await db.select().from(cartoes)
+          .where(eq(cartoes.id, transacao.cartaoId)).limit(1);
 
         if (cartao) {
           if (cartao.tipo === "debito" && cartao.contaVinculadaId) {
-            // ===== DÉBITO: Reverter na conta vinculada =====
-
-            const [conta] = await db
-              .select()
-              .from(contas)
-              .where(eq(contas.id, cartao.contaVinculadaId))
-              .limit(1);
+            const [conta] = await db.select().from(contas)
+              .where(eq(contas.id, cartao.contaVinculadaId)).limit(1);
 
             if (conta) {
-              const saldoAtual = Number(conta.saldoAtual);
-              const novoSaldo = saldoAtual + valor; // Devolver o dinheiro
-
-              await db
-                .update(contas)
-                .set({
-                  saldoAtual: novoSaldo.toFixed(2),
-                  updatedAt: new Date(),
-                })
-                .where(
-                  and(
-                    eq(contas.id, conta.id),
-                    eq(contas.userId, userId)
-                  )
-                );
-
-              console.log(
-                `💳 Débito revertido: +R$ ${valor.toFixed(2)} em ${conta.nome} ` +
-                `(Saldo: R$ ${saldoAtual.toFixed(2)} → R$ ${novoSaldo.toFixed(2)})`
-              );
+              await db.update(contas)
+                .set({ saldoAtual: (Number(conta.saldoAtual) + valor).toFixed(2), updatedAt: new Date() })
+                .where(and(eq(contas.id, conta.id), eq(contas.userId, userId)));
             }
-
           } else if (cartao.tipo === "credito") {
-            // ===== CRÉDITO: Reverter fatura =====
-
-            const dataTransacao = new Date(transacao.data);
-            const diaFechamento = cartao.diaFechamento || 1;
-
             const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
-              dataTransacao,
-              diaFechamento
+              new Date(transacao.data), cartao.diaFechamento || 1
             );
 
-            console.log(
-              `📅 Revertendo transação de ${dataTransacao.toLocaleDateString('pt-BR')} → Fatura ${mesFatura}/${anoFatura}`
-            );
-
-            const [fatura] = await db
-              .select()
-              .from(faturas)
-              .where(
-                and(
-                  eq(faturas.cartaoId, transacao.cartaoId),
-                  eq(faturas.userId, userId),
-                  eq(faturas.mes, mesFatura),
-                  eq(faturas.ano, anoFatura)
-                )
-              )
-              .limit(1);
+            const [fatura] = await db.select().from(faturas)
+              .where(and(
+                eq(faturas.cartaoId, transacao.cartaoId),
+                eq(faturas.userId, userId),
+                eq(faturas.mes, mesFatura),
+                eq(faturas.ano, anoFatura)
+              )).limit(1);
 
             if (fatura) {
-              const totalAtual = Number(fatura.total);
-              const novoTotal = totalAtual - valor;
-
+              const novoTotal = Number(fatura.total) - valor;
               if (novoTotal <= 0) {
-                await db
-                  .delete(faturas)
-                  .where(eq(faturas.id, fatura.id));
-
-                console.log(`🗑️  Fatura ${mesFatura}/${anoFatura} deletada (zerada)`);
+                await db.delete(faturas).where(eq(faturas.id, fatura.id));
               } else {
-                await db
-                  .update(faturas)
-                  .set({
-                    total: novoTotal.toFixed(2),
-                    updatedAt: new Date(),
-                  })
+                await db.update(faturas)
+                  .set({ total: novoTotal.toFixed(2), updatedAt: new Date() })
                   .where(eq(faturas.id, fatura.id));
-
-                console.log(
-                  `✅ Fatura ${mesFatura}/${anoFatura} atualizada: R$ ${totalAtual.toFixed(2)} → R$ ${novoTotal.toFixed(2)}`
-                );
               }
             }
 
-            // Reverter limite disponível do cartão
-            await db
-              .update(cartoes)
-              .set({
-                limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valor}`,
-              })
-              .where(
-                and(
-                  eq(cartoes.id, transacao.cartaoId),
-                  eq(cartoes.userId, userId)
-                )
-              );
+            await db.update(cartoes)
+              .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valor}` })
+              .where(and(eq(cartoes.id, transacao.cartaoId), eq(cartoes.userId, userId)));
           }
         }
       }
     }
 
-    // ===================================================================
-    // 4. DELETAR AS TRANSAÇÕES
-    // ===================================================================
     const idsParaDeletar = transacoesParaDeletar.map(t => t.id);
 
     if (idsParaDeletar.length === 1) {
-      await db
-        .delete(transacoes)
-        .where(
-          and(
-            eq(transacoes.id, idsParaDeletar[0]),
-            eq(transacoes.userId, userId)
-          )
-        );
+      await db.delete(transacoes)
+        .where(and(eq(transacoes.id, idsParaDeletar[0]), eq(transacoes.userId, userId)));
     } else if (idsParaDeletar.length > 1) {
-      await db
-        .delete(transacoes)
-        .where(
-          and(
-            inArray(transacoes.id, idsParaDeletar),
-            eq(transacoes.userId, userId)
-          )
-        );
+      await db.delete(transacoes)
+        .where(and(inArray(transacoes.id, idsParaDeletar), eq(transacoes.userId, userId)));
     }
 
-    console.log(`✅ ${idsParaDeletar.length} transação(ões) deletada(s)`);
-
-    return NextResponse.json({
-      sucesso: true,
-      deletadas: transacoesParaDeletar.length
-    });
+    return NextResponse.json({ sucesso: true, deletadas: transacoesParaDeletar.length });
 
   } catch (err: any) {
     console.error("❌ Erro ao deletar transação:", err);
-    const message = err instanceof Error ? err.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Erro desconhecido" },
+      { status: 500 }
+    );
   }
 }

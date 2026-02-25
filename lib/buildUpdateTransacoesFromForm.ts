@@ -16,13 +16,31 @@ export function buildUpdateTransacoesFromForm({
   const cartaoId = isCartao && form.cartaoId ? Number(form.cartaoId) : null;
   const contaId  = !isCartao && form.contaId ? form.contaId : (transacaoEdicao.contaId || "");
 
-  // ✅ No modo todas_parcelas, envia parcelas e parcelamentoId
-  // para permitir redimensionamento do parcelamento
+  // ✅ Modo todas_parcelas: envia parcelas e parcelamentoId para redimensionamento
   const camposParcelamento = modoEdicao === "todas_parcelas"
     ? {
         parcelado:      true,
         parcelas:       Number(form.parcelas),
         parcelamentoId: transacaoEdicao.parcelamentoId ?? null,
+      }
+    : {};
+
+  // ✅ Modo toda_recorrencia: envia repeticoes e recorrenciaId para redimensionamento
+  const camposRecorrencia = modoEdicao === "toda_recorrencia"
+    ? {
+        recorrente:    true,
+        repeticoes:    Number(form.repeticoes),
+        recorrenciaId: transacaoEdicao.recorrenciaId ?? null,
+      }
+    : {};
+
+  // ✅ Modo unica para recorrente: sinaliza que deve virar à vista
+  // A rota detecta eraRecorrente && !isRecorrente e cria nova transação
+  const camposUnicaRecorrente = modoEdicao === "unica" && transacaoEdicao.recorrente
+    ? {
+        recorrente:    false,
+        recorrenciaId: null,
+        repeticoes:    null,
       }
     : {};
 
@@ -38,6 +56,8 @@ export function buildUpdateTransacoesFromForm({
       contaId,
       cartaoId,
       ...camposParcelamento,
+      ...camposRecorrencia,
+      ...camposUnicaRecorrente,
     },
   ];
 }
