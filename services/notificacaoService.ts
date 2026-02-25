@@ -11,10 +11,6 @@ const API_URL = "/api/notificacoes";
 
 // ==================== HELPER ====================
 
-/**
- * Helper para processar respostas da API
- * Centraliza error handling e parsing de JSON
- */
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: "Erro desconhecido" }));
@@ -29,8 +25,6 @@ export const notificacaoService = {
   /**
    * Lista notificações do usuário
    * GET /api/notificacoes?lidas=false&limite=10
-   * @param lidas - Filtrar por status (true/false/undefined para todas)
-   * @param limite - Número máximo de notificações
    */
   async listar(lidas?: boolean, limite?: number): Promise<NotificacoesResponse> {
     const params = new URLSearchParams();
@@ -40,15 +34,6 @@ export const notificacaoService = {
     const url = params.toString() ? `${API_URL}?${params}` : API_URL;
     const res = await fetch(url);
     return handleResponse<NotificacoesResponse>(res);
-  },
-
-  /**
-   * Busca notificação por ID
-   * GET /api/notificacoes/[id]
-   */
-  async buscarPorId(id: string): Promise<Notificacao> {
-    const res = await fetch(`${API_URL}/${id}`);
-    return handleResponse<Notificacao>(res);
   },
 
   /**
@@ -86,28 +71,6 @@ export const notificacaoService = {
     return handleResponse<{ message: string; count: number }>(res);
   },
 
-  /**
-   * Remove notificação
-   * DELETE /api/notificacoes/[id]
-   */
-  async remover(id: string): Promise<{ message: string }> {
-    const res = await fetch(`${API_URL}/${id}`, {
-      method: "DELETE",
-    });
-    return handleResponse<{ message: string }>(res);
-  },
-
-  /**
-   * Remove todas as notificações lidas
-   * DELETE /api/notificacoes/limpar-lidas
-   */
-  async limparLidas(): Promise<{ message: string; count: number }> {
-    const res = await fetch(`${API_URL}/limpar-lidas`, {
-      method: "DELETE",
-    });
-    return handleResponse<{ message: string; count: number }>(res);
-  },
-
   // ==================== PREFERÊNCIAS ====================
 
   /**
@@ -132,12 +95,11 @@ export const notificacaoService = {
     return handleResponse<PreferenciasNotificacao>(res);
   },
 
-  // ==================== VERIFICAÇÃO (Cron Job) ====================
+  // ==================== VERIFICAÇÃO ====================
 
   /**
    * Verifica e cria notificações automáticas
    * POST /api/notificacoes/verificar
-   * Chamado por cron job ou manualmente pelo usuário
    */
   async verificarNotificacoes(): Promise<{ message: string; criadas: number }> {
     const res = await fetch(`${API_URL}/verificar`, {

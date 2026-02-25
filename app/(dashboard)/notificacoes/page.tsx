@@ -7,17 +7,14 @@ import {
   Bell,
   Check,
   CheckCheck,
-  Trash2,
-  Settings,
   Filter,
   RefreshCw,
+  Settings,
 } from "lucide-react";
 import {
   useNotificacoes,
   useMarcarNotificacaoLida,
   useMarcarTodasNotificacoesLidas,
-  useRemoverNotificacao,
-  useLimparNotificacoesLidas,
   useVerificarNotificacoes,
 } from "@/hooks/useNotificacoes";
 import { Button } from "@/components/ui/button";
@@ -34,56 +31,33 @@ import type { Notificacao, SeveridadeNotificacao } from "@/types/notificacao";
 
 // Configuração de cores e labels por severidade
 const severidadeConfig = {
-  info: { 
-    color: "text-blue-500", 
-    bg: "bg-blue-50 dark:bg-blue-950", 
-    label: "Informação" 
-  },
-  warning: { 
-    color: "text-yellow-500", 
-    bg: "bg-yellow-50 dark:bg-yellow-950", 
-    label: "Aviso" 
-  },
-  error: { 
-    color: "text-red-500", 
-    bg: "bg-red-50 dark:bg-red-950", 
-    label: "Erro" 
-  },
-  success: { 
-    color: "text-green-500", 
-    bg: "bg-green-50 dark:bg-green-950", 
-    label: "Sucesso" 
-  },
+  info:    { color: "text-blue-500",   bg: "bg-blue-50 dark:bg-blue-950",     label: "Informação" },
+  warning: { color: "text-yellow-500", bg: "bg-yellow-50 dark:bg-yellow-950", label: "Aviso"      },
+  error:   { color: "text-red-500",    bg: "bg-red-50 dark:bg-red-950",       label: "Erro"       },
+  success: { color: "text-green-500",  bg: "bg-green-50 dark:bg-green-950",   label: "Sucesso"    },
 };
 
 export default function NotificacoesPage() {
-  // React Query Hooks
-  const { data, isLoading } = useNotificacoes();
-  const marcarComoLida = useMarcarNotificacaoLida();
-  const marcarTodasLidas = useMarcarTodasNotificacoesLidas();
-  const removerNotificacao = useRemoverNotificacao();
-  const limparLidas = useLimparNotificacoesLidas();
+  const { data, isLoading }  = useNotificacoes();
+  const marcarComoLida       = useMarcarNotificacaoLida();
+  const marcarTodasLidas     = useMarcarTodasNotificacoesLidas();
   const verificarNotificacoes = useVerificarNotificacoes();
 
   const router = useRouter();
 
-  // Estados de filtros
-  const [filtroStatus, setFiltroStatus] = useState<"todas" | "lidas" | "nao-lidas">("todas");
+  const [filtroStatus,     setFiltroStatus]     = useState<"todas" | "lidas" | "nao-lidas">("todas");
   const [filtroSeveridade, setFiltroSeveridade] = useState<SeveridadeNotificacao | "todas">("todas");
 
-  // Dados
   const notificacoes = data?.notificacoes || [];
-  const naoLidas = data?.naoLidas || 0;
+  const naoLidas     = data?.naoLidas     || 0;
 
-  // Filtrar notificações
   const notificacoesFiltradas = notificacoes.filter((n) => {
-    if (filtroStatus === "lidas" && !n.lida) return false;
-    if (filtroStatus === "nao-lidas" && n.lida) return false;
+    if (filtroStatus === "lidas"     && !n.lida) return false;
+    if (filtroStatus === "nao-lidas" &&  n.lida) return false;
     if (filtroSeveridade !== "todas" && n.severidade !== filtroSeveridade) return false;
     return true;
   });
 
-  // Handlers
   const handleClickNotificacao = async (notif: Notificacao) => {
     if (!notif.lida) {
       await marcarComoLida.mutateAsync(notif.id);
@@ -92,12 +66,6 @@ export default function NotificacoesPage() {
       router.push(notif.link);
     }
   };
-
-  const isAnyLoading = 
-    isLoading ||
-    marcarTodasLidas.isPending ||
-    limparLidas.isPending ||
-    verificarNotificacoes.isPending;
 
   return (
     <div className="container mx-auto max-w-4xl space-y-6 py-8">
@@ -119,12 +87,7 @@ export default function NotificacoesPage() {
             onClick={() => verificarNotificacoes.mutate()}
             disabled={verificarNotificacoes.isPending}
           >
-            <RefreshCw 
-              className={cn(
-                "h-4 w-4 mr-2", 
-                verificarNotificacoes.isPending && "animate-spin"
-              )} 
-            />
+            <RefreshCw className={cn("h-4 w-4 mr-2", verificarNotificacoes.isPending && "animate-spin")} />
             Verificar novas
           </Button>
           <Button
@@ -138,16 +101,12 @@ export default function NotificacoesPage() {
         </div>
       </div>
 
-      {/* Actions & Filters */}
+      {/* Filtros + Ações */}
       <Card className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Filtros */}
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-            <Select 
-              value={filtroStatus} 
-              onValueChange={(v: any) => setFiltroStatus(v)}
-            >
+            <Select value={filtroStatus} onValueChange={(v: any) => setFiltroStatus(v)}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
@@ -158,10 +117,7 @@ export default function NotificacoesPage() {
               </SelectContent>
             </Select>
 
-            <Select 
-              value={filtroSeveridade} 
-              onValueChange={(v: any) => setFiltroSeveridade(v)}
-            >
+            <Select value={filtroSeveridade} onValueChange={(v: any) => setFiltroSeveridade(v)}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
@@ -175,35 +131,21 @@ export default function NotificacoesPage() {
             </Select>
           </div>
 
-          {/* Ações */}
-          <div className="flex gap-2">
-            {naoLidas > 0 && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => marcarTodasLidas.mutate()}
-                disabled={marcarTodasLidas.isPending}
-              >
-                <CheckCheck className="h-4 w-4 mr-2" />
-                Marcar todas como lidas
-              </Button>
-            )}
-            {notificacoes.some((n) => n.lida) && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => limparLidas.mutate()}
-                disabled={limparLidas.isPending}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Limpar lidas
-              </Button>
-            )}
-          </div>
+          {naoLidas > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => marcarTodasLidas.mutate()}
+              disabled={marcarTodasLidas.isPending}
+            >
+              <CheckCheck className="h-4 w-4 mr-2" />
+              Marcar todas como lidas
+            </Button>
+          )}
         </div>
       </Card>
 
-      {/* Lista de notificações */}
+      {/* Lista */}
       <div className="space-y-2">
         {isLoading && notificacoes.length === 0 ? (
           <Card className="p-8 text-center">
@@ -232,12 +174,7 @@ export default function NotificacoesPage() {
               >
                 <div className="flex items-start gap-4 p-4">
                   {/* Ícone */}
-                  <div
-                    className={cn(
-                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                      config.bg
-                    )}
-                  >
+                  <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full", config.bg)}>
                     <Bell className={cn("h-5 w-5", config.color)} />
                   </div>
 
@@ -247,59 +184,37 @@ export default function NotificacoesPage() {
                       <h3 className="font-semibold text-gray-900 dark:text-white">
                         {notif.titulo}
                       </h3>
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-                          config.bg,
-                          config.color
-                        )}
-                      >
+                      <span className={cn(
+                        "rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+                        config.bg, config.color
+                      )}>
                         {config.label}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {notif.mensagem}
-                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{notif.mensagem}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-500">
                       {new Date(notif.createdAt).toLocaleString("pt-BR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
+                        day: "2-digit", month: "2-digit", year: "numeric",
+                        hour: "2-digit", minute: "2-digit",
                       })}
                     </p>
                   </div>
 
-                  {/* Ações */}
-                  <div className="flex shrink-0 gap-1">
-                    {!notif.lida && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          marcarComoLida.mutate(notif.id);
-                        }}
-                        disabled={marcarComoLida.isPending}
-                        title="Marcar como lida"
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                    )}
+                  {/* Ação: apenas marcar como lida */}
+                  {!notif.lida && (
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={(e) => {
                         e.stopPropagation();
-                        removerNotificacao.mutate(notif.id);
+                        marcarComoLida.mutate(notif.id);
                       }}
-                      disabled={removerNotificacao.isPending}
-                      title="Remover"
+                      disabled={marcarComoLida.isPending}
+                      title="Marcar como lida"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Check className="h-4 w-4" />
                     </Button>
-                  </div>
+                  )}
                 </div>
               </Card>
             );

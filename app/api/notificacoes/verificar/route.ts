@@ -8,13 +8,6 @@ import { getUserId } from "@/lib/auth";
 
 // ==================== HELPER ====================
 
-/**
- * Verifica se já foi criada notificação recentemente
- * @param userId - ID do usuário
- * @param tipos - Tipo(s) de notificação
- * @param metadata - Filtros de metadata
- * @param horas - Janela de tempo (padrão: 24h)
- */
 async function jaNotificouRecentemente(
   userId: string,
   tipos: string | string[],
@@ -29,14 +22,12 @@ async function jaNotificouRecentemente(
     gte(notificacoes.createdAt, dataLimite),
   ];
 
-  // Adicionar filtro de tipo(s)
   if (Array.isArray(tipos)) {
     conditions.push(inArray(notificacoes.tipo, tipos));
   } else {
     conditions.push(eq(notificacoes.tipo, tipos));
   }
 
-  // Adicionar filtros de metadata
   for (const [key, value] of Object.entries(metadata)) {
     conditions.push(sql`metadata->>'${sql.raw(key)}' = ${value}`);
   }
@@ -52,11 +43,6 @@ async function jaNotificouRecentemente(
 
 // ==================== ROUTE ====================
 
-/**
- * POST /api/notificacoes/verificar
- * Verifica e cria notificações automáticas para o usuário
- * Pode ser chamado por cron job ou manualmente
- */
 export async function POST(req: NextRequest) {
   try {
     const userId = await getUserId();
@@ -73,7 +59,6 @@ export async function POST(req: NextRequest) {
       .where(eq(preferenciasNotificacao.userId, userId))
       .limit(1);
 
-    // Criar preferências padrão se não existirem
     if (!prefs) {
       [prefs] = await db
         .insert(preferenciasNotificacao)
@@ -85,26 +70,18 @@ export async function POST(req: NextRequest) {
 
     // ==================== 1. FATURAS ====================
     if (prefs.faturas) {
-      // Buscar todos os cartões do usuário
       const cartoesUsuario = await db
         .select()
         .from(cartoes)
         .where(and(eq(cartoes.userId, userId), eq(cartoes.ativo, true)));
 
       for (const cartao of cartoesUsuario) {
-        // Buscar faturas não pagas
         const faturasNaoPagas = await db
           .select()
           .from(faturas)
-          .where(
-            and(
-              eq(faturas.cartaoId, cartao.id),
-              eq(faturas.paga, false)
-            )
-          );
+          .where(and(eq(faturas.cartaoId, cartao.id), eq(faturas.paga, false)));
 
         for (const fatura of faturasNaoPagas) {
-          // Calcular data de vencimento
           const vencimento = new Date(fatura.ano, fatura.mes - 1, cartao.diaVencimento || 15);
           const diasRestantes = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -114,14 +91,12 @@ export async function POST(req: NextRequest) {
             ano: String(fatura.ano),
           };
 
+          // ✅ Link direto para a fatura específica
+          const linkFatura = `/cartoes/${cartao.id}/fatura?mes=${fatura.mes}&ano=${fatura.ano}`;
+
           // Fatura vencida
           if (diasRestantes < 0) {
-            const jaNotificou = await jaNotificouRecentemente(
-              userId,
-              "FATURA_VENCIDA",
-              metadataFatura
-            );
-
+            const jaNotificou = await jaNotificouRecentemente(userId, "FATURA_VENCIDA", metadataFatura);
             if (!jaNotificou) {
               await db.insert(notificacoes).values({
                 userId,
@@ -129,7 +104,7 @@ export async function POST(req: NextRequest) {
                 severidade: "error",
                 titulo: `Fatura ${cartao.nome} vencida!`,
                 mensagem: `A fatura de ${fatura.mes}/${fatura.ano} está atrasada. Valor: R$ ${Number(fatura.total).toFixed(2)}`,
-                link: `/cartoes`,
+                link: linkFatura,
                 metadata: metadataFatura,
               });
               notificacoesCriadas++;
@@ -137,20 +112,15 @@ export async function POST(req: NextRequest) {
           }
           // Fatura próxima do vencimento
           else if (diasRestantes > 0 && diasRestantes <= prefs.diasAntesVencimento) {
-            const jaNotificou = await jaNotificouRecentemente(
-              userId,
-              "FATURA_PROXIMA_VENCIMENTO",
-              metadataFatura
-            );
-
+            const jaNotificou = await jaNotificouRecentemente(userId, "FATURA_PROXIMA_VENCIMENTO", metadataFatura);
             if (!jaNotificou) {
               await db.insert(notificacoes).values({
                 userId,
                 tipo: "FATURA_PROXIMA_VENCIMENTO",
                 severidade: "warning",
-                titulo: `Fatura ${cartao.nome} vence em ${diasRestantes} dias`,
+                titulo: `Fatura ${cartao.nome} vence em ${diasRestantes} ${diasRestantes === 1 ? "dia" : "dias"}`,
                 mensagem: `Vencimento: ${vencimento.toLocaleDateString('pt-BR')}. Valor: R$ ${Number(fatura.total).toFixed(2)}`,
-                link: `/cartoes`,
+                link: linkFatura,
                 metadata: metadataFatura,
               });
               notificacoesCriadas++;
@@ -174,14 +144,8 @@ export async function POST(req: NextRequest) {
 
         const metadataLimite = { cartaoId: String(cartao.id) };
 
-        // Limite em 95%
         if (percentualUsado >= 95) {
-          const jaNotificou = await jaNotificouRecentemente(
-            userId,
-            "LIMITE_CARTAO_95",
-            metadataLimite
-          );
-
+          const jaNotificou = await jaNotificouRecentemente(userId, "LIMITE_CARTAO_95", metadataLimite);
           if (!jaNotificou) {
             await db.insert(notificacoes).values({
               userId,
@@ -190,19 +154,12 @@ export async function POST(req: NextRequest) {
               titulo: `Limite do ${cartao.nome} quase esgotado!`,
               mensagem: `${percentualUsado.toFixed(0)}% do limite usado. Disponível: R$ ${disponivel.toFixed(2)}`,
               link: `/cartoes`,
-              metadata: { ...metadataLimite, percentual: percentualUsado },
+              metadata: { ...metadataLimite, percentual: String(percentualUsado) },
             });
             notificacoesCriadas++;
           }
-        }
-        // Limite em 80%
-        else if (percentualUsado >= 80) {
-          const jaNotificou = await jaNotificouRecentemente(
-            userId,
-            "LIMITE_CARTAO_80",
-            metadataLimite
-          );
-
+        } else if (percentualUsado >= 80) {
+          const jaNotificou = await jaNotificouRecentemente(userId, "LIMITE_CARTAO_80", metadataLimite);
           if (!jaNotificou) {
             await db.insert(notificacoes).values({
               userId,
@@ -211,7 +168,7 @@ export async function POST(req: NextRequest) {
               titulo: `Atenção ao limite do ${cartao.nome}`,
               mensagem: `${percentualUsado.toFixed(0)}% do limite usado. Disponível: R$ ${disponivel.toFixed(2)}`,
               link: `/cartoes`,
-              metadata: { ...metadataLimite, percentual: percentualUsado },
+              metadata: { ...metadataLimite, percentual: String(percentualUsado) },
             });
             notificacoesCriadas++;
           }
@@ -230,14 +187,12 @@ export async function POST(req: NextRequest) {
         const saldo = Number(conta.saldoAtual);
         const metadataSaldo = { contaId: conta.id };
 
-        // Saldo negativo
         if (saldo < 0) {
           const jaNotificou = await jaNotificouRecentemente(
             userId,
             ["SALDO_BAIXO", "SALDO_NEGATIVO"],
             metadataSaldo
           );
-
           if (!jaNotificou) {
             await db.insert(notificacoes).values({
               userId,
@@ -246,19 +201,16 @@ export async function POST(req: NextRequest) {
               titulo: `Saldo negativo em ${conta.nome}!`,
               mensagem: `Saldo atual: R$ ${saldo.toFixed(2)}`,
               link: `/contas`,
-              metadata: { ...metadataSaldo, saldo },
+              metadata: { ...metadataSaldo, saldo: String(saldo) },
             });
             notificacoesCriadas++;
           }
-        }
-        // Saldo baixo
-        else if (saldo >= 0 && saldo < prefs.limiteMinimoConta) {
+        } else if (saldo < prefs.limiteMinimoConta) {
           const jaNotificou = await jaNotificouRecentemente(
             userId,
             ["SALDO_BAIXO", "SALDO_NEGATIVO"],
             metadataSaldo
           );
-
           if (!jaNotificou) {
             await db.insert(notificacoes).values({
               userId,
@@ -267,7 +219,7 @@ export async function POST(req: NextRequest) {
               titulo: `Saldo baixo em ${conta.nome}`,
               mensagem: `Saldo atual: R$ ${saldo.toFixed(2)}`,
               link: `/contas`,
-              metadata: { ...metadataSaldo, saldo },
+              metadata: { ...metadataSaldo, saldo: String(saldo) },
             });
             notificacoesCriadas++;
           }

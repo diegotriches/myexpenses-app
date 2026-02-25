@@ -44,7 +44,6 @@ export const preferences = pgTable("preferences", {
   
   // Configurações de notificações
   notificacoes: boolean("notificacoes").default(true),
-  notificacoesEmail: boolean("notificacoes_email").default(false),
   
   // Timestamps
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -446,7 +445,6 @@ export const preferenciasNotificacao = pgTable("preferencias_notificacao", {
   limiteCartao: boolean("limite_cartao").notNull().default(true),
   saldoBaixo: boolean("saldo_baixo").notNull().default(true),
   transacoesAltas: boolean("transacoes_altas").notNull().default(false),
-  emailNotificacoes: boolean("email_notificacoes").notNull().default(false),
   diasAntesVencimento: integer("dias_antes_vencimento").notNull().default(3),
   limiteMinimoConta: integer("limite_minimo_conta").notNull().default(100),
   createdAt: timestamp("created_at").notNull().defaultNow(),

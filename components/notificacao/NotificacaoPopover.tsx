@@ -1,15 +1,14 @@
 // src/components/notificacao/NotificacaoPopover.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, CheckCheck, Trash2, X } from "lucide-react";
+import { Bell, CheckCheck, RefreshCw } from "lucide-react";
 import {
   useNotificacoes,
   useMarcarNotificacaoLida,
   useMarcarTodasNotificacoesLidas,
-  useRemoverNotificacao,
-  useLimparNotificacoesLidas,
+  useVerificarNotificacoes,
 } from "@/hooks/useNotificacoes";
 import {
   Popover,
@@ -22,58 +21,55 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { Notificacao } from "@/types/notificacao";
 
-// Mapa de ícones e cores por severidade
 const severidadeConfig = {
-  info: { 
-    color: "text-blue-500", 
-    bg: "bg-blue-50 dark:bg-blue-950" 
-  },
-  warning: { 
-    color: "text-yellow-500", 
-    bg: "bg-yellow-50 dark:bg-yellow-950" 
-  },
-  error: { 
-    color: "text-red-500", 
-    bg: "bg-red-50 dark:bg-red-950" 
-  },
-  success: { 
-    color: "text-green-500", 
-    bg: "bg-green-50 dark:bg-green-950" 
-  },
+  info:    { color: "text-blue-500",   bg: "bg-blue-50 dark:bg-blue-950"   },
+  warning: { color: "text-yellow-500", bg: "bg-yellow-50 dark:bg-yellow-950" },
+  error:   { color: "text-red-500",    bg: "bg-red-50 dark:bg-red-950"     },
+  success: { color: "text-green-500",  bg: "bg-green-50 dark:bg-green-950" },
 };
 
+// Chave usada no sessionStorage para garantir que /verificar
+// só é chamado uma vez por sessão de navegação
+const SESSION_KEY = "notificacoes_verificadas";
+
 export function NotificacaoPopover() {
-  // React Query Hooks
-  const { data, isLoading } = useNotificacoes(undefined, 10); // Últimas 10 notificações
-  const marcarComoLida = useMarcarNotificacaoLida();
-  const marcarTodasLidas = useMarcarTodasNotificacoesLidas();
-  const removerNotificacao = useRemoverNotificacao();
-  const limparLidas = useLimparNotificacoesLidas();
+  const { data, isLoading }    = useNotificacoes(undefined, 10);
+  const marcarComoLida         = useMarcarNotificacaoLida();
+  const marcarTodasLidas       = useMarcarTodasNotificacoesLidas();
+  const verificarNotificacoes  = useVerificarNotificacoes();
 
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  // Dados
   const notificacoes = data?.notificacoes || [];
-  const naoLidas = data?.naoLidas || 0;
+  const naoLidas     = data?.naoLidas     || 0;
 
-  // Handlers
+  // ── Verificação automática ao montar (uma vez por sessão) ─────────────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem(SESSION_KEY)) return;
+
+    // Marca imediatamente para evitar chamadas duplas em StrictMode
+    sessionStorage.setItem(SESSION_KEY, "1");
+
+    // Dispara em background — não bloqueia UI, erros são silenciosos
+    verificarNotificacoes.mutate(undefined, {
+      onError: () => {
+        // Remove flag para tentar novamente na próxima sessão
+        sessionStorage.removeItem(SESSION_KEY);
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleClickNotificacao = async (notif: Notificacao) => {
-    // Marca como lida (optimistic update automático)
     if (!notif.lida) {
       await marcarComoLida.mutateAsync(notif.id);
     }
-
-    // Navega para o link se existir
     if (notif.link) {
       router.push(notif.link);
       setOpen(false);
     }
-  };
-
-  const handleRemover = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    await removerNotificacao.mutateAsync(id);
   };
 
   return (
@@ -90,11 +86,11 @@ export function NotificacaoPopover() {
             transition-all duration-100
             cursor-pointer
           "
-          aria-label={`Notificações${naoLidas > 0 ? ` - ${naoLidas} não lidas` : ''}`}
+          aria-label={`Notificações${naoLidas > 0 ? ` - ${naoLidas} não lidas` : ""}`}
         >
           <Bell className="h-5 w-5" />
           {naoLidas > 0 && (
-            <span 
+            <span
               className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white dark:ring-gray-900"
               aria-hidden="true"
             >
@@ -104,11 +100,7 @@ export function NotificacaoPopover() {
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent
-        className="w-96 p-0"
-        align="end"
-        sideOffset={8}
-      >
+      <PopoverContent className="w-96 p-0" align="end" sideOffset={8}>
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-2">
@@ -136,22 +128,12 @@ export function NotificacaoPopover() {
                   <CheckCheck className="h-4 w-4" />
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => limparLidas.mutate()}
-                disabled={limparLidas.isPending}
-                className="h-9 w-9 p-0"
-                title="Limpar lidas"
-                aria-label="Limpar notificações lidas"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+
             </div>
           )}
         </div>
 
-        {/* Lista de notificações */}
+        {/* Lista */}
         <ScrollArea className="h-[400px]">
           {isLoading && notificacoes.length === 0 ? (
             <div className="flex items-center justify-center py-8 text-sm text-gray-600 dark:text-gray-400">
@@ -179,22 +161,20 @@ export function NotificacaoPopover() {
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
+                      if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
                         handleClickNotificacao(notif);
                       }
                     }}
                   >
-                    {/* Badge de não lida */}
                     {!notif.lida && (
-                      <div 
-                        className="absolute left-2 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-blue-500" 
+                      <div
+                        className="absolute left-2 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-blue-500"
                         aria-label="Não lida"
                       />
                     )}
 
                     <div className="ml-3 flex items-start gap-3">
-                      {/* Ícone */}
                       <div
                         className={cn(
                           "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
@@ -205,7 +185,6 @@ export function NotificacaoPopover() {
                         <Bell className={cn("h-4 w-4", config.color)} />
                       </div>
 
-                      {/* Conteúdo */}
                       <div className="flex-1 space-y-1 min-w-0">
                         <p className="text-sm font-medium leading-tight text-gray-900 dark:text-white">
                           {notif.titulo}
@@ -223,18 +202,6 @@ export function NotificacaoPopover() {
                         </p>
                       </div>
 
-                      {/* Botão de remover - CORRIGIDO */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0 touch-manipulation active:scale-95 transition-transform"
-                        onClick={(e) => handleRemover(e, notif.id)}
-                        disabled={removerNotificacao.isPending}
-                        aria-label="Remover notificação"
-                        title="Remover"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
                     </div>
                   </div>
                 );
@@ -244,23 +211,30 @@ export function NotificacaoPopover() {
         </ScrollArea>
 
         {/* Footer */}
-        {notificacoes.length > 0 && (
-          <>
-            <Separator />
-            <div className="p-2">
-              <Button
-                variant="ghost"
-                className="w-full justify-center text-sm h-10 touch-manipulation active:scale-[0.98] transition-transform "
-                onClick={() => {
-                  router.push("/notificacoes");
-                  setOpen(false);
-                }}
-              >
-                Ver todas as notificações
-              </Button>
-            </div>
-          </>
-        )}
+        <Separator />
+        <div className="p-2 space-y-1">
+          {notificacoes.length > 0 && (
+            <Button
+              variant="ghost"
+              className="w-full justify-center text-sm h-10 touch-manipulation active:scale-[0.98] transition-transform"
+              onClick={() => {
+                router.push("/notificacoes");
+                setOpen(false);
+              }}
+            >
+              Ver todas as notificações
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            className="w-full justify-center text-sm h-10 text-gray-500 dark:text-gray-400 touch-manipulation active:scale-[0.98] transition-transform"
+            onClick={() => verificarNotificacoes.mutate()}
+            disabled={verificarNotificacoes.isPending}
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5 mr-2", verificarNotificacoes.isPending && "animate-spin")} />
+            {verificarNotificacoes.isPending ? "Verificando..." : "Verificar novas"}
+          </Button>
+        </div>
       </PopoverContent>
     </Popover>
   );

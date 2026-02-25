@@ -1,6 +1,8 @@
+// app/api/cartoes/[id]/fatura/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { transacoes, faturas, contas, extratoConta, cartoes } from "@/db/schema";
+import { transacoes, faturas, contas, extratoConta, cartoes, notificacoes } from "@/db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularPeriodoFatura, calcularDataVencimento } from "@/utils/faturaUtils";
@@ -13,15 +15,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // 🔐 Autenticação
     const userId = await getUserId();
-
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     const { id } = await params;
@@ -32,37 +28,23 @@ export async function GET(
     const mes = Number(searchParams.get("mes"));
 
     if (!cartaoId || isNaN(ano) || isNaN(mes) || mes < 1 || mes > 12) {
-      return NextResponse.json(
-        { error: "Parâmetros inválidos" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Parâmetros inválidos" }, { status: 400 });
     }
 
-    // 🔐 Verificar se o cartão pertence ao usuário
     const [cartao] = await db
       .select()
       .from(cartoes)
-      .where(
-        and(
-          eq(cartoes.id, cartaoId),
-          eq(cartoes.userId, userId)
-        )
-      );
+      .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
     if (!cartao) {
-      return NextResponse.json(
-        { error: "Cartão não encontrado ou acesso negado" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Cartão não encontrado ou acesso negado" }, { status: 404 });
     }
 
-    // ✅ CALCULAR PERÍODO CORRETO DA FATURA
     const diaFechamento = cartao.diaFechamento || 1;
     const { inicio, fim } = calcularPeriodoFatura(mes, ano, diaFechamento);
 
     console.log(`📅 Período da fatura ${mes}/${ano}: ${inicio.toLocaleDateString('pt-BR')} - ${fim.toLocaleDateString('pt-BR')}`);
 
-    // ✅ Buscar transações do período correto (usar lte para incluir o dia de fechamento)
     const transacoesDoMes = await db
       .select()
       .from(transacoes)
@@ -71,12 +53,11 @@ export async function GET(
           eq(transacoes.cartaoId, cartaoId),
           eq(transacoes.userId, userId),
           gte(transacoes.data, inicio),
-          lte(transacoes.data, fim) // ✅ Incluir o último dia
+          lte(transacoes.data, fim)
         )
       )
       .orderBy(transacoes.data);
 
-    /* 3. Buscar fatura (se existir) - 🔐 filtrar por userId */
     const [fatura] = await db
       .select()
       .from(faturas)
@@ -89,15 +70,10 @@ export async function GET(
         )
       );
 
-    /* 4. Calcular total das transações */
-    const totalCalculado = transacoesDoMes.reduce(
-      (acc, t) => acc + Number(t.valor),
-      0
-    );
+    const totalCalculado = transacoesDoMes.reduce((acc, t) => acc + Number(t.valor), 0);
 
-    /* 5. Se não existe fatura e há transações, criar automaticamente */
     let faturaAtual = fatura;
-    
+
     if (!fatura && transacoesDoMes.length > 0) {
       const [novaFatura] = await db
         .insert(faturas)
@@ -111,43 +87,29 @@ export async function GET(
           dataPagamento: null,
         })
         .returning();
-      
       faturaAtual = novaFatura;
     }
 
-    // ✅ Atualizar total se mudou E fatura não está paga
     if (faturaAtual && !faturaAtual.paga && Number(faturaAtual.total) !== totalCalculado) {
       [faturaAtual] = await db
         .update(faturas)
-        .set({
-          total: totalCalculado.toFixed(2),
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(faturas.id, faturaAtual.id),
-            eq(faturas.userId, userId)
-          )
-        )
+        .set({ total: totalCalculado.toFixed(2), updatedAt: new Date() })
+        .where(and(eq(faturas.id, faturaAtual.id), eq(faturas.userId, userId)))
         .returning();
     }
 
-    /* 6. Resumo por categoria */
     const porCategoria: Record<string, number> = {};
     transacoesDoMes.forEach((t) => {
       const categoria = t.categoria || "Sem categoria";
       porCategoria[categoria] = (porCategoria[categoria] || 0) + Number(t.valor);
     });
 
-    // ✅ CALCULAR DATA DE VENCIMENTO
     const diaVencimento = cartao.diaVencimento || 1;
     const dataVencimento = calcularDataVencimento(mes, ano, diaVencimento);
     const dataVencimentoStr = dataVencimento.toISOString().split("T")[0];
 
-    // Determinar status
     const hoje = new Date();
     let status: "PAGA" | "EM_ABERTO" | "ATRASADA";
-    
     if (faturaAtual?.paga) {
       status = "PAGA";
     } else if (hoje > dataVencimento) {
@@ -156,7 +118,6 @@ export async function GET(
       status = "EM_ABERTO";
     }
 
-    /* 7. ✅ RESPOSTA COM INFORMAÇÕES DO PERÍODO */
     return NextResponse.json({
       fatura: faturaAtual ? {
         id: faturaAtual.id,
@@ -183,10 +144,7 @@ export async function GET(
         fim: fim.toISOString().split("T")[0],
         descricao: `${inicio.toLocaleDateString('pt-BR')} - ${fim.toLocaleDateString('pt-BR')}`,
       },
-      transacoes: transacoesDoMes.map(t => ({
-        ...t,
-        valor: Number(t.valor),
-      })),
+      transacoes: transacoesDoMes.map(t => ({ ...t, valor: Number(t.valor) })),
       porCategoria,
       totalTransacoes: totalCalculado,
     });
@@ -199,7 +157,6 @@ export async function GET(
 
 // ========================================
 // POST - Pagar fatura
-// ✅ AJUSTADO: Retorna FaturaDetalhada
 // ========================================
 export async function POST(
   req: NextRequest,
@@ -207,13 +164,8 @@ export async function POST(
 ) {
   try {
     const userId = await getUserId();
-
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     const { id } = await params;
@@ -253,16 +205,10 @@ export async function POST(
         )
       );
 
-    if (!fatura) {
-      return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 });
-    }
-
-    if (fatura.paga) {
-      return NextResponse.json({ error: "Fatura já foi paga" }, { status: 400 });
-    }
+    if (!fatura) return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 });
+    if (fatura.paga) return NextResponse.json({ error: "Fatura já foi paga" }, { status: 400 });
 
     const totalFatura = Number(fatura.total);
-    
     if (totalFatura <= 0) {
       return NextResponse.json({ error: "Fatura sem valor para pagamento" }, { status: 400 });
     }
@@ -273,33 +219,25 @@ export async function POST(
       .from(contas)
       .where(and(eq(contas.id, contaId), eq(contas.userId, userId)));
 
-    if (!conta) {
-      return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
-    }
-
-    if (!conta.ativo) {
-      return NextResponse.json({ error: "Conta inativa não pode realizar pagamentos" }, { status: 400 });
-    }
+    if (!conta) return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
+    if (!conta.ativo) return NextResponse.json({ error: "Conta inativa não pode realizar pagamentos" }, { status: 400 });
 
     const saldoAntes = Number(conta.saldoAtual);
-    
     if (saldoAntes < totalFatura) {
       return NextResponse.json({ error: "Saldo insuficiente para pagamento da fatura" }, { status: 400 });
     }
 
     const saldoDepois = saldoAntes - totalFatura;
 
-    /* 3. Buscar informações do cartão */
+    /* 3. Buscar cartão */
     const [cartao] = await db
       .select()
       .from(cartoes)
       .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
-    if (!cartao) {
-      return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
-    }
+    if (!cartao) return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
 
-    /* 4. Registrar no extrato da conta */
+    /* 4. Registrar no extrato */
     await db.insert(extratoConta).values({
       userId,
       contaId,
@@ -315,33 +253,38 @@ export async function POST(
     /* 5. Atualizar saldo da conta */
     await db
       .update(contas)
-      .set({ 
-        saldoAtual: saldoDepois.toFixed(2),
-        updatedAt: new Date(),
-      })
+      .set({ saldoAtual: saldoDepois.toFixed(2), updatedAt: new Date() })
       .where(and(eq(contas.id, contaId), eq(contas.userId, userId)));
 
     /* 6. Liberar limite do cartão */
     await db
       .update(cartoes)
-      .set({
-        limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${totalFatura}`,
-      })
+      .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${totalFatura}` })
       .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
     /* 7. Marcar fatura como paga */
     await db
       .update(faturas)
-      .set({
-        paga: true,
-        dataPagamento: dataPgtoStr,
-        contaPagamentoId: contaId,
-        updatedAt: new Date(),
-      })
+      .set({ paga: true, dataPagamento: dataPgtoStr, contaPagamentoId: contaId, updatedAt: new Date() })
       .where(eq(faturas.id, fatura.id));
 
-    /* 8. ✅ RETORNAR DADOS COMPLETOS (FaturaDetalhada) */
-    // Buscar transações do período
+    /* 8. ✅ Criar notificação de confirmação de pagamento */
+    await db.insert(notificacoes).values({
+      userId,
+      tipo: "FATURA_PAGA",
+      severidade: "success",
+      titulo: `Fatura ${cartao.nome} paga com sucesso!`,
+      mensagem: `Fatura de ${String(mes).padStart(2, "0")}/${ano} no valor de R$ ${totalFatura.toFixed(2)} foi paga em ${dataPgto.toLocaleDateString('pt-BR')}.`,
+      link: `/cartoes/${cartaoId}/fatura?mes=${mes}&ano=${ano}`,
+      metadata: {
+        cartaoId: String(cartaoId),
+        mes: String(mes),
+        ano: String(ano),
+        total: String(totalFatura),
+      },
+    });
+
+    /* 9. Retornar dados completos */
     const diaFechamento = cartao.diaFechamento || 1;
     const { inicio, fim } = calcularPeriodoFatura(mes, ano, diaFechamento);
 
@@ -384,7 +327,7 @@ export async function POST(
         id: cartao.id,
         nome: cartao.nome,
         limite: Number(cartao.limite),
-        limiteDisponivel: Number(cartao.limiteDisponivel) + totalFatura, // Atualizado
+        limiteDisponivel: Number(cartao.limiteDisponivel) + totalFatura,
         diaFechamento: cartao.diaFechamento,
         diaVencimento: cartao.diaVencimento,
       },
@@ -393,14 +336,11 @@ export async function POST(
         fim: fim.toISOString().split("T")[0],
         descricao: `${inicio.toLocaleDateString('pt-BR')} - ${fim.toLocaleDateString('pt-BR')}`,
       },
-      transacoes: transacoesDoMes.map(t => ({
-        ...t,
-        valor: Number(t.valor),
-      })),
+      transacoes: transacoesDoMes.map(t => ({ ...t, valor: Number(t.valor) })),
       porCategoria,
       totalTransacoes: totalFatura,
     });
-    
+
   } catch (error: any) {
     console.error("Erro ao pagar fatura:", error);
     const message = error instanceof Error ? error.message : "Erro ao pagar fatura";
@@ -410,7 +350,6 @@ export async function POST(
 
 // ========================================
 // DELETE - Estornar pagamento
-// ✅ AJUSTADO: Retorna FaturaDetalhada
 // ========================================
 export async function DELETE(
   req: NextRequest,
@@ -418,13 +357,8 @@ export async function DELETE(
 ) {
   try {
     const userId = await getUserId();
-
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     const { id } = await params;
@@ -455,46 +389,32 @@ export async function DELETE(
         )
       );
 
-    if (!fatura) {
-      return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 });
-    }
-
-    if (!fatura.paga) {
-      return NextResponse.json({ error: "Fatura não está paga" }, { status: 400 });
-    }
-
-    if (!fatura.contaPagamentoId) {
-      return NextResponse.json({ error: "Conta de pagamento não identificada" }, { status: 400 });
-    }
+    if (!fatura) return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 });
+    if (!fatura.paga) return NextResponse.json({ error: "Fatura não está paga" }, { status: 400 });
+    if (!fatura.contaPagamentoId) return NextResponse.json({ error: "Conta de pagamento não identificada" }, { status: 400 });
 
     const totalFatura = Number(fatura.total);
 
-    /* 2. Buscar conta de pagamento */
+    /* 2. Buscar conta */
     const [conta] = await db
       .select()
       .from(contas)
       .where(and(eq(contas.id, fatura.contaPagamentoId), eq(contas.userId, userId)));
 
-    if (!conta) {
-      return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
-    }
+    if (!conta) return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
 
-    const saldoAtual = Number(conta.saldoAtual);
-    const novoSaldo = saldoAtual + totalFatura;
+    const novoSaldo = Number(conta.saldoAtual) + totalFatura;
 
-    /* 3. Buscar informações do cartão */
+    /* 3. Buscar cartão */
     const [cartao] = await db
       .select()
       .from(cartoes)
       .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
-    if (!cartao) {
-      return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
-    }
+    if (!cartao) return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
 
     /* 4. Registrar estorno no extrato */
-    const dataAtual = new Date();
-    const dataFormatada = dataAtual.toISOString().split('T')[0];
+    const dataFormatada = new Date().toISOString().split('T')[0];
 
     await db.insert(extratoConta).values({
       userId,
@@ -511,33 +431,22 @@ export async function DELETE(
     /* 5. Atualizar saldo da conta */
     await db
       .update(contas)
-      .set({ 
-        saldoAtual: novoSaldo.toFixed(2),
-        updatedAt: new Date(),
-      })
+      .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
       .where(and(eq(contas.id, fatura.contaPagamentoId), eq(contas.userId, userId)));
 
     /* 6. Bloquear limite do cartão novamente */
     await db
       .update(cartoes)
-      .set({
-        limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${totalFatura}`,
-      })
+      .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${totalFatura}` })
       .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
     /* 7. Marcar fatura como não paga */
     await db
       .update(faturas)
-      .set({
-        paga: false,
-        dataPagamento: null,
-        contaPagamentoId: null,
-        updatedAt: new Date(),
-      })
+      .set({ paga: false, dataPagamento: null, contaPagamentoId: null, updatedAt: new Date() })
       .where(eq(faturas.id, fatura.id));
 
-    /* 8. ✅ RETORNAR DADOS COMPLETOS (FaturaDetalhada) */
-    // Buscar transações do período
+    /* 8. Retornar dados completos */
     const diaFechamento = cartao.diaFechamento || 1;
     const { inicio, fim } = calcularPeriodoFatura(mes, ano, diaFechamento);
 
@@ -582,7 +491,7 @@ export async function DELETE(
         id: cartao.id,
         nome: cartao.nome,
         limite: Number(cartao.limite),
-        limiteDisponivel: Number(cartao.limiteDisponivel) - totalFatura, // Atualizado
+        limiteDisponivel: Number(cartao.limiteDisponivel) - totalFatura,
         diaFechamento: cartao.diaFechamento,
         diaVencimento: cartao.diaVencimento,
       },
@@ -591,14 +500,11 @@ export async function DELETE(
         fim: fim.toISOString().split("T")[0],
         descricao: `${inicio.toLocaleDateString('pt-BR')} - ${fim.toLocaleDateString('pt-BR')}`,
       },
-      transacoes: transacoesDoMes.map(t => ({
-        ...t,
-        valor: Number(t.valor),
-      })),
+      transacoes: transacoesDoMes.map(t => ({ ...t, valor: Number(t.valor) })),
       porCategoria,
       totalTransacoes: totalFatura,
     });
-    
+
   } catch (error: any) {
     console.error("Erro ao estornar pagamento:", error);
     const message = error instanceof Error ? error.message : "Erro ao estornar pagamento";

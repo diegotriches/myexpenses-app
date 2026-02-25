@@ -1,4 +1,4 @@
-// app/api/cartoes/[id]/route.ts - ARQUIVO COMPLETO
+// app/api/cartoes/[id]/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { cartoes, contas } from "@/db/schema";

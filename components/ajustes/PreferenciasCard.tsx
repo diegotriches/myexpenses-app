@@ -25,7 +25,6 @@ import {
   Globe,
   DollarSign,
   Bell,
-  BellOff,
   Info
 } from "lucide-react";
 import { useAtualizarPreferences } from "@/hooks/usePreferences";
@@ -44,7 +43,6 @@ export default function PreferenciasCard({ preferencias }: Props) {
   const [sucesso, setSucesso] = useState(false);
   const { toast } = useToast();
 
-  // React Query Mutation
   const atualizarPreferencias = useAtualizarPreferences();
 
   useEffect(() => {
@@ -52,7 +50,6 @@ export default function PreferenciasCard({ preferencias }: Props) {
     setPreferenciasOriginais(preferencias);
   }, [preferencias]);
 
-  // Verifica se houve alterações
   const temAlteracoes = () => {
     return JSON.stringify(form) !== JSON.stringify(preferenciasOriginais);
   };
@@ -62,21 +59,12 @@ export default function PreferenciasCard({ preferencias }: Props) {
     valor: Preferencias[K]
   ) => {
     setForm({ ...form, [campo]: valor });
-    
-    if (sucesso) {
-      setSucesso(false);
-    }
+    if (sucesso) setSucesso(false);
   };
 
   const handleThemeChange = (value: string) => {
     setTheme(value as "light" | "dark" | "system");
-    
-    const labels = {
-      light: "Claro",
-      dark: "Escuro",
-      system: "Sistema"
-    };
-
+    const labels = { light: "Claro", dark: "Escuro", system: "Sistema" };
     toast({
       title: "Tema alterado",
       description: `Tema ${labels[value as keyof typeof labels]} aplicado com sucesso.`,
@@ -86,13 +74,10 @@ export default function PreferenciasCard({ preferencias }: Props) {
   const salvarPreferencias = async () => {
     try {
       await atualizarPreferencias.mutateAsync(form);
-      
       setPreferenciasOriginais(form);
       setSucesso(true);
-
       setTimeout(() => setSucesso(false), 3000);
     } catch (error) {
-      // Toast de erro já é exibido pelo hook
       console.error("Erro ao salvar preferências:", error);
     }
   };
@@ -139,11 +124,10 @@ export default function PreferenciasCard({ preferencias }: Props) {
           <h3 className="font-semibold text-gray-900 dark:text-white">Aparência</h3>
         </div>
 
-        {/* Tema - Cards Radio */}
         <div className="space-y-3">
           <Label>Tema da Interface</Label>
           <RadioGroup value={theme} onValueChange={handleThemeChange} className="grid gap-3">
-            {/* Light Mode */}
+            {/* Light */}
             <div
               className={`flex items-center space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
                 theme === "light"
@@ -154,25 +138,17 @@ export default function PreferenciasCard({ preferencias }: Props) {
             >
               <RadioGroupItem value="light" id="light" />
               <div className="flex items-center gap-3 flex-1">
-                <div className={`p-2 rounded-lg ${
-                  theme === "light" ? "bg-blue-100 dark:bg-blue-900" : "bg-gray-100 dark:bg-gray-800"
-                }`}>
-                  <Sun className={`h-5 w-5 ${
-                    theme === "light" ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
-                  }`} />
+                <div className={`p-2 rounded-lg ${theme === "light" ? "bg-blue-100 dark:bg-blue-900" : "bg-gray-100 dark:bg-gray-800"}`}>
+                  <Sun className={`h-5 w-5 ${theme === "light" ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"}`} />
                 </div>
                 <div className="flex-1">
-                  <Label htmlFor="light" className="cursor-pointer font-medium text-gray-900 dark:text-white">
-                    Claro
-                  </Label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Tema claro sempre ativo
-                  </p>
+                  <Label htmlFor="light" className="cursor-pointer font-medium text-gray-900 dark:text-white">Claro</Label>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Tema claro sempre ativo</p>
                 </div>
               </div>
             </div>
 
-            {/* Dark Mode */}
+            {/* Dark */}
             <div
               className={`flex items-center space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
                 theme === "dark"
@@ -183,25 +159,17 @@ export default function PreferenciasCard({ preferencias }: Props) {
             >
               <RadioGroupItem value="dark" id="dark" />
               <div className="flex items-center gap-3 flex-1">
-                <div className={`p-2 rounded-lg ${
-                  theme === "dark" ? "bg-blue-100 dark:bg-blue-900" : "bg-gray-100 dark:bg-gray-800"
-                }`}>
-                  <Moon className={`h-5 w-5 ${
-                    theme === "dark" ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
-                  }`} />
+                <div className={`p-2 rounded-lg ${theme === "dark" ? "bg-blue-100 dark:bg-blue-900" : "bg-gray-100 dark:bg-gray-800"}`}>
+                  <Moon className={`h-5 w-5 ${theme === "dark" ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"}`} />
                 </div>
                 <div className="flex-1">
-                  <Label htmlFor="dark" className="cursor-pointer font-medium text-gray-900 dark:text-white">
-                    Escuro
-                  </Label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Tema escuro sempre ativo
-                  </p>
+                  <Label htmlFor="dark" className="cursor-pointer font-medium text-gray-900 dark:text-white">Escuro</Label>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Tema escuro sempre ativo</p>
                 </div>
               </div>
             </div>
 
-            {/* System Mode */}
+            {/* System */}
             <div
               className={`flex items-center space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
                 theme === "system"
@@ -212,20 +180,12 @@ export default function PreferenciasCard({ preferencias }: Props) {
             >
               <RadioGroupItem value="system" id="system" />
               <div className="flex items-center gap-3 flex-1">
-                <div className={`p-2 rounded-lg ${
-                  theme === "system" ? "bg-blue-100 dark:bg-blue-900" : "bg-gray-100 dark:bg-gray-800"
-                }`}>
-                  <Monitor className={`h-5 w-5 ${
-                    theme === "system" ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
-                  }`} />
+                <div className={`p-2 rounded-lg ${theme === "system" ? "bg-blue-100 dark:bg-blue-900" : "bg-gray-100 dark:bg-gray-800"}`}>
+                  <Monitor className={`h-5 w-5 ${theme === "system" ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"}`} />
                 </div>
                 <div className="flex-1">
-                  <Label htmlFor="system" className="cursor-pointer font-medium text-gray-900 dark:text-white">
-                    Sistema
-                  </Label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Segue a preferência do sistema operacional
-                  </p>
+                  <Label htmlFor="system" className="cursor-pointer font-medium text-gray-900 dark:text-white">Sistema</Label>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Segue a preferência do sistema operacional</p>
                 </div>
               </div>
             </div>
@@ -247,97 +207,52 @@ export default function PreferenciasCard({ preferencias }: Props) {
           <h3 className="font-semibold text-gray-900 dark:text-white">Região e Idioma</h3>
         </div>
 
-        {/* Idioma */}
         <div className="space-y-2">
           <Label htmlFor="idioma">Idioma</Label>
-          <Select
-            value={form.idioma || "pt-BR"}
-            onValueChange={(v) => handleChange("idioma", v)}
-            disabled={atualizarPreferencias.isPending}
-          >
-            <SelectTrigger id="idioma">
-              <SelectValue />
-            </SelectTrigger>
+          <Select value={form.idioma || "pt-BR"} onValueChange={(v) => handleChange("idioma", v)} disabled={atualizarPreferencias.isPending}>
+            <SelectTrigger id="idioma"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {idiomas.map((idioma) => (
-                <SelectItem key={idioma.value} value={idioma.value}>
-                  {idioma.label}
-                </SelectItem>
-              ))}
+              {idiomas.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Idioma da interface e notificações
-          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Idioma da interface e notificações</p>
         </div>
 
-        {/* Moeda */}
         <div className="space-y-2">
           <Label htmlFor="moeda">Moeda Padrão</Label>
-          <Select
-            value={form.moeda || "BRL"}
-            onValueChange={(v) => handleChange("moeda", v)}
-            disabled={atualizarPreferencias.isPending}
-          >
-            <SelectTrigger id="moeda">
-              <SelectValue />
-            </SelectTrigger>
+          <Select value={form.moeda || "BRL"} onValueChange={(v) => handleChange("moeda", v)} disabled={atualizarPreferencias.isPending}>
+            <SelectTrigger id="moeda"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {moedas.map((moeda) => (
-                <SelectItem key={moeda.value} value={moeda.value}>
-                  <div className="flex items-center gap-2">
-                    <DollarSign size={16} />
-                    {moeda.label}
-                  </div>
+              {moedas.map((m) => (
+                <SelectItem key={m.value} value={m.value}>
+                  <div className="flex items-center gap-2"><DollarSign size={16} />{m.label}</div>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Moeda utilizada para exibir valores
-          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Moeda utilizada para exibir valores</p>
         </div>
 
-        {/* Formato de Data */}
         <div className="space-y-2">
           <Label htmlFor="formatoData">Formato de Data</Label>
-          <Select
-            value={form.formatoData || "DD/MM/YYYY"}
-            onValueChange={(v) => handleChange("formatoData", v as any)}
-            disabled={atualizarPreferencias.isPending}
-          >
-            <SelectTrigger id="formatoData">
-              <SelectValue />
-            </SelectTrigger>
+          <Select value={form.formatoData || "DD/MM/YYYY"} onValueChange={(v) => handleChange("formatoData", v as any)} disabled={atualizarPreferencias.isPending}>
+            <SelectTrigger id="formatoData"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {formatosData.map((formato) => (
-                <SelectItem key={formato.value} value={formato.value}>
-                  {formato.label}
-                </SelectItem>
-              ))}
+              {formatosData.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
 
-        {/* Início da Semana */}
         <div className="space-y-2">
           <Label htmlFor="inicioSemana">Início da Semana</Label>
-          <Select
-            value={form.inicioSemana || "domingo"}
-            onValueChange={(v) => handleChange("inicioSemana", v as "domingo" | "segunda")}
-            disabled={atualizarPreferencias.isPending}
-          >
-            <SelectTrigger id="inicioSemana">
-              <SelectValue />
-            </SelectTrigger>
+          <Select value={form.inicioSemana || "domingo"} onValueChange={(v) => handleChange("inicioSemana", v as "domingo" | "segunda")} disabled={atualizarPreferencias.isPending}>
+            <SelectTrigger id="inicioSemana"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="domingo">Domingo</SelectItem>
               <SelectItem value="segunda">Segunda-feira</SelectItem>
             </SelectContent>
           </Select>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Primeiro dia da semana em calendários
-          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Primeiro dia da semana em calendários</p>
         </div>
       </div>
 
@@ -348,14 +263,9 @@ export default function PreferenciasCard({ preferencias }: Props) {
           <h3 className="font-semibold text-gray-900 dark:text-white">Notificações</h3>
         </div>
 
-        {/* Notificações no App */}
         <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
           <div className="flex items-start gap-3 flex-1">
-            {form.notificacoes ? (
-              <Bell size={20} className="text-blue-600 mt-0.5" />
-            ) : (
-              <BellOff size={20} className="text-gray-400 mt-0.5" />
-            )}
+            <Bell size={20} className={form.notificacoes ? "text-blue-600 mt-0.5" : "text-gray-400 mt-0.5"} />
             <div>
               <Label htmlFor="notificacoes" className="cursor-pointer">
                 Notificações no Aplicativo
@@ -372,53 +282,20 @@ export default function PreferenciasCard({ preferencias }: Props) {
             disabled={atualizarPreferencias.isPending}
           />
         </div>
-
-        {/* Notificações por Email */}
-        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-          <div className="flex-1">
-            <Label htmlFor="notificacoesEmail" className="cursor-pointer">
-              Notificações por E-mail
-            </Label>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Receba resumos e relatórios por e-mail
-            </p>
-          </div>
-          <Switch
-            id="notificacoesEmail"
-            checked={form.notificacoesEmail ?? false}
-            onCheckedChange={(v) => handleChange("notificacoesEmail", v)}
-            disabled={atualizarPreferencias.isPending}
-          />
-        </div>
       </div>
 
       {/* Ações */}
       {temAlteracoes() && (
         <div className="flex flex-col sm:flex-row gap-3 pt-4">
-          <Button
-            variant="outline"
-            onClick={cancelar}
-            disabled={atualizarPreferencias.isPending}
-            className="flex-1 sm:flex-initial"
-          >
+          <Button variant="outline" onClick={cancelar} disabled={atualizarPreferencias.isPending} className="flex-1 sm:flex-initial">
             <X size={16} className="mr-2" />
             Cancelar
           </Button>
-          <Button
-            onClick={salvarPreferencias}
-            disabled={atualizarPreferencias.isPending}
-            className="flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700"
-          >
+          <Button onClick={salvarPreferencias} disabled={atualizarPreferencias.isPending} className="flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700">
             {atualizarPreferencias.isPending ? (
-              <>
-                <Loader2 size={16} className="mr-2 animate-spin" />
-                Salvando...
-              </>
+              <><Loader2 size={16} className="mr-2 animate-spin" />Salvando...</>
             ) : (
-              <>
-                <Save size={16} className="mr-2" />
-                Salvar Preferências
-              </>
+              <><Save size={16} className="mr-2" />Salvar Preferências</>
             )}
           </Button>
         </div>
