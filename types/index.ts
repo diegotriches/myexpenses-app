@@ -22,10 +22,6 @@ export type {
 // TIPOS CUSTOMIZADOS - CATEGORIAS
 // ============================================================================
 
-/**
- * Categoria (formato da aplicação)
- * Difere de CategoriaDb por usar campos snake_case → camelCase
- */
 export interface Categoria {
   id: string;
   userId: string;
@@ -40,16 +36,13 @@ export interface Categoria {
 // TIPOS CUSTOMIZADOS - CONTAS
 // ============================================================================
 
-/**
- * Conta bancária ou carteira
- */
 export interface Conta {
   id: string;
   userId: string;
   nome: string;
   ativo: boolean;
   observacoes?: string | null;
-  saldoInicial: string | number; // numeric do Drizzle vem como string
+  saldoInicial: string | number;
   saldoAtual: string | number;
   banco?: string | null;
   createdAt: Date | string;
@@ -60,9 +53,6 @@ export interface Conta {
 // TIPOS CUSTOMIZADOS - CARTÕES
 // ============================================================================
 
-/**
- * Cartão de crédito/débito
- */
 export interface Cartao {
   id: number;
   userId: string;
@@ -84,9 +74,6 @@ export interface Cartao {
 // TIPOS CUSTOMIZADOS - TRANSAÇÕES
 // ============================================================================
 
-/**
- * Transação financeira
- */
 export interface Transacao {
   id: string;
   userId: string;
@@ -113,9 +100,6 @@ export interface Transacao {
 // TIPOS CUSTOMIZADOS - FATURAS
 // ============================================================================
 
-/**
- * Fatura de cartão de crédito
- */
 export interface Fatura {
   id: number;
   userId: string;
@@ -136,9 +120,6 @@ export interface Fatura {
 // TIPOS CUSTOMIZADOS - EXTRATO
 // ============================================================================
 
-/**
- * Registro de extrato de conta
- */
 export interface ExtratoConta {
   id: string;
   userId: string;
@@ -157,9 +138,6 @@ export interface ExtratoConta {
 // TIPOS CUSTOMIZADOS - NOTIFICAÇÕES
 // ============================================================================
 
-/**
- * Notificação do sistema
- */
 export interface Notificacao {
   id: string;
   userId: string;
@@ -173,9 +151,6 @@ export interface Notificacao {
   createdAt: Date | string;
 }
 
-/**
- * Preferências de notificação do usuário
- */
 export interface PreferenciasNotificacao {
   id: string;
   userId: string;
@@ -183,7 +158,6 @@ export interface PreferenciasNotificacao {
   limiteCartao: boolean;
   saldoBaixo: boolean;
   transacoesAltas: boolean;
-  emailNotificacoes: boolean;
   diasAntesVencimento: number;
   limiteMinimoConta: number;
   createdAt: Date | string;
@@ -194,6 +168,5 @@ export interface PreferenciasNotificacao {
 // RE-EXPORTS DE OUTROS MÓDULOS
 // ============================================================================
 
-// Export/Import types
 export type * from "@/types/export";
 export type * from "@/types/import";
