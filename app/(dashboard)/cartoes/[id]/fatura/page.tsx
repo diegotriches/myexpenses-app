@@ -71,10 +71,11 @@ export default function FaturaPage() {
   const { mesSelecionado, anoSelecionado, setMesSelecionado, setAnoSelecionado } = usePeriodo();
   const { id } = params as { id: string };
 
-  const [modalAberto, setModalAberto] = useState(false);
+  const [modalAberto,    setModalAberto]    = useState(false);
+  const [usuarioNavegou, setUsuarioNavegou] = useState(false);
   const pagarFaturaMutation = usePagarFatura();
 
-  // ── Cleanup: restaura seletor ao sair da página ───────────────────────────
+  // ── Cleanup: restaura seletor para o mês atual ao sair da página ──────────
   useEffect(() => {
     return () => {
       setMesSelecionado(mesAtual);
@@ -83,13 +84,19 @@ export default function FaturaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Detecta navegação manual do seletor ───────────────────────────────────
+  // Quando o usuário altera o seletor após a sincronização automática,
+  // marcamos usuarioNavegou=true para impedir que o automático sobrescreva.
+  useEffect(() => {
+    if (!usuarioNavegou) return;
+    // Já marcado — não faz nada, apenas garante que automatico=false no useMemo
+  }, [mesSelecionado, anoSelecionado]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const { data: contas = [], isLoading: contasLoading } = useContas();
 
   // ── Override via URL (?mes=1&ano=2026) ────────────────────────────────────
-  // Usado pelo AlertaFaturasPendentes para abrir mês específico sem depender
-  // do seletor global (que é sempre resetado para o mês atual)
-  const mesUrl  = searchParams.get("mes")  ? Number(searchParams.get("mes"))  - 1 : null; // 0-11
-  const anoUrl  = searchParams.get("ano")  ? Number(searchParams.get("ano"))      : null;
+  const mesUrl = searchParams.get("mes") ? Number(searchParams.get("mes")) - 1 : null; // 0-11
+  const anoUrl = searchParams.get("ano") ? Number(searchParams.get("ano"))     : null;
   const temOverrideUrl = mesUrl !== null && anoUrl !== null;
 
   // ── 1º fetch: período de referência (para obter cartão + diaFechamento) ───
@@ -111,18 +118,23 @@ export default function FaturaPage() {
 
   // ── Período final ─────────────────────────────────────────────────────────
   const { mesFinal, anoFinal, automatico } = useMemo(() => {
-    // Prioridade 1: override via URL (?mes=2&ano=2026 → exibe Fevereiro)
+    // Prioridade 1: override via URL
     if (temOverrideUrl) {
       return { mesFinal: mesUrl!, anoFinal: anoUrl!, automatico: false };
     }
 
-    // Prioridade 2: seletor global alterado pelo usuário no TopMenu
+    // Prioridade 2: usuário navegou manualmente pelo seletor — respeita sempre
+    if (usuarioNavegou) {
+      return { mesFinal: mesSelecionado, anoFinal: anoSelecionado, automatico: false };
+    }
+
+    // Prioridade 3: seletor global alterado antes de entrar na página
     const seletorAlterado = mesSelecionado !== mesAtual || anoSelecionado !== anoAtual;
     if (seletorAlterado) {
       return { mesFinal: mesSelecionado, anoFinal: anoSelecionado, automatico: false };
     }
 
-    // Prioridade 3: cálculo automático pelo diaFechamento
+    // Prioridade 4: cálculo automático pelo diaFechamento
     if (cartao?.diaFechamento) {
       const { mes, ano } = calcularFaturaAtiva(cartao.diaFechamento);
       return { mesFinal: mes, anoFinal: ano, automatico: true };
@@ -130,7 +142,26 @@ export default function FaturaPage() {
 
     // Fallback
     return { mesFinal: mesSelecionado, anoFinal: anoSelecionado, automatico: false };
-  }, [temOverrideUrl, mesUrl, anoUrl, mesSelecionado, anoSelecionado, cartao?.diaFechamento]);
+  }, [temOverrideUrl, mesUrl, anoUrl, mesSelecionado, anoSelecionado, cartao?.diaFechamento, usuarioNavegou]);
+
+  // ── Sincroniza o seletor global com o mês da fatura ativa ─────────────────
+  // Quando o período é calculado automaticamente, atualiza o seletor para que
+  // o TopMenu reflita o mês correto. Só executa uma vez (quando automatico=true
+  // e usuarioNavegou=false). Após isso, qualquer mudança no seletor pelo usuário
+  // define usuarioNavegou=true, bloqueando novas sincronizações automáticas.
+  useEffect(() => {
+    if (!automatico) return;
+    if (mesFinal === mesSelecionado && anoFinal === anoSelecionado) return;
+    setMesSelecionado(mesFinal);
+    setAnoSelecionado(anoFinal);
+  }, [automatico, mesFinal, anoFinal]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Detecta quando o usuário altera o seletor após a sincronização ────────
+  useEffect(() => {
+    // Só ativa após a sincronização automática ter ocorrido
+    if (!automatico) return;
+    setUsuarioNavegou(true);
+  }, [mesSelecionado, anoSelecionado]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const periodoMudou = mesFinal !== periodoRef.mes || anoFinal !== periodoRef.ano;
 
