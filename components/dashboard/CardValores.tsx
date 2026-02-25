@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CheckCircle2, Clock, TrendingUp } from 'lucide-react';
+import { CheckCircle2, Clock, TrendingUp, CalendarDays } from 'lucide-react';
 import { useValoresPeriodo } from '@/hooks/useDashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -36,7 +36,8 @@ export function CardValores() {
   return (
     <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardHeader>
-        <CardTitle className="text-gray-900 dark:text-white">
+        <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-900 dark:text-white">
+          <CalendarDays className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           Valores do Período
         </CardTitle>
       </CardHeader>

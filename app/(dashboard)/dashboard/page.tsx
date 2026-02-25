@@ -232,7 +232,10 @@ export default function Dashboard() {
           <Card className="dark:bg-gray-900 dark:border-gray-800">
             <CardHeader>
               <CardTitle className="text-sm font-medium flex items-center justify-between text-gray-900 dark:text-white">
-                Minhas Contas
+                <span className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  Minhas Contas
+                </span>
                 <Badge>{totais?.quantidadeContas || 0}</Badge>
               </CardTitle>
             </CardHeader>
