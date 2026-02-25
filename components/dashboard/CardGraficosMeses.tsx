@@ -6,7 +6,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cart
 import { TrendingUp, TrendingDown, DollarSign, Loader2, AlertCircle } from 'lucide-react';
 import { useGraficoMeses } from '@/hooks/useDashboard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 type DadosGrafico = {
   mes: string;
@@ -15,8 +15,15 @@ type DadosGrafico = {
   Balanço: number;
 };
 
+const PERIODOS = [
+  { label: "3m", value: "3" },
+  { label: "6m", value: "6" },
+  { label: "12m", value: "12" },
+] as const;
+
 export function CardGraficoMeses() {
-  const { data: dados, isLoading, error } = useGraficoMeses("6");
+  const [periodo, setPeriodo] = useState<"3" | "6" | "12">("6");
+  const { data: dados, isLoading, error } = useGraficoMeses(periodo);
 
   const totais = useMemo(() => {
     if (!dados || dados.length === 0) {
@@ -65,11 +72,29 @@ export function CardGraficoMeses() {
   };
 
   const cardTitle = (
-    <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-900 dark:text-white">
-      <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-      <span className="hidden sm:inline">Evolução Financeira - Últimos 6 Meses</span>
-      <span className="sm:hidden">Evolução (6 meses)</span>
-    </CardTitle>
+    <div className="flex items-center justify-between w-full">
+      <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-900 dark:text-white">
+        <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <span className="hidden sm:inline">Evolução Financeira - Últimos {periodo} Meses</span>
+        <span className="sm:hidden">Evolução ({periodo}m)</span>
+      </CardTitle>
+      <div className="flex items-center gap-1">
+        {PERIODOS.map((p) => (
+          <button
+            key={p.value}
+            type="button"
+            onClick={() => setPeriodo(p.value)}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+              periodo === p.value
+                ? "bg-blue-600 text-white dark:bg-blue-500"
+                : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 
   if (isLoading) {
