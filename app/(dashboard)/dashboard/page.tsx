@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 
 import { useDashboard, useDespesasFuturas } from '@/hooks/useDashboard';
@@ -24,9 +24,9 @@ import { CardFaturas } from '@/components/dashboard/CardFaturas';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+// Tabs substituído por controle manual (compatibilidade Recharts + transição suave)
 import { Skeleton } from '@/components/ui/skeleton';
-import { Wallet, CreditCard, PieChart, BarChart3, DollarSign, Calendar } from 'lucide-react';
+import { Wallet, PieChart, BarChart3, Calendar } from 'lucide-react';
 import { BsHouse } from "react-icons/bs";
 
 function useSaudacao() {
@@ -75,6 +75,64 @@ export default function Dashboard() {
     if (!nome) return "";
     return nome.split(" ")[0];
   }, [session]);
+
+  // ── Tabs com transição automática ──────────────────────────────────────
+  const TABS = ['overview', 'analytics'] as const;
+  type TabValue = typeof TABS[number];
+  const TAB_DURATION = 8000; // ms
+
+  const [activeTab, setActiveTab] = useState<TabValue>('overview');
+  const [autoPlay,  setAutoPlay]  = useState(true);
+
+  // ✅ progress como ref — atualiza a barra via DOM direto,
+  // sem causar re-renders do pai e dos cards filhos (Recharts)
+  const barOverviewRef  = useRef<HTMLSpanElement>(null);
+  const barAnalyticsRef = useRef<HTMLSpanElement>(null);
+  const rafRef          = useRef<number>(0);
+  const activeTabRef    = useRef<TabValue>('overview');
+
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+
+  function setBarWidth(pct: number) {
+    const bar = activeTabRef.current === 'overview'
+      ? barOverviewRef.current
+      : barAnalyticsRef.current;
+    if (bar) bar.style.width = `${pct}%`;
+  }
+
+  function clearBars() {
+    if (barOverviewRef.current)  barOverviewRef.current.style.width  = '0%';
+    if (barAnalyticsRef.current) barAnalyticsRef.current.style.width = '0%';
+  }
+
+  // Troca de aba automática — manipula DOM direto, zero re-renders durante rAF
+  useEffect(() => {
+    if (!autoPlay) { clearBars(); return; }
+
+    const start = performance.now();
+
+    function tick(now: number) {
+      const pct = Math.min(((now - start) / TAB_DURATION) * 100, 100);
+      setBarWidth(pct);
+      if (pct < 100) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        clearBars();
+        setActiveTab(prev => prev === 'overview' ? 'analytics' : 'overview');
+      }
+    }
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [autoPlay, activeTab]);
+
+  function handleTabChange(value: string) {
+    cancelAnimationFrame(rafRef.current);
+    setActiveTab(value as TabValue);
+    setAutoPlay(false);
+    clearBars();
+  }
+  // ────────────────────────────────────────────────────────────────────────
 
   const totais = useMemo(() => {
     if (!contas.length && !cartoes.length) return null;
@@ -214,51 +272,112 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="dark:bg-gray-800">
-          <TabsTrigger value="overview" className="gap-2 dark:data-[state=active]:bg-gray-700">
-            <PieChart className="h-4 w-4" />Visão Geral
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="gap-2 dark:data-[state=active]:bg-gray-700">
-            <BarChart3 className="h-4 w-4" />Análises
-          </TabsTrigger>
-          <TabsTrigger value="details" className="gap-2 dark:data-[state=active]:bg-gray-700">
-            <DollarSign className="h-4 w-4" />Detalhes
-          </TabsTrigger>
-        </TabsList>
+      {/* Tabs com transição automática — pausa ao clicar */}
+      <div className="space-y-4">
+        {/* TabsList manual para suportar barra de progresso */}
+        <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground dark:bg-gray-800">
+          {/* Visão Geral */}
+          <button
+            onClick={() => handleTabChange('overview')}
+            className={[
+              'relative inline-flex items-center gap-2 justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium',
+              'ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              'overflow-hidden',
+              activeTab === 'overview'
+                ? 'bg-background text-foreground shadow-sm dark:bg-gray-700 dark:text-white'
+                : 'hover:bg-background/50 dark:hover:bg-gray-700/50',
+            ].join(' ')}
+          >
+            <PieChart className="h-4 w-4" />
+            Visão Geral
+            {/* Barra de progresso — width atualizada via ref, sem re-renders */}
+            <span
+              ref={barOverviewRef}
+              className="absolute bottom-0 left-0 h-[2px] bg-blue-500 dark:bg-blue-400 rounded-full"
+              style={{ width: '0%' }}
+            />
+          </button>
 
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <CardGraficoMeses />
-            <CardTransacoesRecentes />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <CardCondicoesPagamento />
-            <CardFormasPagamento />
-            <CardFaturas />
-          </div>
-        </TabsContent>
+          {/* Análises */}
+          <button
+            onClick={() => handleTabChange('analytics')}
+            className={[
+              'relative inline-flex items-center gap-2 justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium',
+              'ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              'overflow-hidden',
+              activeTab === 'analytics'
+                ? 'bg-background text-foreground shadow-sm dark:bg-gray-700 dark:text-white'
+                : 'hover:bg-background/50 dark:hover:bg-gray-700/50',
+            ].join(' ')}
+          >
+            <BarChart3 className="h-4 w-4" />
+            Análises
+            {/* Barra de progresso — width atualizada via ref, sem re-renders */}
+            <span
+              ref={barAnalyticsRef}
+              className="absolute bottom-0 left-0 h-[2px] bg-blue-500 dark:bg-blue-400 rounded-full"
+              style={{ width: '0%' }}
+            />
+          </button>
+        </div>
 
-        <TabsContent value="analytics" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <CardCategoriasLancamentos />
-            <CardCategoriasReceita />
-            <CardCategoriasDespesa />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <CardMaioresGastos />
-            <CardValores />
-          </div>
-        </TabsContent>
+        {/* ── Conteúdo das abas ─────────────────────────────────────────────────
+            Ambas ficam sempre montadas no DOM. A barra de progresso manipula
+            o DOM via ref sem causar re-renders, mantendo os gráficos Recharts
+            estáveis. A transição é feita apenas com opacity.
+        ─────────────────────────────────────────────────────────────────────── */}
 
-        <TabsContent value="details" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Wrapper relativo — necessário para o position absolute da aba inativa */}
+        <div className="relative">
+
+          {/* Visão Geral */}
+          <div
+            className="space-y-4"
+            style={{
+              opacity:       activeTab === 'overview' ? 1 : 0,
+              pointerEvents: activeTab === 'overview' ? 'auto' : 'none',
+              position:      activeTab === 'overview' ? 'relative' : 'absolute',
+              top: 0, left: 0, right: 0,
+              transition:    'opacity 0.5s ease',
+            }}
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <CardGraficoMeses />
+              <CardTransacoesRecentes />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CardCondicoesPagamento />
+              <CardFormasPagamento />
+              <CardFaturas />
+            </div>
             <CardParcelados />
-            <CardRecorrentes />
           </div>
-        </TabsContent>
-      </Tabs>
+
+          {/* Análises */}
+          <div
+            className="space-y-4"
+            style={{
+              opacity:       activeTab === 'analytics' ? 1 : 0,
+              pointerEvents: activeTab === 'analytics' ? 'auto' : 'none',
+              position:      activeTab === 'analytics' ? 'relative' : 'absolute',
+              top: 0, left: 0, right: 0,
+              transition:    'opacity 0.5s ease',
+            }}
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <CardCategoriasLancamentos />
+              <CardCategoriasReceita />
+              <CardCategoriasDespesa />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CardMaioresGastos />
+              <CardValores />
+              <CardRecorrentes />
+            </div>
+          </div>
+
+        </div>
+      </div>
     </div>
   );
 }
