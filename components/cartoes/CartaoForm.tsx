@@ -29,6 +29,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Image from "next/image";
+import { DiaPickerField } from "@/components/cartoes/DiaPickerField";
 
 type TipoCartao = "credito" | "debito";
 
@@ -45,7 +46,6 @@ export default function CartaoForm({
 }: Props) {
   const { data: contas = [] } = useContas();
 
-  // Estados do formulário
   const [form, setForm] = useState({
     nome: "",
     tipo: "credito" as TipoCartao,
@@ -59,18 +59,11 @@ export default function CartaoForm({
     contaVinculadaId: "none",
   });
 
-  // Estados dos pickers
   const [empresaPickerAberto, setEmpresaPickerAberto] = useState(false);
   const [bandeiraPickerAberto, setBandeiraPickerAberto] = useState(false);
-
-  // Estado do input calculadora (dígitos do limite)
   const [limitDigitos, setLimitDigitos] = useState("");
-
-  // Estados de validação
   const [erros, setErros] = useState<Record<string, string>>({});
-  const [camposTocados, setCamposTocados] = useState<Record<string, boolean>>(
-    {}
-  );
+  const [camposTocados, setCamposTocados] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (initialValues) {
@@ -95,7 +88,6 @@ export default function CartaoForm({
     }
   }, [initialValues]);
 
-  // Função para formatar valor tipo calculadora
   function formatarValorCalculadora(digitos: string): string {
     if (!digitos) return "R$ 0,00";
     const valorEmCentavos = parseInt(digitos, 10);
@@ -103,16 +95,10 @@ export default function CartaoForm({
     return `R$ ${valorEmReais.toFixed(2).replace(".", ",")}`;
   }
 
-  // Handler do input calculadora
   function handleLimiteChange(e: React.ChangeEvent<HTMLInputElement>) {
     const apenasNumeros = e.target.value.replace(/\D/g, "");
-
-    // Limita a 10 dígitos (R$ 99.999.999,99)
     const limitado = apenasNumeros.slice(0, 10);
-
     setLimitDigitos(limitado);
-
-    // Converte para valor decimal e atualiza o form
     const valorEmReais = limitado ? (parseInt(limitado, 10) / 100).toFixed(2) : "";
     handleChange("limite", valorEmReais);
   }
@@ -121,7 +107,6 @@ export default function CartaoForm({
     setForm((f) => {
       const updated = { ...f, [field]: value };
 
-      // Ao mudar de crédito para débito, resetar campos de fatura
       if (field === "tipo") {
         if (value === "debito") {
           updated.limite = "";
@@ -129,15 +114,16 @@ export default function CartaoForm({
           updated.diaVencimento = "";
           setLimitDigitos("");
         }
+        // Ao trocar para crédito, limpa conta vinculada
+        if (value === "credito") {
+          updated.contaVinculadaId = "none";
+        }
       }
 
       return updated;
     });
 
-    // Marcar campo como tocado
     setCamposTocados((prev) => ({ ...prev, [field]: true }));
-
-    // Validar campo
     validarCampo(field, value);
   }
 
@@ -248,7 +234,6 @@ export default function CartaoForm({
 
     setErros(todosErros);
 
-    // Marca todos os campos como tocados
     const todosCamposTocados = Object.keys(form).reduce(
       (acc, key) => ({ ...acc, [key]: true }),
       {}
@@ -269,14 +254,16 @@ export default function CartaoForm({
       bandeira: form.bandeira,
       empresa: form.empresa,
       limite: form.tipo === "credito" ? Number(form.limite) : 0,
-      diaFechamento:
-        form.tipo === "credito" ? Number(form.diaFechamento) : null,
-      diaVencimento:
-        form.tipo === "credito" ? Number(form.diaVencimento) : null,
+      diaFechamento: form.tipo === "credito" ? Number(form.diaFechamento) : null,
+      diaVencimento: form.tipo === "credito" ? Number(form.diaVencimento) : null,
       ativo: form.ativo,
       observacoes: form.observacoes || null,
       contaVinculadaId:
-        form.contaVinculadaId === "none" ? null : form.contaVinculadaId,
+        form.tipo === "credito"
+          ? null
+          : form.contaVinculadaId === "none"
+          ? null
+          : form.contaVinculadaId,
     };
 
     await onSubmit(payload);
@@ -284,10 +271,7 @@ export default function CartaoForm({
 
   const contasAtivas = contas.filter((c) => c.ativo);
   const empresaSelecionada = empresaOptions.find((e) => e.value === form.empresa);
-  const bandeiraSelecionada = bandeiraOptions.find(
-    (b) => b.value === form.bandeira
-  );
-
+  const bandeiraSelecionada = bandeiraOptions.find((b) => b.value === form.bandeira);
   const temErros = Object.keys(erros).length > 0;
 
   return (
@@ -316,7 +300,7 @@ export default function CartaoForm({
         )}
       </div>
 
-      {/* Tipo de Cartão - Botões Visuais */}
+      {/* Tipo de Cartão */}
       <div>
         <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
           Tipo de Cartão <span className="text-red-500">*</span>
@@ -386,7 +370,7 @@ export default function CartaoForm({
         </div>
       </div>
 
-      {/* Banco Emissor - Picker Visual */}
+      {/* Banco Emissor */}
       <div>
         <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
           Banco Emissor <span className="text-red-500">*</span>
@@ -442,7 +426,7 @@ export default function CartaoForm({
         )}
       </div>
 
-      {/* Bandeira - Picker Visual */}
+      {/* Bandeira */}
       <div>
         <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
           Bandeira <span className="text-red-500">*</span>
@@ -498,7 +482,7 @@ export default function CartaoForm({
         )}
       </div>
 
-      {/* Limite (apenas para crédito) - Input Calculadora */}
+      {/* Limite (apenas crédito) */}
       {form.tipo === "credito" && (
         <div>
           <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
@@ -531,129 +515,73 @@ export default function CartaoForm({
         </div>
       )}
 
-      {/* Dias de Fechamento e Vencimento (apenas para crédito) */}
+      {/* Dias de Fechamento e Vencimento (apenas crédito) */}
       {form.tipo === "credito" && (
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
-              Dia Fechamento <span className="text-red-500">*</span>
-            </label>
-            <Input
-              type="number"
-              placeholder="1-31"
-              min="1"
-              max="31"
-              value={form.diaFechamento}
-              onChange={(e) => handleChange("diaFechamento", e.target.value)}
-              onBlur={() =>
-                setCamposTocados((prev) => ({ ...prev, diaFechamento: true }))
-              }
-              className={
-                camposTocados.diaFechamento && erros.diaFechamento
-                  ? "border-red-500 dark:border-red-500"
-                  : ""
-              }
-            />
-            {camposTocados.diaFechamento && erros.diaFechamento && (
-              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" />
-                {erros.diaFechamento}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
-              Dia Vencimento <span className="text-red-500">*</span>
-            </label>
-            <Input
-              type="number"
-              placeholder="1-31"
-              min="1"
-              max="31"
-              value={form.diaVencimento}
-              onChange={(e) => handleChange("diaVencimento", e.target.value)}
-              onBlur={() =>
-                setCamposTocados((prev) => ({ ...prev, diaVencimento: true }))
-              }
-              className={
-                camposTocados.diaVencimento && erros.diaVencimento
-                  ? "border-red-500 dark:border-red-500"
-                  : ""
-              }
-            />
-            {camposTocados.diaVencimento && erros.diaVencimento && (
-              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" />
-                {erros.diaVencimento}
-              </p>
-            )}
-          </div>
+          <DiaPickerField
+            label="Dia Fechamento"
+            value={form.diaFechamento}
+            onChange={(v) => handleChange("diaFechamento", v)}
+            onBlur={() => setCamposTocados((prev) => ({ ...prev, diaFechamento: true }))}
+            erro={erros.diaFechamento}
+            tocado={camposTocados.diaFechamento}
+            obrigatorio
+          />
+          <DiaPickerField
+            label="Dia Vencimento"
+            value={form.diaVencimento}
+            onChange={(v) => handleChange("diaVencimento", v)}
+            onBlur={() => setCamposTocados((prev) => ({ ...prev, diaVencimento: true }))}
+            erro={erros.diaVencimento}
+            tocado={camposTocados.diaVencimento}
+            obrigatorio
+          />
         </div>
       )}
 
-      {/* Conta Vinculada */}
-      <div>
-        <div className="flex items-center gap-2 mb-1.5">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {form.tipo === "credito"
-              ? "Conta para Pagamento da Fatura"
-              : "Conta Vinculada"}
-          </label>
-          {form.tipo === "debito" && (
+      {/* Conta Vinculada (apenas débito) */}
+      {form.tipo === "debito" && (
+        <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Conta Vinculada
+            </label>
             <span className="text-xs text-red-500 font-medium">*</span>
-          )}
-        </div>
-        <Select
-          value={form.contaVinculadaId}
-          onValueChange={(v) => handleChange("contaVinculadaId", v)}
-        >
-          <SelectTrigger
-            className={
-              camposTocados.contaVinculadaId && erros.contaVinculadaId
-                ? "border-red-500 dark:border-red-500"
-                : ""
-            }
+          </div>
+          <Select
+            value={form.contaVinculadaId}
+            onValueChange={(v) => handleChange("contaVinculadaId", v)}
           >
-            <SelectValue
-              placeholder={
-                form.tipo === "debito"
-                  ? "Selecione a conta vinculada"
-                  : "Selecione uma conta (opcional)"
+            <SelectTrigger
+              className={
+                camposTocados.contaVinculadaId && erros.contaVinculadaId
+                  ? "border-red-500 dark:border-red-500"
+                  : ""
               }
-            />
-          </SelectTrigger>
-          <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-            {form.tipo === "credito" && (
-              <SelectItem value="none">Nenhuma (definir depois)</SelectItem>
-            )}
-            {contasAtivas.length > 0 ? (
-              contasAtivas.map((conta) => (
-                <SelectItem key={conta.id} value={conta.id}>
-                  {conta.nome} - R$ {Number(conta.saldoAtual).toFixed(2)}
-                  {conta.banco && ` (${conta.banco})`}
+            >
+              <SelectValue placeholder="Selecione a conta vinculada" />
+            </SelectTrigger>
+            <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+              {contasAtivas.length > 0 ? (
+                contasAtivas.map((conta) => (
+                  <SelectItem key={conta.id} value={conta.id}>
+                    {conta.nome} - R$ {Number(conta.saldoAtual).toFixed(2)}
+                    {conta.banco && ` (${conta.banco})`}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="no-accounts" disabled>
+                  Nenhuma conta cadastrada
                 </SelectItem>
-              ))
-            ) : (
-              <SelectItem value="no-accounts" disabled>
-                Nenhuma conta cadastrada
-              </SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-        {camposTocados.contaVinculadaId && erros.contaVinculadaId && (
-          <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-            <AlertCircle className="h-3 w-3" />
-            {erros.contaVinculadaId}
-          </p>
-        )}
-
-        {/* Info de acordo com o tipo */}
-        {form.tipo === "credito" ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
-            💡 Esta conta será usada como padrão para pagar a fatura do cartão
-          </p>
-        ) : (
+              )}
+            </SelectContent>
+          </Select>
+          {camposTocados.contaVinculadaId && erros.contaVinculadaId && (
+            <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {erros.contaVinculadaId}
+            </p>
+          )}
           <Alert className="mt-2 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
             <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertDescription className="text-blue-800 dark:text-blue-300 text-xs">
@@ -664,10 +592,10 @@ export default function CartaoForm({
               </p>
             </AlertDescription>
           </Alert>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Observações - Colapsável */}
+      {/* Observações */}
       <details className="group">
         <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2 select-none">
           Observações (opcional)
@@ -693,7 +621,6 @@ export default function CartaoForm({
         >
           Cancelar
         </Button>
-
         <Button
           type="button"
           onClick={handleSubmit}
