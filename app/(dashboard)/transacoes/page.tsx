@@ -11,35 +11,40 @@ import FormMovimentacaoModal from "@/components/transacao/FormMovimentacaoModal"
 import MovimentacaoTabela from "@/components/transacao/MovimentacaoTabela";
 import ConfirmarEdicaoModal from "@/components/transacao/ConfirmarEdicaoModal";
 import ConfirmarExclusaoModal from "@/components/transacao/ConfirmarExclusaoModal";
+import FaturaFechadaModal from "@/components/transacao/FaturaFechadaModal";
 import FiltrosMovimentacoes, { FiltrosState } from "@/components/transacao/FiltrosMovimentacoes";
 
-import { 
-  useTransacoes, 
-  useCriarTransacao, 
-  useAtualizarTransacao, 
-  useExcluirTransacao 
+import {
+  useTransacoes,
+  useCriarTransacao,
+  useAtualizarTransacao,
+  useExcluirTransacao
 } from "@/hooks/useTransacoes";
 import { useCartoes } from "@/hooks/useCartoes";
 import { useContas } from "@/hooks/useContas";
 import { Transacao, ModoEdicao } from "@/types/transacao";
+import { calcularFaturaDaTransacao, faturaEstaFechada } from "@/utils/faturaUtils";
+import { useFaturas } from "@/hooks/useFaturas";
 
 export default function TransacoesPage() {
   const router = useRouter();
 
   const { data: transacoes = [], isLoading: loadingTransacoes } = useTransacoes();
-  const { data: cartoes = [], isLoading: loadingCartoes } = useCartoes();
-  const { data: contas = [], isLoading: loadingContas } = useContas();
+  const { data: cartoes    = [], isLoading: loadingCartoes    } = useCartoes();
+  const { data: contas     = [], isLoading: loadingContas     } = useContas();
+  const { buscarFatura }                                        = useFaturas();
 
-  const criarTransacao    = useCriarTransacao();
+  const criarTransacao     = useCriarTransacao();
   const atualizarTransacao = useAtualizarTransacao();
-  const excluirTransacao  = useExcluirTransacao();
+  const excluirTransacao   = useExcluirTransacao();
 
-  const [openModal,   setOpenModal]   = useState(false);
-  const [editando,    setEditando]    = useState<Transacao | null>(null);
-  const [modalEdicao, setModalEdicao] = useState(false);
-  const [tipoEdicao,  setTipoEdicao]  = useState<ModoEdicao>("unica");
-  const [modalExcluir, setModalExcluir] = useState(false);
-  const [itemExcluir,  setItemExcluir]  = useState<Transacao | null>(null);
+  const [openModal,          setOpenModal]          = useState(false);
+  const [editando,           setEditando]           = useState<Transacao | null>(null);
+  const [modalEdicao,        setModalEdicao]        = useState(false);
+  const [tipoEdicao,         setTipoEdicao]         = useState<ModoEdicao>("unica");
+  const [modalExcluir,       setModalExcluir]       = useState(false);
+  const [itemExcluir,        setItemExcluir]        = useState<Transacao | null>(null);
+  const [modalFaturaFechada, setModalFaturaFechada] = useState(false);
 
   const [filtros, setFiltros] = useState<FiltrosState>({
     tipo: "todas",
@@ -48,7 +53,7 @@ export default function TransacoesPage() {
     busca: "",
   });
 
-  const temContasAtivas = useMemo(() => contas.some(conta => conta.ativo), [contas]);
+  const temContasAtivas = useMemo(() => contas.some(c => c.ativo), [contas]);
 
   const movimentacoesFiltradas = useMemo(() => {
     return transacoes.filter((mov) => {
@@ -56,9 +61,9 @@ export default function TransacoesPage() {
       if (filtros.categoria && mov.categoria !== filtros.categoria) return false;
       if (filtros.formaPagamento && mov.formaPagamento !== filtros.formaPagamento) return false;
       if (filtros.busca) {
-        const busca = filtros.busca.toLowerCase();
+        const busca    = filtros.busca.toLowerCase();
         const descricao = mov.descricao?.toLowerCase() || "";
-        const categoria = mov.categoria?.toLowerCase() || "";
+        const categoria = mov.categoria?.toLowerCase()  || "";
         if (!descricao.includes(busca) && !categoria.includes(busca)) return false;
       }
       return true;
@@ -75,6 +80,32 @@ export default function TransacoesPage() {
     [transacoes]
   );
 
+  // ============================================================
+  // Verifica se uma transação parcelada em crédito tem fatura
+  // fechada ou paga — bloqueia edição nesses casos
+  // ============================================================
+  async function faturaParcelaEstaBloqueada(mov: Transacao): Promise<boolean> {
+    if (!mov.parcelamentoId || !mov.cartaoId || mov.formaPagamento !== "cartao") return false;
+
+    const cartao = cartoes.find(c => c.id === mov.cartaoId);
+    if (!cartao || cartao.tipo !== "credito") return false;
+
+    const diaFechamento = cartao.diaFechamento || 1;
+    const { mes, ano }  = calcularFaturaDaTransacao(new Date(mov.data), diaFechamento);
+
+    // Verifica se a fatura está fechada (sem precisar de dados externos)
+    if (faturaEstaFechada(mes, ano, diaFechamento)) return true;
+
+    // Verifica se a fatura está paga (busca da API/cache)
+    try {
+      const faturaData = await buscarFatura(mov.cartaoId, ano, mes);
+      return faturaData?.fatura?.paga === true;
+    } catch {
+      // Se não encontrou fatura, não bloqueia
+      return false;
+    }
+  }
+
   function abrirNovo() {
     if (!temContasAtivas) return;
     setEditando(null);
@@ -82,18 +113,22 @@ export default function TransacoesPage() {
     setOpenModal(true);
   }
 
-  function editarItem(mov: Transacao) {
+  async function editarItem(mov: Transacao) {
+    // ✅ Bloqueia edição de parceladas em crédito com fatura fechada/paga
+    if (await faturaParcelaEstaBloqueada(mov)) {
+      setModalFaturaFechada(true);
+      return;
+    }
+
     const isParcelada  = !!mov.parcelamentoId;
     const isRecorrente = !!mov.recorrenciaId;
 
     setEditando(mov);
 
     if (isParcelada) {
-      // ✅ Parceladas: pula o modal de confirmação, vai direto para edição
       setTipoEdicao("todas_parcelas");
       setOpenModal(true);
     } else if (isRecorrente) {
-      // Recorrentes: mantém o modal de confirmação (única ou toda recorrência)
       setModalEdicao(true);
     } else {
       setTipoEdicao("unica");
@@ -108,7 +143,6 @@ export default function TransacoesPage() {
 
   async function handleExcluir(tipo: ModoEdicao) {
     if (!itemExcluir) return;
-
     try {
       if (itemExcluir.transferenciaId) {
         alert("Transferências devem ser gerenciadas na página de Extrato ou Transferências");
@@ -116,7 +150,6 @@ export default function TransacoesPage() {
         setItemExcluir(null);
         return;
       }
-
       await excluirTransacao.mutateAsync({ id: itemExcluir.id, tipo });
       setModalExcluir(false);
       setItemExcluir(null);
@@ -135,7 +168,6 @@ export default function TransacoesPage() {
       } else {
         await criarTransacao.mutateAsync(dados);
       }
-
       setOpenModal(false);
       setEditando(null);
       setTipoEdicao("unica");
@@ -187,11 +219,9 @@ export default function TransacoesPage() {
       <div>
         <div className="flex items-center gap-2 mb-2">
           <BsArrowLeftRight className="text-2xl md:text-3xl text-blue-700 dark:text-blue-500" />
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-              Movimentações
-            </h1>
-          </div>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+            Movimentações
+          </h1>
         </div>
         <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
           {movimentacoesFiltradas.length} transação(ões) encontrada(s)
@@ -248,10 +278,7 @@ export default function TransacoesPage() {
         open={openModal}
         onOpenChange={(open: boolean) => {
           setOpenModal(open);
-          if (!open) {
-            setEditando(null);
-            setTipoEdicao("unica");
-          }
+          if (!open) { setEditando(null); setTipoEdicao("unica"); }
         }}
         transacaoEdicao={editando}
         modoEdicao={tipoEdicao}
@@ -267,7 +294,6 @@ export default function TransacoesPage() {
         loading={excluirTransacao.isPending}
       />
 
-      {/* ✅ ConfirmarEdicaoModal agora é usado apenas para recorrentes */}
       <ConfirmarEdicaoModal
         open={modalEdicao}
         onClose={() => setModalEdicao(false)}
@@ -277,6 +303,12 @@ export default function TransacoesPage() {
           setModalEdicao(false);
           setOpenModal(true);
         }}
+      />
+
+      {/* ✅ Aviso de fatura fechada/paga */}
+      <FaturaFechadaModal
+        open={modalFaturaFechada}
+        onClose={() => setModalFaturaFechada(false)}
       />
     </div>
   );
