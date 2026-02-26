@@ -9,7 +9,8 @@ export type TipoNotificacao =
   | "SALDO_BAIXO"
   | "SALDO_NEGATIVO"
   | "TRANSACAO_ENTRADA_ALTA"
-  | "TRANSACAO_SAIDA_ALTA";
+  | "TRANSACAO_SAIDA_ALTA"
+  | "BACKUP_INATIVO";
 
 export type SeveridadeNotificacao = "info" | "warning" | "error" | "success";
 

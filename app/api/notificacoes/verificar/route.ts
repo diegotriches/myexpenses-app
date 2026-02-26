@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { notificacoes, cartoes, faturas, contas, preferenciasNotificacao } from "@/db/schema";
+import { notificacoes, cartoes, faturas, contas, preferenciasNotificacao, accounts } from "@/db/schema";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 
@@ -91,10 +91,8 @@ export async function POST(req: NextRequest) {
             ano: String(fatura.ano),
           };
 
-          // ✅ Link direto para a fatura específica
           const linkFatura = `/cartoes/${cartao.id}/fatura?mes=${fatura.mes}&ano=${fatura.ano}`;
 
-          // Fatura vencida
           if (diasRestantes < 0) {
             const jaNotificou = await jaNotificouRecentemente(userId, "FATURA_VENCIDA", metadataFatura);
             if (!jaNotificou) {
@@ -109,9 +107,7 @@ export async function POST(req: NextRequest) {
               });
               notificacoesCriadas++;
             }
-          }
-          // Fatura próxima do vencimento
-          else if (diasRestantes > 0 && diasRestantes <= prefs.diasAntesVencimento) {
+          } else if (diasRestantes > 0 && diasRestantes <= prefs.diasAntesVencimento) {
             const jaNotificou = await jaNotificouRecentemente(userId, "FATURA_PROXIMA_VENCIMENTO", metadataFatura);
             if (!jaNotificou) {
               await db.insert(notificacoes).values({
@@ -224,6 +220,46 @@ export async function POST(req: NextRequest) {
             notificacoesCriadas++;
           }
         }
+      }
+    }
+
+    // ==================== 4. BACKUP INATIVO ====================
+    // Verifica se o usuário tem conta Google vinculada (necessária para backup)
+    // Se não tiver, notifica uma vez por semana
+    const contaGoogle = await db
+      .select()
+      .from(accounts)
+      .where(
+        and(
+          eq(accounts.userId, userId),
+          eq(accounts.provider, "google")
+        )
+      )
+      .limit(1);
+
+    const temBackupAtivo = contaGoogle.length > 0;
+
+    if (!temBackupAtivo) {
+      // Notifica apenas uma vez por semana (168 horas)
+      const jaNotificou = await jaNotificouRecentemente(
+        userId,
+        "BACKUP_INATIVO",
+        {},
+        168
+      );
+
+      if (!jaNotificou) {
+        await db.insert(notificacoes).values({
+          userId,
+          tipo: "BACKUP_INATIVO",
+          severidade: "warning",
+          titulo: "Backup automático inativo",
+          mensagem:
+            "Seus dados não estão sendo salvos automaticamente. Vincule sua conta Google em Ajustes para ativar o backup.",
+          link: "/ajustes",
+          metadata: {},
+        });
+        notificacoesCriadas++;
       }
     }
 
