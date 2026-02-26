@@ -11,19 +11,19 @@ export function Toast({ toast }: { toast: ToastType }) {
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
-      setIsVisible(false)
-      setTimeout(() => dismiss(toast.id), 300)
-    }, toast.duration || 5000)
+      setIsVisible(false);
+      setTimeout(() => dismiss(toast.id), 300);
+    }, toast.duration || 5000);
 
-    return () => clearTimeout(timer)
-  }, [toast.duration, toast.id, dismiss])
+    return () => clearTimeout(timer);
+  }, [toast.duration, toast.id, dismiss]);
 
   return (
     <div
       className={cn(
-        "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-lg border p-6 pr-8 shadow-lg transition-all",
+        "group relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-lg border p-6 pr-8 shadow-lg transition-all",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
-        isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-full",
+        isVisible ? "opacity-100 translate-x-0 pointer-events-auto" : "opacity-0 translate-x-full pointer-events-none",
         toast.variant === "destructive"
           ? "border-red-500 bg-red-50 dark:bg-red-950 text-red-900 dark:text-red-100"
           : "border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700"
@@ -41,8 +41,8 @@ export function Toast({ toast }: { toast: ToastType }) {
       {toast.action}
       <button
         onClick={() => {
-          setIsVisible(false)
-          setTimeout(() => dismiss(toast.id), 300)
+          setIsVisible(false);
+          setTimeout(() => dismiss(toast.id), 300);
         }}
         className={cn(
           "absolute right-2 top-2 rounded-md p-1 opacity-0 transition-opacity hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100",
@@ -54,5 +54,5 @@ export function Toast({ toast }: { toast: ToastType }) {
         <X className="h-4 w-4" />
       </button>
     </div>
-  )
+  );
 }
