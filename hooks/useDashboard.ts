@@ -9,10 +9,6 @@ import type {
   DadosGraficoMeses,
 } from "@/types/dashboard";
 
-/**
- * Query Keys para dashboard
- * ✅ EXPORTADO para permitir invalidação em outros módulos
- */
 export const dashboardKeys = {
   all: ["dashboard"] as const,
   resumo: (mes: number, ano: number) => ["dashboard", "resumo", ano, mes] as const,
@@ -24,13 +20,11 @@ export const dashboardKeys = {
   faturas: (mes: number, ano: number) => ["dashboard", "faturas", ano, mes] as const,
   recorrentes: (mes: number, ano: number) => ["dashboard", "recorrentes", ano, mes] as const,
   despesasFuturas: (mes: number, ano: number) => ["dashboard", "despesas-futuras", ano, mes] as const,
-  // ✅ NOVOS
   valoresPeriodo: (mes: number, ano: number) => ["dashboard", "valores-periodo", ano, mes] as const,
   maioresGastos: (mes: number, ano: number, limit: number) => ["dashboard", "maiores-gastos", ano, mes, limit] as const,
   transacoesRecentes: (limit: number) => ["dashboard", "transacoes-recentes", limit] as const,
+  saldoHistorico: (periodo: string) => ["dashboard", "saldo-historico", periodo] as const,
 };
-
-// ─── Hooks existentes (sem alteração) ────────────────────────────────────────
 
 export function useDashboard() {
   const { mesSelecionado, anoSelecionado } = usePeriodo();
@@ -118,19 +112,6 @@ export function useDespesasFuturas() {
   });
 }
 
-// ─── Novos hooks ──────────────────────────────────────────────────────────────
-
-/**
- * Hook para valores do período (recebidos, a receber, a pagar)
- * Substitui o cálculo local no CardValores
- *
- * @example
- * const { data, isLoading } = useValoresPeriodo();
- * data?.recebidos  // receitas já recebidas
- * data?.aReceber   // receitas futuras
- * data?.aPagar     // despesas futuras
- * data?.projecao   // aReceber - aPagar
- */
 export function useValoresPeriodo() {
   const { mesSelecionado, anoSelecionado } = usePeriodo();
   return useQuery({
@@ -141,18 +122,6 @@ export function useValoresPeriodo() {
   });
 }
 
-/**
- * Hook para os maiores gastos do período
- * Substitui o cálculo local no CardMaioresGastos
- *
- * @param limit - Número de gastos a retornar (padrão: 5, máximo: 20)
- *
- * @example
- * const { data, isLoading } = useMaioresGastos();
- * data?.gastos  // [{ id, descricao, valor, data, categoria }]
- * data?.total   // soma dos gastos
- * data?.media   // média dos gastos
- */
 export function useMaioresGastos(limit = 5) {
   const { mesSelecionado, anoSelecionado } = usePeriodo();
   return useQuery({
@@ -163,21 +132,23 @@ export function useMaioresGastos(limit = 5) {
   });
 }
 
-/**
- * Hook para as transações mais recentes
- * Substitui o cálculo local (ultimasTransacoes) no Dashboard
- *
- * @param limit - Número de transações a retornar (padrão: 5, máximo: 50)
- *
- * @example
- * const { data, isLoading } = useTransacoesRecentes();
- * data?.transacoes  // [{ id, descricao, valor, data, tipo, categoria, ... }]
- */
 export function useTransacoesRecentes(limit = 5) {
   return useQuery({
     queryKey: dashboardKeys.transacoesRecentes(limit),
     queryFn: () => dashboardService.buscarTransacoesRecentes(limit),
-    staleTime: 1 * 60 * 1000, // 1 min — transações mudam com frequência
+    staleTime: 1 * 60 * 1000,
     refetchOnWindowFocus: true,
+  });
+}
+
+export function useSaldoHistorico(periodo: string) {
+  return useQuery({
+    queryKey: dashboardKeys.saldoHistorico(periodo),
+    queryFn: async () => {
+      const res = await fetch(`/api/dashboard/saldo-historico?periodo=${periodo}`);
+      if (!res.ok) throw new Error("Erro ao buscar histórico de saldo");
+      return res.json() as Promise<{ mes: string; saldoTotal: number }[]>;
+    },
+    staleTime: 5 * 60 * 1000,
   });
 }
