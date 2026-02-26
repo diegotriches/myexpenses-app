@@ -1,26 +1,11 @@
 // src/app/api/cron/backup/route.ts
 
-/**
- * GET /api/cron/backup
- * Rota chamada pelo Vercel Cron toda semana (domingo às 02:00 UTC)
- *
- * Fluxo:
- * 1. Valida o CRON_SECRET para evitar chamadas não autorizadas
- * 2. Busca todos os usuários com conta Google vinculada
- * 3. Para cada usuário: gera o backup JSON e faz upload no Drive
- * 4. Cria notificação no app informando o resultado
- */
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, contas, cartoes, transacoes, categorias, faturas, extratoConta, notificacoes, preferenciasNotificacao, preferences } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, contas, cartoes, transacoes, categorias, faturas, extratoConta, notificacoes, preferenciasNotificacao, preferences, accounts } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { uploadBackupToDrive } from "@/lib/googleDriveBackup";
 import type { ExportFile, ExportMetadata, ExportStatistics, ExportData } from "@/types/export";
-
-// ============================================================================
-// TIPOS
-// ============================================================================
 
 interface BackupResultado {
   userId: string;
@@ -33,22 +18,22 @@ interface BackupResultado {
   duracao: number;
 }
 
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-/**
- * Busca os tokens Google do usuário na tabela accounts do NextAuth
- */
+// ✅ Query parametrizada via Drizzle — sem risco de SQL Injection
 async function getGoogleTokens(userId: string): Promise<{ accessToken: string; refreshToken: string | null } | null> {
-  const result = await db.execute(
-    `SELECT access_token, refresh_token 
-     FROM accounts 
-     WHERE "userId" = '${userId}' AND provider = 'google'
-     LIMIT 1`
-  );
+  const rows = await db
+    .select({
+      access_token: accounts.access_token,
+      refresh_token: accounts.refresh_token,
+    })
+    .from(accounts)
+    .where(
+      and(
+        eq(accounts.userId, userId),
+        eq(accounts.provider, "google")
+      )
+    )
+    .limit(1);
 
-  const rows = result.rows as any[];
   if (!rows.length || !rows[0].access_token) return null;
 
   return {
@@ -57,9 +42,6 @@ async function getGoogleTokens(userId: string): Promise<{ accessToken: string; r
   };
 }
 
-/**
- * Gera o conteúdo JSON do backup para um usuário
- */
 async function gerarBackupJSON(userId: string, userData: { name: string | null; email: string }): Promise<string> {
   const [
     contasData,
@@ -131,20 +113,15 @@ async function gerarBackupJSON(userId: string, userData: { name: string | null; 
   return JSON.stringify(exportFile, null, 2);
 }
 
-/**
- * Cria notificação no app para o usuário
- */
 async function criarNotificacao(
   userId: string,
   status: "sucesso" | "erro" | "sem_drive",
   detalhes?: { filename?: string; tamanho?: number; erro?: string }
 ): Promise<void> {
   const titulo =
-    status === "sucesso"
-      ? "Backup semanal concluído"
-      : status === "sem_drive"
-      ? "Backup não realizado"
-      : "Erro no backup semanal";
+    status === "sucesso" ? "Backup semanal concluído"
+    : status === "sem_drive" ? "Backup não realizado"
+    : "Erro no backup semanal";
 
   const mensagem =
     status === "sucesso"
@@ -153,7 +130,6 @@ async function criarNotificacao(
       ? "Conecte sua conta Google nas configurações para ativar o backup automático semanal."
       : `Não foi possível realizar o backup: ${detalhes?.erro || "Erro desconhecido"}. Tente exportar manualmente.`;
 
-  // Mapeia status para severidade conforme o schema (campo obrigatório)
   const severidade =
     status === "sucesso" ? "info"
     : status === "sem_drive" ? "aviso"
@@ -178,14 +154,10 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
-// ============================================================================
-// HANDLER
-// ============================================================================
-
 export async function GET(req: NextRequest) {
   const inicioTotal = Date.now();
 
-  // 1. Valida CRON_SECRET para evitar chamadas não autorizadas
+  // ✅ Valida CRON_SECRET para evitar chamadas não autorizadas
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     console.warn("[Cron Backup] Tentativa não autorizada");
@@ -194,7 +166,6 @@ export async function GET(req: NextRequest) {
 
   console.log("[Cron Backup] Iniciando backup semanal...");
 
-  // 2. Busca todos os usuários
   const todosUsuarios = await db
     .select({ id: users.id, name: users.name, email: users.email })
     .from(users);
@@ -203,12 +174,10 @@ export async function GET(req: NextRequest) {
 
   const resultados: BackupResultado[] = [];
 
-  // 3. Processa cada usuário
   for (const usuario of todosUsuarios) {
     const inicioUsuario = Date.now();
 
     try {
-      // Busca tokens Google
       const tokens = await getGoogleTokens(usuario.id);
 
       if (!tokens) {
@@ -223,17 +192,11 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      // Gera o JSON do backup
       const json = await gerarBackupJSON(usuario.id, { name: usuario.name, email: usuario.email });
-
-      // Nome do arquivo com data
       const dataHoje = new Date().toISOString().split("T")[0];
       const filename = `myexpenses-backup-${dataHoje}.json`;
-
-      // Upload no Drive
       const resultado = await uploadBackupToDrive(tokens, filename, json);
 
-      // Cria notificação de sucesso
       await criarNotificacao(usuario.id, "sucesso", {
         filename: resultado.filename,
         tamanho: resultado.size,
@@ -254,9 +217,7 @@ export async function GET(req: NextRequest) {
     } catch (error: any) {
       const duracao = Date.now() - inicioUsuario;
       console.error(`[Cron Backup] ❌ Erro no usuário ${usuario.email}:`, error.message);
-
       await criarNotificacao(usuario.id, "erro", { erro: error.message });
-
       resultados.push({
         userId: usuario.id,
         email: usuario.email,
@@ -267,7 +228,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 4. Resumo final
   const duracaoTotal = Date.now() - inicioTotal;
   const sucessos = resultados.filter(r => r.status === "sucesso").length;
   const erros = resultados.filter(r => r.status === "erro").length;
