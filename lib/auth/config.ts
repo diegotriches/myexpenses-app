@@ -140,7 +140,7 @@ export const authOptions: NextAuthOptions = {
   // 📄 PÁGINAS CUSTOMIZADAS
   // ============================================
   pages: {
-    signIn: "/auth/signin",
+    signIn: "/login",
   },
 
   // ============================================

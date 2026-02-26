@@ -38,24 +38,14 @@ const loginSchema = z.object({
 function AutoLoginWrapper({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const { data: session, status } = useSession();
-    const [isChecking, setIsChecking] = useState(true);
 
     useEffect(() => {
-        // ✅ Se já estiver autenticado, redireciona para dashboard
         if (status === "authenticated" && session?.user) {
-            router.push("/dashboard");
-            router.refresh();
-        } else if (status === "unauthenticated") {
-            // ✅ Não autenticado - mostra form de login
-            setIsChecking(false);
+            router.replace("/dashboard");
         }
-        // status === "loading" - mantém loading
     }, [status, session, router]);
 
-    // ============================================
-    // 📱 LOADING STATE - Verificando sessão
-    // ============================================
-    if (status === "loading" || isChecking) {
+    if (status === "loading" || status === "authenticated") {
         return (
             <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4">
                 <Card className="bg-white dark:bg-gray-800 shadow-2xl border-0 w-full max-w-md">
@@ -64,7 +54,7 @@ function AutoLoginWrapper({ children }: { children: React.ReactNode }) {
                             <Loader2 className="h-12 w-12 text-blue-600 dark:text-blue-400 animate-spin" />
                             <div className="space-y-2">
                                 <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                                    Verificando autenticação...
+                                    {status === "authenticated" ? "Redirecionando..." : "Verificando autenticação..."}
                                 </p>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
                                     Aguarde um momento
@@ -77,9 +67,7 @@ function AutoLoginWrapper({ children }: { children: React.ReactNode }) {
         );
     }
 
-    // ============================================
-    // ✅ NÃO AUTENTICADO - Mostra formulário
-    // ============================================
+    // Não autenticado — mostra formulário
     return <>{children}</>;
 }
 
@@ -101,7 +89,6 @@ function LoginForm() {
         },
     });
 
-    // Verificar se há erro na URL (quando NextAuth redireciona com erro)
     useEffect(() => {
         const errorParam = searchParams.get("error");
         if (errorParam) {
@@ -125,7 +112,7 @@ function LoginForm() {
     async function onSubmit(values: z.infer<typeof loginSchema>) {
         setIsLoading(true);
         setError(null);
-        
+
         try {
             const result = await signIn("credentials", {
                 email: values.email,
@@ -140,7 +127,6 @@ function LoginForm() {
                     setError("Ocorreu um erro ao fazer login. Tente novamente.");
                 }
             } else if (result?.ok) {
-                // ✅ Login bem-sucedido - redireciona
                 router.push("/dashboard");
                 router.refresh();
             }
@@ -155,11 +141,11 @@ function LoginForm() {
     async function handleGoogleLogin() {
         setIsLoading(true);
         setError(null);
-        
+
         try {
-            await signIn("google", { 
+            await signIn("google", {
                 callbackUrl: "/dashboard",
-                redirect: true 
+                redirect: true,
             });
         } catch (err) {
             setError("Erro ao fazer login com Google. Tente novamente.");
@@ -170,7 +156,6 @@ function LoginForm() {
 
     return (
         <>
-            {/* Error Alert */}
             {error && (
                 <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2 duration-300">
                     <FiAlertCircle className="h-4 w-4" />
@@ -189,15 +174,12 @@ function LoginForm() {
 
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    {/* Email Field */}
                     <FormField
                         control={form.control}
                         name="email"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel className="text-gray-700 dark:text-gray-300">
-                                    Email
-                                </FormLabel>
+                                <FormLabel className="text-gray-700 dark:text-gray-300">Email</FormLabel>
                                 <FormControl>
                                     <div className="relative">
                                         <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -215,15 +197,12 @@ function LoginForm() {
                         )}
                     />
 
-                    {/* Password Field */}
                     <FormField
                         control={form.control}
                         name="password"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel className="text-gray-700 dark:text-gray-300">
-                                    Senha
-                                </FormLabel>
+                                <FormLabel className="text-gray-700 dark:text-gray-300">Senha</FormLabel>
                                 <FormControl>
                                     <div className="relative">
                                         <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -248,17 +227,12 @@ function LoginForm() {
                         )}
                     />
 
-                    {/* Forgot Password Link */}
                     <div className="flex justify-end">
-                        <Link
-                            href="/forgot-password"
-                            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                        >
+                        <Link href="/forgot-password" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
                             Esqueceu a senha?
                         </Link>
                     </div>
 
-                    {/* Submit Button */}
                     <Button
                         type="submit"
                         disabled={isLoading}
@@ -279,19 +253,15 @@ function LoginForm() {
                 </form>
             </Form>
 
-            {/* Divider */}
             <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                    <span className="px-4 bg-white dark:bg-gray-800 text-gray-500">
-                        Ou continue com
-                    </span>
+                    <span className="px-4 bg-white dark:bg-gray-800 text-gray-500">Ou continue com</span>
                 </div>
             </div>
 
-            {/* Google Login */}
             <Button
                 type="button"
                 variant="outline"
@@ -303,14 +273,10 @@ function LoginForm() {
                 Entrar com Google
             </Button>
 
-            {/* Sign Up Link */}
             <div className="text-center pt-4 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                     Ainda não tem uma conta?{" "}
-                    <Link
-                        href="/register"
-                        className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
-                    >
+                    <Link href="/register" className="text-blue-600 dark:text-blue-400 hover:underline font-semibold">
                         Criar conta gratuita
                     </Link>
                 </p>
@@ -326,13 +292,11 @@ export default function LoginPage() {
     return (
         <AutoLoginWrapper>
             <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4 relative overflow-hidden">
-                {/* Decorative elements */}
                 <div className="absolute inset-0 overflow-hidden">
                     <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl"></div>
                     <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl"></div>
                 </div>
 
-                {/* Back to home button */}
                 <Link
                     href="/"
                     className="absolute top-6 left-6 flex items-center gap-2 text-white hover:text-blue-200 transition-colors group"
@@ -343,7 +307,6 @@ export default function LoginPage() {
 
                 <div className="relative w-full max-w-6xl mx-auto">
                     <div className="grid lg:grid-cols-2 gap-8 items-center">
-                        {/* Left Side - Branding */}
                         <div className="hidden lg:block text-white space-y-6">
                             <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full mb-4">
                                 <BsCashCoin className="text-yellow-300" size={24} />
@@ -375,10 +338,8 @@ export default function LoginPage() {
                             </div>
                         </div>
 
-                        {/* Right Side - Login Form */}
                         <Card className="bg-white dark:bg-gray-800 shadow-2xl border-0">
                             <CardHeader className="space-y-2 pb-6">
-                                {/* Mobile logo */}
                                 <div className="lg:hidden flex justify-center mb-4">
                                     <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full">
                                         <BsCashCoin size={20} />
@@ -395,7 +356,6 @@ export default function LoginPage() {
                             </CardHeader>
 
                             <CardContent className="space-y-6">
-                                {/* Wrap LoginForm com Suspense */}
                                 <Suspense fallback={
                                     <div className="text-center py-8">
                                         <Loader2 className="h-8 w-8 text-blue-600 animate-spin mx-auto" />

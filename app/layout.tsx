@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppProviders } from "@/components/providers/AppProviders";
+import { getSession } from "@/lib/auth";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -14,7 +15,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// VIEWPORT CONFIGURATION
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -39,11 +39,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+// ✅ Server Component — busca sessão no servidor antes de renderizar
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const session = await getSession();
+
   return (
     <html lang="pt-br" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <AppProviders>{children}</AppProviders>
+        <AppProviders session={session}>{children}</AppProviders>
       </body>
     </html>
   );
