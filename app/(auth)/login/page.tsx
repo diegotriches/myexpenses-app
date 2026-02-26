@@ -26,11 +26,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const loginSchema = z.object({
     email: z.string().email("Email inválido"),
     password: z.string().min(6, "A senha deve ter ao menos 6 caracteres"),
 });
+
+const REMEMBER_ME_KEY = "myexpenses_remember_me";
 
 // ============================================
 // 🔄 AUTO-LOGIN WRAPPER
@@ -67,7 +70,6 @@ function AutoLoginWrapper({ children }: { children: React.ReactNode }) {
         );
     }
 
-    // Não autenticado — mostra formulário
     return <>{children}</>;
 }
 
@@ -80,6 +82,13 @@ function LoginForm() {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [rememberMe, setRememberMe] = useState(() => {
+        // Recupera preferência salva anteriormente
+        if (typeof window !== "undefined") {
+            return localStorage.getItem(REMEMBER_ME_KEY) === "true";
+        }
+        return false;
+    });
 
     const form = useForm({
         resolver: zodResolver(loginSchema),
@@ -104,10 +113,14 @@ function LoginForm() {
                 SessionRequired: "É necessário fazer login para acessar esta página.",
                 Default: "Ocorreu um erro ao fazer login. Tente novamente.",
             };
-
             setError(errorMessages[errorParam] || errorMessages.Default);
         }
     }, [searchParams]);
+
+    function handleRememberMeChange(checked: boolean) {
+        setRememberMe(checked);
+        localStorage.setItem(REMEMBER_ME_KEY, String(checked));
+    }
 
     async function onSubmit(values: z.infer<typeof loginSchema>) {
         setIsLoading(true);
@@ -117,6 +130,7 @@ function LoginForm() {
             const result = await signIn("credentials", {
                 email: values.email,
                 password: values.password,
+                rememberMe: String(rememberMe),
                 redirect: false,
             });
 
@@ -227,7 +241,22 @@ function LoginForm() {
                         )}
                     />
 
-                    <div className="flex justify-end">
+                    {/* Lembrar de mim + Esqueceu a senha */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="remember-me"
+                                checked={rememberMe}
+                                onCheckedChange={handleRememberMeChange}
+                                disabled={isLoading}
+                            />
+                            <label
+                                htmlFor="remember-me"
+                                className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none"
+                            >
+                                Lembrar de mim
+                            </label>
+                        </div>
                         <Link href="/forgot-password" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
                             Esqueceu a senha?
                         </Link>
