@@ -4,7 +4,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/services/dashboardService";
 import { usePeriodo } from "@/contexts/PeriodoContext";
-import type { 
+import type {
   FiltrosExtrato,
   DadosGraficoMeses,
 } from "@/types/dashboard";
@@ -150,5 +150,18 @@ export function useSaldoHistorico(periodo: string) {
       return res.json() as Promise<{ mes: string; saldoTotal: number }[]>;
     },
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useFaturasAbertas() {
+  return useQuery({
+    queryKey: ["dashboard", "faturas-abertas"] as const,
+    queryFn: async () => {
+      const res = await fetch("/api/dashboard/faturas-abertas");
+      if (!res.ok) throw new Error("Erro ao buscar faturas abertas");
+      return res.json() as Promise<{ cartaoId: number; total: number; status: string; dataVencimento: string }[]>;
+    },
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 }
