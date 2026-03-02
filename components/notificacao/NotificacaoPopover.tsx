@@ -21,28 +21,32 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { Notificacao } from "@/types/notificacao";
 
-const severidadeConfig = {
-  info:    { color: "text-blue-500",   bg: "bg-blue-50 dark:bg-blue-950"   },
+const severidadeConfig: Record<string, { color: string; bg: string }> = {
+  info: { color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-950" },
+  aviso: { color: "text-yellow-500", bg: "bg-yellow-50 dark:bg-yellow-950" },
   warning: { color: "text-yellow-500", bg: "bg-yellow-50 dark:bg-yellow-950" },
-  error:   { color: "text-red-500",    bg: "bg-red-50 dark:bg-red-950"     },
-  success: { color: "text-green-500",  bg: "bg-green-50 dark:bg-green-950" },
+  erro: { color: "text-red-500", bg: "bg-red-50 dark:bg-red-950" },
+  error: { color: "text-red-500", bg: "bg-red-50 dark:bg-red-950" },
+  success: { color: "text-green-500", bg: "bg-green-50 dark:bg-green-950" },
 };
+
+const severidadeFallback = { color: "text-gray-500", bg: "bg-gray-50 dark:bg-gray-950" };
 
 // Chave usada no sessionStorage para garantir que /verificar
 // só é chamado uma vez por sessão de navegação
 const SESSION_KEY = "notificacoes_verificadas";
 
 export function NotificacaoPopover() {
-  const { data, isLoading }    = useNotificacoes(undefined, 10);
-  const marcarComoLida         = useMarcarNotificacaoLida();
-  const marcarTodasLidas       = useMarcarTodasNotificacoesLidas();
-  const verificarNotificacoes  = useVerificarNotificacoes();
+  const { data, isLoading } = useNotificacoes(undefined, 10);
+  const marcarComoLida = useMarcarNotificacaoLida();
+  const marcarTodasLidas = useMarcarTodasNotificacoesLidas();
+  const verificarNotificacoes = useVerificarNotificacoes();
 
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const notificacoes = data?.notificacoes || [];
-  const naoLidas     = data?.naoLidas     || 0;
+  const naoLidas = data?.naoLidas || 0;
 
   // ── Verificação automática ao montar (uma vez por sessão) ─────────────────
   useEffect(() => {
@@ -59,7 +63,7 @@ export function NotificacaoPopover() {
         sessionStorage.removeItem(SESSION_KEY);
       },
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleClickNotificacao = async (notif: Notificacao) => {
@@ -149,7 +153,7 @@ export function NotificacaoPopover() {
           ) : (
             <div className="divide-y divide-gray-200 dark:divide-gray-800">
               {notificacoes.slice(0, 5).map((notif) => {
-                const config = severidadeConfig[notif.severidade];
+                const config = severidadeConfig[notif.severidade] ?? severidadeFallback;
                 return (
                   <div
                     key={notif.id}
