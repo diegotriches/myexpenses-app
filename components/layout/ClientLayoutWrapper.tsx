@@ -24,6 +24,8 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
     pathname === "/reset-password" ||
     pathname === "/verify-email" ||
     pathname === "/contato" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
     pathname?.startsWith("/auth/") ||
     pathname?.includes("/404") ||
     pathname?.includes("/500");
@@ -44,8 +46,8 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
           transition-all duration-300 ease-in-out
           bg-gray-50 dark:bg-gray-950
           
-          ${!esconderNavbar 
-            ? isCollapsed 
+          ${!esconderNavbar
+            ? isCollapsed
               ? 'md:ml-0'
               : 'md:ml-64'
             : ''
