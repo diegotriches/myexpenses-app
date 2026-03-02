@@ -1,7 +1,7 @@
 "use client";
 
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,12 +29,8 @@ import PagarFaturaModal from "@/components/fatura/PagarFaturaModal";
 import AlertaFaturasPendentes from "@/components/fatura/AlertaFaturasPendentes";
 import { usePeriodo } from "@/contexts/PeriodoContext";
 
-// ============================================================================
-// CONSTANTES
-// ============================================================================
-
 const meses = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
@@ -45,12 +41,8 @@ const mesesAbreviados = [
 
 const hoje     = new Date();
 const diaAtual = hoje.getDate();
-const mesAtual = hoje.getMonth();    // 0-11
+const mesAtual = hoje.getMonth();
 const anoAtual = hoje.getFullYear();
-
-// ============================================================================
-// HELPERS
-// ============================================================================
 
 function calcularFaturaAtiva(diaFechamento: number): { mes: number; ano: number } {
   if (diaAtual >= diaFechamento) {
@@ -60,22 +52,18 @@ function calcularFaturaAtiva(diaFechamento: number): { mes: number; ano: number 
   return { mes: mesAtual, ano: anoAtual };
 }
 
-// ============================================================================
-// COMPONENTE
-// ============================================================================
-
 export default function FaturaPage() {
   const params       = useParams();
   const router       = useRouter();
-  const searchParams = useSearchParams();
   const { mesSelecionado, anoSelecionado, setMesSelecionado, setAnoSelecionado } = usePeriodo();
   const { id } = params as { id: string };
 
   const [modalAberto,    setModalAberto]    = useState(false);
   const [usuarioNavegou, setUsuarioNavegou] = useState(false);
+  const sincronizandoRef = useRef(false);
   const pagarFaturaMutation = usePagarFatura();
 
-  // ── Cleanup: restaura seletor para o mês atual ao sair da página ──────────
+  // Cleanup: restaura seletor para o mes atual ao sair da pagina
   useEffect(() => {
     return () => {
       setMesSelecionado(mesAtual);
@@ -84,25 +72,9 @@ export default function FaturaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Detecta navegação manual do seletor ───────────────────────────────────
-  // Quando o usuário altera o seletor após a sincronização automática,
-  // marcamos usuarioNavegou=true para impedir que o automático sobrescreva.
-  useEffect(() => {
-    if (!usuarioNavegou) return;
-    // Já marcado — não faz nada, apenas garante que automatico=false no useMemo
-  }, [mesSelecionado, anoSelecionado]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const { data: contas = [], isLoading: contasLoading } = useContas();
 
-  // ── Override via URL (?mes=1&ano=2026) ────────────────────────────────────
-  const mesUrl = searchParams.get("mes") ? Number(searchParams.get("mes")) - 1 : null; // 0-11
-  const anoUrl = searchParams.get("ano") ? Number(searchParams.get("ano"))     : null;
-  const temOverrideUrl = mesUrl !== null && anoUrl !== null;
-
-  // ── 1º fetch: período de referência (para obter cartão + diaFechamento) ───
-  const periodoRef = temOverrideUrl
-    ? { mes: mesUrl!, ano: anoUrl! }
-    : { mes: mesSelecionado, ano: anoSelecionado };
+  const periodoRef = { mes: mesSelecionado, ano: anoSelecionado };
 
   const {
     fatura,
@@ -116,56 +88,45 @@ export default function FaturaPage() {
     mes: periodoRef.mes + 1,
   });
 
-  // ── Período final ─────────────────────────────────────────────────────────
   const { mesFinal, anoFinal, automatico } = useMemo(() => {
-    // Prioridade 1: override via URL
-    if (temOverrideUrl) {
-      return { mesFinal: mesUrl!, anoFinal: anoUrl!, automatico: false };
-    }
-
-    // Prioridade 2: usuário navegou manualmente pelo seletor — respeita sempre
+    // Se o usuario navegou manualmente, respeita sempre o seletor
     if (usuarioNavegou) {
       return { mesFinal: mesSelecionado, anoFinal: anoSelecionado, automatico: false };
     }
-
-    // Prioridade 3: seletor global alterado antes de entrar na página
+    // Se o seletor ja esta em um mes diferente do atual (incluindo apos sync da URL)
     const seletorAlterado = mesSelecionado !== mesAtual || anoSelecionado !== anoAtual;
     if (seletorAlterado) {
       return { mesFinal: mesSelecionado, anoFinal: anoSelecionado, automatico: false };
     }
-
-    // Prioridade 4: cálculo automático pelo diaFechamento
+    // Calculo automatico pelo diaFechamento
     if (cartao?.diaFechamento) {
       const { mes, ano } = calcularFaturaAtiva(cartao.diaFechamento);
       return { mesFinal: mes, anoFinal: ano, automatico: true };
     }
-
-    // Fallback
     return { mesFinal: mesSelecionado, anoFinal: anoSelecionado, automatico: false };
-  }, [temOverrideUrl, mesUrl, anoUrl, mesSelecionado, anoSelecionado, cartao?.diaFechamento, usuarioNavegou]);
+  }, [mesSelecionado, anoSelecionado, cartao?.diaFechamento, usuarioNavegou]);
 
-  // ── Sincroniza o seletor global com o mês da fatura ativa ─────────────────
-  // Quando o período é calculado automaticamente, atualiza o seletor para que
-  // o TopMenu reflita o mês correto. Só executa uma vez (quando automatico=true
-  // e usuarioNavegou=false). Após isso, qualquer mudança no seletor pelo usuário
-  // define usuarioNavegou=true, bloqueando novas sincronizações automáticas.
+  // Sincroniza o seletor global com o mes da fatura ativa
   useEffect(() => {
     if (!automatico) return;
     if (mesFinal === mesSelecionado && anoFinal === anoSelecionado) return;
+    sincronizandoRef.current = true; // marca que e mudanca programatica
     setMesSelecionado(mesFinal);
     setAnoSelecionado(anoFinal);
   }, [automatico, mesFinal, anoFinal]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Detecta quando o usuário altera o seletor após a sincronização ────────
+  // Detecta navegacao MANUAL do seletor (ignora mudancas programaticas)
   useEffect(() => {
-    // Só ativa após a sincronização automática ter ocorrido
     if (!automatico) return;
-    setUsuarioNavegou(true);
+    if (sincronizandoRef.current) {
+      sincronizandoRef.current = false; // consome a flag, nao trava
+      return;
+    }
+    setUsuarioNavegou(true); // so chega aqui se foi o usuario
   }, [mesSelecionado, anoSelecionado]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const periodoMudou = mesFinal !== periodoRef.mes || anoFinal !== periodoRef.ano;
 
-  // ── 2º fetch: período final quando difere do de referência ────────────────
   const {
     fatura: faturaFinal,
     transacoes: transacoesFinal,
@@ -181,14 +142,12 @@ export default function FaturaPage() {
   const dadosTransacoes   = periodoMudou ? transacoesFinal   : transacoes;
   const dadosPorCategoria = periodoMudou ? porCategoriaFinal : porCategoria;
 
-  // ── Faturas pendentes (últimos 4 meses) ───────────────────────────────────
   const { pendentes, isLoading: pendentesLoading } = useFaturasPendentes(id);
 
   const pendentesOutrosMeses = pendentes.filter(
     (p) => !(p.mes === mesFinal + 1 && p.ano === anoFinal)
   );
 
-  // ── Fatura ativa de referência ────────────────────────────────────────────
   const faturaAtiva = useMemo(
     () => cartao?.diaFechamento ? calcularFaturaAtiva(cartao.diaFechamento) : null,
     [cartao?.diaFechamento]
@@ -199,7 +158,6 @@ export default function FaturaPage() {
     mesFinal === faturaAtiva.mes &&
     anoFinal === faturaAtiva.ano;
 
-  // ── Pagar fatura ──────────────────────────────────────────────────────────
   const handlePagarFatura = async (dados: { contaId: string; dataPagamento?: string }) => {
     await pagarFaturaMutation.mutateAsync({
       cartaoId: Number(id),
@@ -219,7 +177,7 @@ export default function FaturaPage() {
       <div className="max-w-3xl mx-auto p-4 md:p-6">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Parâmetros inválidos.</AlertDescription>
+          <AlertDescription>Parametros invalidos.</AlertDescription>
         </Alert>
       </div>
     );
@@ -256,7 +214,6 @@ export default function FaturaPage() {
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
 
-      {/* ── HEADER ── */}
       <div className="flex items-start gap-2 md:gap-4">
         <Button
           variant="ghost"
@@ -270,15 +227,15 @@ export default function FaturaPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
-              Fatura — {meses[mesFinal]} {anoFinal}
+              Fatura {meses[mesFinal]} {anoFinal}
             </h1>
 
             {cartao?.diaFechamento && (
-              <Badge className={`text-xs flex items-center gap-1 ${
+              <Badge className={"text-xs flex items-center gap-1 " + (
                 isExibindoFaturaAtiva && !dadosFatura?.paga
                   ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border border-green-200 dark:border-green-800"
                   : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
-              }`}>
+              )}>
                 {isExibindoFaturaAtiva && !dadosFatura?.paga
                   ? <><Unlock size={11} /> Fatura Aberta</>
                   : <><Lock   size={11} /> Fatura Fechada</>
@@ -289,47 +246,48 @@ export default function FaturaPage() {
 
           <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {cartao?.diaFechamento
-              ? `Fechamento dia ${cartao.diaFechamento} • Vencimento dia ${cartao.diaVencimento ?? "—"}`
+              ? "Fechamento dia " + cartao.diaFechamento + " • Vencimento dia " + (cartao.diaVencimento ?? "—")
               : "Visualize e gerencie sua fatura"}
           </p>
         </div>
       </div>
 
-      {/* ── ALERTA: faturas pendentes de outros meses ── */}
       {(pendentesOutrosMeses.length > 0 || pendentesLoading) && (
         <AlertaFaturasPendentes
           cartaoId={id}
           pendentes={pendentesOutrosMeses}
           isLoading={pendentesLoading}
+          onVerFatura={(mes, ano) => {
+            setUsuarioNavegou(true);
+            setMesSelecionado(mes);
+            setAnoSelecionado(ano);
+          }}
         />
       )}
 
-      {/* ── INFO: mês calculado automaticamente ── */}
       {automatico && cartao?.diaFechamento && (
         <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900 py-2.5">
           <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
           <AlertDescription className="text-xs text-blue-800 dark:text-blue-300">
             {diaAtual >= cartao.diaFechamento
-              ? `A fatura de ${mesesAbreviados[mesAtual]} fechou no dia ${cartao.diaFechamento}. Exibindo a fatura aberta de ${meses[mesFinal]} ${anoFinal}.`
-              : `Fatura aberta — fecha no dia ${cartao.diaFechamento} de ${meses[mesFinal]}.`
+              ? "A fatura de " + mesesAbreviados[mesAtual] + " fechou no dia " + cartao.diaFechamento + ". Exibindo a fatura aberta de " + meses[mesFinal] + " " + anoFinal + "."
+              : "Fatura aberta — fecha no dia " + cartao.diaFechamento + " de " + meses[mesFinal] + "."
             }
-            {" "}<span className="opacity-70">Use o seletor de período para ver outros meses.</span>
+            {" "}<span className="opacity-70">Use o seletor de periodo para ver outros meses.</span>
           </AlertDescription>
         </Alert>
       )}
 
-      {/* ── CARD DE RESUMO ── */}
       <Card className={
         dadosFatura?.paga
           ? "border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-900"
           : "border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-900"
       }>
         <CardContent className="p-4 md:p-6 space-y-4">
-          <Badge className={`${
-            dadosFatura?.paga
-              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-              : "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
-          } text-xs md:text-sm`}>
+          <Badge className={(dadosFatura?.paga
+            ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+            : "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
+          ) + " text-xs md:text-sm"}>
             {dadosFatura?.paga
               ? <><CheckCircle size={12} className="mr-1" /> Fatura Paga</>
               : <><AlertCircle size={12} className="mr-1" /> Em Aberto</>
@@ -346,7 +304,7 @@ export default function FaturaPage() {
           {!dadosFatura?.paga && dadosTransacoes.length > 0 && (
             <p className="text-xs text-gray-600 dark:text-gray-400">
               {dadosTransacoes.length}{" "}
-              {dadosTransacoes.length === 1 ? "transação" : "transações"} neste período
+              {dadosTransacoes.length === 1 ? "transacao" : "transacoes"} neste periodo
             </p>
           )}
 
@@ -371,7 +329,6 @@ export default function FaturaPage() {
         </CardContent>
       </Card>
 
-      {/* ── INSIGHT ── */}
       {categoriaComMaiorGasto && !faturaVazia && (
         <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-900">
           <PieChart className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
@@ -383,7 +340,6 @@ export default function FaturaPage() {
         </Alert>
       )}
 
-      {/* ── GRID: Categorias + Informações ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         <Card>
           <CardHeader className="pb-3">
@@ -432,16 +388,16 @@ export default function FaturaPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm md:text-base flex items-center gap-2">
               <Calendar size={16} className="text-blue-600" />
-              Informações
+              Informacoes
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 pt-0">
             {[
-              { icon: Receipt,  label: "Transações", value: dadosTransacoes.length },
+              { icon: Receipt,  label: "Transacoes", value: dadosTransacoes.length },
               { icon: PieChart, label: "Categorias",  value: categorias.length },
-              { icon: Calendar, label: "Período",     value: `${meses[mesFinal]}/${anoFinal}` },
+              { icon: Calendar, label: "Periodo",     value: meses[mesFinal] + "/" + anoFinal },
               ...(cartao?.diaFechamento
-                ? [{ icon: Lock, label: "Fechamento", value: `Dia ${cartao.diaFechamento}` }]
+                ? [{ icon: Lock, label: "Fechamento", value: "Dia " + cartao.diaFechamento }]
                 : []),
             ].map(({ icon: Icon, label, value }) => (
               <div
@@ -459,12 +415,11 @@ export default function FaturaPage() {
         </Card>
       </div>
 
-      {/* ── LISTA DE TRANSAÇÕES ── */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm md:text-base flex items-center gap-2">
             <Receipt size={16} className="text-blue-600" />
-            Transações ({dadosTransacoes.length})
+            Transacoes ({dadosTransacoes.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
@@ -472,10 +427,10 @@ export default function FaturaPage() {
             <div className="text-center py-8 md:py-12">
               <Receipt className="mx-auto mb-3 text-gray-300" size={40} />
               <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                Nenhuma transação encontrada
+                Nenhuma transacao encontrada
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                Não há transações para {meses[mesFinal]}/{anoFinal}
+                Nao ha transacoes para {meses[mesFinal]}/{anoFinal}
               </p>
             </div>
           ) : (
@@ -488,7 +443,6 @@ export default function FaturaPage() {
         </CardContent>
       </Card>
 
-      {/* ── MODAL ── */}
       <PagarFaturaModal
         aberto={modalAberto}
         onClose={() => setModalAberto(false)}
