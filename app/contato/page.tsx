@@ -220,7 +220,7 @@ export default function ContatoPage() {
               <div>
                 <p className="font-medium text-white">Email:</p>
                 <a 
-                  href="mailto:contato@myexpenses.com" 
+                  href="mailto:myexpenses.noreply@gmail.com"
                   className="hover:text-white hover:underline transition-colors"
                 >
                   myexpenses@gmail.com

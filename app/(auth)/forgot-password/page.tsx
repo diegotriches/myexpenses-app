@@ -234,7 +234,7 @@ export default function ForgotPasswordPage() {
         <div className="mt-8 text-center text-white space-y-2">
           <p className="text-sm">Ainda precisa de ajuda?</p>
           <Link
-            href="mailto:suporte@myexpenses.com"
+            href="mailto:myexpenses.noreply@gmail.com"
             className="text-sm text-blue-200 hover:text-white hover:underline font-medium"
           >
             Entre em contato com o suporte
