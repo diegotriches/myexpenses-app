@@ -216,18 +216,24 @@ export function CardLimiteCredito() {
           </div>
         )}
 
-        {/* ── Limite utilizado / disponivel (compacto) ── */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* ── Limite utilizado / disponivel / total (compacto) ── */}
+        <div className="grid grid-cols-3 gap-2">
           <div className="space-y-0.5">
             <p className="text-xs text-gray-500 dark:text-gray-400">Utilizado</p>
-            <p className={"text-base font-bold " + texto}>
+            <p className={"text-sm font-bold " + texto}>
               {formatarMoeda(usadoExibido)}
             </p>
           </div>
           <div className="space-y-0.5">
             <p className="text-xs text-gray-500 dark:text-gray-400">Disponivel</p>
-            <p className="text-base font-bold text-blue-600 dark:text-blue-400">
+            <p className="text-sm font-bold text-blue-600 dark:text-blue-400">
               {formatarMoeda(disponivelExibido)}
+            </p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-xs text-gray-500 dark:text-gray-400">Total</p>
+            <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
+              {formatarMoeda(limiteExibido)}
             </p>
           </div>
         </div>
@@ -247,16 +253,6 @@ export function CardLimiteCredito() {
             <Badge className={"text-xs px-2 py-0 h-5 font-medium border-0 " + badge}>
               {percentualExibido >= 80 ? "Alto uso" : percentualExibido >= 50 ? "Uso moderado" : "Uso baixo"}
             </Badge>
-          </div>
-        </div>
-
-        {/* ── Limite total ── */}
-        <div className="pt-0.5 border-t border-gray-100 dark:border-gray-700">
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-400 dark:text-gray-500">Limite total</span>
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-              {formatarMoeda(limiteExibido)}
-            </span>
           </div>
         </div>
 
