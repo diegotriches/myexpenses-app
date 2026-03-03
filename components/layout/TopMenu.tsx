@@ -2,11 +2,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { signOut } from "next-auth/react";
 import { BsList, BsChevronLeft, BsCalculatorFill } from "react-icons/bs";
-import { Sun, Moon, LogOut, ChevronRight, MoreVertical } from "lucide-react";
+import { Sun, Moon, LogOut, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -35,12 +35,10 @@ interface TopMenuProps {
 }
 
 const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [calculadoraOpen, setCalculadoraOpen] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
     setMounted(true);
@@ -56,31 +54,6 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
       redirect: true,
     });
   };
-
-  // Gerar breadcrumbs baseado na rota
-  const getBreadcrumbs = () => {
-    const paths = pathname.split("/").filter(Boolean);
-    const labels: Record<string, string> = {
-      dashboard: "Dashboard",
-      transacoes: "Movimentações",
-      contas: "Contas",
-      cartoes: "Cartões",
-      fatura: "Fatura",
-      categorias: "Categorias",
-      ajustes: "Ajustes",
-      perfil: "Perfil",
-      extrato: "Extrato",
-      configuracoes: "Configurações",
-    };
-
-    return paths.map((path, index) => ({
-      label: labels[path] || path,
-      href: "/" + paths.slice(0, index + 1).join("/"),
-      isLast: index === paths.length - 1,
-    }));
-  };
-
-  const breadcrumbs = getBreadcrumbs();
 
   if (!mounted) {
     return (
@@ -106,9 +79,6 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
 
   return (
     <>
-      {/* ============================================
-          HEADER
-          ============================================ */}
       <header
         className={`
           fixed top-0 right-0 h-16
@@ -116,7 +86,6 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
           border-b border-gray-200 dark:border-gray-700
           shadow-sm z-30
           transition-all duration-300
-
           left-0
           md:left-20
           ${isCollapsed ? "lg:left-20" : "lg:left-64"}
@@ -158,39 +127,6 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
             >
               {isCollapsed ? <BsList size={20} /> : <BsChevronLeft size={20} />}
             </Button>
-
-            {/* Breadcrumbs - desktop */}
-            <nav
-              className="hidden lg:flex items-center gap-2 text-sm"
-              aria-label="Breadcrumb"
-            >
-              {breadcrumbs.map((crumb, index) => (
-                <div key={crumb.href} className="flex items-center gap-2">
-                  {index > 0 && (
-                    <ChevronRight
-                      size={14}
-                      className="text-gray-400 dark:text-gray-600"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {crumb.isLast ? (
-                    <span
-                      className="font-semibold text-gray-900 dark:text-white"
-                      aria-current="page"
-                    >
-                      {crumb.label}
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => router.push(crumb.href)}
-                      className="text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
-                    >
-                      {crumb.label}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </nav>
           </div>
 
           {/* ── CENTER ── */}
@@ -292,7 +228,6 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
                   align="end"
                   className="w-48 dark:bg-gray-800 dark:border-gray-700"
                 >
-                  {/* Modo claro/escuro */}
                   <DropdownMenuItem
                     onClick={alternarModo}
                     className="flex items-center gap-3 h-11 cursor-pointer dark:hover:bg-gray-700 dark:text-gray-200"
@@ -310,7 +245,6 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
                     )}
                   </DropdownMenuItem>
 
-                  {/* Calculadora */}
                   <DropdownMenuItem
                     onClick={() => setCalculadoraOpen(true)}
                     className="flex items-center gap-3 h-11 cursor-pointer dark:hover:bg-gray-700 dark:text-gray-200"
@@ -324,7 +258,6 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
 
                   <DropdownMenuSeparator className="dark:bg-gray-700" />
 
-                  {/* Sair */}
                   <DropdownMenuItem
                     onClick={() => setShowLogoutDialog(true)}
                     className="flex items-center gap-3 h-11 cursor-pointer text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
