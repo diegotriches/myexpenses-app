@@ -159,7 +159,7 @@ export function useFaturasAbertas() {
     queryFn: async () => {
       const res = await fetch("/api/dashboard/faturas-abertas");
       if (!res.ok) throw new Error("Erro ao buscar faturas abertas");
-      return res.json() as Promise<{ cartaoId: number; total: number; status: string; dataVencimento: string }[]>;
+      return res.json() as Promise<{ cartaoId: number; mes: number; ano: number; total: number; status: string; dataVencimento: string }[]>;
     },
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: true,

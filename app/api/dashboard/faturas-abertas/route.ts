@@ -8,6 +8,8 @@ import { calcularPeriodoFatura, calcularDataVencimento } from "@/utils/faturaUti
 
 export interface FaturaAbertaItem {
   cartaoId: number;
+  mes: number;
+  ano: number;
   total: number;
   status: "EM_ABERTO" | "ATRASADA";
   dataVencimento: string;
@@ -87,6 +89,8 @@ export async function GET() {
 
       resultado.push({
         cartaoId: cartao.id,
+        mes,
+        ano,
         total,
         status,
         dataVencimento: dataVencimentoStr,
