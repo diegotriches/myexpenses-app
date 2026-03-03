@@ -2,23 +2,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { extratoConta, contas } from "@/db/schema";
-import { eq, and, lte, desc } from "drizzle-orm";
+import { eq, and, lte } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 
 /**
- * GET /api/dashboard/saldo-historico
+ * GET /api/dashboard/saldo-historico?periodo=6
  *
- * Query Params:
- * - periodo: número de meses (padrão: "6", máx: 12)
+ * Retorna o saldo total consolidado de todas as contas mes a mes.
  *
- * Retorna o saldo total consolidado de todas as contas mês a mês:
- * [{ mes: "2026-01", saldoTotal: 5000.00 }]
+ * OTIMIZADO: busca todos os extratos de uma vez com uma unica query,
+ * depois agrupa em memoria por conta/mes — eliminando o loop N x M.
  */
 export async function GET(req: NextRequest) {
   try {
     const userId = await getUserId();
     if (!userId) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+      return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });
     }
 
     const periodoParam = req.nextUrl.searchParams.get("periodo") || "6";
@@ -26,12 +25,12 @@ export async function GET(req: NextRequest) {
 
     if (isNaN(numMeses) || numMeses < 1 || numMeses > 12) {
       return NextResponse.json(
-        { error: "Período inválido (1-12 meses)" },
+        { error: "Periodo invalido (1-12 meses)" },
         { status: 400 }
       );
     }
 
-    // Buscar todas as contas ativas do usuário
+    // 1. Buscar contas ativas
     const contasUsuario = await db
       .select()
       .from(contas)
@@ -41,65 +40,99 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([]);
     }
 
-    // Gerar array dos últimos N meses
+    // 2. Gerar meses e calcular data de corte (inicio do periodo)
     const hoje = new Date();
-    const meses: { ano: number; mes: number; label: string }[] = [];
+    const meses: { ano: number; mes: number; label: string; fimMes: string }[] = [];
+
     for (let i = numMeses - 1; i >= 0; i--) {
       const data = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
       const ano = data.getFullYear();
       const mes = data.getMonth() + 1;
+      const ultimoDia = new Date(ano, mes, 0).getDate();
       meses.push({
         ano,
         mes,
-        label: `${ano}-${String(mes).padStart(2, "0")}`,
+        label: ano + "-" + String(mes).padStart(2, "0"),
+        fimMes: ano + "-" + String(mes).padStart(2, "0") + "-" + ultimoDia,
       });
     }
 
-    // Para cada mês, calcular o saldo total de todas as contas
-    // Estratégia: pegar a última movimentação de cada conta até o fim do mês
-    const resultado = await Promise.all(
-      meses.map(async ({ ano, mes, label }) => {
-        // Último dia do mês
-        const fimMes = `${ano}-${String(mes).padStart(2, "0")}-${new Date(ano, mes, 0).getDate()}`;
+    // Data de corte: fim do ultimo mes do periodo
+    const fimPeriodo = meses[meses.length - 1].fimMes;
 
-        let saldoTotal = 0;
+    // 3. UMA UNICA QUERY: todos os extratos de todas as contas ate o fim do periodo
+    const todosExtratos = await db
+      .select({
+        contaId: extratoConta.contaId,
+        data: extratoConta.data,
+        saldoApos: extratoConta.saldoApos,
+        createdAt: extratoConta.createdAt,
+      })
+      .from(extratoConta)
+      .where(
+        and(
+          eq(extratoConta.userId, userId),
+          lte(extratoConta.data, fimPeriodo)
+        )
+      )
+      .orderBy(extratoConta.data, extratoConta.createdAt);
 
-        for (const conta of contasUsuario) {
-          // Última movimentação da conta até o fim do mês
-          const [ultimaMov] = await db
-            .select({ saldoApos: extratoConta.saldoApos })
-            .from(extratoConta)
-            .where(
-              and(
-                eq(extratoConta.contaId, conta.id),
-                eq(extratoConta.userId, userId),
-                lte(extratoConta.data, fimMes)
-              )
-            )
-            .orderBy(desc(extratoConta.data), desc(extratoConta.createdAt))
-            .limit(1);
+    // 4. Agrupar extratos por contaId em memoria
+    // Map<contaId, array de movimentacoes ordenadas por data>
+    const extratosPorConta = new Map<string, { data: string; saldoApos: number; createdAt: Date }[]>();
 
-          if (ultimaMov) {
-            // Usa o saldo registrado no extrato
-            saldoTotal += Number(ultimaMov.saldoApos);
+    for (const e of todosExtratos) {
+      const lista = extratosPorConta.get(e.contaId) ?? [];
+      lista.push({
+        data: typeof e.data === "string" ? e.data : (e.data as Date).toISOString().split("T")[0],
+        saldoApos: Number(e.saldoApos),
+        createdAt: e.createdAt instanceof Date ? e.createdAt : new Date(e.createdAt),
+      });
+      extratosPorConta.set(e.contaId, lista);
+    }
+
+    // Saldo inicial por conta (usado quando nao ha movimentacao no periodo)
+    const saldoInicialMap = new Map(
+      contasUsuario.map((c) => [c.id, Number(c.saldoInicial)])
+    );
+
+    // 5. Calcular saldo por mes em memoria — zero queries adicionais
+    const resultado = meses.map(({ label, fimMes }) => {
+      let saldoTotal = 0;
+
+      for (const conta of contasUsuario) {
+        const movimentacoes = extratosPorConta.get(conta.id) ?? [];
+
+        // Pegar a ultima movimentacao ate o fim do mes
+        // (lista ja esta ordenada por data asc)
+        let ultimoSaldo: number | null = null;
+        for (const mov of movimentacoes) {
+          if (mov.data <= fimMes) {
+            ultimoSaldo = mov.saldoApos;
           } else {
-            // Sem movimentações até esse mês — usa saldo inicial da conta
-            saldoTotal += Number(conta.saldoInicial);
+            break;
           }
         }
 
-        return {
-          mes: label,
-          saldoTotal: Math.round(saldoTotal * 100) / 100,
-        };
-      })
-    );
+        if (ultimoSaldo !== null) {
+          saldoTotal += ultimoSaldo;
+        } else {
+          // Sem movimentacoes ate esse mes — usa saldo inicial
+          saldoTotal += saldoInicialMap.get(conta.id) ?? 0;
+        }
+      }
+
+      return {
+        mes: label,
+        saldoTotal: Math.round(saldoTotal * 100) / 100,
+      };
+    });
 
     return NextResponse.json(resultado);
   } catch (error: any) {
-    console.error("Erro ao buscar histórico de saldo:", error);
+    console.error("Erro ao buscar historico de saldo:", error);
     return NextResponse.json(
-      { error: error.message || "Erro ao buscar histórico de saldo" },
+      { error: error.message || "Erro ao buscar historico de saldo" },
       { status: 500 }
     );
   }
