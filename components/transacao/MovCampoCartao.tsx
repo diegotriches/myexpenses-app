@@ -8,8 +8,10 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { useCartoes } from "@/hooks/useCartoes";
+import { useContas } from "@/hooks/useContas";
+import { TrendingDown } from "lucide-react";
 import { empresaOptions } from "@/utils/cartaoOptions";
-import { CreditCard, Calendar, AlertCircle, Wallet } from "lucide-react";
+import { CreditCard, AlertCircle, Wallet } from "lucide-react";
 
 interface Props {
   form: {
@@ -61,6 +63,11 @@ export default function MovCampoCartao({
       ? Number(cartaoSelecionado.limiteDisponivel) - (parseFloat(form.valor) || 0)
       : null;
 
+  const { data: contas = [] } = useContas();
+  const contaVinculada = cartaoSelecionado?.tipo === "debito" && cartaoSelecionado.contaVinculadaId
+    ? contas.find((c) => c.id === cartaoSelecionado.contaVinculadaId) ?? null
+    : null;
+
   const formatarMoeda = (valor: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
@@ -75,56 +82,68 @@ export default function MovCampoCartao({
 
   const infoBoxContent = cartaoSelecionado && (
     <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 space-y-2">
-      {cartaoSelecionado.tipo === "credito" ? (
+      {cartaoSelecionado.tipo === "debito" && contaVinculada && form.valor && parseFloat(form.valor) > 0 && (
         <>
-          {form.valor && parseFloat(form.valor) > 0 && (
-            <>
-              <div className="flex gap-2">
-                <div className="flex-1 bg-white dark:bg-gray-900 rounded-md p-3 text-center">
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Disponível</div>
-                  <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {formatarMoeda(Number(cartaoSelecionado.limiteDisponivel))}
-                  </div>
-                </div>
-                <div className="flex-1 bg-white dark:bg-gray-900 rounded-md p-3 text-center">
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Esta compra</div>
-                  <div className="text-sm font-semibold text-purple-600 dark:text-purple-400">
-                    -{formatarMoeda(parseFloat(form.valor))}
-                  </div>
-                </div>
-                <div className="flex-1 bg-white dark:bg-gray-900 rounded-md p-3 text-center">
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Após compra</div>
-                  <div className={`text-sm font-bold ${limiteProjetado! >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                    {formatarMoeda(limiteProjetado!)}
-                  </div>
-                </div>
-              </div>
-              {limiteProjetado! < 0 && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-2 flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                  <span className="text-xs text-red-800 dark:text-red-300">Esta compra ultrapassará o limite do cartão</span>
-                </div>
-              )}
-            </>
-          )}
-          {cartaoSelecionado.diaVencimento && (
-            <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-md p-2 flex items-start gap-2">
-              <Calendar className="h-4 w-4 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
-              <div className="text-xs text-purple-800 dark:text-purple-300">
-                <p className="font-medium">Cartão de crédito</p>
-                <p className="mt-0.5">O valor será cobrado na fatura. Vencimento: dia {cartaoSelecionado.diaVencimento}</p>
-              </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600 dark:text-gray-400">Saldo atual:</span>
+            <span className="font-medium text-gray-900 dark:text-white">
+              {formatarMoeda(Number(contaVinculada.saldoAtual))}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
+              <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
+              <span>Despesa:</span>
+            </div>
+            <span className="font-medium text-red-600 dark:text-red-400">
+              -{formatarMoeda(parseFloat(form.valor))}
+            </span>
+          </div>
+          <div className="border-t border-gray-300 dark:border-gray-600 pt-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-900 dark:text-white">Saldo projetado:</span>
+            <span className={`font-semibold ${Number(contaVinculada.saldoAtual) - parseFloat(form.valor) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+              {formatarMoeda(Number(contaVinculada.saldoAtual) - parseFloat(form.valor))}
+            </span>
+          </div>
+          {Number(contaVinculada.saldoAtual) - parseFloat(form.valor) < 0 && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-2 flex items-start gap-2">
+              <Wallet className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+              <span className="text-xs text-yellow-800 dark:text-yellow-300">
+                Esta transação deixará sua conta com saldo negativo
+              </span>
             </div>
           )}
         </>
-      ) : (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-2 flex items-start gap-2">
-          <Wallet className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-          <div className="text-xs text-blue-800 dark:text-blue-300">
-            <p className="font-medium">Cartão de débito</p>
-            <p className="mt-0.5">O valor será descontado imediatamente da conta vinculada ao cartão</p>
+      )}
+      {cartaoSelecionado.tipo === "credito" && form.valor && parseFloat(form.valor) > 0 && (
+        <>
+          <div className="flex gap-2">
+            <div className="flex-1 bg-white dark:bg-gray-900 rounded-md p-3 text-center">
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Disponível</div>
+              <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                {formatarMoeda(Number(cartaoSelecionado.limiteDisponivel))}
+              </div>
+            </div>
+            <div className="flex-1 bg-white dark:bg-gray-900 rounded-md p-3 text-center">
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Esta compra</div>
+              <div className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+                -{formatarMoeda(parseFloat(form.valor))}
+              </div>
+            </div>
+            <div className="flex-1 bg-white dark:bg-gray-900 rounded-md p-3 text-center">
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Após compra</div>
+              <div className={`text-sm font-bold ${limiteProjetado! >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                {formatarMoeda(limiteProjetado!)}
+              </div>
+            </div>
           </div>
-        </div>
+          {limiteProjetado! < 0 && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-2 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <span className="text-xs text-red-800 dark:text-red-300">Esta compra ultrapassará o limite do cartão</span>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
