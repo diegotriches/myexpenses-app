@@ -32,7 +32,7 @@ function CartaoIcone({
   size?: "sm" | "md";
 }) {
   const imgSrc = empresaOptions.find((e) => e.value === empresa)?.imgSrc;
-  const dim = size === "sm" ? "w-8 h-8" : "w-10 h-10";
+  const dim = size === "sm" ? "w-6 h-6" : "w-10 h-10";
   const iconSize = size === "sm" ? "h-4 w-4" : "h-5 w-5";
 
   if (imgSrc) {
@@ -142,7 +142,7 @@ export default function MovCampoCartao({
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-900 dark:text-white">Cartão</label>
         <Select value={form.cartaoId} onValueChange={(v) => update("cartaoId", v)}>
-          <SelectTrigger className={`dark:bg-gray-800 dark:border-gray-700 ${triggerErrorClass}`}>
+          <SelectTrigger className={`h-12 dark:bg-gray-800 dark:border-gray-700 ${triggerErrorClass}`}>
             <SelectValue placeholder="Selecione o cartão">
               {cartaoSelecionado && (
                 <div className="flex items-center gap-2">
