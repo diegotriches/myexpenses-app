@@ -15,13 +15,12 @@ interface Props {
   update: (k: string, v: any) => void;
   campo: "tipo" | "data" | "valor" | "descricao";
   disabled?: boolean;
+  error?: string;
 }
 
-export default function MovCamposBasicos({ form, update, campo, disabled }: Props) {
-  // Estado para input calculadora do valor
+export default function MovCamposBasicos({ form, update, campo, disabled, error }: Props) {
   const [valorDigitos, setValorDigitos] = useState("");
 
-  // Sincroniza valorDigitos com form.valor quando necessário
   useEffect(() => {
     if (campo === "valor" && form.valor) {
       const valorEmCentavos = Math.round(parseFloat(form.valor) * 100);
@@ -29,7 +28,6 @@ export default function MovCamposBasicos({ form, update, campo, disabled }: Prop
     }
   }, []);
 
-  // ✅ Formatação monetária tipo calculadora
   const formatarValorCalculadora = (digitos: string): string => {
     if (!digitos) return "0,00";
     const valorEmCentavos = parseInt(digitos, 10);
@@ -37,19 +35,15 @@ export default function MovCamposBasicos({ form, update, campo, disabled }: Prop
     return valorEmReais.toFixed(2).replace(".", ",");
   };
 
-  // Handler do input calculadora
   const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const apenasNumeros = e.target.value.replace(/\D/g, "");
-    
-    // Limita a 10 dígitos (R$ 99.999.999,99)
     const limitado = apenasNumeros.slice(0, 10);
-    
     setValorDigitos(limitado);
-    
-    // Converte para valor decimal e atualiza o form
     const valorEmReais = limitado ? (parseInt(limitado, 10) / 100).toFixed(2) : "";
     update("valor", valorEmReais);
   };
+
+  const errorClass = error ? "border-red-500 dark:border-red-500 focus-visible:ring-red-500" : "";
 
   switch (campo) {
     case "tipo":
@@ -58,8 +52,7 @@ export default function MovCamposBasicos({ form, update, campo, disabled }: Prop
           <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Tipo de Transação <span className="text-red-500">*</span>
           </Label>
-          <div className="grid grid-cols-2 gap-3">
-            {/* Botão Receita */}
+          <div className={`grid grid-cols-2 gap-3 ${error ? "ring-2 ring-red-500 ring-offset-2 rounded-lg" : ""}`}>
             <button
               type="button"
               onClick={() => !disabled && update("tipo", "entrada")}
@@ -67,33 +60,18 @@ export default function MovCamposBasicos({ form, update, campo, disabled }: Prop
               className={`
                 h-20 border-2 rounded-lg transition-all duration-200
                 flex flex-col items-center justify-center gap-2
-                ${
-                  form.tipo === "entrada"
-                    ? "border-green-500 bg-green-50 dark:bg-green-950 dark:border-green-400"
-                    : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-600"
+                ${form.tipo === "entrada"
+                  ? "border-green-500 bg-green-50 dark:bg-green-950 dark:border-green-400"
+                  : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-600"
                 }
                 ${disabled ? "opacity-50 cursor-not-allowed" : ""}
               `}
             >
-              <TrendingUp
-                className={`h-7 w-7 ${
-                  form.tipo === "entrada"
-                    ? "text-green-600 dark:text-green-400"
-                    : "text-gray-400 dark:text-gray-500"
-                }`}
-              />
-              <span
-                className={`text-sm font-medium ${
-                  form.tipo === "entrada"
-                    ? "text-green-700 dark:text-green-300"
-                    : "text-gray-600 dark:text-gray-400"
-                }`}
-              >
+              <TrendingUp className={`h-7 w-7 ${form.tipo === "entrada" ? "text-green-600 dark:text-green-400" : "text-gray-400 dark:text-gray-500"}`} />
+              <span className={`text-sm font-medium ${form.tipo === "entrada" ? "text-green-700 dark:text-green-300" : "text-gray-600 dark:text-gray-400"}`}>
                 Receita
               </span>
             </button>
-
-            {/* Botão Despesa */}
             <button
               type="button"
               onClick={() => !disabled && update("tipo", "saida")}
@@ -101,32 +79,20 @@ export default function MovCamposBasicos({ form, update, campo, disabled }: Prop
               className={`
                 h-20 border-2 rounded-lg transition-all duration-200
                 flex flex-col items-center justify-center gap-2
-                ${
-                  form.tipo === "saida"
-                    ? "border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400"
-                    : "border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-600"
+                ${form.tipo === "saida"
+                  ? "border-red-500 bg-red-50 dark:bg-red-950 dark:border-red-400"
+                  : "border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-600"
                 }
                 ${disabled ? "opacity-50 cursor-not-allowed" : ""}
               `}
             >
-              <TrendingDown
-                className={`h-7 w-7 ${
-                  form.tipo === "saida"
-                    ? "text-red-600 dark:text-red-400"
-                    : "text-gray-400 dark:text-gray-500"
-                }`}
-              />
-              <span
-                className={`text-sm font-medium ${
-                  form.tipo === "saida"
-                    ? "text-red-700 dark:text-red-300"
-                    : "text-gray-600 dark:text-gray-400"
-                }`}
-              >
+              <TrendingDown className={`h-7 w-7 ${form.tipo === "saida" ? "text-red-600 dark:text-red-400" : "text-gray-400 dark:text-gray-500"}`} />
+              <span className={`text-sm font-medium ${form.tipo === "saida" ? "text-red-700 dark:text-red-300" : "text-gray-600 dark:text-gray-400"}`}>
                 Despesa
               </span>
             </button>
           </div>
+          {error && <p className="text-xs text-red-500 flex items-center gap-1 mt-1">⚠ {error}</p>}
         </div>
       );
 
@@ -141,9 +107,10 @@ export default function MovCamposBasicos({ form, update, campo, disabled }: Prop
             type="date"
             value={form.data}
             onChange={(e) => update("data", e.target.value)}
-            className="dark:bg-gray-800 dark:border-gray-700 dark:text-white h-12"
+            className={`dark:bg-gray-800 dark:border-gray-700 dark:text-white h-12 ${errorClass}`}
             disabled={disabled}
           />
+          {error && <p className="text-xs text-red-500 flex items-center gap-1">⚠ {error}</p>}
         </div>
       );
 
@@ -163,10 +130,11 @@ export default function MovCamposBasicos({ form, update, campo, disabled }: Prop
               inputMode="numeric"
               value={formatarValorCalculadora(valorDigitos)}
               onChange={handleValorChange}
-              className="pl-12 pr-4 dark:bg-gray-800 dark:border-gray-700 dark:text-white font-semibold text-lg h-12"
+              className={`pl-12 pr-4 dark:bg-gray-800 dark:border-gray-700 dark:text-white font-semibold text-lg h-12 ${errorClass}`}
               placeholder="0,00"
             />
           </div>
+          {error && <p className="text-xs text-red-500 flex items-center gap-1">⚠ {error}</p>}
         </div>
       );
 

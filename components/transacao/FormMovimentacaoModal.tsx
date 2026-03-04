@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
 import {
@@ -39,6 +38,12 @@ import { FaMoneyBill, FaSpinner, FaSyncAlt } from "react-icons/fa";
 import { AlertCircle, Minus, Plus } from "lucide-react";
 
 type TipoPagamento = "avista" | "parcelado" | "recorrente";
+
+// Erros por campo
+type FormErrors = Partial<Record<
+  "categoria" | "valor" | "data" | "conta" | "cartao" | "parcelas" | "repeticoes",
+  string
+>>;
 
 interface Props {
   open: boolean;
@@ -88,7 +93,7 @@ export default function FormMovimentacaoModal({
 }: Props) {
   const isEdit = Boolean(transacaoEdicao);
   const [form, setForm] = useState<FormState>(initialForm);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FormErrors>({});
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => {
@@ -98,7 +103,16 @@ export default function FormMovimentacaoModal({
       }
       return updated;
     });
-    setError(null);
+
+    // Limpa o erro do campo que foi alterado
+    const campoErro = key === "contaId" ? "conta" : key === "cartaoId" ? "cartao" : key as keyof FormErrors;
+    if (campoErro in ({} as FormErrors) || ["categoria","valor","data","conta","cartao","parcelas","repeticoes"].includes(campoErro)) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[campoErro as keyof FormErrors];
+        return next;
+      });
+    }
   };
 
   const updateAny = (key: string, value: any) => {
@@ -110,10 +124,6 @@ export default function FormMovimentacaoModal({
     if (form.recorrente) return "recorrente";
     return "avista";
   }, [form.parcelado, form.recorrente]);
-
-  const textoFormaPagamento = useMemo(() => {
-    return form.tipo === "entrada" ? "Forma de Recebimento" : "Forma de Pagamento";
-  }, [form.tipo]);
 
   const opcoesFormaPagamento = useMemo(() => {
     if (form.tipo === "entrada") return ["dinheiro", "pix"] as const;
@@ -133,15 +143,14 @@ export default function FormMovimentacaoModal({
   const bloqueiaCampos = useMemo(() => {
     if (!transacaoEdicao || !modoEdicao) return {};
     const editarTodos = modoEdicao === "todas_parcelas" || modoEdicao === "toda_recorrencia";
-    // ✅ Edição de ocorrência única de recorrente: trava tipo de pagamento em "à vista"
     const unicaOcorrencia = modoEdicao === "unica" && !!transacaoEdicao.recorrente;
     return {
-      tipo:           isEdit || editarTodos, // ✅ sempre travado na edição
-      data:           editarTodos,
+      tipo: isEdit || editarTodos,
+      data: editarTodos,
       formaPagamento: editarTodos,
-      tipoPagamento:  unicaOcorrencia, // ✅ trava o Select de parcelado/recorrente
-      parcelas:       false,
-      repeticoes:     false,
+      tipoPagamento: unicaOcorrencia,
+      parcelas: false,
+      repeticoes: false,
     };
   }, [transacaoEdicao, modoEdicao]);
 
@@ -155,14 +164,12 @@ export default function FormMovimentacaoModal({
   useEffect(() => {
     if (!transacaoEdicao) {
       setForm(initialForm);
-      setError(null);
+      setErrors({});
       return;
     }
 
     const valorFormulario =
-      modoEdicao === "todas_parcelas" &&
-        transacaoEdicao.parcelado &&
-        transacaoEdicao.parcelas
+      modoEdicao === "todas_parcelas" && transacaoEdicao.parcelado && transacaoEdicao.parcelas
         ? Number(transacaoEdicao.valor) * transacaoEdicao.parcelas
         : Number(transacaoEdicao.valor ?? "");
 
@@ -179,35 +186,37 @@ export default function FormMovimentacaoModal({
         ? (transacaoEdicao.formaPagamento as "dinheiro" | "pix" | "cartao")
         : "dinheiro",
       cartaoId: transacaoEdicao.cartaoId ? String(transacaoEdicao.cartaoId) : "",
-      // ✅ Edição de ocorrência única: força à vista e ignora recorrência original
-      parcelado:  modoEdicao === "unica" && transacaoEdicao.recorrente ? false : (transacaoEdicao.parcelado ?? false),
-      parcelas:   transacaoEdicao.parcelas ?? 1,
+      parcelado: modoEdicao === "unica" && transacaoEdicao.recorrente ? false : (transacaoEdicao.parcelado ?? false),
+      parcelas: transacaoEdicao.parcelas ?? 1,
       recorrente: modoEdicao === "unica" && transacaoEdicao.recorrente ? false : (transacaoEdicao.recorrente ?? false),
       repeticoes: transacaoEdicao.repeticoes ?? 1,
     });
+    setErrors({});
   }, [transacaoEdicao, open, modoEdicao]);
 
-  const validateForm = (): string | null => {
-    if (!form.categoria) return "Selecione uma categoria";
-    if (!form.valor || parseFloat(form.valor) <= 0) return "Informe um valor válido";
-    if (!form.data) return "Selecione uma data";
-    if (mostrarCampoConta && !form.contaId) return "Selecione uma conta";
-    if (mostrarCampoCartao && !form.cartaoId) return "Selecione um cartão";
-    if (form.parcelado && form.parcelas < 2) return "Parcelas deve ser maior que 1";
-    if (form.recorrente && form.repeticoes < 2) return "Repetições deve ser maior que 1";
-    return null;
+  // Valida todos os campos e retorna objeto de erros (vazio = sem erros)
+  const validateForm = (): FormErrors => {
+    const erros: FormErrors = {};
+    if (!form.categoria) erros.categoria = "Selecione uma categoria";
+    if (!form.valor || parseFloat(form.valor) <= 0) erros.valor = "Informe um valor válido";
+    if (!form.data) erros.data = "Selecione uma data";
+    if (mostrarCampoConta && !form.contaId) erros.conta = "Selecione uma conta";
+    if (mostrarCampoCartao && !form.cartaoId) erros.cartao = "Selecione um cartão";
+    if (form.parcelado && form.parcelas < 2) erros.parcelas = "Mínimo de 2 parcelas";
+    if (form.recorrente && form.repeticoes < 2) erros.repeticoes = "Mínimo de 2 repetições";
+    return erros;
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
+    const erros = validateForm();
+    if (Object.keys(erros).length > 0) {
+      setErrors(erros);
       return;
     }
 
-    setError(null);
+    setErrors({});
 
     try {
       if (isEdit && transacaoEdicao) {
@@ -228,7 +237,6 @@ export default function FormMovimentacaoModal({
           repeticoes: form.recorrente ? form.repeticoes : null,
           recorrenciaId: transacaoEdicao.recorrenciaId ?? null,
         };
-
         await salvar(dadosAtualizacao);
       } else {
         const transacoesParaCriar = buildTransacoesFromForm({
@@ -250,9 +258,8 @@ export default function FormMovimentacaoModal({
           transacaoEdicao: null,
         });
 
-        const dadosParaSalvar = transacoesParaCriar.length === 1
-          ? transacoesParaCriar[0]
-          : transacoesParaCriar;
+        const dadosParaSalvar =
+          transacoesParaCriar.length === 1 ? transacoesParaCriar[0] : transacoesParaCriar;
 
         await salvar(dadosParaSalvar);
       }
@@ -261,33 +268,24 @@ export default function FormMovimentacaoModal({
       if (!isEdit) setForm(initialForm);
     } catch (error) {
       console.error("Erro ao salvar a movimentação:", error);
-      setError(error instanceof Error ? error.message : "Erro ao salvar movimentação");
+      setErrors({ valor: error instanceof Error ? error.message : "Erro ao salvar movimentação" });
     }
   };
 
   const handleOpenChange = (open: boolean) => {
     if (!open && !isEdit) {
       setForm(initialForm);
-      setError(null);
+      setErrors({});
     }
     onOpenChange(open);
   };
 
-  const incrementarParcelas = () => {
-    if (form.parcelas < 48) update("parcelas", form.parcelas + 1);
-  };
+  const incrementarParcelas  = () => { if (form.parcelas  < 48)  update("parcelas",  form.parcelas  + 1); };
+  const decrementarParcelas  = () => { if (form.parcelas  > 2)   update("parcelas",  form.parcelas  - 1); };
+  const incrementarRepeticoes = () => { if (form.repeticoes < 999) update("repeticoes", form.repeticoes + 1); };
+  const decrementarRepeticoes = () => { if (form.repeticoes > 2)   update("repeticoes", form.repeticoes - 1); };
 
-  const decrementarParcelas = () => {
-    if (form.parcelas > 2) update("parcelas", form.parcelas - 1);
-  };
-
-  const incrementarRepeticoes = () => {
-    if (form.repeticoes < 999) update("repeticoes", form.repeticoes + 1);
-  };
-
-  const decrementarRepeticoes = () => {
-    if (form.repeticoes > 2) update("repeticoes", form.repeticoes - 1);
-  };
+  const temErros = Object.keys(errors).length > 0;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -300,9 +298,7 @@ export default function FormMovimentacaoModal({
             </DialogTitle>
             {modoEdicao && (
               <Badge variant="outline" className="text-xs">
-                {modoEdicao === "unica" ? "Única" :
-                  modoEdicao === "todas_parcelas" ? "Parcelas" :
-                    "Recorrência"}
+                {modoEdicao === "unica" ? "Única" : modoEdicao === "todas_parcelas" ? "Parcelas" : "Recorrência"}
               </Badge>
             )}
           </div>
@@ -312,11 +308,19 @@ export default function FormMovimentacaoModal({
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5 space-y-5">
 
-            {error && (
-              <Alert variant="destructive" className="py-2.5">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm">{error}</AlertDescription>
-              </Alert>
+            {/* Banner de erros — só aparece quando há campos inválidos */}
+            {temErros && (
+              <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-red-700 dark:text-red-300">
+                  <p className="font-medium mb-1">Preencha os campos obrigatórios:</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-xs">
+                    {Object.values(errors).map((msg, i) => (
+                      <li key={i}>{msg}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             )}
 
             {/* 1. TIPO */}
@@ -328,16 +332,26 @@ export default function FormMovimentacaoModal({
             />
 
             {/* 2. CATEGORIA */}
-            <MovCampoCategoria form={form} update={updateAny} />
+            <MovCampoCategoria
+              form={form}
+              update={updateAny}
+              error={errors.categoria}
+            />
 
             {/* 3. VALOR + DATA */}
             <div className="grid grid-cols-2 gap-3">
-              <MovCamposBasicos form={form} update={updateAny} campo="valor" />
+              <MovCamposBasicos
+                form={form}
+                update={updateAny}
+                campo="valor"
+                error={errors.valor}
+              />
               <MovCamposBasicos
                 form={form}
                 update={updateAny}
                 campo="data"
                 disabled={bloqueiaCampos.data}
+                error={errors.data}
               />
             </div>
 
@@ -349,10 +363,20 @@ export default function FormMovimentacaoModal({
                 opcoesDisponiveis={opcoesFormaPagamento}
               />
               {mostrarCampoConta && (
-                <MovCampoConta form={form} update={updateAny} renderInfoBox={() => null} />
+                <MovCampoConta
+                  form={form}
+                  update={updateAny}
+                  renderInfoBox={() => null}
+                  error={errors.conta}
+                />
               )}
               {mostrarCampoCartao && (
-                <MovCampoCartao form={form} update={updateAny} renderInfoBox={() => null} />
+                <MovCampoCartao
+                  form={form}
+                  update={updateAny}
+                  renderInfoBox={() => null}
+                  error={errors.cartao}
+                />
               )}
             </div>
 
@@ -385,9 +409,9 @@ export default function FormMovimentacaoModal({
                 onValueChange={(v: TipoPagamento) => {
                   const isParcelado  = v === "parcelado";
                   const isRecorrente = v === "recorrente";
-                  update("parcelado", isParcelado);
+                  update("parcelado",  isParcelado);
                   update("recorrente", isRecorrente);
-                  if (isParcelado  && form.parcelas   < 2) update("parcelas", 2);
+                  if (isParcelado  && form.parcelas   < 2) update("parcelas",   2);
                   if (isRecorrente && form.repeticoes < 2) update("repeticoes", 2);
                 }}
                 disabled={bloqueiaCampos.parcelas || bloqueiaCampos.repeticoes || bloqueiaCampos.tipoPagamento}
@@ -410,7 +434,6 @@ export default function FormMovimentacaoModal({
                 </SelectContent>
               </Select>
 
-              {/* ✅ Aviso: edição aplicada a todas as parcelas */}
               {modoEdicao === "todas_parcelas" && (
                 <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">
                   <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
@@ -420,13 +443,11 @@ export default function FormMovimentacaoModal({
                 </div>
               )}
 
-              {/* Contador Visual */}
               {(form.parcelado || form.recorrente) && (
                 <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {form.parcelado ? "Parcelas" : "Meses"}
                   </span>
-
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"
@@ -435,24 +456,22 @@ export default function FormMovimentacaoModal({
                       className="h-10 w-10 rounded-full"
                       onClick={form.parcelado ? decrementarParcelas : decrementarRepeticoes}
                       disabled={form.parcelado
-                        ? (form.parcelas <= 2 || bloqueiaCampos.parcelas)
+                        ? (form.parcelas   <= 2 || bloqueiaCampos.parcelas)
                         : (form.repeticoes <= 2 || bloqueiaCampos.repeticoes)
                       }
                     >
                       <Minus className="h-4 w-4" />
                     </Button>
-
                     <div className="min-w-[60px] text-center">
                       <div className="text-2xl font-bold text-gray-900 dark:text-white">
                         {form.parcelado ? form.parcelas : form.repeticoes}
                       </div>
                       <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         {form.parcelado
-                          ? "parcela" + (form.parcelas > 1 ? "s" : "")
-                          : "mês" + (form.repeticoes > 1 ? "es" : "")}
+                          ? "parcela" + (form.parcelas   > 1 ? "s" : "")
+                          : "mês"    + (form.repeticoes  > 1 ? "es" : "")}
                       </div>
                     </div>
-
                     <Button
                       type="button"
                       variant="outline"
@@ -460,7 +479,7 @@ export default function FormMovimentacaoModal({
                       className="h-10 w-10 rounded-full"
                       onClick={form.parcelado ? incrementarParcelas : incrementarRepeticoes}
                       disabled={form.parcelado
-                        ? (form.parcelas >= 48 || bloqueiaCampos.parcelas)
+                        ? (form.parcelas   >= 48  || bloqueiaCampos.parcelas)
                         : (form.repeticoes >= 999 || bloqueiaCampos.repeticoes)
                       }
                     >
@@ -470,7 +489,10 @@ export default function FormMovimentacaoModal({
                 </div>
               )}
 
-              {/* Info Cards */}
+              {/* Erro de parcelas/repetições */}
+              {errors.parcelas   && <p className="text-xs text-red-500 flex items-center gap-1">⚠ {errors.parcelas}</p>}
+              {errors.repeticoes && <p className="text-xs text-red-500 flex items-center gap-1">⚠ {errors.repeticoes}</p>}
+
               {form.parcelado && form.parcelas > 1 && parseFloat(form.valor) > 0 && (
                 <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-2.5">
                   <div className="flex justify-between items-center">
@@ -519,10 +541,7 @@ export default function FormMovimentacaoModal({
             </Button>
             <Button type="submit" disabled={loading} className="flex-1 h-12 font-semibold">
               {loading ? (
-                <>
-                  <FaSpinner className="animate-spin mr-2" size={14} />
-                  Salvando...
-                </>
+                <><FaSpinner className="animate-spin mr-2" size={14} />Salvando...</>
               ) : (
                 isEdit ? "Salvar Alterações" : "Adicionar"
               )}
