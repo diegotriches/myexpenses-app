@@ -23,6 +23,7 @@ interface Props {
   renderInfoBox?: (content: React.ReactNode) => React.ReactNode;
   hideSelect?: boolean;
   error?: string;
+  valorOriginal?: number; // valor da transação antes da edição (undefined = criação)
 }
 
 export default function MovCampoConta({
@@ -31,17 +32,32 @@ export default function MovCampoConta({
   renderInfoBox,
   hideSelect = false,
   error,
+  valorOriginal,
 }: Props) {
   const { data: contas = [], isLoading, error: queryError } = useContas();
 
   const contasAtivas = contas.filter((c) => c.ativo);
   const contaSelecionada = contasAtivas.find((c) => c.id === form.contaId);
   const saldoAtual = contaSelecionada ? Number(contaSelecionada.saldoAtual) : 0;
-  const saldoProjetado = contaSelecionada
-    ? form.tipo === "entrada"
-      ? saldoAtual + (parseFloat(form.valor) || 0)
-      : saldoAtual - (parseFloat(form.valor) || 0)
-    : null;
+  const valorNovo = parseFloat(form.valor) || 0;
+
+  // No modo edição, o saldo atual já reflete a transação original.
+  // O impacto líquido é apenas a diferença entre o novo e o antigo valor.
+  // Ex: despesa R$15 → R$10: impacto = -10 - (-15) = +5 → saldo sobe R$5
+  // Ex: despesa R$15 → R$20: impacto = -20 - (-15) = -5 → saldo cai R$5
+  const isEdicao = valorOriginal !== undefined;
+
+  const impactoLiquido = (() => {
+    if (!contaSelecionada) return 0;
+    if (isEdicao) {
+      const impactoNovo    = form.tipo === "entrada" ?  valorNovo    : -valorNovo;
+      const impactoAntigo  = form.tipo === "entrada" ?  valorOriginal : -valorOriginal;
+      return impactoNovo - impactoAntigo;
+    }
+    return form.tipo === "entrada" ? valorNovo : -valorNovo;
+  })();
+
+  const saldoProjetado = contaSelecionada ? saldoAtual + impactoLiquido : null;
 
   const formatarMoeda = (valor: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
@@ -74,7 +90,14 @@ export default function MovCampoConta({
     );
   }
 
-  const infoBoxContent = contaSelecionada && form.valor && parseFloat(form.valor) > 0 && (
+  // Label e cor da linha de impacto
+  const impactoLabel = isEdicao
+    ? impactoLiquido >= 0 ? "Ajuste (redução):" : "Ajuste (aumento):"
+    : form.tipo === "entrada" ? "Receita:" : "Despesa:";
+
+  const impactoPositivo = impactoLiquido >= 0;
+
+  const infoBoxContent = contaSelecionada && valorNovo > 0 && (
     <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 space-y-2">
       <div className="flex items-center justify-between text-sm">
         <span className="text-gray-600 dark:text-gray-400">Saldo atual:</span>
@@ -82,14 +105,14 @@ export default function MovCampoConta({
       </div>
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
-          {form.tipo === "entrada"
+          {impactoPositivo
             ? <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
             : <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
           }
-          <span>{form.tipo === "entrada" ? "Receita" : "Despesa"}:</span>
+          <span>{impactoLabel}</span>
         </div>
-        <span className={`font-medium ${form.tipo === "entrada" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-          {form.tipo === "entrada" ? "+" : "-"}{formatarMoeda(parseFloat(form.valor))}
+        <span className={`font-medium ${impactoPositivo ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+          {impactoLiquido >= 0 ? "+" : ""}{formatarMoeda(impactoLiquido)}
         </span>
       </div>
       <div className="border-t border-gray-300 dark:border-gray-600 pt-2 flex items-center justify-between">
@@ -98,7 +121,7 @@ export default function MovCampoConta({
           {formatarMoeda(saldoProjetado!)}
         </span>
       </div>
-      {saldoProjetado! < 0 && form.tipo === "saida" && (
+      {saldoProjetado! < 0 && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-2 flex items-start gap-2">
           <Wallet className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
           <span className="text-xs text-yellow-800 dark:text-yellow-300">

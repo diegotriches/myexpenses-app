@@ -161,6 +161,15 @@ export default function FormMovimentacaoModal({
     return valor;
   }, [form.valor, form.parcelado, form.parcelas, form.recorrente, form.repeticoes]);
 
+  // Valor original da transação antes da edição (para o info box de saldo projetado)
+  const valorOriginalEdicao = useMemo(() => {
+    if (!isEdit || !transacaoEdicao) return undefined;
+    if (modoEdicao === "todas_parcelas" && transacaoEdicao.parcelado && transacaoEdicao.parcelas) {
+      return Number(transacaoEdicao.valor) * transacaoEdicao.parcelas;
+    }
+    return Number(transacaoEdicao.valor);
+  }, [isEdit, transacaoEdicao, modoEdicao]);
+
   useEffect(() => {
     if (!transacaoEdicao) {
       setForm(initialForm);
@@ -368,6 +377,7 @@ export default function FormMovimentacaoModal({
                   update={updateAny}
                   renderInfoBox={() => null}
                   error={errors.conta}
+                  valorOriginal={valorOriginalEdicao}
                 />
               )}
               {mostrarCampoCartao && (
@@ -386,6 +396,7 @@ export default function FormMovimentacaoModal({
                 update={updateAny}
                 hideSelect={true}
                 renderInfoBox={(content) => <div className="w-full">{content}</div>}
+                valorOriginal={valorOriginalEdicao}
               />
             )}
 
