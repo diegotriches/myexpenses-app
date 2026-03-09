@@ -3,9 +3,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, faturas, contas, extratoConta, cartoes, notificacoes } from "@/db/schema";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { eq, and, gte, lt, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { calcularPeriodoFatura, calcularDataVencimento } from "@/utils/faturaUtils";
+import { calcularDataVencimento } from "@/utils/faturaUtils";
 
 // ========================================
 // GET - Buscar fatura do mês
@@ -41,9 +41,32 @@ export async function GET(
     }
 
     const diaFechamento = cartao.diaFechamento || 1;
-    const { inicio, fim } = calcularPeriodoFatura(mes, ano, diaFechamento);
 
-    console.log(`📅 Período da fatura ${mes}/${ano}: ${inicio.toLocaleDateString('pt-BR')} - ${fim.toLocaleDateString('pt-BR')}`);
+    // ── Período da fatura ──────────────────────────────────────────────────
+    // Regra: transações do dia de fechamento do mês anterior (inclusive)
+    //        até o dia ANTES do fechamento do mês atual (exclusive o dia de fechamento)
+    //
+    // Ex: fatura março, fecha dia 9
+    //   inicio = 09/fev (inclusive) — primeiro dia do ciclo
+    //   fim    = 09/mar (exclusive) — dia do fechamento NÃO pertence a esta fatura
+    //
+    // Usa < (lt) em vez de <= (lte) no fim para excluir o dia de fechamento,
+    // que já pertence à fatura do próximo mês.
+
+    const anoMesAnterior = mes === 1 ? ano - 1 : ano;
+    const mesAnterior    = mes === 1 ? 12 : mes - 1;
+    const ultimoDiaMesAnterior = new Date(Date.UTC(anoMesAnterior, mesAnterior, 0)).getUTCDate();
+    const diaInicio = Math.min(diaFechamento, ultimoDiaMesAnterior);
+
+    // Constrói datas em UTC puro para evitar distorção de fuso
+    // O campo data no banco é timestamp with timezone salvo em UTC
+    const inicio = new Date(Date.UTC(anoMesAnterior, mesAnterior - 1, diaInicio, 0, 0, 0));
+
+    // fim exclusivo em UTC: meia-noite UTC do dia de fechamento (não inclui esse dia)
+    const ultimoDiaMesAtual = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+    const diaFim = Math.min(diaFechamento, ultimoDiaMesAtual);
+    const fimExclusivo = new Date(Date.UTC(ano, mes - 1, diaFim, 0, 0, 0));
+
 
     const transacoesDoMes = await db
       .select()
@@ -53,7 +76,7 @@ export async function GET(
           eq(transacoes.cartaoId, cartaoId),
           eq(transacoes.userId, userId),
           gte(transacoes.data, inicio),
-          lte(transacoes.data, fim)
+          lt(transacoes.data, fimExclusivo)   // < exclusivo: exclui o dia do fechamento
         )
       )
       .orderBy(transacoes.data);
@@ -141,8 +164,8 @@ export async function GET(
       },
       periodo: {
         inicio: inicio.toISOString().split("T")[0],
-        fim: fim.toISOString().split("T")[0],
-        descricao: `${inicio.toLocaleDateString('pt-BR')} - ${fim.toLocaleDateString('pt-BR')}`,
+        fim: new Date(ano, mes - 1, diaFim - 1, 23, 59, 59).toISOString().split("T")[0],
+        descricao: `${inicio.toLocaleDateString("pt-BR")} - ${new Date(ano, mes - 1, diaFim - 1).toLocaleDateString("pt-BR")}`,
       },
       transacoes: transacoesDoMes.map(t => ({ ...t, valor: Number(t.valor) })),
       porCategoria,
@@ -268,13 +291,13 @@ export async function POST(
       .set({ paga: true, dataPagamento: dataPgtoStr, contaPagamentoId: contaId, updatedAt: new Date() })
       .where(eq(faturas.id, fatura.id));
 
-    /* 8. ✅ Criar notificação de confirmação de pagamento */
+    /* 8. Criar notificação de confirmação de pagamento */
     await db.insert(notificacoes).values({
       userId,
       tipo: "FATURA_PAGA",
       severidade: "success",
       titulo: `Fatura ${cartao.nome} paga com sucesso!`,
-      mensagem: `Fatura de ${String(mes).padStart(2, "0")}/${ano} no valor de R$ ${totalFatura.toFixed(2)} foi paga em ${dataPgto.toLocaleDateString('pt-BR')}.`,
+      mensagem: `Fatura de ${String(mes).padStart(2, "0")}/${ano} no valor de R$ ${totalFatura.toFixed(2)} foi paga em ${dataPgto.toLocaleDateString("pt-BR")}.`,
       link: `/cartoes/${cartaoId}/fatura?mes=${mes}&ano=${ano}`,
       metadata: {
         cartaoId: String(cartaoId),
@@ -286,7 +309,14 @@ export async function POST(
 
     /* 9. Retornar dados completos */
     const diaFechamento = cartao.diaFechamento || 1;
-    const { inicio, fim } = calcularPeriodoFatura(mes, ano, diaFechamento);
+    const anoMesAnterior = mes === 1 ? ano - 1 : ano;
+    const mesAnterior    = mes === 1 ? 12 : mes - 1;
+    const ultimoDiaMesAnterior = new Date(Date.UTC(anoMesAnterior, mesAnterior, 0)).getUTCDate();
+    const diaInicio = Math.min(diaFechamento, ultimoDiaMesAnterior);
+    const inicio = new Date(Date.UTC(anoMesAnterior, mesAnterior - 1, diaInicio, 0, 0, 0));
+    const ultimoDiaMesAtual = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+    const diaFim = Math.min(diaFechamento, ultimoDiaMesAtual);
+    const fimExclusivo = new Date(Date.UTC(ano, mes - 1, diaFim, 0, 0, 0));
 
     const transacoesDoMes = await db
       .select()
@@ -296,7 +326,7 @@ export async function POST(
           eq(transacoes.cartaoId, cartaoId),
           eq(transacoes.userId, userId),
           gte(transacoes.data, inicio),
-          lte(transacoes.data, fim)
+          lt(transacoes.data, fimExclusivo)
         )
       )
       .orderBy(transacoes.data);
@@ -333,8 +363,8 @@ export async function POST(
       },
       periodo: {
         inicio: inicio.toISOString().split("T")[0],
-        fim: fim.toISOString().split("T")[0],
-        descricao: `${inicio.toLocaleDateString('pt-BR')} - ${fim.toLocaleDateString('pt-BR')}`,
+        fim: new Date(ano, mes - 1, diaFim - 1, 23, 59, 59).toISOString().split("T")[0],
+        descricao: `${inicio.toLocaleDateString("pt-BR")} - ${new Date(ano, mes - 1, diaFim - 1).toLocaleDateString("pt-BR")}`,
       },
       transacoes: transacoesDoMes.map(t => ({ ...t, valor: Number(t.valor) })),
       porCategoria,
@@ -414,7 +444,7 @@ export async function DELETE(
     if (!cartao) return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
 
     /* 4. Registrar estorno no extrato */
-    const dataFormatada = new Date().toISOString().split('T')[0];
+    const dataFormatada = new Date().toISOString().split("T")[0];
 
     await db.insert(extratoConta).values({
       userId,
@@ -448,7 +478,14 @@ export async function DELETE(
 
     /* 8. Retornar dados completos */
     const diaFechamento = cartao.diaFechamento || 1;
-    const { inicio, fim } = calcularPeriodoFatura(mes, ano, diaFechamento);
+    const anoMesAnterior = mes === 1 ? ano - 1 : ano;
+    const mesAnterior    = mes === 1 ? 12 : mes - 1;
+    const ultimoDiaMesAnterior = new Date(Date.UTC(anoMesAnterior, mesAnterior, 0)).getUTCDate();
+    const diaInicio = Math.min(diaFechamento, ultimoDiaMesAnterior);
+    const inicio = new Date(Date.UTC(anoMesAnterior, mesAnterior - 1, diaInicio, 0, 0, 0));
+    const ultimoDiaMesAtual = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+    const diaFim = Math.min(diaFechamento, ultimoDiaMesAtual);
+    const fimExclusivo = new Date(Date.UTC(ano, mes - 1, diaFim, 0, 0, 0));
 
     const transacoesDoMes = await db
       .select()
@@ -458,7 +495,7 @@ export async function DELETE(
           eq(transacoes.cartaoId, cartaoId),
           eq(transacoes.userId, userId),
           gte(transacoes.data, inicio),
-          lte(transacoes.data, fim)
+          lt(transacoes.data, fimExclusivo)
         )
       )
       .orderBy(transacoes.data);
@@ -497,8 +534,8 @@ export async function DELETE(
       },
       periodo: {
         inicio: inicio.toISOString().split("T")[0],
-        fim: fim.toISOString().split("T")[0],
-        descricao: `${inicio.toLocaleDateString('pt-BR')} - ${fim.toLocaleDateString('pt-BR')}`,
+        fim: new Date(ano, mes - 1, diaFim - 1, 23, 59, 59).toISOString().split("T")[0],
+        descricao: `${inicio.toLocaleDateString("pt-BR")} - ${new Date(ano, mes - 1, diaFim - 1).toLocaleDateString("pt-BR")}`,
       },
       transacoes: transacoesDoMes.map(t => ({ ...t, valor: Number(t.valor) })),
       porCategoria,

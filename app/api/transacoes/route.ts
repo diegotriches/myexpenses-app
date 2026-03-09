@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { calcularFaturaDaTransacao, faturaEstaFechada } from "@/utils/faturaUtils";
+import { calcularFaturaDaTransacao, proximaFaturaAberta } from "@/utils/faturaUtils";
 
 // GET - Listar transações do usuário
 export async function GET(req: NextRequest) {
@@ -277,28 +277,21 @@ export async function POST(req: NextRequest) {
 
         // ── CRÉDITO: vai para fatura ────────────────────────────────────────
         } else if (cartao.tipo === "credito") {
-          const dataTransacao = new Date(trans.data);
+          // Passa a string diretamente para evitar conversão UTC que distorce o dia
+          const dataTransacao = trans.data as string;
           const diaFechamento = cartao.diaFechamento || 1;
 
-          const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
+          const { mes: mesFaturaCalculada, ano: anoFaturaCalculada } = calcularFaturaDaTransacao(
             dataTransacao,
             diaFechamento
           );
 
-          console.log(
-            `📅 Transação ${index + 1} em ${dataTransacao.toLocaleDateString("pt-BR")} → ` +
-            `Fatura ${mesFatura}/${anoFatura}`
+          // Se a fatura calculada já está fechada, avança para a primeira aberta
+          const { mes: mesFatura, ano: anoFatura } = proximaFaturaAberta(
+            mesFaturaCalculada,
+            anoFaturaCalculada,
+            diaFechamento
           );
-
-          // ✅ Bloqueia se fatura está fechada (inclui faturas pagas automaticamente)
-          if (faturaEstaFechada(mesFatura, anoFatura, diaFechamento)) {
-            return NextResponse.json(
-              {
-                error: `A fatura de ${mesFatura}/${anoFatura} já está fechada. Não é possível adicionar transações.`,
-              },
-              { status: 400 }
-            );
-          }
 
           const [faturaExistente] = await db
             .select()
