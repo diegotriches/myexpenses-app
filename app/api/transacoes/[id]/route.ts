@@ -162,8 +162,8 @@ async function atualizarExtratoESaldo(
     // ── Aplica na conta nova ──────────────────────────────────────────
     await processarExtratoESaldo(transacaoNova, userId);
   } else {
-    // ── Mesma conta: atualiza valor e descrição no extrato existente ──
-    const valorNovo  = Number(transacaoNova.valor);
+    // ── Mesma conta: ajusta saldo pelo impacto líquido da mudança ─────
+    const valorNovo   = Number(transacaoNova.valor);
     const valorAntigo = Number(transacaoAntiga.valor);
 
     try {
@@ -174,22 +174,35 @@ async function atualizarExtratoESaldo(
         )).limit(1);
 
       if (extratoExistente) {
-        let novoSaldoApos = Number(extratoExistente.saldoApos);
+        // Busca o saldo atual real da conta (não o saldoApos do extrato antigo)
+        const [conta] = await db.select().from(contas)
+          .where(and(eq(contas.id, contaNova), eq(contas.userId, userId)))
+          .limit(1);
 
-        if (valorAntigo !== valorNovo) {
-          novoSaldoApos = novoSaldoApos + (valorNovo - valorAntigo);
-          await db.update(contas)
-            .set({ saldoAtual: novoSaldoApos.toFixed(2), updatedAt: new Date() })
-            .where(and(eq(contas.id, contaNova), eq(contas.userId, userId)));
+        if (!conta) {
+          await processarExtratoESaldo(transacaoNova, userId);
+          return;
         }
+
+        // Calcula impacto líquido: desfaz o efeito antigo, aplica o novo
+        // Entrada aumenta saldo (+), saída diminui (-)
+        const impactoAntigo = transacaoAntiga.tipo === "entrada" ?  valorAntigo : -valorAntigo;
+        const impactoNovo   = transacaoNova.tipo   === "entrada" ?  valorNovo   : -valorNovo;
+        const diferenca     = impactoNovo - impactoAntigo;
+
+        const novoSaldoAtual = Number(conta.saldoAtual) + diferenca;
+
+        await db.update(contas)
+          .set({ saldoAtual: novoSaldoAtual.toFixed(2), updatedAt: new Date() })
+          .where(and(eq(contas.id, contaNova), eq(contas.userId, userId)));
 
         await db.update(extratoConta)
           .set({
             data: new Date(transacaoNova.data).toISOString().split("T")[0],
             tipo: transacaoNova.tipo === "entrada" ? "entrada" : "saida",
-            valor: Math.abs(valorNovo).toFixed(2),
+            valor: valorNovo.toFixed(2),
             descricao: transacaoNova.descricao || extratoExistente.descricao,
-            saldoApos: novoSaldoApos.toFixed(2),
+            saldoApos: novoSaldoAtual.toFixed(2),
           })
           .where(and(eq(extratoConta.id, extratoExistente.id), eq(extratoConta.userId, userId)));
       } else {
@@ -370,7 +383,6 @@ export async function PUT(
         .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)))
         .returning();
 
-      // ✅ Usa helper que trata troca de conta corretamente
       await atualizarExtratoESaldo(transacaoExistente, updated, userId);
 
       return NextResponse.json(updated);
@@ -417,7 +429,6 @@ export async function PUT(
 
         if (updated) {
           atualizadas.push(updated);
-          // ✅ Usa helper que trata troca de conta corretamente
           await atualizarExtratoESaldo(t, updated, userId);
         }
       }
@@ -502,7 +513,6 @@ export async function PUT(
 
         if (updated) {
           atualizadas.push(updated);
-          // ✅ Usa helper que trata troca de conta corretamente
           await atualizarExtratoESaldo(t, updated, userId);
         }
       }
