@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       .select()
       .from(transacoes)
       .where(and(...filtros))
-      .orderBy(sql`${transacoes.data} DESC`);
+      .orderBy(sql`${transacoes.createdAt} DESC`);
 
     return NextResponse.json(result);
   } catch (err: any) {
