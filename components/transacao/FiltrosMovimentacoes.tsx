@@ -18,6 +18,8 @@ export interface FiltrosState {
   categoria: string;
   formaPagamento: string;
   busca: string;
+  valorMin: string;
+  valorMax: string;
 }
 
 interface Props {
@@ -45,6 +47,8 @@ export default function FiltrosMovimentacoes({
       categoria: "",
       formaPagamento: "",
       busca: "",
+      valorMin: "",
+      valorMax: "",
     });
   };
 
@@ -52,7 +56,9 @@ export default function FiltrosMovimentacoes({
     filtros.tipo !== "todas" ||
     (filtros.categoria !== "" && filtros.categoria !== "all") ||
     (filtros.formaPagamento !== "" && filtros.formaPagamento !== "all") ||
-    filtros.busca !== "";
+    filtros.busca !== "" ||
+    filtros.valorMin !== "" ||
+    filtros.valorMax !== "";
 
   const contarFiltrosAtivos = () => {
     let count = 0;
@@ -60,7 +66,16 @@ export default function FiltrosMovimentacoes({
     if (filtros.categoria && filtros.categoria !== "all") count++;
     if (filtros.formaPagamento && filtros.formaPagamento !== "all") count++;
     if (filtros.busca) count++;
+    if (filtros.valorMin || filtros.valorMax) count++;
     return count;
+  };
+
+  const formatarMoeda = (valor: string) => {
+    if (!valor) return "";
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(parseFloat(valor));
   };
 
   return (
@@ -115,7 +130,8 @@ export default function FiltrosMovimentacoes({
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Mobile: 2 colunas / Desktop: 5 colunas (tipo, categoria, pagamento, min, max) */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {/* Filtro de Tipo */}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
@@ -159,8 +175,8 @@ export default function FiltrosMovimentacoes({
               </Select>
             </div>
 
-            {/* Filtro de Forma de Pagamento */}
-            <div>
+            {/* Filtro de Forma de Pagamento — ocupa 2 colunas no mobile */}
+            <div className="col-span-2 md:col-span-1">
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                 Forma de Pagamento
               </label>
@@ -186,6 +202,36 @@ export default function FiltrosMovimentacoes({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Valor mínimo */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Valor mín. (R$)
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0,00"
+                value={filtros.valorMin}
+                onChange={(e) => updateFiltro("valorMin", e.target.value)}
+              />
+            </div>
+
+            {/* Valor máximo */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Valor máx. (R$)
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0,00"
+                value={filtros.valorMax}
+                onChange={(e) => updateFiltro("valorMax", e.target.value)}
+              />
             </div>
           </div>
 
@@ -225,6 +271,22 @@ export default function FiltrosMovimentacoes({
                   <X
                     className="h-3 w-3 cursor-pointer hover:text-destructive transition-colors"
                     onClick={() => updateFiltro("busca", "")}
+                  />
+                </Badge>
+              )}
+              {(filtros.valorMin || filtros.valorMax) && (
+                <Badge variant="secondary" className="gap-1">
+                  Valor:{" "}
+                  {filtros.valorMin && filtros.valorMax
+                    ? `${formatarMoeda(filtros.valorMin)} até ${formatarMoeda(filtros.valorMax)}`
+                    : filtros.valorMin
+                    ? `a partir de ${formatarMoeda(filtros.valorMin)}`
+                    : `até ${formatarMoeda(filtros.valorMax)}`}
+                  <X
+                    className="h-3 w-3 cursor-pointer hover:text-destructive transition-colors"
+                    onClick={() => {
+                      onFiltrosChange({ ...filtros, valorMin: "", valorMax: "" });
+                    }}
                   />
                 </Badge>
               )}

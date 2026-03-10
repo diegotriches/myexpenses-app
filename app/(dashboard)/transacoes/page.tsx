@@ -51,6 +51,8 @@ export default function TransacoesPage() {
     categoria: "",
     formaPagamento: "",
     busca: "",
+    valorMin: "",
+    valorMax: "",
   });
 
   const temContasAtivas = useMemo(() => contas.some(c => c.ativo), [contas]);
@@ -61,10 +63,18 @@ export default function TransacoesPage() {
       if (filtros.categoria && mov.categoria !== filtros.categoria) return false;
       if (filtros.formaPagamento && mov.formaPagamento !== filtros.formaPagamento) return false;
       if (filtros.busca) {
-        const busca    = filtros.busca.toLowerCase();
+        const busca     = filtros.busca.toLowerCase();
         const descricao = mov.descricao?.toLowerCase() || "";
         const categoria = mov.categoria?.toLowerCase()  || "";
         if (!descricao.includes(busca) && !categoria.includes(busca)) return false;
+      }
+      if (filtros.valorMin !== "") {
+        const min = parseFloat(filtros.valorMin);
+        if (!isNaN(min) && Math.abs(Number(mov.valor)) < min) return false;
+      }
+      if (filtros.valorMax !== "") {
+        const max = parseFloat(filtros.valorMax);
+        if (!isNaN(max) && Math.abs(Number(mov.valor)) > max) return false;
       }
       return true;
     });
