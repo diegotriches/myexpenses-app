@@ -21,23 +21,19 @@ export default function MovimentacaoTabela({
   onEditar,
   onExcluir,
 }: Props) {
-  // ✅ LOADING STATE
   if (loading) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
         <CardContent className="p-12 text-center">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-10 w-10 text-blue-600 dark:text-blue-400 animate-spin" />
-            <p className="text-gray-600 dark:text-gray-400">
-              Carregando movimentações...
-            </p>
+            <p className="text-gray-600 dark:text-gray-400">Carregando movimentações...</p>
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  // ✅ EMPTY STATE
   if (movimentacoes.length === 0) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
@@ -59,16 +55,12 @@ export default function MovimentacaoTabela({
     );
   }
 
-  // ============================================
-  // 📱 MOBILE: CARDS VIEW (< 768px)
-  // ============================================
   return (
     <>
-      {/* Mobile View - Cards empilhados */}
+      {/* 📱 MOBILE: CARDS VIEW */}
       <div className="md:hidden space-y-3">
         {movimentacoes.map((mov) => {
           const cartao = cartoes.find((c) => c.id === mov.cartaoId) || null;
-
           return (
             <MovimentacaoLinha
               key={mov.id}
@@ -80,14 +72,10 @@ export default function MovimentacaoTabela({
             />
           );
         })}
-
-        {/* Contador Mobile */}
         <Card className="dark:bg-gray-900 dark:border-gray-800">
           <CardContent className="p-4">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">
-                Total de registros:
-              </span>
+              <span className="text-gray-600 dark:text-gray-400">Total de registros:</span>
               <span className="font-semibold text-gray-900 dark:text-white">
                 {movimentacoes.length} movimentação{movimentacoes.length !== 1 ? "ões" : ""}
               </span>
@@ -96,51 +84,63 @@ export default function MovimentacaoTabela({
         </Card>
       </div>
 
-      {/* ============================================ */}
-      {/* 💻 DESKTOP: TABLE VIEW (≥ 768px) */}
-      {/* ============================================ */}
+      {/* 💻 DESKTOP: TABLE VIEW */}
       <Card className="hidden md:block dark:bg-gray-900 dark:border-gray-800">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              {/* Cabeçalho */}
+            {/*
+              table-fixed: impede que o browser redistribua larguras automaticamente,
+              garantindo que a coluna de descrição (w-auto / flex-1) absorva o espaço
+              restante e o truncate funcione corretamente nas demais colunas.
+            */}
+            <table className="w-full table-fixed">
+              <colgroup>
+                <col className="w-[100px]" />
+                <col />
+                <col className="w-[100px]" />
+                <col className="w-[130px]" />
+                <col className="w-[110px]" />
+                <col className="w-[120px]" />
+                <col className="w-[100px]" />
+                <col className="w-[120px]" />
+                <col className="w-[48px]" />
+              </colgroup>
+
               <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                 <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Data
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Descrição
                   </th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Tipo
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Categoria
                   </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="text-right px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Valor
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Pagamento
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Condição
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Cartão
                   </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="text-right px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Ações
                   </th>
                 </tr>
               </thead>
 
-              {/* Corpo da tabela */}
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                 {movimentacoes.map((mov) => {
                   const cartao = cartoes.find((c) => c.id === mov.cartaoId) || null;
-
                   return (
                     <MovimentacaoLinha
                       key={mov.id}
@@ -156,12 +156,9 @@ export default function MovimentacaoTabela({
             </table>
           </div>
 
-          {/* Rodapé com contador */}
           <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 bg-gray-50 dark:bg-gray-800">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">
-                Total de registros:
-              </span>
+              <span className="text-gray-600 dark:text-gray-400">Total de registros:</span>
               <span className="font-semibold text-gray-900 dark:text-white">
                 {movimentacoes.length} movimentação{movimentacoes.length !== 1 ? "ões" : ""}
               </span>

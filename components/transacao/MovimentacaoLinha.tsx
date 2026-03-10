@@ -14,11 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent } from "@/components/ui/card";
 
-// ✅ REACT QUERY: Importar hooks corretos
 import { useCategorias } from "@/hooks/useCategorias";
 import { useContas } from "@/hooks/useContas";
-
-// ✅ CORREÇÃO: Importar função de formatação de data
 import { formatarDataParaExibicao } from "@/utils/dateUtils";
 
 import { 
@@ -77,7 +74,6 @@ export default function MovimentacaoLinha({
         color: "text-orange-600 dark:text-orange-400"
       };
     }
-    
     if (mov.recorrente === true) {
       return { 
         label: "Recorrente", 
@@ -85,7 +81,6 @@ export default function MovimentacaoLinha({
         color: "text-purple-600 dark:text-purple-400"
       };
     }
-    
     return { 
       label: "À Vista", 
       icon: DollarSign,
@@ -118,11 +113,9 @@ export default function MovimentacaoLinha({
           : "bg-red-50/30 dark:bg-red-950/10 border-red-200 dark:border-red-900"
       }`}>
         <CardContent className="p-4">
-          {/* Header: Data + Tipo + Valor */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                {/* ✅ CORRIGIDO: Usar formatarDataParaExibicao */}
                 <span className="text-xs text-gray-600 dark:text-gray-400">
                   {formatarDataParaExibicao(mov.data)}
                 </span>
@@ -138,41 +131,25 @@ export default function MovimentacaoLinha({
                   </Badge>
                 )}
               </div>
-              
               <h3 className="font-semibold text-gray-900 dark:text-white text-base line-clamp-2">
-                {isTransferencia
-                  ? descricaoTransferencia
-                  : mov.descricao || "(Sem descrição)"}
+                {isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}
               </h3>
             </div>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-8 w-8 p-0 dark:hover:bg-gray-700 ml-2 flex-shrink-0"
-                >
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 dark:hover:bg-gray-700 ml-2 flex-shrink-0">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent 
-                align="end"
-                className="dark:bg-gray-800 dark:border-gray-700"
-              >
+              <DropdownMenuContent align="end" className="dark:bg-gray-800 dark:border-gray-700">
                 {!isTransferencia && (
-                  <DropdownMenuItem 
-                    onClick={onEditar} 
-                    className="cursor-pointer dark:hover:bg-gray-700"
-                  >
+                  <DropdownMenuItem onClick={onEditar} className="cursor-pointer dark:hover:bg-gray-700">
                     <Edit className="w-4 h-4 mr-2" />
                     Editar
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem 
-                  onClick={onExcluir} 
-                  className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 dark:hover:bg-gray-700"
-                >
+                <DropdownMenuItem onClick={onExcluir} className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 dark:hover:bg-gray-700">
                   <Trash2 className="w-4 h-4 mr-2" />
                   {isTransferencia ? "Excluir transferência" : "Excluir"}
                 </DropdownMenuItem>
@@ -194,14 +171,7 @@ export default function MovimentacaoLinha({
                 <span className="text-gray-600 dark:text-gray-400">Categoria:</span>
                 <div className="flex items-center gap-2">
                   {CategoriaIconComp && (
-                    <CategoriaIconComp 
-                      size={16} 
-                      className={`flex-shrink-0 ${
-                        mov.tipo === "entrada" 
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-red-600 dark:text-red-400"
-                      }`}
-                    />
+                    <CategoriaIconComp size={16} className={`flex-shrink-0 ${mov.tipo === "entrada" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} />
                   )}
                   <span className="font-medium text-gray-900 dark:text-white">{mov.categoria}</span>
                 </div>
@@ -265,21 +235,20 @@ export default function MovimentacaoLinha({
         ? "bg-green-50/30 dark:bg-green-950/10" 
         : "bg-red-50/30 dark:bg-red-950/10"
     }`}>
-      {/* Data */}
-      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-        {/* ✅ CORRIGIDO: Usar formatarDataParaExibicao */}
+      {/* Data — largura fixa, nunca quebra */}
+      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 w-[100px]">
         {formatarDataParaExibicao(mov.data)}
       </td>
 
-      <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-        <div className="max-w-xs truncate">
-          {isTransferencia
-            ? descricaoTransferencia
-            : mov.descricao || "(Sem descrição)"}
+      {/* Descrição — coluna flexível, truncada com … */}
+      <td className="px-3 py-3 text-sm text-gray-900 dark:text-gray-100 w-0 min-w-0" style={{ maxWidth: 0 }}>
+        <div className="truncate" title={isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}>
+          {isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}
         </div>
       </td>
 
-      <td className="px-4 py-3 text-center">
+      {/* Tipo — largura fixa para o badge */}
+      <td className="px-3 py-3 text-center whitespace-nowrap w-[100px]">
         {mov.tipo === "entrada" ? (
           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
             <ArrowUpCircle className="w-3 h-3 mr-1" />
@@ -293,44 +262,47 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+      {/* Categoria — ícone + texto truncado */}
+      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[130px]">
         {isTransferencia ? (
           <span className="text-gray-400 dark:text-gray-600">—</span>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 max-w-[120px]">
             {CategoriaIconComp && (
-              <CategoriaIconComp 
-                size={16} 
+              <CategoriaIconComp
+                size={15}
                 className={`flex-shrink-0 ${
-                  mov.tipo === "entrada" 
+                  mov.tipo === "entrada"
                     ? "text-green-600 dark:text-green-400"
                     : "text-red-600 dark:text-red-400"
                 }`}
               />
             )}
-            <span className="truncate max-w-[150px]">{mov.categoria}</span>
+            <span className="truncate">{mov.categoria}</span>
           </div>
         )}
       </td>
 
-      <td className="px-4 py-3 text-right text-sm font-semibold">
-        <span className={mov.tipo === "entrada" 
-          ? "text-green-600 dark:text-green-400" 
+      {/* Valor — alinhado à direita, nunca quebra */}
+      <td className="px-3 py-3 text-right text-sm font-semibold whitespace-nowrap w-[110px]">
+        <span className={mov.tipo === "entrada"
+          ? "text-green-600 dark:text-green-400"
           : "text-red-600 dark:text-red-400"
         }>
-          {mov.tipo === "entrada" ? "+" : "-"} {valorFormatado.replace("R$", "").trim()}
+          {mov.tipo === "entrada" ? "+" : "-"} {valorFormatado.replace("R$ ", "").replace("R$ ", "").trim()}
         </span>
       </td>
 
-      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+      {/* Forma de pagamento — ícone + label fixo */}
+      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[120px]">
         {isTransferencia ? (
           <div className="flex items-center gap-1.5">
-            <ArrowLeftRight className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <ArrowLeftRight className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
             <span className="text-blue-600 dark:text-blue-400">Transferência</span>
           </div>
         ) : FormaPagamentoIcon ? (
           <div className="flex items-center gap-1.5">
-            <FormaPagamentoIcon className={`w-4 h-4 ${formaPagamento.color}`} />
+            <FormaPagamentoIcon className={`w-4 h-4 flex-shrink-0 ${formaPagamento.color}`} />
             <span>{formaPagamento.label}</span>
           </div>
         ) : (
@@ -338,22 +310,24 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+      {/* Condição — ícone + label fixo */}
+      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[100px]">
         {isTransferencia ? (
           <span className="text-gray-400 dark:text-gray-600">—</span>
         ) : (
           <div className="flex items-center gap-1.5">
-            <CondicaoIcon className={`w-4 h-4 ${condicao.color}`} />
+            <CondicaoIcon className={`w-4 h-4 flex-shrink-0 ${condicao.color}`} />
             <span>{condicao.label}</span>
           </div>
         )}
       </td>
 
-      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+      {/* Cartão — ícone + nome truncado */}
+      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[120px]">
         {isTransferencia ? (
           <span className="text-gray-400 dark:text-gray-600">—</span>
         ) : mov.formaPagamento === "cartao" && cartao ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 max-w-[110px]">
             {empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc && (
               <img
                 src={empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc}
@@ -361,7 +335,7 @@ export default function MovimentacaoLinha({
                 className="w-5 h-5 object-contain flex-shrink-0 rounded"
               />
             )}
-            <span className="truncate max-w-[100px]">{cartao.nome}</span>
+            <span className="truncate">{cartao.nome}</span>
           </div>
         ) : mov.formaPagamento === "cartao" ? (
           <span className="text-gray-500 dark:text-gray-400">Cartão</span>
@@ -370,34 +344,22 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      <td className="px-4 py-3 text-right">
+      {/* Ações */}
+      <td className="px-3 py-3 text-right w-[48px]">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 w-8 p-0 dark:hover:bg-gray-700"
-            >
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 dark:hover:bg-gray-700">
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent 
-            align="end"
-            className="dark:bg-gray-800 dark:border-gray-700"
-          >
+          <DropdownMenuContent align="end" className="dark:bg-gray-800 dark:border-gray-700">
             {!isTransferencia && (
-              <DropdownMenuItem 
-                onClick={onEditar} 
-                className="cursor-pointer dark:hover:bg-gray-700"
-              >
+              <DropdownMenuItem onClick={onEditar} className="cursor-pointer dark:hover:bg-gray-700">
                 <Edit className="w-4 h-4 mr-2" />
                 Editar
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem 
-              onClick={onExcluir} 
-              className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 dark:hover:bg-gray-700"
-            >
+            <DropdownMenuItem onClick={onExcluir} className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 dark:hover:bg-gray-700">
               <Trash2 className="w-4 h-4 mr-2" />
               {isTransferencia ? "Excluir transferência" : "Excluir"}
             </DropdownMenuItem>
