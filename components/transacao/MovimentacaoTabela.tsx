@@ -95,15 +95,15 @@ export default function MovimentacaoTabela({
             */}
             <table className="w-full table-fixed">
               <colgroup>
-                <col className="w-[100px]" />
+                <col className="w-[88px]" />
                 <col />
-                <col className="w-[100px]" />
-                <col className="w-[130px]" />
-                <col className="w-[110px]" />
-                <col className="w-[120px]" />
-                <col className="w-[100px]" />
-                <col className="w-[120px]" />
-                <col className="w-[48px]" />
+                <col className="w-[90px]" />
+                <col className="w-[125px]" />
+                <col className="w-[96px]" />
+                <col className="w-[105px]" />
+                <col className="w-[108px]" />
+                <col className="w-[115px]" />
+                <col className="w-[52px]" />
               </colgroup>
 
               <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">

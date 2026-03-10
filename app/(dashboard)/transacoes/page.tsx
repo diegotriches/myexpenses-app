@@ -215,7 +215,7 @@ export default function TransacoesPage() {
 
   if (loadingContas) {
     return (
-      <div className="max-w-[1200px] mx-auto p-4 md:p-6">
+      <div className="page-container mx-auto p-4 md:p-6">
         <div className="flex items-center justify-center py-16">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
         </div>
@@ -224,7 +224,7 @@ export default function TransacoesPage() {
   }
 
   return (
-    <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-6">
+    <div className="page-container mx-auto p-4 md:p-6 space-y-6">
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-2">

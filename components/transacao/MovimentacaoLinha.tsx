@@ -236,7 +236,7 @@ export default function MovimentacaoLinha({
         : "bg-red-50/30 dark:bg-red-950/10"
     }`}>
       {/* Data — largura fixa, nunca quebra */}
-      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 w-[100px]">
+      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 w-[88px]">
         {formatarDataParaExibicao(mov.data)}
       </td>
 
@@ -248,7 +248,7 @@ export default function MovimentacaoLinha({
       </td>
 
       {/* Tipo — largura fixa para o badge */}
-      <td className="px-3 py-3 text-center whitespace-nowrap w-[100px]">
+      <td className="px-3 py-3 text-center whitespace-nowrap w-[90px]">
         {mov.tipo === "entrada" ? (
           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
             <ArrowUpCircle className="w-3 h-3 mr-1" />
@@ -263,7 +263,7 @@ export default function MovimentacaoLinha({
       </td>
 
       {/* Categoria — ícone + texto truncado */}
-      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[130px]">
+      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[125px]">
         {isTransferencia ? (
           <span className="text-gray-400 dark:text-gray-600">—</span>
         ) : (
@@ -284,7 +284,7 @@ export default function MovimentacaoLinha({
       </td>
 
       {/* Valor — alinhado à direita, nunca quebra */}
-      <td className="px-3 py-3 text-right text-sm font-semibold whitespace-nowrap w-[110px]">
+      <td className="px-3 py-3 text-right text-sm font-semibold whitespace-nowrap w-[96px]">
         <span className={mov.tipo === "entrada"
           ? "text-green-600 dark:text-green-400"
           : "text-red-600 dark:text-red-400"
@@ -294,7 +294,7 @@ export default function MovimentacaoLinha({
       </td>
 
       {/* Forma de pagamento — ícone + label fixo */}
-      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[120px]">
+      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[105px]">
         {isTransferencia ? (
           <div className="flex items-center gap-1.5">
             <ArrowLeftRight className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
@@ -311,7 +311,7 @@ export default function MovimentacaoLinha({
       </td>
 
       {/* Condição — ícone + label fixo */}
-      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[100px]">
+      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[108px]">
         {isTransferencia ? (
           <span className="text-gray-400 dark:text-gray-600">—</span>
         ) : (
@@ -323,7 +323,7 @@ export default function MovimentacaoLinha({
       </td>
 
       {/* Cartão — ícone + nome truncado */}
-      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[120px]">
+      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[115px]">
         {isTransferencia ? (
           <span className="text-gray-400 dark:text-gray-600">—</span>
         ) : mov.formaPagamento === "cartao" && cartao ? (
@@ -345,7 +345,7 @@ export default function MovimentacaoLinha({
       </td>
 
       {/* Ações */}
-      <td className="px-3 py-3 text-right w-[48px]">
+      <td className="px-3 py-3 text-right w-[52px]">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 dark:hover:bg-gray-700">

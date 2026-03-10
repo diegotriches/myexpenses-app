@@ -517,3 +517,17 @@ canvas {
     display: none !important;
   }
 }
+
+/* ============================================
+   PAGE CONTAINER — expande quando menu colapsa
+   ============================================ */
+
+@utility page-container {
+  max-width: 1200px;
+  width: 100%;
+  margin-inline: auto;
+}
+
+main[data-collapsed="true"] .page-container {
+  max-width: 100%;
+}
