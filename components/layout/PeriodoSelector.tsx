@@ -17,10 +17,6 @@ import {
 } from "@/components/ui/popover";
 import { ChevronLeft, ChevronRight, Calendar, Home } from "lucide-react";
 
-// ============================================================================
-// CONSTANTES
-// ============================================================================
-
 const meses = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
@@ -31,99 +27,62 @@ const mesesAbreviados = [
   "Jul", "Ago", "Set", "Out", "Nov", "Dez"
 ];
 
-// ============================================================================
-// COMPONENTE PRINCIPAL
-// ============================================================================
-
 export default function PeriodoSelector() {
-  const { 
-    mesSelecionado, 
-    setMesSelecionado, 
-    anoSelecionado, 
-    setAnoSelecionado 
+  const {
+    mesSelecionado,
+    anoSelecionado,
+    setMesSelecionado,
+    setAnoSelecionado,
+    navegarMes,
+    navegarAno,
   } = usePeriodo();
 
-  // Data atual para comparação
   const hoje = new Date();
   const mesAtual = hoje.getMonth();
   const anoAtual = hoje.getFullYear();
   const isHoje = mesSelecionado === mesAtual && anoSelecionado === anoAtual;
 
-  // ============================================================================
-  // FUNÇÕES DE NAVEGAÇÃO (com useCallback para estabilidade)
-  // ============================================================================
-
+  // Usa navegarMes/navegarAno (disparam onNavegacao) para ações manuais
   const avancarMes = useCallback(() => {
     if (mesSelecionado === 11) {
-      setMesSelecionado(0);
-      setAnoSelecionado(anoSelecionado + 1);
+      navegarAno(anoSelecionado + 1);
+      navegarMes(0);
     } else {
-      setMesSelecionado(mesSelecionado + 1);
+      navegarMes(mesSelecionado + 1);
     }
-  }, [mesSelecionado, anoSelecionado, setMesSelecionado, setAnoSelecionado]);
+  }, [mesSelecionado, anoSelecionado, navegarMes, navegarAno]);
 
   const voltarMes = useCallback(() => {
     if (mesSelecionado === 0) {
-      setMesSelecionado(11);
-      setAnoSelecionado(anoSelecionado - 1);
+      navegarAno(anoSelecionado - 1);
+      navegarMes(11);
     } else {
-      setMesSelecionado(mesSelecionado - 1);
+      navegarMes(mesSelecionado - 1);
     }
-  }, [mesSelecionado, anoSelecionado, setMesSelecionado, setAnoSelecionado]);
+  }, [mesSelecionado, anoSelecionado, navegarMes, navegarAno]);
 
   const voltarParaHoje = useCallback(() => {
-    setMesSelecionado(mesAtual);
-    setAnoSelecionado(anoAtual);
-  }, [mesAtual, anoAtual, setMesSelecionado, setAnoSelecionado]);
-
-  // ============================================================================
-  // ATALHOS DE TECLADO
-  // ============================================================================
+    navegarMes(mesAtual);
+    navegarAno(anoAtual);
+  }, [mesAtual, anoAtual, navegarMes, navegarAno]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Apenas se não estiver em input/textarea
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      if (e.key === "ArrowLeft" && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        voltarMes();
-      } else if (e.key === "ArrowRight" && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        avancarMes();
-      } else if (e.key === "h" && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        voltarParaHoje();
-      }
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "ArrowLeft" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); voltarMes(); }
+      else if (e.key === "ArrowRight" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); avancarMes(); }
+      else if (e.key === "h" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); voltarParaHoje(); }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [voltarMes, avancarMes, voltarParaHoje]);
 
-  // ============================================================================
-  // ANOS DISPONÍVEIS
-  // ============================================================================
-
-  // Anos disponíveis (5 anos atrás até 2 anos no futuro)
-  const anosDisponiveis = Array.from(
-    { length: 8 },
-    (_, i) => anoAtual - 5 + i
-  );
-
-  // ============================================================================
-  // RENDER
-  // ============================================================================
+  const anosDisponiveis = Array.from({ length: 8 }, (_, i) => anoAtual - 5 + i);
 
   return (
     <div className="flex items-center gap-2">
-      {/* ====================================================================== */}
-      {/* VERSÃO DESKTOP - COMPLETA */}
-      {/* ====================================================================== */}
+      {/* DESKTOP */}
       <div className="hidden md:flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shadow-sm">
-        {/* Botão Voltar */}
         <Button
           variant="ghost"
           size="icon"
@@ -135,17 +94,13 @@ export default function PeriodoSelector() {
           <ChevronLeft size={18} />
         </Button>
 
-        {/* Seletor de Período via Popover */}
         <Popover>
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
               className={`
                 min-w-[160px] font-semibold justify-center
-                ${isHoje 
-                  ? 'text-blue-600 dark:text-blue-400' 
-                  : 'text-gray-900 dark:text-white'
-                }
+                ${isHoje ? "text-blue-600 dark:text-blue-400" : "text-gray-900 dark:text-white"}
                 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer
               `}
               aria-label={`Período selecionado: ${meses[mesSelecionado]} de ${anoSelecionado}`}
@@ -166,86 +121,50 @@ export default function PeriodoSelector() {
                   Selecionar Período
                 </h4>
                 {!isHoje && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={voltarParaHoje}
-                    className="h-7 text-xs cursor-pointer"
-                    aria-label="Voltar para o mês atual"
-                  >
+                  <Button variant="outline" size="sm" onClick={voltarParaHoje} className="h-7 text-xs cursor-pointer" aria-label="Voltar para o mês atual">
                     <Home size={12} className="mr-1" />
                     Hoje
                   </Button>
                 )}
               </div>
-
               <div className="grid grid-cols-2 gap-3">
-                {/* Seletor de Mês */}
                 <div>
-                  <label 
-                    htmlFor="mes-select"
-                    className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block"
-                  >
-                    Mês
-                  </label>
-                  <Select
-                    value={mesSelecionado.toString()}
-                    onValueChange={(v) => setMesSelecionado(parseInt(v))}
-                  >
-                    <SelectTrigger id="mes-select" className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
+                  <label htmlFor="mes-select" className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Mês</label>
+                  <Select value={mesSelecionado.toString()} onValueChange={(v) => navegarMes(parseInt(v))}>
+                    <SelectTrigger id="mes-select" className="h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {meses.map((mes, index) => (
-                        <SelectItem key={index} value={index.toString()}>
-                          {mes}
-                        </SelectItem>
+                        <SelectItem key={index} value={index.toString()}>{mes}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-
-                {/* Seletor de Ano */}
                 <div>
-                  <label 
-                    htmlFor="ano-select"
-                    className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block"
-                  >
-                    Ano
-                  </label>
-                  <Select
-                    value={anoSelecionado.toString()}
-                    onValueChange={(v) => setAnoSelecionado(parseInt(v))}
-                  >
-                    <SelectTrigger id="ano-select" className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
+                  <label htmlFor="ano-select" className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Ano</label>
+                  <Select value={anoSelecionado.toString()} onValueChange={(v) => navegarAno(parseInt(v))}>
+                    <SelectTrigger id="ano-select" className="h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {anosDisponiveis.map((ano) => (
-                        <SelectItem key={ano} value={ano.toString()}>
-                          {ano}
-                        </SelectItem>
+                        <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-
               <div className="text-xs text-gray-500 dark:text-gray-400 text-center pt-2 border-t dark:border-gray-700">
-                💡 <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Ctrl</kbd> + 
-                <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] mx-1">←</kbd> / 
-                <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] mx-1">→</kbd> 
+                💡 <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Ctrl</kbd> +
+                <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] mx-1">←</kbd> /
+                <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] mx-1">→</kbd>
                 para navegar
                 <br />
-                <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] mt-1 inline-block">Ctrl</kbd> + 
-                <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] mx-1">H</kbd> 
+                <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] mt-1 inline-block">Ctrl</kbd> +
+                <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px] mx-1">H</kbd>
                 para voltar ao mês atual
               </div>
             </div>
           </PopoverContent>
         </Popover>
 
-        {/* Botão Avançar */}
         <Button
           variant="ghost"
           size="icon"
@@ -257,33 +176,17 @@ export default function PeriodoSelector() {
           <ChevronRight size={18} />
         </Button>
 
-        {/* Botão Hoje - Só aparece se não estiver no mês atual */}
         {!isHoje && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={voltarParaHoje}
-            className="ml-2 h-8 text-xs cursor-pointer"
-            title="Voltar para o mês atual (Ctrl + H)"
-            aria-label="Voltar para o mês atual"
-          >
+          <Button variant="outline" size="sm" onClick={voltarParaHoje} className="ml-2 h-8 text-xs cursor-pointer" title="Voltar para o mês atual (Ctrl + H)" aria-label="Voltar para o mês atual">
             <Home size={14} className="mr-1" />
             Hoje
           </Button>
         )}
       </div>
 
-      {/* ====================================================================== */}
-      {/* VERSÃO MOBILE - COMPACTA */}
-      {/* ====================================================================== */}
+      {/* MOBILE */}
       <div className="md:hidden flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 shadow-sm">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={voltarMes}
-          className="h-7 w-7"
-          aria-label="Voltar um mês"
-        >
+        <Button variant="ghost" size="icon" onClick={voltarMes} className="h-7 w-7" aria-label="Voltar um mês">
           <ChevronLeft size={16} />
         </Button>
 
@@ -291,10 +194,7 @@ export default function PeriodoSelector() {
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
-              className={`
-                text-sm font-semibold px-2
-                ${isHoje ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'}
-              `}
+              className={`text-sm font-semibold px-2 ${isHoje ? "text-blue-600 dark:text-blue-400" : "text-gray-900 dark:text-white"}`}
               aria-label={`Período: ${mesesAbreviados[mesSelecionado]}/${anoSelecionado}`}
             >
               {mesesAbreviados[mesSelecionado]}/{anoSelecionado}
@@ -303,66 +203,30 @@ export default function PeriodoSelector() {
           <PopoverContent className="w-72 p-4" align="center">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
-                  Período
-                </h4>
+                <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300">Período</h4>
                 {!isHoje && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={voltarParaHoje}
-                    className="h-7 text-xs"
-                    aria-label="Voltar para hoje"
-                  >
-                    Hoje
-                  </Button>
+                  <Button variant="outline" size="sm" onClick={voltarParaHoje} className="h-7 text-xs" aria-label="Voltar para hoje">Hoje</Button>
                 )}
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label 
-                    htmlFor="mes-select-mobile"
-                    className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block"
-                  >
-                    Mês
-                  </label>
-                  <Select
-                    value={mesSelecionado.toString()}
-                    onValueChange={(v) => setMesSelecionado(parseInt(v))}
-                  >
-                    <SelectTrigger id="mes-select-mobile" className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
+                  <label htmlFor="mes-select-mobile" className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Mês</label>
+                  <Select value={mesSelecionado.toString()} onValueChange={(v) => navegarMes(parseInt(v))}>
+                    <SelectTrigger id="mes-select-mobile" className="h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {meses.map((mes, index) => (
-                        <SelectItem key={index} value={index.toString()}>
-                          {mes}
-                        </SelectItem>
+                        <SelectItem key={index} value={index.toString()}>{mes}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div>
-                  <label 
-                    htmlFor="ano-select-mobile"
-                    className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block"
-                  >
-                    Ano
-                  </label>
-                  <Select
-                    value={anoSelecionado.toString()}
-                    onValueChange={(v) => setAnoSelecionado(parseInt(v))}
-                  >
-                    <SelectTrigger id="ano-select-mobile" className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
+                  <label htmlFor="ano-select-mobile" className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Ano</label>
+                  <Select value={anoSelecionado.toString()} onValueChange={(v) => navegarAno(parseInt(v))}>
+                    <SelectTrigger id="ano-select-mobile" className="h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {anosDisponiveis.map((ano) => (
-                        <SelectItem key={ano} value={ano.toString()}>
-                          {ano}
-                        </SelectItem>
+                        <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -372,13 +236,7 @@ export default function PeriodoSelector() {
           </PopoverContent>
         </Popover>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={avancarMes}
-          className="h-7 w-7"
-          aria-label="Avançar um mês"
-        >
+        <Button variant="ghost" size="icon" onClick={avancarMes} className="h-7 w-7" aria-label="Avançar um mês">
           <ChevronRight size={16} />
         </Button>
       </div>

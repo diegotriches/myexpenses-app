@@ -56,11 +56,15 @@ export default function FaturaPage() {
   const params       = useParams();
   const router       = useRouter();
   const searchParams = useSearchParams();
-  const { mesSelecionado, anoSelecionado, setMesSelecionado, setAnoSelecionado } = usePeriodo();
+  const {
+    mesSelecionado,
+    anoSelecionado,
+    setMesSelecionado,
+    setAnoSelecionado,
+    registrarOnNavegacao,
+  } = usePeriodo();
   const { id } = params as { id: string };
 
-  // Query params da URL (?mes=X&ano=Y) — presentes quando veio pelo botão "Ver fatura"
-  // mes na URL é 1-indexed, converter para 0-indexed
   const mesUrl = searchParams.get("mes") !== null ? Number(searchParams.get("mes")) - 1 : null;
   const anoUrl = searchParams.get("ano")  !== null ? Number(searchParams.get("ano"))      : null;
   const veioViaLink = mesUrl !== null && anoUrl !== null;
@@ -68,22 +72,25 @@ export default function FaturaPage() {
   const [modalAberto, setModalAberto] = useState(false);
   const pagarFaturaMutation = usePagarFatura();
 
-  // usuarioNavegouRef: controla se o seletor está sob controle do usuário.
-  // Usar ref (não state) evita race conditions entre renders assíncronos.
-  // Inicia true se veio via link — nunca entra no modo automático.
-  const usuarioNavegouRef = useRef(veioViaLink);
-  const sincronizandoRef  = useRef(false);
+  // useState garante re-render imediato quando o usuário navega
+  const [usuarioNavegou, setUsuarioNavegou] = useState(veioViaLink);
 
-  // Se veio via link, inicializa o seletor global com o mês da URL (uma única vez)
+  // Registra callback no contexto: chamado pelo PeriodoSelector ANTES de mudar
+  // o estado — sem useEffect de detecção, sem stale closure, sem atraso de render.
+  useEffect(() => {
+    registrarOnNavegacao(() => setUsuarioNavegou(true));
+    return () => registrarOnNavegacao(null);
+  }, [registrarOnNavegacao]);
+
+  // Se veio via link, inicializa o seletor com o mês da URL (uma única vez)
   useEffect(() => {
     if (!veioViaLink || mesUrl === null || anoUrl === null) return;
-    sincronizandoRef.current = true;
     setMesSelecionado(mesUrl);
     setAnoSelecionado(anoUrl);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Cleanup: restaura seletor para o mes atual ao sair da pagina
+  // Cleanup: restaura seletor para o mês atual ao sair da página
   useEffect(() => {
     return () => {
       setMesSelecionado(mesAtual);
@@ -94,8 +101,6 @@ export default function FaturaPage() {
 
   const { data: contas = [], isLoading: contasLoading } = useContas();
 
-  const periodoRef = { mes: mesSelecionado, ano: anoSelecionado };
-
   const {
     fatura,
     cartao,
@@ -104,43 +109,34 @@ export default function FaturaPage() {
     isLoading: faturaLoading,
   } = useFaturaCartao({
     cartaoId: id,
-    ano: periodoRef.ano,
-    mes: periodoRef.mes + 1,
+    ano: anoSelecionado,
+    mes: mesSelecionado + 1,
   });
 
+  // mesFinal/anoFinal: se o usuário já navegou (ou veio via link), usa o seletor.
+  // Caso contrário, calcula automaticamente pelo diaFechamento do cartão.
+  // Como usuarioNavegou é setState (não ref), o useMemo lê o valor correto
+  // no mesmo render em que o callback onNavegacao foi chamado.
   const { mesFinal, anoFinal, automatico } = useMemo(() => {
-    // Se o usuario navegou (ou veio via link), respeita sempre o seletor — sem modo automático
-    if (usuarioNavegouRef.current) {
+    if (usuarioNavegou) {
       return { mesFinal: mesSelecionado, anoFinal: anoSelecionado, automatico: false };
     }
-    // Calculo automatico pelo diaFechamento (só quando entrou diretamente na página)
     if (cartao?.diaFechamento) {
       const { mes, ano } = calcularFaturaAtiva(cartao.diaFechamento);
       return { mesFinal: mes, anoFinal: ano, automatico: true };
     }
     return { mesFinal: mesSelecionado, anoFinal: anoSelecionado, automatico: false };
-  }, [mesSelecionado, anoSelecionado, cartao?.diaFechamento]);
+  }, [usuarioNavegou, mesSelecionado, anoSelecionado, cartao?.diaFechamento]);
 
-  // Sincroniza o seletor global com o mes da fatura ativa
+  // Sincroniza o seletor quando o período foi calculado automaticamente
   useEffect(() => {
     if (!automatico) return;
     if (mesFinal === mesSelecionado && anoFinal === anoSelecionado) return;
-    sincronizandoRef.current = true; // marca que e mudanca programatica
     setMesSelecionado(mesFinal);
     setAnoSelecionado(anoFinal);
   }, [automatico, mesFinal, anoFinal]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Detecta navegacao MANUAL do seletor (ignora mudancas programaticas)
-  useEffect(() => {
-    if (!automatico) return;
-    if (sincronizandoRef.current) {
-      sincronizandoRef.current = false; // consome a flag, nao trava
-      return;
-    }
-    usuarioNavegouRef.current = true; // ref: imediato, sem re-render
-  }, [mesSelecionado, anoSelecionado]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const periodoMudou = mesFinal !== periodoRef.mes || anoFinal !== periodoRef.ano;
+  const periodoMudou = mesFinal !== mesSelecionado || anoFinal !== anoSelecionado;
 
   const {
     fatura: faturaFinal,
@@ -273,7 +269,7 @@ export default function FaturaPage() {
           pendentes={pendentesOutrosMeses}
           isLoading={pendentesLoading}
           onVerFatura={(mes, ano) => {
-            usuarioNavegouRef.current = true;
+            setUsuarioNavegou(true);
             setMesSelecionado(mes);
             setAnoSelecionado(ano);
           }}
