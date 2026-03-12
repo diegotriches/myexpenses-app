@@ -64,7 +64,7 @@ export default function LandingPage() {
 
           <div className="text-center text-white space-y-8">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight animate-fade-in">
-              Controle suas financas
+              Controle suas finanças
               <br />
               <span className="text-yellow-300 bg-gradient-to-r from-yellow-200 to-yellow-400 bg-clip-text text-transparent">
                 de forma simples
@@ -72,8 +72,8 @@ export default function LandingPage() {
             </h1>
 
             <p className="text-xl md:text-2xl text-blue-100 max-w-3xl mx-auto leading-relaxed animate-fade-in-delay">
-              Gerencie suas receitas, despesas e investimentos em um so lugar.
-              Visualize seus gastos com graficos intuitivos e tome decisoes financeiras inteligentes.
+              Gerencie suas receitas, despesas e investimentos em um só lugar.
+              Visualize seus gastos com gráficos intuitivos e tome decisões financeiras inteligentes.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8 animate-fade-in-delay-2">
@@ -81,7 +81,7 @@ export default function LandingPage() {
                 href="/register"
                 className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-blue-600 font-bold text-lg rounded-full hover:bg-blue-50 transition-all shadow-xl hover:shadow-2xl hover:scale-105"
               >
-                Comecar Gratuitamente
+                Começar Gratuitamente
                 <FiArrowRight size={24} className="group-hover:translate-x-1 transition-transform" />
               </Link>
 
@@ -89,7 +89,7 @@ export default function LandingPage() {
                 href="/login"
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white/10 backdrop-blur-sm text-white font-semibold text-lg rounded-full hover:bg-white/20 transition-all border-2 border-white/30 hover:border-white/50"
               >
-                Ja tenho conta
+                Já tenho conta
               </Link>
             </div>
 
@@ -104,7 +104,7 @@ export default function LandingPage() {
               </div>
               <div className="flex items-center gap-2 group">
                 <FiTrendingUp size={20} className="group-hover:text-green-300 transition-colors" />
-                <span>Facil de usar</span>
+                <span>Fácil de usar</span>
               </div>
             </div>
           </div>
@@ -116,7 +116,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              Tudo que voce precisa para controlar suas financas
+              Tudo que você precisa para controlar suas finanças
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-400">
               Ferramentas poderosas para gerenciar seu dinheiro
@@ -138,9 +138,9 @@ export default function LandingPage() {
               <div className="w-16 h-16 bg-purple-600 dark:bg-purple-500 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <FiPieChart className="text-white" size={32} />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Visualizacao Clara</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Visualização Clara</h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Graficos intuitivos mostram para onde seu dinheiro esta indo. Entenda seus padroes de gastos.
+                Gráficos intuitivos mostram para onde seu dinheiro está indo. Entenda seus padrões de gastos.
               </p>
             </div>
 
@@ -148,9 +148,9 @@ export default function LandingPage() {
               <div className="w-16 h-16 bg-green-600 dark:bg-green-500 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <FiTrendingUp className="text-white" size={32} />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Decisoes Inteligentes</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Decisões Inteligentes</h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Analises detalhadas ajudam voce a tomar decisoes financeiras mais inteligentes.
+                Análises detalhadas ajudam você a tomar decisões financeiras mais inteligentes.
               </p>
             </div>
           </div>
@@ -187,9 +187,9 @@ export default function LandingPage() {
                   </div>
                   <div className="space-y-3 pl-2">
                     <TechItem name="Next.js 15" description="Framework React com SSR" />
-                    <TechItem name="TypeScript" description="Tipagem estatica" />
-                    <TechItem name="Tailwind CSS" description="Estilizacao moderna" />
-                    <TechItem name="shadcn/ui" description="Componentes reutilizaveis" />
+                    <TechItem name="TypeScript" description="Tipagem estática" />
+                    <TechItem name="Tailwind CSS" description="Estilização moderna" />
+                    <TechItem name="shadcn/ui" description="Componentes reutilizáveis" />
                     <TechItem name="React Query" description="Gerenciamento de estado" />
                   </div>
                 </div>
@@ -203,9 +203,9 @@ export default function LandingPage() {
                   </div>
                   <div className="space-y-3 pl-2">
                     <TechItem name="Next.js API Routes" description="APIs serverless" />
-                    <TechItem name="NextAuth.js" description="Autenticacao OAuth" />
+                    <TechItem name="NextAuth.js" description="Autenticação OAuth" />
                     <TechItem name="Drizzle ORM" description="Type-safe database" />
-                    <TechItem name="Nodemailer" description="Envio de emails via Gmail" />
+                    <TechItem name="Nodemailer" description="Envio de e-mails via Gmail" />
                   </div>
                 </div>
 
@@ -227,19 +227,19 @@ export default function LandingPage() {
                     <div className="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
                       <FiLock className="text-red-600 dark:text-red-400" size={20} />
                     </div>
-                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">Seguranca e Qualidade</h4>
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">Segurança e Qualidade</h4>
                   </div>
                   <div className="space-y-3 pl-2">
                     <TechItem name="bcryptjs" description="Hash de senhas" />
-                    <TechItem name="Zod" description="Validacao de schemas" />
-                    <TechItem name="ESLint" description="Qualidade de codigo" />
+                    <TechItem name="Zod" description="Validação de schemas" />
+                    <TechItem name="ESLint" description="Qualidade de código" />
                   </div>
                 </div>
               </div>
 
               <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-900 rounded-xl">
                 <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
-                  Desenvolvido com tecnologias modernas e escalaveis para garantir performance e seguranca.
+                  Desenvolvido com tecnologias modernas e escaláveis para garantir performance e segurança.
                 </p>
               </div>
             </div>
@@ -250,15 +250,15 @@ export default function LandingPage() {
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-900 dark:to-purple-900 transition-colors">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold text-white mb-6">Pronto para comecar?</h2>
+          <h2 className="text-4xl font-bold text-white mb-6">Pronto para começar?</h2>
           <p className="text-xl text-blue-100 mb-8">
-            Crie sua conta gratuitamente e comece a organizar suas financas hoje mesmo.
+            Crie sua conta gratuitamente e comece a organizar suas finanças hoje mesmo.
           </p>
           <Link
             href="/register"
             className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-blue-600 font-bold text-lg rounded-full hover:bg-blue-50 transition-all shadow-xl hover:shadow-2xl hover:scale-105"
           >
-            Criar Conta Gratis
+            Criar Conta Grátis
             <FiArrowRight size={24} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
@@ -277,7 +277,7 @@ export default function LandingPage() {
             </p>
             <div className="flex items-center gap-6 text-sm">
               <Link href="/privacy" className="text-gray-500 hover:text-gray-300 transition-colors">
-                Politica de Privacidade
+                Política de Privacidade
               </Link>
               <span className="text-gray-700">|</span>
               <Link href="/terms" className="text-gray-500 hover:text-gray-300 transition-colors">
