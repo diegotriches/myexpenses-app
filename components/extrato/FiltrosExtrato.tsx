@@ -8,15 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-// ✅ Tipos mais específicos
-export type TipoFiltro = "TODOS" | "entrada" | "saida";
-export type OrigemFiltro = "TODAS" | "TRANSACAO_MANUAL" | "TRANSFERENCIA" | "AJUSTE" | "ESTORNO" | "PAGAMENTO_FATURA";
+export type TipoFiltro   = "TODOS"  | "entrada" | "saida";
+export type OrigemFiltro = "TODAS"  | "TRANSACAO_MANUAL" | "TRANSFERENCIA" | "AJUSTE" | "ESTORNO" | "PAGAMENTO_FATURA";
 
 export interface FiltrosExtratoState {
-  inicio: string;
-  fim: string;
-  tipo: TipoFiltro;
-  origem: OrigemFiltro;
+  inicio:   string;
+  fim:      string;
+  tipo:     TipoFiltro;
+  origem:   OrigemFiltro;
+  valorMin: string;
+  valorMax: string;
 }
 
 interface Props {
@@ -31,24 +32,15 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
   const updateFiltro = <K extends keyof FiltrosExtratoState>(
     key: K,
     value: FiltrosExtratoState[K]
-  ) => {
-    onFiltrosChange({ ...filtros, [key]: value });
-  };
+  ) => onFiltrosChange({ ...filtros, [key]: value });
 
-  const limparFiltros = () => {
-    onFiltrosChange({
-      inicio: "",
-      fim: "",
-      tipo: "TODOS",
-      origem: "TODAS",
-    });
-  };
+  const limparFiltros = () =>
+    onFiltrosChange({ inicio: "", fim: "", tipo: "TODOS", origem: "TODAS", valorMin: "", valorMax: "" });
 
   const temFiltrosAtivos =
-    filtros.inicio !== "" ||
-    filtros.fim !== "" ||
-    filtros.tipo !== "TODOS" ||
-    filtros.origem !== "TODAS";
+    filtros.inicio !== "" || filtros.fim !== "" ||
+    filtros.tipo !== "TODOS" || filtros.origem !== "TODAS" ||
+    filtros.valorMin !== "" || filtros.valorMax !== "";
 
   const contarFiltrosAtivos = () => {
     let count = 0;
@@ -56,29 +48,33 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
     if (filtros.fim) count++;
     if (filtros.tipo !== "TODOS") count++;
     if (filtros.origem !== "TODAS") count++;
+    if (filtros.valorMin !== "" || filtros.valorMax !== "") count++;
     return count;
   };
 
-  // Helper para formatar nomes de origem
   const formatarOrigem = (origem: string): string => {
     const nomes: Record<string, string> = {
       TRANSACAO_MANUAL: "Transações",
-      TRANSFERENCIA: "Transferências",
-      AJUSTE: "Ajustes",
-      ESTORNO: "Estornos",
-      PAGAMENTO_FATURA: "Pagamento Fatura",
+      TRANSFERENCIA:    "Transferências",
+      AJUSTE:           "Ajustes",
+      ESTORNO:          "Estornos",
+      PAGAMENTO_FATURA: "Pag. Fatura",
     };
     return nomes[origem] || origem.replace("_", " ");
   };
 
-  // ✅ NOVO: Formatar data com validação
   const formatarData = (dataStr: string): string => {
     try {
-      const data = new Date(dataStr + 'T00:00:00'); // Evita timezone issues
-      return data.toLocaleDateString("pt-BR");
+      return new Date(dataStr + "T00:00:00").toLocaleDateString("pt-BR");
     } catch {
       return dataStr;
     }
+  };
+
+  const labelValorFaixa = () => {
+    if (filtros.valorMin && filtros.valorMax) return `R$ ${filtros.valorMin} – R$ ${filtros.valorMax}`;
+    if (filtros.valorMin) return `a partir de R$ ${filtros.valorMin}`;
+    return `até R$ ${filtros.valorMax}`;
   };
 
   return (
@@ -93,26 +89,17 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
             <Filter className="h-5 w-5 text-gray-700 dark:text-gray-300" />
             <CardTitle className="text-base text-gray-900 dark:text-white">Filtros</CardTitle>
             {temFiltrosAtivos && (
-              <Badge variant="default" className="ml-2">
-                {contarFiltrosAtivos()}
-              </Badge>
+              <Badge variant="default" className="ml-2">{contarFiltrosAtivos()}</Badge>
             )}
-            {mostrarFiltros ? (
-              <ChevronUp className="h-4 w-4 ml-1 text-gray-700 dark:text-gray-300" />
-            ) : (
-              <ChevronDown className="h-4 w-4 ml-1 text-gray-700 dark:text-gray-300" />
-            )}
+            {mostrarFiltros
+              ? <ChevronUp   className="h-4 w-4 ml-1 text-gray-700 dark:text-gray-300" />
+              : <ChevronDown className="h-4 w-4 ml-1 text-gray-700 dark:text-gray-300" />
+            }
           </Button>
 
           {temFiltrosAtivos && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={limparFiltros}
-              className="dark:hover:bg-gray-700"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Limpar
+            <Button variant="ghost" size="sm" onClick={limparFiltros} className="dark:hover:bg-gray-700">
+              <X className="h-4 w-4 mr-1" /> Limpar
             </Button>
           )}
         </div>
@@ -120,8 +107,8 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
 
       {mostrarFiltros && (
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Data Início */}
+          {/* Linha 1: datas + tipo + origem */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block text-gray-700 dark:text-gray-300">
                 Data Início
@@ -133,8 +120,6 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
                 className="dark:bg-gray-900 dark:border-gray-600 dark:text-white"
               />
             </div>
-
-            {/* Data Fim */}
             <div>
               <label className="text-sm font-medium mb-2 block text-gray-700 dark:text-gray-300">
                 Data Fim
@@ -146,16 +131,11 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
                 className="dark:bg-gray-900 dark:border-gray-600 dark:text-white"
               />
             </div>
-
-            {/* Tipo */}
             <div>
               <label className="text-sm font-medium mb-2 block text-gray-700 dark:text-gray-300">
                 Tipo
               </label>
-              <Select 
-                value={filtros.tipo} 
-                onValueChange={(v) => updateFiltro("tipo", v as TipoFiltro)}
-              >
+              <Select value={filtros.tipo} onValueChange={(v) => updateFiltro("tipo", v as TipoFiltro)}>
                 <SelectTrigger className="dark:bg-gray-900 dark:border-gray-600 dark:text-white">
                   <SelectValue />
                 </SelectTrigger>
@@ -166,16 +146,11 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Origem */}
             <div>
               <label className="text-sm font-medium mb-2 block text-gray-700 dark:text-gray-300">
                 Origem
               </label>
-              <Select 
-                value={filtros.origem} 
-                onValueChange={(v) => updateFiltro("origem", v as OrigemFiltro)}
-              >
+              <Select value={filtros.origem} onValueChange={(v) => updateFiltro("origem", v as OrigemFiltro)}>
                 <SelectTrigger className="dark:bg-gray-900 dark:border-gray-600 dark:text-white">
                   <SelectValue />
                 </SelectTrigger>
@@ -191,65 +166,81 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
             </div>
           </div>
 
+          {/* Linha 2: faixa de valor */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block text-gray-700 dark:text-gray-300">
+                Valor mín. (R$)
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0,00"
+                value={filtros.valorMin}
+                onChange={(e) => updateFiltro("valorMin", e.target.value)}
+                className="dark:bg-gray-900 dark:border-gray-600 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block text-gray-700 dark:text-gray-300">
+                Valor máx. (R$)
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0,00"
+                value={filtros.valorMax}
+                onChange={(e) => updateFiltro("valorMax", e.target.value)}
+                className="dark:bg-gray-900 dark:border-gray-600 dark:text-white"
+              />
+            </div>
+          </div>
+
           {/* Tags de filtros ativos */}
           {temFiltrosAtivos && (
             <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
               {filtros.inicio && (
-                <Badge 
-                  variant="secondary" 
-                  className="gap-1 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                >
+                <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
                   Início: {formatarData(filtros.inicio)}
-                  <X
-                    className="h-3 w-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
-                    onClick={() => updateFiltro("inicio", "")}
-                  />
+                  <X className="h-3 w-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
+                    onClick={() => updateFiltro("inicio", "")} />
                 </Badge>
               )}
               {filtros.fim && (
-                <Badge 
-                  variant="secondary" 
-                  className="gap-1 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                >
+                <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
                   Fim: {formatarData(filtros.fim)}
-                  <X
-                    className="h-3 w-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
-                    onClick={() => updateFiltro("fim", "")}
-                  />
+                  <X className="h-3 w-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
+                    onClick={() => updateFiltro("fim", "")} />
                 </Badge>
               )}
               {filtros.tipo !== "TODOS" && (
-                <Badge 
-                  variant="secondary" 
-                  className="gap-1 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                >
+                <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
                   Tipo: {filtros.tipo === "entrada" ? "Entradas" : "Saídas"}
-                  <X
-                    className="h-3 w-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
-                    onClick={() => updateFiltro("tipo", "TODOS")}
-                  />
+                  <X className="h-3 w-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
+                    onClick={() => updateFiltro("tipo", "TODOS")} />
                 </Badge>
               )}
               {filtros.origem !== "TODAS" && (
-                <Badge 
-                  variant="secondary" 
-                  className="gap-1 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                >
+                <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
                   Origem: {formatarOrigem(filtros.origem)}
-                  <X
-                    className="h-3 w-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
-                    onClick={() => updateFiltro("origem", "TODAS")}
-                  />
+                  <X className="h-3 w-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
+                    onClick={() => updateFiltro("origem", "TODAS")} />
+                </Badge>
+              )}
+              {(filtros.valorMin !== "" || filtros.valorMax !== "") && (
+                <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                  Valor: {labelValorFaixa()}
+                  <X className="h-3 w-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
+                    onClick={() => onFiltrosChange({ ...filtros, valorMin: "", valorMax: "" })} />
                 </Badge>
               )}
             </div>
           )}
 
-          {/* Botão Aplicar ou Info de filtros automáticos */}
           {onAplicar ? (
-            <Button className="w-full" onClick={onAplicar}>
-              Aplicar Filtros
-            </Button>
+            <Button className="w-full" onClick={onAplicar}>Aplicar Filtros</Button>
           ) : (
             <p className="text-xs text-gray-500 dark:text-gray-400 text-center pt-2">
               ✨ Os filtros são aplicados automaticamente
