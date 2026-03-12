@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { notificacoes, cartoes, faturas, contas, preferenciasNotificacao, accounts } from "@/db/schema";
+import { notificacoes, cartoes, faturas, preferenciasNotificacao, accounts } from "@/db/schema";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 
@@ -172,60 +172,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ==================== 3. SALDO DE CONTAS ====================
-    if (prefs.saldoBaixo) {
-      const contasUsuario = await db
-        .select()
-        .from(contas)
-        .where(and(eq(contas.userId, userId), eq(contas.ativo, true)));
-
-      for (const conta of contasUsuario) {
-        const saldo = Number(conta.saldoAtual);
-        const metadataSaldo = { contaId: conta.id };
-
-        if (saldo < 0) {
-          const jaNotificou = await jaNotificouRecentemente(
-            userId,
-            ["SALDO_BAIXO", "SALDO_NEGATIVO"],
-            metadataSaldo
-          );
-          if (!jaNotificou) {
-            await db.insert(notificacoes).values({
-              userId,
-              tipo: "SALDO_NEGATIVO",
-              severidade: "error",
-              titulo: `Saldo negativo em ${conta.nome}!`,
-              mensagem: `Saldo atual: R$ ${saldo.toFixed(2)}`,
-              link: `/contas`,
-              metadata: { ...metadataSaldo, saldo: String(saldo) },
-            });
-            notificacoesCriadas++;
-          }
-        } else if (saldo < prefs.limiteMinimoConta) {
-          const jaNotificou = await jaNotificouRecentemente(
-            userId,
-            ["SALDO_BAIXO", "SALDO_NEGATIVO"],
-            metadataSaldo
-          );
-          if (!jaNotificou) {
-            await db.insert(notificacoes).values({
-              userId,
-              tipo: "SALDO_BAIXO",
-              severidade: "warning",
-              titulo: `Saldo baixo em ${conta.nome}`,
-              mensagem: `Saldo atual: R$ ${saldo.toFixed(2)}`,
-              link: `/contas`,
-              metadata: { ...metadataSaldo, saldo: String(saldo) },
-            });
-            notificacoesCriadas++;
-          }
-        }
-      }
-    }
-
-    // ==================== 4. BACKUP INATIVO ====================
-    // Verifica se o usuário tem conta Google vinculada (necessária para backup)
-    // Se não tiver, notifica uma vez por semana
+    // ==================== 3. BACKUP INATIVO ====================
     const contaGoogle = await db
       .select()
       .from(accounts)
