@@ -22,6 +22,7 @@ import {
   BsCreditCard,
   BsFillGearFill,
 } from "react-icons/bs";
+import { MdOutlineAutoGraph } from "react-icons/md";
 import { Menu, ChevronRight } from "lucide-react";
 
 interface SidebarProps {
@@ -29,7 +30,6 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ isCollapsed }: SidebarProps) => {
-  // ✅ React Query - substitui useState + useEffect + api.get
   const { data: userData, isLoading: loading } = useProfile();
   
   const [fotoError, setFotoError] = useState(false);
@@ -38,15 +38,12 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   const pathname = usePathname();
   const router = useRouter();
 
-  // ✅ Refs para detecção de swipe
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
   const sheetContentRef = useRef<HTMLDivElement>(null);
 
-  // ✅ Define se deve mostrar expandido (não colapsado OU em hover)
   const isExpanded = !isCollapsed || isHovered;
 
-  // ✅ Fecha sidebar mobile quando pathname muda
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
@@ -65,21 +62,21 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     return `${base} ${hover} ${active}`;
   };
 
-  // Grupos de navegação
   const navigationGroups = [
     {
       title: "Principal",
       links: [
-        { href: "/dashboard", icon: BsHouse, label: "Dashboard" },
-        { href: "/transacoes", icon: BsArrowLeftRight, label: "Movimentações" },
+        { href: "/dashboard",    icon: BsHouse,            label: "Dashboard"     },
+        { href: "/transacoes",   icon: BsArrowLeftRight,   label: "Movimentações" },
+        { href: "/resumo-anual", icon: MdOutlineAutoGraph, label: "Resumo Anual"  },
       ],
     },
     {
       title: "Financeiro",
       links: [
-        { href: "/contas", icon: BsBank, label: "Contas" },
-        { href: "/cartoes", icon: BsCreditCard, label: "Cartões" },
-        { href: "/categorias", icon: BsTags, label: "Categorias" },
+        { href: "/contas",     icon: BsBank,       label: "Contas"     },
+        { href: "/cartoes",    icon: BsCreditCard, label: "Cartões"    },
+        { href: "/categorias", icon: BsTags,       label: "Categorias" },
       ],
     },
   ];
@@ -98,7 +95,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     const content = (
       <Link href={href} className={linkClasses(href)}>
         <Icon size={20} className="flex-shrink-0" />
-        {/* ✅ Mostra label quando expandido (desktop) ou sempre (mobile) */}
         <span 
           className={`
             font-medium whitespace-nowrap
@@ -120,7 +116,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       </Link>
     );
 
-    // ✅ Tooltip apenas quando colapsado no desktop
     if (isCollapsed && !isHovered && !isMobile) {
       return (
         <TooltipProvider delayDuration={0}>
@@ -159,7 +154,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         onClick={() => router.push("/perfil")}
         className="w-full flex items-center gap-3 p-3 bg-blue-800 dark:bg-gray-800 hover:bg-blue-700 dark:hover:bg-gray-700 rounded-lg transition-all duration-200 group cursor-pointer"
       >
-        {/* Avatar */}
         <div className="relative flex-shrink-0">
           <div className="w-10 h-10 rounded-full border-2 border-white dark:border-slate-700 overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700">
             {loading ? (
@@ -181,7 +175,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-blue-800 dark:border-slate-800 rounded-full" />
         </div>
 
-        {/* Nome e Email */}
         <div 
           className={`
             flex-1 text-left overflow-hidden min-w-0
@@ -199,13 +192,9 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
             </div>
           ) : (
             <>
-              <p className="text-sm font-semibold truncate text-white">
-                {displayName}
-              </p>
+              <p className="text-sm font-semibold truncate text-white">{displayName}</p>
               {displayEmail && (
-                <p className="text-xs text-blue-200 dark:text-gray-400 truncate">
-                  {displayEmail}
-                </p>
+                <p className="text-xs text-blue-200 dark:text-gray-400 truncate">{displayEmail}</p>
               )}
             </>
           )}
@@ -220,7 +209,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       </button>
     );
 
-    // ✅ Tooltip apenas quando colapsado no desktop
     if (isCollapsed && !isHovered && !isMobile) {
       return (
         <TooltipProvider delayDuration={0}>
@@ -269,7 +257,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
         {navigationGroups.map((group) => (
           <div key={group.title}>
-            {/* ✅ Título do grupo aparece quando expandido */}
             <p 
               className={`
                 text-xs font-semibold text-blue-200 dark:text-slate-400 
@@ -306,9 +293,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
 
   return (
     <>
-      {/* ============================================
-          BACKDROP - Quando colapsado e em hover (Desktop only)
-          ============================================ */}
       {isCollapsed && isHovered && (
         <div
           className="hidden md:block fixed inset-0 bg-black/10 backdrop-blur-[1px] z-30"
@@ -316,9 +300,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         />
       )}
 
-      {/* ============================================
-          DESKTOP SIDEBAR - Modo Overlay
-          ============================================ */}
+      {/* Desktop Sidebar */}
       <nav
         className={`
           hidden md:flex fixed top-0 left-0 h-screen
@@ -335,9 +317,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         <SidebarContent isMobile={false} />
       </nav>
 
-      {/* ============================================
-          MOBILE SIDEBAR - Sheet com Swipe Gesture
-          ============================================ */}
+      {/* Mobile Sidebar */}
       <div className="md:hidden">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
@@ -360,26 +340,21 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
               [&>button]:hidden
             "
           >
-            {/* ✅ Título oculto para acessibilidade */}
             <VisuallyHidden>
               <SheetTitle>Menu de Navegação</SheetTitle>
             </VisuallyHidden>
-            
-            {/* Conteúdo da sidebar - eventos de swipe aqui */}
             <div 
               className="flex flex-col h-full relative"
               onTouchStart={(e) => {
                 touchStartX.current = e.touches[0].clientX;
-                touchEndX.current = e.touches[0].clientX;
+                touchEndX.current   = e.touches[0].clientX;
               }}
               onTouchMove={(e) => {
                 touchEndX.current = e.touches[0].clientX;
               }}
               onTouchEnd={() => {
                 const swipeDistance = touchStartX.current - touchEndX.current;
-                if (swipeDistance > 50) {
-                  setMobileOpen(false);
-                }
+                if (swipeDistance > 50) setMobileOpen(false);
               }}
             >
               <SidebarContent isMobile={true} />
