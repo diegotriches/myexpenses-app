@@ -42,10 +42,10 @@ interface Props {
 }
 
 const formaPagamentoConfig = {
-  dinheiro: { icon: Banknote, label: "Dinheiro", color: "text-green-600 dark:text-green-400" },
-  pix: { icon: Smartphone, label: "PIX", color: "text-blue-600 dark:text-blue-400" },
-  cartao: { icon: CreditCard, label: "Cartão", color: "text-purple-600 dark:text-purple-400" },
-  transferencia: { icon: ArrowLeftRight, label: "Transferência", color: "text-blue-600 dark:text-blue-400" },
+  dinheiro:      { icon: Banknote,       label: "Dinheiro",      color: "text-green-600 dark:text-green-400" },
+  pix:           { icon: Smartphone,     label: "PIX",           color: "text-blue-600 dark:text-blue-400"  },
+  cartao:        { icon: CreditCard,     label: "Cartão",        color: "text-purple-600 dark:text-purple-400" },
+  transferencia: { icon: ArrowLeftRight, label: "Transferência", color: "text-blue-600 dark:text-blue-400"  },
 };
 
 export default function MovimentacaoLinha({
@@ -235,35 +235,38 @@ export default function MovimentacaoLinha({
         ? "bg-green-50/30 dark:bg-green-950/10" 
         : "bg-red-50/30 dark:bg-red-950/10"
     }`}>
-      {/* Data — largura fixa, nunca quebra */}
-      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 w-[88px]">
+
+      {/* Data */}
+      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
         {formatarDataParaExibicao(mov.data)}
       </td>
 
-      {/* Descrição — coluna flexível, truncada com … */}
+      {/* Descrição — coluna flexível, truncada */}
       <td className="px-3 py-3 text-sm text-gray-900 dark:text-gray-100 w-0 min-w-0" style={{ maxWidth: 0 }}>
         <div className="truncate" title={isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}>
           {isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}
         </div>
       </td>
 
-      {/* Tipo — largura fixa para o badge */}
-      <td className="px-3 py-3 text-center whitespace-nowrap w-[90px]">
-        {mov.tipo === "entrada" ? (
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
-            <ArrowUpCircle className="w-3 h-3 mr-1" />
-            Receita
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800">
-            <ArrowDownCircle className="w-3 h-3 mr-1" />
-            Despesa
-          </Badge>
-        )}
+      {/* Tipo — centralizado, badge com ícone + texto sempre visíveis */}
+      <td className="px-2 py-3 text-center">
+        <div className="flex justify-center">
+          {mov.tipo === "entrada" ? (
+            <Badge variant="outline" className="inline-flex items-center gap-1 whitespace-nowrap bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
+              <ArrowUpCircle className="w-3 h-3 flex-shrink-0" />
+              Receita
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="inline-flex items-center gap-1 whitespace-nowrap bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800">
+              <ArrowDownCircle className="w-3 h-3 flex-shrink-0" />
+              Despesa
+            </Badge>
+          )}
+        </div>
       </td>
 
-      {/* Categoria — ícone + texto truncado */}
-      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[125px]">
+      {/* Categoria */}
+      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
         {isTransferencia ? (
           <span className="text-gray-400 dark:text-gray-600">—</span>
         ) : (
@@ -283,18 +286,18 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      {/* Valor — alinhado à direita, nunca quebra */}
-      <td className="px-3 py-3 text-right text-sm font-semibold whitespace-nowrap w-[96px]">
+      {/* Valor */}
+      <td className="px-3 py-3 text-right text-sm font-semibold whitespace-nowrap">
         <span className={mov.tipo === "entrada"
           ? "text-green-600 dark:text-green-400"
           : "text-red-600 dark:text-red-400"
         }>
-          {mov.tipo === "entrada" ? "+" : "-"} {valorFormatado.replace("R$ ", "").replace("R$ ", "").trim()}
+          {mov.tipo === "entrada" ? "+" : "-"} {valorFormatado.replace("R$ ", "").trim()}
         </span>
       </td>
 
-      {/* Forma de pagamento — ícone + label fixo */}
-      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[105px]">
+      {/* Pagamento */}
+      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
         {isTransferencia ? (
           <div className="flex items-center gap-1.5">
             <ArrowLeftRight className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
@@ -310,8 +313,8 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      {/* Condição — ícone + label fixo */}
-      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[108px]">
+      {/* Condição */}
+      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
         {isTransferencia ? (
           <span className="text-gray-400 dark:text-gray-600">—</span>
         ) : (
@@ -322,8 +325,8 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      {/* Cartão — ícone + nome truncado */}
-      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap w-[115px]">
+      {/* Cartão */}
+      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
         {isTransferencia ? (
           <span className="text-gray-400 dark:text-gray-600">—</span>
         ) : mov.formaPagamento === "cartao" && cartao ? (
@@ -344,8 +347,8 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      {/* Ações */}
-      <td className="px-3 py-3 text-right w-[52px]">
+      {/* Ações — centralizado */}
+      <td className="px-3 py-3 text-center">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 dark:hover:bg-gray-700">

@@ -88,22 +88,17 @@ export default function MovimentacaoTabela({
       <Card className="hidden md:block dark:bg-gray-900 dark:border-gray-800">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            {/*
-              table-fixed: impede que o browser redistribua larguras automaticamente,
-              garantindo que a coluna de descrição (w-auto / flex-1) absorva o espaço
-              restante e o truncate funcione corretamente nas demais colunas.
-            */}
             <table className="w-full table-fixed">
               <colgroup>
                 <col className="w-[88px]" />
                 <col />
-                <col className="w-[90px]" />
+                <col className="w-[100px]" />
                 <col className="w-[125px]" />
                 <col className="w-[96px]" />
                 <col className="w-[105px]" />
                 <col className="w-[108px]" />
                 <col className="w-[115px]" />
-                <col className="w-[52px]" />
+                <col className="w-[60px]" />
               </colgroup>
 
               <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
@@ -132,7 +127,7 @@ export default function MovimentacaoTabela({
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Cartão
                   </th>
-                  <th className="text-right px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Ações
                   </th>
                 </tr>
