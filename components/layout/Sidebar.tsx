@@ -152,7 +152,12 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     const cardContent = (
       <button
         onClick={() => router.push("/perfil")}
-        className="w-full flex items-center gap-3 p-3 bg-blue-800 dark:bg-gray-800 hover:bg-blue-700 dark:hover:bg-gray-700 rounded-lg transition-all duration-200 group cursor-pointer"
+        className={`
+          w-full flex items-center p-3 overflow-hidden
+          bg-blue-800 dark:bg-gray-800 hover:bg-blue-700 dark:hover:bg-gray-700
+          rounded-lg transition-all duration-200 group cursor-pointer
+          ${isExpanded || isMobile ? "gap-3 justify-start" : "gap-0 justify-center"}
+        `}
       >
         <div className="relative flex-shrink-0">
           <div className="w-10 h-10 rounded-full border-2 border-white dark:border-slate-700 overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700">
@@ -177,11 +182,11 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
 
         <div 
           className={`
-            flex-1 text-left overflow-hidden min-w-0
+            text-left overflow-hidden
             transition-all duration-300
             ${isExpanded || isMobile
-              ? "opacity-100 translate-x-0"
-              : "opacity-0 -translate-x-4 absolute pointer-events-none"
+              ? "opacity-100 max-w-[160px] flex-1 min-w-0"
+              : "opacity-0 max-w-0 flex-none pointer-events-none"
             }
           `}
         >
@@ -200,12 +205,15 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           )}
         </div>
 
-        {(isExpanded || isMobile) && (
+        <div className={`
+          transition-all duration-300 overflow-hidden flex-shrink-0
+          ${isExpanded || isMobile ? "max-w-[16px] opacity-100" : "max-w-0 opacity-0"}
+        `}>
           <ChevronRight 
             size={16} 
-            className="text-blue-200 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" 
+            className="text-blue-200 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" 
           />
-        )}
+        </div>
       </button>
     );
 
@@ -254,7 +262,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       </div>
 
       {/* Navigation Groups */}
-      <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
+      <div className="flex-1 flex flex-col gap-6 overflow-y-auto overflow-x-hidden">
         {navigationGroups.map((group) => (
           <div key={group.title}>
             <p 
@@ -309,6 +317,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           text-white p-4 flex-col 
           transition-all duration-300 shadow-2xl z-40
           border-r border-blue-800 dark:border-slate-800
+          overflow-x-hidden
           ${isExpanded ? "w-64" : "w-20"}
         `}
         onMouseEnter={() => isCollapsed && setIsHovered(true)}
