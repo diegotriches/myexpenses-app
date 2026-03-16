@@ -23,7 +23,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Conta } from "@/types/conta";
-
 import { 
   Pencil, 
   Trash2, 
@@ -38,6 +37,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Props {
   conta: Conta;
@@ -59,17 +59,16 @@ export default function ContaCard({
   onAjustarSaldo,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { mask } = useHideValues();
 
   const bancoImagem = conta.banco
     ? `/contas/${conta.banco.toLowerCase()}.png`
     : null;
 
-  const formatarMoeda = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor);
-  };
+  const formatarMoeda = (valor: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+
+  const fmt = (valor: number) => mask(formatarMoeda(valor));
 
   const getCorSaldo = () => {
     if (conta.saldoAtual > 0) return "text-green-600 dark:text-green-400";
@@ -81,86 +80,60 @@ export default function ContaCard({
 
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-      {/* Cabeçalho com Menu */}
+      {/* Cabeçalho */}
       <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
         <div className="flex items-center gap-3 flex-1">
           {bancoImagem && (
             <div className="w-10 h-10 rounded-lg bg-gray-50 dark:bg-gray-700 flex items-center justify-center p-1.5">
-              <img
-                src={bancoImagem}
-                alt={conta.banco ?? "Banco"}
-                className="w-full h-full object-contain"
-              />
+              <img src={bancoImagem} alt={conta.banco ?? "Banco"} className="w-full h-full object-contain" />
             </div>
           )}
-
           <div className="flex flex-col flex-1">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-semibold text-base leading-tight text-gray-900 dark:text-white">
                 {conta.nome}
               </span>
-              <Badge 
+              <Badge
                 variant={conta.ativo ? "default" : "secondary"}
-                className={conta.ativo 
-                  ? "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/30" 
+                className={conta.ativo
+                  ? "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/30"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"
                 }
               >
                 {conta.ativo ? "Ativa" : "Inativa"}
               </Badge>
             </div>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {conta.banco || "Conta"}
-            </span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{conta.banco || "Conta"}</span>
           </div>
         </div>
 
-        {/* Menu Dropdown de Ações */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100 dark:hover:bg-gray-700">
               <MoreVertical size={16} className="text-gray-600 dark:text-gray-400" />
               <span className="sr-only">Abrir menu</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48 dark:bg-gray-800 dark:border-gray-700">
             {onEditar && (
-              <DropdownMenuItem 
-                onClick={() => onEditar(conta)}
-                className="cursor-pointer dark:hover:bg-gray-700"
-              >
+              <DropdownMenuItem onClick={() => onEditar(conta)} className="cursor-pointer dark:hover:bg-gray-700">
                 <Pencil size={14} className="mr-2" />
                 Editar conta
               </DropdownMenuItem>
             )}
-
             {onToggleAtivo && (
-              <DropdownMenuItem 
-                onClick={() => onToggleAtivo(conta)}
-                className="cursor-pointer dark:hover:bg-gray-700"
-              >
+              <DropdownMenuItem onClick={() => onToggleAtivo(conta)} className="cursor-pointer dark:hover:bg-gray-700">
                 {conta.ativo ? (
-                  <>
-                    <PowerOff size={14} className="mr-2" />
-                    Desativar
-                  </>
+                  <><PowerOff size={14} className="mr-2" />Desativar</>
                 ) : (
-                  <>
-                    <Power size={14} className="mr-2" />
-                    Ativar
-                  </>
+                  <><Power size={14} className="mr-2" />Ativar</>
                 )}
               </DropdownMenuItem>
             )}
-
             {onExcluir && (
               <>
                 <DropdownMenuSeparator className="dark:bg-gray-700" />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={() => onExcluir(conta)}
                   className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 dark:hover:bg-gray-700"
                 >
@@ -173,7 +146,6 @@ export default function ContaCard({
         </DropdownMenu>
       </CardHeader>
 
-      {/* Conteúdo */}
       <CardContent className="space-y-4">
         {/* Saldo */}
         <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
@@ -181,17 +153,14 @@ export default function ContaCard({
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">
               Saldo Atual
             </span>
-            <IconeSaldo 
-              size={16} 
-              className={`${getCorSaldo()}`}
-            />
+            <IconeSaldo size={16} className={getCorSaldo()} />
           </div>
           <div className={`text-2xl font-bold ${getCorSaldo()}`}>
-            {formatarMoeda(conta.saldoAtual)}
+            {fmt(conta.saldoAtual)}
           </div>
         </div>
 
-        {/* Informações da conta */}
+        {/* Instituição */}
         <div className="flex items-center justify-between text-sm pb-3 border-b border-gray-200 dark:border-gray-700">
           <span className="text-gray-500 dark:text-gray-400">Instituição</span>
           <span className="font-medium text-gray-700 dark:text-gray-300">
@@ -199,7 +168,7 @@ export default function ContaCard({
           </span>
         </div>
 
-        {/* ✅ DESKTOP: Botões com tooltips (mantido igual) */}
+        {/* Botões Desktop */}
         <TooltipProvider delayDuration={300}>
           <div className="hidden md:flex items-center justify-center gap-2">
             {onAjustarSaldo && (
@@ -214,12 +183,9 @@ export default function ContaCard({
                     <DollarSign size={20} className="flex-shrink-0" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p className="font-medium">Ajustar Saldo</p>
-                </TooltipContent>
+                <TooltipContent><p className="font-medium">Ajustar Saldo</p></TooltipContent>
               </Tooltip>
             )}
-
             {onExtrato && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -232,12 +198,9 @@ export default function ContaCard({
                     <FileText size={20} className="flex-shrink-0" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p className="font-medium">Ver Extrato</p>
-                </TooltipContent>
+                <TooltipContent><p className="font-medium">Ver Extrato</p></TooltipContent>
               </Tooltip>
             )}
-
             {onTransferir && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -250,39 +213,25 @@ export default function ContaCard({
                     <Repeat size={20} className="flex-shrink-0" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p className="font-medium">Nova Transferência</p>
-                </TooltipContent>
+                <TooltipContent><p className="font-medium">Nova Transferência</p></TooltipContent>
               </Tooltip>
             )}
           </div>
         </TooltipProvider>
 
-        {/* ✅ MOBILE: Menu colapsável com texto */}
+        {/* Botões Mobile */}
         <Collapsible open={menuOpen} onOpenChange={setMenuOpen} className="md:hidden">
           <CollapsibleTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full flex items-center justify-between"
-            >
+            <Button variant="outline" className="w-full flex items-center justify-between">
               <span className="text-sm font-medium">Mais Opções</span>
-              {menuOpen ? (
-                <ChevronUp size={16} className="ml-2" />
-              ) : (
-                <ChevronDown size={16} className="ml-2" />
-              )}
+              {menuOpen ? <ChevronUp size={16} className="ml-2" /> : <ChevronDown size={16} className="ml-2" />}
             </Button>
           </CollapsibleTrigger>
-
           <CollapsibleContent className="mt-2 space-y-2">
             {onAjustarSaldo && (
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  onAjustarSaldo(conta);
-                  setMenuOpen(false);
-                }}
+                variant="outline" size="sm"
+                onClick={() => { onAjustarSaldo(conta); setMenuOpen(false); }}
                 className="w-full justify-start bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border-blue-200 text-blue-700 dark:from-blue-950/30 dark:to-blue-900/30 dark:border-blue-800 dark:text-blue-400"
               >
                 <DollarSign size={16} className="mr-2" />
@@ -291,12 +240,8 @@ export default function ContaCard({
             )}
             {onExtrato && (
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  onExtrato(conta);
-                  setMenuOpen(false);
-                }}
+                variant="outline" size="sm"
+                onClick={() => { onExtrato(conta); setMenuOpen(false); }}
                 className="w-full justify-start bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 border-purple-200 text-purple-700 dark:from-purple-950/30 dark:to-purple-900/30 dark:border-purple-800 dark:text-purple-400"
               >
                 <FileText size={16} className="mr-2" />
@@ -305,12 +250,8 @@ export default function ContaCard({
             )}
             {onTransferir && (
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  onTransferir(conta.id);
-                  setMenuOpen(false);
-                }}
+                variant="outline" size="sm"
+                onClick={() => { onTransferir(conta.id); setMenuOpen(false); }}
                 className="w-full justify-start bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 border-green-200 text-green-700 dark:from-green-950/30 dark:to-green-900/30 dark:border-green-800 dark:text-green-400"
               >
                 <Repeat size={16} className="mr-2" />

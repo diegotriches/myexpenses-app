@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,7 @@ import FaturaItem from "@/components/fatura/FaturaItem";
 import PagarFaturaModal from "@/components/fatura/PagarFaturaModal";
 import AlertaFaturasPendentes from "@/components/fatura/AlertaFaturasPendentes";
 import { usePeriodo } from "@/contexts/PeriodoContext";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 const meses = [
   "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
@@ -63,26 +64,22 @@ export default function FaturaPage() {
     setAnoSelecionado,
     registrarOnNavegacao,
   } = usePeriodo();
+  const { mask } = useHideValues();
   const { id } = params as { id: string };
 
   const mesUrl = searchParams.get("mes") !== null ? Number(searchParams.get("mes")) - 1 : null;
   const anoUrl = searchParams.get("ano")  !== null ? Number(searchParams.get("ano"))      : null;
   const veioViaLink = mesUrl !== null && anoUrl !== null;
 
-  const [modalAberto, setModalAberto] = useState(false);
+  const [modalAberto,   setModalAberto]   = useState(false);
+  const [usuarioNavegou, setUsuarioNavegou] = useState(veioViaLink);
   const pagarFaturaMutation = usePagarFatura();
 
-  // useState garante re-render imediato quando o usuário navega
-  const [usuarioNavegou, setUsuarioNavegou] = useState(veioViaLink);
-
-  // Registra callback no contexto: chamado pelo PeriodoSelector ANTES de mudar
-  // o estado — sem useEffect de detecção, sem stale closure, sem atraso de render.
   useEffect(() => {
     registrarOnNavegacao(() => setUsuarioNavegou(true));
     return () => registrarOnNavegacao(null);
   }, [registrarOnNavegacao]);
 
-  // Se veio via link, inicializa o seletor com o mês da URL (uma única vez)
   useEffect(() => {
     if (!veioViaLink || mesUrl === null || anoUrl === null) return;
     setMesSelecionado(mesUrl);
@@ -90,7 +87,6 @@ export default function FaturaPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Cleanup: restaura seletor para o mês atual ao sair da página
   useEffect(() => {
     return () => {
       setMesSelecionado(mesAtual);
@@ -113,10 +109,6 @@ export default function FaturaPage() {
     mes: mesSelecionado + 1,
   });
 
-  // mesFinal/anoFinal: se o usuário já navegou (ou veio via link), usa o seletor.
-  // Caso contrário, calcula automaticamente pelo diaFechamento do cartão.
-  // Como usuarioNavegou é setState (não ref), o useMemo lê o valor correto
-  // no mesmo render em que o callback onNavegacao foi chamado.
   const { mesFinal, anoFinal, automatico } = useMemo(() => {
     if (usuarioNavegou) {
       return { mesFinal: mesSelecionado, anoFinal: anoSelecionado, automatico: false };
@@ -128,7 +120,6 @@ export default function FaturaPage() {
     return { mesFinal: mesSelecionado, anoFinal: anoSelecionado, automatico: false };
   }, [usuarioNavegou, mesSelecionado, anoSelecionado, cartao?.diaFechamento]);
 
-  // Sincroniza o seletor quando o período foi calculado automaticamente
   useEffect(() => {
     if (!automatico) return;
     if (mesFinal === mesSelecionado && anoFinal === anoSelecionado) return;
@@ -183,6 +174,8 @@ export default function FaturaPage() {
   const formatarMoeda = (valor: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
+  const fmt = (valor: number) => mask(formatarMoeda(valor));
+
   if (!id) {
     return (
       <div className="max-w-3xl mx-auto p-4 md:p-6">
@@ -225,10 +218,10 @@ export default function FaturaPage() {
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
 
+      {/* Header */}
       <div className="flex items-start gap-2 md:gap-4">
         <Button
-          variant="ghost"
-          size="icon"
+          variant="ghost" size="icon"
           onClick={() => router.back()}
           className="h-9 w-9 mt-0.5 flex-shrink-0"
         >
@@ -240,7 +233,6 @@ export default function FaturaPage() {
             <h1 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
               Fatura {meses[mesFinal]} {anoFinal}
             </h1>
-
             {cartao?.diaFechamento && (
               <Badge className={"text-xs flex items-center gap-1 " + (
                 isExibindoFaturaAtiva && !dadosFatura?.paga
@@ -254,7 +246,6 @@ export default function FaturaPage() {
               </Badge>
             )}
           </div>
-
           <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {cartao?.diaFechamento
               ? "Fechamento dia " + cartao.diaFechamento + " • Vencimento dia " + (cartao.diaVencimento ?? "—")
@@ -263,6 +254,7 @@ export default function FaturaPage() {
         </div>
       </div>
 
+      {/* Alertas faturas pendentes */}
       {(pendentesOutrosMeses.length > 0 || pendentesLoading) && (
         <AlertaFaturasPendentes
           cartaoId={id}
@@ -276,6 +268,7 @@ export default function FaturaPage() {
         />
       )}
 
+      {/* Alerta período automático */}
       {automatico && cartao?.diaFechamento && (
         <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900 py-2.5">
           <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
@@ -289,6 +282,7 @@ export default function FaturaPage() {
         </Alert>
       )}
 
+      {/* Card principal — total + status */}
       <Card className={
         dadosFatura?.paga
           ? "border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-900"
@@ -308,7 +302,7 @@ export default function FaturaPage() {
           <div>
             <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Total da Fatura</p>
             <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white break-all">
-              {dadosFatura ? formatarMoeda(totalFatura) : "—"}
+              {dadosFatura ? fmt(totalFatura) : "—"}
             </p>
           </div>
 
@@ -340,17 +334,19 @@ export default function FaturaPage() {
         </CardContent>
       </Card>
 
+      {/* Alerta maior gasto */}
       {categoriaComMaiorGasto && !faturaVazia && (
         <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-900">
           <PieChart className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
           <AlertDescription className="text-xs md:text-sm text-blue-800 dark:text-blue-200">
             <strong>Maior gasto:</strong> {categoriaComMaiorGasto[0]} com{" "}
-            {formatarMoeda(categoriaComMaiorGasto[1])} (
+            {fmt(categoriaComMaiorGasto[1])} (
             {((categoriaComMaiorGasto[1] / totalFatura) * 100).toFixed(1)}% do total)
           </AlertDescription>
         </Alert>
       )}
 
+      {/* Grid: categorias + informações */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         <Card>
           <CardHeader className="pb-3">
@@ -378,7 +374,7 @@ export default function FaturaPage() {
                             {categoria}
                           </span>
                           <span className="text-gray-900 dark:text-white font-semibold flex-shrink-0">
-                            {formatarMoeda(valor)}
+                            {fmt(valor)}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -426,6 +422,7 @@ export default function FaturaPage() {
         </Card>
       </div>
 
+      {/* Lista de transações */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm md:text-base flex items-center gap-2">

@@ -35,6 +35,7 @@ import { Cartao } from "@/types/cartao";
 import { useRouter } from "next/navigation";
 import { empresaOptions, bandeiraOptions } from "@/utils/cartaoOptions";
 import { useContas } from "@/hooks/useContas";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Props {
   cartao: Cartao;
@@ -57,87 +58,74 @@ export default function CartaoItem({
   onToggleAtivo,
 }: Props) {
   const router = useRouter();
-  
-  // ✅ NOVO: Buscar contas para mostrar info do débito
   const { data: contas = [] } = useContas();
-  
-  const contaVinculada = cartao.contaVinculadaId 
+  const { mask } = useHideValues();
+
+  const contaVinculada = cartao.contaVinculadaId
     ? contas.find(c => c.id === cartao.contaVinculadaId)
     : null;
 
-  const empresaImg = getImgFromOption(empresaOptions, cartao.empresa ?? "");
+  const empresaImg  = getImgFromOption(empresaOptions,  cartao.empresa  ?? "");
   const bandeiraImg = getImgFromOption(bandeiraOptions, cartao.bandeira);
 
-  const formatarMoeda = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor);
-  };
+  const formatarMoeda = (valor: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 
   const formatarMoedaCompacta = (valor: number) => {
-    if (valor >= 1000000) {
-      return `R$ ${(valor / 1000000).toFixed(1)} mi`;
-    }
-    if (valor >= 10000) {
-      return `R$ ${(valor / 1000).toFixed(1)} mil`;
-    }
+    if (valor >= 1000000) return `R$ ${(valor / 1000000).toFixed(1)} mi`;
+    if (valor >= 10000)   return `R$ ${(valor / 1000).toFixed(1)} mil`;
     return formatarMoeda(valor);
   };
 
-  const limiteTotal = Number(cartao.limite) || 0;
-  const totalEmUso = Number(cartao.emUso) || 0;
-  const limiteDisponivel = Number(cartao.limiteDisponivel) || 0;
-  
-  const porcentagemUso = limiteTotal > 0 ? (totalEmUso / limiteTotal) * 100 : 0;
+  const fmt  = (valor: number) => mask(formatarMoeda(valor));
+  const fmtC = (valor: number) => mask(formatarMoedaCompacta(valor));
 
-  const getCorBarra = (percentual: number): string => {
+  const limiteTotal      = Number(cartao.limite)           || 0;
+  const totalEmUso       = Number(cartao.emUso)            || 0;
+  const limiteDisponivel = Number(cartao.limiteDisponivel) || 0;
+  const porcentagemUso   = limiteTotal > 0 ? (totalEmUso / limiteTotal) * 100 : 0;
+
+  const getCorBarra = (percentual: number) => {
     if (percentual < 50) return "bg-green-500 dark:bg-green-600";
     if (percentual < 80) return "bg-yellow-500 dark:bg-yellow-600";
     return "bg-red-500 dark:bg-red-600";
   };
 
-  const getCorTexto = (percentual: number): string => {
+  const getCorTexto = (percentual: number) => {
     if (percentual < 50) return "text-green-700 dark:text-green-400";
     if (percentual < 80) return "text-yellow-700 dark:text-yellow-400";
     return "text-red-700 dark:text-red-400";
   };
 
-  const hoje = new Date().getDate();
-  const diaVencimento = Number(cartao.diaVencimento) || 0;
-  const diasAteVencimento = diaVencimento >= hoje 
-    ? diaVencimento - hoje 
+  const hoje               = new Date().getDate();
+  const diaVencimento      = Number(cartao.diaVencimento) || 0;
+  const diasAteVencimento  = diaVencimento >= hoje
+    ? diaVencimento - hoje
     : (30 - hoje) + diaVencimento;
-  const vencimentoProximo = diasAteVencimento <= 5 && diasAteVencimento > 0;
+  const vencimentoProximo  = diasAteVencimento <= 5 && diasAteVencimento > 0;
 
-  const diaFechamento = Number(cartao.diaFechamento) || 0;
-  const melhorDiaCompra = diaFechamento === 30 ? 1 : diaFechamento + 1;
+  const diaFechamento    = Number(cartao.diaFechamento) || 0;
+  const melhorDiaCompra  = diaFechamento === 30 ? 1 : diaFechamento + 1;
 
   const abrirFatura = () => {
     if (onFatura) return onFatura(cartao.id);
     router.push(`/cartoes/${cartao.id}/fatura`);
   };
 
-  // ✅ CORRIGIDO: Agora usa a rota que existe (/contas/[id]/extrato)
   const abrirExtratoConta = () => {
-    if (contaVinculada) {
-      router.push(`/contas/${contaVinculada.id}/extrato`);
-    }
+    if (contaVinculada) router.push(`/contas/${contaVinculada.id}/extrato`);
   };
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200 dark:border-gray-700">
       <CardContent className="p-6 space-y-4">
-        {/* Header do Cartão com Menu */}
+
+        {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3 flex-1 min-w-0">
             {empresaImg && (
               <div className="w-12 h-12 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center p-2 border dark:border-gray-700 flex-shrink-0">
-                <img 
-                  src={empresaImg} 
-                  alt={cartao.empresa || "Empresa"} 
-                  className="w-full h-full object-contain" 
-                />
+                <img src={empresaImg} alt={cartao.empresa || "Empresa"} className="w-full h-full object-contain" />
               </div>
             )}
             <div className="flex flex-col gap-1 flex-1 min-w-0">
@@ -145,24 +133,19 @@ export default function CartaoItem({
                 <span className="text-base font-semibold text-gray-900 dark:text-white truncate">
                   {cartao.nome}
                 </span>
-                <Badge 
+                <Badge
                   variant={cartao.ativo ? "default" : "secondary"}
-                  className={`flex-shrink-0 ${cartao.ativo 
-                    ? "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900 dark:text-green-300" 
+                  className={`flex-shrink-0 ${cartao.ativo
+                    ? "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900 dark:text-green-300"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-400"
                   }`}
                 >
                   {cartao.ativo ? "Ativo" : "Inativo"}
                 </Badge>
               </div>
-              
               {cartao.tipo && (
                 <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                  {cartao.tipo === "credito" ? (
-                    <CreditCard size={12} />
-                  ) : (
-                    <Wallet size={12} />
-                  )}
+                  {cartao.tipo === "credito" ? <CreditCard size={12} /> : <Wallet size={12} />}
                   <span>{cartao.tipo === "credito" ? "Crédito" : "Débito"}</span>
                 </div>
               )}
@@ -172,56 +155,32 @@ export default function CartaoItem({
           <div className="flex items-center gap-2 flex-shrink-0">
             {bandeiraImg && (
               <div className="w-12 h-12 flex items-center justify-center">
-                <img 
-                  src={bandeiraImg} 
-                  alt={cartao.bandeira} 
-                  className="w-full h-full object-contain" 
-                />
+                <img src={bandeiraImg} alt={cartao.bandeira} className="w-full h-full object-contain" />
               </div>
             )}
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100 dark:hover:bg-gray-800">
                   <MoreVertical size={16} className="text-gray-600 dark:text-gray-400" />
                   <span className="sr-only">Abrir menu</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem 
-                  onClick={() => onEditar(cartao)}
-                  className="cursor-pointer"
-                >
+                <DropdownMenuItem onClick={() => onEditar(cartao)} className="cursor-pointer">
                   <Pencil size={14} className="mr-2" />
                   Editar cartão
                 </DropdownMenuItem>
-
                 {onToggleAtivo && (
-                  <DropdownMenuItem 
-                    onClick={() => onToggleAtivo(cartao)}
-                    className="cursor-pointer"
-                  >
+                  <DropdownMenuItem onClick={() => onToggleAtivo(cartao)} className="cursor-pointer">
                     {cartao.ativo ? (
-                      <>
-                        <PowerOff size={14} className="mr-2" />
-                        Desativar
-                      </>
+                      <><PowerOff size={14} className="mr-2" />Desativar</>
                     ) : (
-                      <>
-                        <Power size={14} className="mr-2" />
-                        Ativar
-                      </>
+                      <><Power size={14} className="mr-2" />Ativar</>
                     )}
                   </DropdownMenuItem>
                 )}
-
                 <DropdownMenuSeparator />
-
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={() => onExcluir(cartao)}
                   className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
                 >
@@ -233,7 +192,7 @@ export default function CartaoItem({
           </div>
         </div>
 
-        {/* ===== CONTEÚDO PARA CRÉDITO ===== */}
+        {/* ===== CRÉDITO ===== */}
         {cartao.tipo === "credito" && (
           <>
             {vencimentoProximo && (
@@ -261,16 +220,14 @@ export default function CartaoItem({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="text-center p-2 sm:p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900 min-w-0">
-                      <p className="text-[10px] sm:text-xs font-medium text-blue-700 dark:text-blue-300 mb-1 truncate">
-                        Limite Total
-                      </p>
+                      <p className="text-[10px] sm:text-xs font-medium text-blue-700 dark:text-blue-300 mb-1 truncate">Limite Total</p>
                       <p className="text-xs sm:text-sm font-bold text-blue-900 dark:text-blue-100 truncate">
-                        {formatarMoedaCompacta(limiteTotal)}
+                        {fmtC(limiteTotal)}
                       </p>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p className="text-xs font-semibold">{formatarMoeda(limiteTotal)}</p>
+                    <p className="text-xs font-semibold">{fmt(limiteTotal)}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -279,16 +236,14 @@ export default function CartaoItem({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="text-center p-2 sm:p-3 bg-orange-50 dark:bg-orange-950 rounded-lg border border-orange-200 dark:border-orange-900 min-w-0">
-                      <p className="text-[10px] sm:text-xs font-medium text-orange-700 dark:text-orange-300 mb-1 truncate">
-                        Em Uso
-                      </p>
+                      <p className="text-[10px] sm:text-xs font-medium text-orange-700 dark:text-orange-300 mb-1 truncate">Em Uso</p>
                       <p className="text-xs sm:text-sm font-bold text-orange-900 dark:text-orange-100 truncate">
-                        {formatarMoedaCompacta(totalEmUso)}
+                        {fmtC(totalEmUso)}
                       </p>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p className="text-xs font-semibold">{formatarMoeda(totalEmUso)}</p>
+                    <p className="text-xs font-semibold">{fmt(totalEmUso)}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -297,16 +252,14 @@ export default function CartaoItem({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="text-center p-2 sm:p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-900 min-w-0">
-                      <p className="text-[10px] sm:text-xs font-medium text-green-700 dark:text-green-300 mb-1 truncate">
-                        Disponível
-                      </p>
+                      <p className="text-[10px] sm:text-xs font-medium text-green-700 dark:text-green-300 mb-1 truncate">Disponível</p>
                       <p className="text-xs sm:text-sm font-bold text-green-900 dark:text-green-100 truncate">
-                        {formatarMoedaCompacta(limiteDisponivel)}
+                        {fmtC(limiteDisponivel)}
                       </p>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p className="text-xs font-semibold">{formatarMoeda(limiteDisponivel)}</p>
+                    <p className="text-xs font-semibold">{fmt(limiteDisponivel)}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -314,7 +267,7 @@ export default function CartaoItem({
 
             <div className="space-y-2">
               <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <div 
+                <div
                   className={`h-full transition-all duration-300 ${getCorBarra(porcentagemUso)}`}
                   style={{ width: `${Math.min(porcentagemUso, 100)}%` }}
                 />
@@ -323,7 +276,6 @@ export default function CartaoItem({
                 <span className={`font-semibold ${getCorTexto(porcentagemUso)}`}>
                   {porcentagemUso.toFixed(1)}% utilizado
                 </span>
-                
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -333,9 +285,7 @@ export default function CartaoItem({
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="text-xs">
-                        Compre no dia {melhorDiaCompra} para pagar só no próximo mês
-                      </p>
+                      <p className="text-xs">Compre no dia {melhorDiaCompra} para pagar só no próximo mês</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -353,10 +303,9 @@ export default function CartaoItem({
           </>
         )}
 
-        {/* ===== CONTEÚDO PARA DÉBITO ===== */}
+        {/* ===== DÉBITO ===== */}
         {cartao.tipo === "debito" && (
           <>
-            {/* Conta Vinculada - Compacto */}
             {contaVinculada ? (
               <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg">
                 <div className="flex items-center justify-between gap-3 mb-2">
@@ -365,34 +314,25 @@ export default function CartaoItem({
                       <Building2 size={14} className="text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
-                        Conta Vinculada
-                      </p>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                        {contaVinculada.nome}
-                      </p>
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">Conta Vinculada</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{contaVinculada.nome}</p>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-blue-200 dark:border-blue-900">
-                  <span className="text-xs text-blue-700 dark:text-blue-300 font-medium">
-                    Saldo Disponível
-                  </span>
+                  <span className="text-xs text-blue-700 dark:text-blue-300 font-medium">Saldo Disponível</span>
                   <span className="text-base font-bold text-blue-900 dark:text-blue-100">
-                    {formatarMoedaCompacta(Number(contaVinculada.saldoAtual))}
+                    {fmtC(Number(contaVinculada.saldoAtual))}
                   </span>
                 </div>
               </div>
             ) : (
               <div className="flex items-center gap-2 p-2 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-900 rounded-lg">
                 <AlertCircle size={14} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-                <p className="text-xs text-yellow-800 dark:text-yellow-200">
-                  Nenhuma conta vinculada
-                </p>
+                <p className="text-xs text-yellow-800 dark:text-yellow-200">Nenhuma conta vinculada</p>
               </div>
             )}
 
-            {/* Info Compacta - 2 colunas */}
             <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border dark:border-gray-700">
               <div className="text-center">
                 <div className="flex items-center justify-center mb-1">
@@ -401,7 +341,6 @@ export default function CartaoItem({
                 <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">Tipo</p>
                 <p className="text-xs font-bold text-gray-900 dark:text-white">Débito Imediato</p>
               </div>
-
               <div className="text-center">
                 <div className="flex items-center justify-center mb-1">
                   <TrendingDown size={14} className="text-gray-600 dark:text-gray-400" />
@@ -411,7 +350,6 @@ export default function CartaoItem({
               </div>
             </div>
 
-            {/* Alert compacto */}
             <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg">
               <Wallet size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-blue-800 dark:text-blue-200">

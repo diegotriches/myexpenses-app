@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useCategorias } from "@/hooks/useCategorias";
 import { useContas } from "@/hooks/useContas";
 import { formatarDataParaExibicao } from "@/utils/dateUtils";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 import { 
   MoreVertical, 
@@ -57,6 +58,7 @@ export default function MovimentacaoLinha({
 }: Props) {
   const { data: categorias = [] } = useCategorias();
   const { data: contas = [] } = useContas();
+  const { mask } = useHideValues();
 
   const isTransferencia = !!mov.transferenciaId;
   const contaAtual = contas.find((c) => c.id === mov.contaId);
@@ -101,6 +103,8 @@ export default function MovimentacaoLinha({
     style: "currency",
     currency: "BRL",
   }).format(Number(mov.valor));
+
+  const valorExibido = mask(valorFormatado);
 
   // ============================================
   // 📱 MOBILE: CARD VIEW
@@ -162,7 +166,7 @@ export default function MovimentacaoLinha({
               ? "text-green-600 dark:text-green-400" 
               : "text-red-600 dark:text-red-400"
           }`}>
-            {mov.tipo === "entrada" ? "+" : "-"} {valorFormatado}
+            {mov.tipo === "entrada" ? "+" : "-"} {valorExibido}
           </div>
 
           <div className="space-y-2 text-sm">
@@ -292,7 +296,7 @@ export default function MovimentacaoLinha({
           ? "text-green-600 dark:text-green-400"
           : "text-red-600 dark:text-red-400"
         }>
-          {mov.tipo === "entrada" ? "+" : "-"} {valorFormatado.replace("R$ ", "").trim()}
+          {mov.tipo === "entrada" ? "+" : "-"} {valorExibido.replace("R$ ", "").trim()}
         </span>
       </td>
 

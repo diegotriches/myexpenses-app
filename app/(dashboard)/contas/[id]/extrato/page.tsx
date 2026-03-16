@@ -19,11 +19,11 @@ import ModalExcluirExtrato from "@/components/extrato/ModalExcluirExtrato";
 
 import { useExtratoConta, useRemoverExtrato } from "@/hooks/useContas";
 import type { MovimentacaoExtrato } from "@/types/conta";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 // ─── Constantes ───────────────────────────────────────────────
 const ITENS_POR_PAGINA = 20;
 
-// ─── Tipos de ordenação ───────────────────────────────────────
 type ColunaOrdenacao  = "data" | "valor" | "saldo";
 type DirecaoOrdenacao = "asc" | "desc" | null;
 
@@ -32,7 +32,6 @@ interface EstadoOrdenacao {
   direcao: DirecaoOrdenacao;
 }
 
-// ─── Ícone de ordenação ───────────────────────────────────────
 function IconeOrdenacao({ coluna, estado }: { coluna: ColunaOrdenacao; estado: EstadoOrdenacao }) {
   if (estado.coluna !== coluna)
     return <ChevronsUpDown className="h-3.5 w-3.5 ml-1 opacity-40" />;
@@ -45,10 +44,10 @@ export default function ExtratoContaPage() {
   const params  = useParams();
   const router  = useRouter();
   const contaId = params?.id as string;
+  const { mask } = useHideValues();
 
   const removerExtrato = useRemoverExtrato();
 
-  // ─── Estado local ─────────────────────────────────────────
   const [modalExcluir, setModalExcluir] = useState(false);
   const [itemExcluir,  setItemExcluir]  = useState<MovimentacaoExtrato | null>(null);
   const [pagina,       setPagina]       = useState(1);
@@ -58,19 +57,17 @@ export default function ExtratoContaPage() {
     inicio: "", fim: "", tipo: "TODOS", origem: "TODAS", valorMin: "", valorMax: "",
   });
 
-  // Ao mudar filtros, volta para página 1
   const handleFiltrosChange = (novosFiltros: FiltrosExtratoState) => {
     setFiltros(novosFiltros);
     setPagina(1);
   };
 
-  // ─── Query — filtros de data/tipo/origem vão para API ─────
   const filtrosQuery = useMemo(() => {
     const p: Record<string, string> = {};
-    if (filtros.inicio)             p.inicio  = filtros.inicio;
-    if (filtros.fim)                p.fim     = filtros.fim;
-    if (filtros.tipo !== "TODOS")   p.tipo    = filtros.tipo;
-    if (filtros.origem !== "TODAS") p.origem  = filtros.origem;
+    if (filtros.inicio)             p.inicio = filtros.inicio;
+    if (filtros.fim)                p.fim    = filtros.fim;
+    if (filtros.tipo !== "TODOS")   p.tipo   = filtros.tipo;
+    if (filtros.origem !== "TODAS") p.origem = filtros.origem;
     return p;
   }, [filtros]);
 
@@ -80,7 +77,6 @@ export default function ExtratoContaPage() {
   const resumo      = extratoData?.resumo;
   const contaNome   = extratoData?.conta?.nome ?? "";
 
-  // ─── Filtro client-side por valor ─────────────────────────
   const extratoFiltrado = useMemo(() => extratoBase.filter((item) => {
     if (filtros.valorMin !== "") {
       const min = parseFloat(filtros.valorMin);
@@ -93,7 +89,6 @@ export default function ExtratoContaPage() {
     return true;
   }), [extratoBase, filtros.valorMin, filtros.valorMax]);
 
-  // ─── Ordenação client-side ────────────────────────────────
   const extratoOrdenado = useMemo(() => {
     if (!ordenacao.coluna || !ordenacao.direcao) return extratoFiltrado;
     return [...extratoFiltrado].sort((a, b) => {
@@ -105,11 +100,9 @@ export default function ExtratoContaPage() {
     });
   }, [extratoFiltrado, ordenacao]);
 
-  // ─── Paginação ────────────────────────────────────────────
   const totalPaginas  = Math.max(1, Math.ceil(extratoOrdenado.length / ITENS_POR_PAGINA));
   const extratoPagina = extratoOrdenado.slice((pagina - 1) * ITENS_POR_PAGINA, pagina * ITENS_POR_PAGINA);
 
-  // ─── Handlers ─────────────────────────────────────────────
   const alternarOrdenacao = (coluna: ColunaOrdenacao) => {
     setPagina(1);
     setOrdenacao((prev) => {
@@ -130,9 +123,10 @@ export default function ExtratoContaPage() {
     }
   };
 
-  // ─── Helpers ──────────────────────────────────────────────
   const formatarMoeda = (valor: number) =>
     valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const fmt = (valor: number) => mask(formatarMoeda(valor));
 
   const getOrigemBadge = (origem: string) => {
     const badges: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -146,7 +140,6 @@ export default function ExtratoContaPage() {
     return <Badge variant={badge.variant}>{badge.label}</Badge>;
   };
 
-  // ─── Sub-componentes ──────────────────────────────────────
   const ThOrdenavel = ({
     coluna, label, className,
   }: { coluna: ColunaOrdenacao; label: string; className?: string }) => (
@@ -201,7 +194,7 @@ export default function ExtratoContaPage() {
             <p className={`font-semibold ${
               item.tipo === "entrada" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
             }`}>
-              {item.tipo === "entrada" ? "+" : "-"} {formatarMoeda(item.valor)}
+              {item.tipo === "entrada" ? "+" : "-"} {fmt(item.valor)}
             </p>
           </div>
           <div className="text-right">
@@ -209,7 +202,7 @@ export default function ExtratoContaPage() {
             <p className={`font-semibold ${
               item.saldoApos >= 0 ? "text-gray-900 dark:text-white" : "text-red-600 dark:text-red-400"
             }`}>
-              {formatarMoeda(item.saldoApos)}
+              {fmt(item.saldoApos)}
             </p>
           </div>
         </div>
@@ -217,16 +210,14 @@ export default function ExtratoContaPage() {
     </Card>
   );
 
-  // ─── Render ───────────────────────────────────────────────
   return (
     <div className="page-container p-4 md:p-6 space-y-6">
 
-      {/* ── Header — padrão igual ContasPage / TransacoesPage ── */}
+      {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-2">
           <Button
-            variant="ghost"
-            size="icon"
+            variant="ghost" size="icon"
             onClick={() => router.back()}
             className="dark:hover:bg-gray-800 -ml-2 flex-shrink-0"
           >
@@ -243,7 +234,7 @@ export default function ExtratoContaPage() {
         <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
       </div>
 
-      {/* ── Resumo do Período ────────────────────────────────── */}
+      {/* Resumo do Período */}
       {resumo && (
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
@@ -256,21 +247,21 @@ export default function ExtratoContaPage() {
               <div>
                 <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">Saldo Inicial</p>
                 <p className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
-                  {formatarMoeda(resumo.saldoInicial)}
+                  {fmt(resumo.saldoInicial)}
                 </p>
               </div>
               <div>
                 <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">Entradas</p>
                 <p className="text-base md:text-lg font-bold text-green-600 dark:text-green-400 flex items-center gap-1">
                   <TrendingUp className="h-4 w-4" />
-                  {formatarMoeda(resumo.totalEntradas)}
+                  {fmt(resumo.totalEntradas)}
                 </p>
               </div>
               <div>
                 <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">Saídas</p>
                 <p className="text-base md:text-lg font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
                   <TrendingDown className="h-4 w-4" />
-                  {formatarMoeda(resumo.totalSaidas)}
+                  {fmt(resumo.totalSaidas)}
                 </p>
               </div>
               <div>
@@ -281,13 +272,13 @@ export default function ExtratoContaPage() {
                     : "text-red-600 dark:text-red-400"
                 }`}>
                   {(resumo.saldoFinal - resumo.saldoInicial) >= 0 ? "+" : ""}
-                  {formatarMoeda(resumo.saldoFinal - resumo.saldoInicial)}
+                  {fmt(resumo.saldoFinal - resumo.saldoInicial)}
                 </p>
               </div>
               <div>
                 <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">Saldo Final</p>
                 <p className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
-                  {formatarMoeda(resumo.saldoFinal)}
+                  {fmt(resumo.saldoFinal)}
                 </p>
               </div>
             </div>
@@ -295,17 +286,17 @@ export default function ExtratoContaPage() {
         </Card>
       )}
 
-      {/* ── Filtros ──────────────────────────────────────────── */}
+      {/* Filtros */}
       <FiltrosExtrato filtros={filtros} onFiltrosChange={handleFiltrosChange} />
 
-      {/* ── Contador de registros ────────────────────────────── */}
+      {/* Contador */}
       {!loading && !error && (
         <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
           {extratoFiltrado.length} movimentação{extratoFiltrado.length !== 1 ? "ões" : ""} encontrada{extratoFiltrado.length !== 1 ? "s" : ""}
         </p>
       )}
 
-      {/* ── Error ────────────────────────────────────────────── */}
+      {/* Error */}
       {error && (
         <Card className="border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20">
           <CardContent className="p-6 text-center">
@@ -319,7 +310,7 @@ export default function ExtratoContaPage() {
         </Card>
       )}
 
-      {/* ── Loading ──────────────────────────────────────────── */}
+      {/* Loading */}
       {loading && !error && (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -333,7 +324,7 @@ export default function ExtratoContaPage() {
         </div>
       )}
 
-      {/* ── Empty ────────────────────────────────────────────── */}
+      {/* Empty */}
       {!loading && !error && extratoFiltrado.length === 0 && (
         <Card className="border-dashed dark:bg-gray-800 dark:border-gray-700">
           <CardContent className="p-12 text-center">
@@ -347,14 +338,14 @@ export default function ExtratoContaPage() {
         </Card>
       )}
 
-      {/* ── Mobile: Cards ────────────────────────────────────── */}
+      {/* Mobile: Cards */}
       {!loading && !error && extratoPagina.length > 0 && (
         <div className="md:hidden space-y-3">
           {extratoPagina.map((item) => <MovimentacaoCard key={item.id} item={item} />)}
         </div>
       )}
 
-      {/* ── Desktop: Tabela ──────────────────────────────────── */}
+      {/* Desktop: Tabela */}
       {!loading && !error && extratoPagina.length > 0 && (
         <Card className="hidden md:block dark:bg-gray-800 dark:border-gray-700">
           <CardContent className="p-0">
@@ -372,18 +363,12 @@ export default function ExtratoContaPage() {
                 <thead className="bg-gray-50 dark:bg-gray-900">
                   <tr>
                     <ThOrdenavel coluna="data"  label="Data"    className="text-left"  />
-                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">
-                      Descrição
-                    </th>
-                    <th className="text-center p-3 font-medium text-gray-900 dark:text-white">
-                      Origem
-                    </th>
+                    <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Descrição</th>
+                    <th className="text-center p-3 font-medium text-gray-900 dark:text-white">Origem</th>
                     <ThOrdenavel coluna="valor" label="Entrada" className="text-right" />
                     <ThOrdenavel coluna="valor" label="Saída"   className="text-right" />
                     <ThOrdenavel coluna="saldo" label="Saldo"   className="text-right" />
-                    <th className="text-center p-3 font-medium text-gray-900 dark:text-white">
-                      Ações
-                    </th>
+                    <th className="text-center p-3 font-medium text-gray-900 dark:text-white">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -404,15 +389,15 @@ export default function ExtratoContaPage() {
                       </td>
                       <td className="p-3 text-center">{getOrigemBadge(item.origem)}</td>
                       <td className="p-3 text-right font-medium text-green-600 dark:text-green-400 whitespace-nowrap">
-                        {item.tipo === "entrada" && `+ ${formatarMoeda(item.valor)}`}
+                        {item.tipo === "entrada" && `+ ${fmt(item.valor)}`}
                       </td>
                       <td className="p-3 text-right font-medium text-red-600 dark:text-red-400 whitespace-nowrap">
-                        {item.tipo === "saida" && `- ${formatarMoeda(item.valor)}`}
+                        {item.tipo === "saida" && `- ${fmt(item.valor)}`}
                       </td>
                       <td className={`p-3 text-right font-semibold whitespace-nowrap ${
                         item.saldoApos >= 0 ? "text-gray-900 dark:text-white" : "text-red-600 dark:text-red-400"
                       }`}>
-                        {formatarMoeda(item.saldoApos)}
+                        {fmt(item.saldoApos)}
                       </td>
                       <td className="p-3 text-center">
                         <DropdownMenu>
@@ -437,7 +422,7 @@ export default function ExtratoContaPage() {
               </table>
             </div>
 
-            {/* ── Rodapé: contador + paginação ─────────────────── */}
+            {/* Rodapé */}
             <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 bg-gray-50 dark:bg-gray-900 flex items-center justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">
                 {extratoFiltrado.length} registro{extratoFiltrado.length !== 1 ? "s" : ""}
@@ -445,20 +430,12 @@ export default function ExtratoContaPage() {
               </span>
               {totalPaginas > 1 && (
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline" size="sm"
-                    className="dark:border-gray-700"
-                    onClick={() => setPagina(p => Math.max(1, p - 1))}
-                    disabled={pagina === 1}
-                  >
+                  <Button variant="outline" size="sm" className="dark:border-gray-700"
+                    onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={pagina === 1}>
                     Anterior
                   </Button>
-                  <Button
-                    variant="outline" size="sm"
-                    className="dark:border-gray-700"
-                    onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
-                    disabled={pagina === totalPaginas}
-                  >
+                  <Button variant="outline" size="sm" className="dark:border-gray-700"
+                    onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={pagina === totalPaginas}>
                     Próxima
                   </Button>
                 </div>
@@ -468,32 +445,26 @@ export default function ExtratoContaPage() {
         </Card>
       )}
 
-      {/* ── Paginação mobile ─────────────────────────────────── */}
+      {/* Paginação mobile */}
       {!loading && !error && totalPaginas > 1 && (
         <div className="md:hidden flex items-center justify-between text-sm">
           <span className="text-gray-600 dark:text-gray-400">
             Página {pagina} de {totalPaginas}
           </span>
           <div className="flex gap-2">
-            <Button
-              variant="outline" size="sm"
-              onClick={() => setPagina(p => Math.max(1, p - 1))}
-              disabled={pagina === 1}
-            >
+            <Button variant="outline" size="sm"
+              onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={pagina === 1}>
               Anterior
             </Button>
-            <Button
-              variant="outline" size="sm"
-              onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
-              disabled={pagina === totalPaginas}
-            >
+            <Button variant="outline" size="sm"
+              onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={pagina === totalPaginas}>
               Próxima
             </Button>
           </div>
         </div>
       )}
 
-      {/* ── Modal de Exclusão ────────────────────────────────── */}
+      {/* Modal */}
       <ModalExcluirExtrato
         open={modalExcluir}
         onClose={() => { setModalExcluir(false); setItemExcluir(null); }}

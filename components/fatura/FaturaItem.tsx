@@ -6,6 +6,7 @@ import { TransacaoFatura } from "@/types/cartao";
 import { formatarDataCurta } from "@/utils/dateUtils";
 import { iconOptions } from "@/utils/iconOptions";
 import { useCategorias } from "@/hooks/useCategorias";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Props {
   transacao: TransacaoFatura;
@@ -13,23 +14,21 @@ interface Props {
 
 export default function FaturaItem({ transacao }: Props) {
   const { data: categorias = [] } = useCategorias();
+  const { mask } = useHideValues();
 
   const formatarMoeda = (valor: number | string) => {
     const v = typeof valor === "string" ? parseFloat(valor) : valor;
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(v);
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
   };
+
+  const fmt = (valor: number | string) => mask(formatarMoeda(valor));
 
   const valorNum =
     typeof transacao.valor === "string"
       ? parseFloat(transacao.valor)
       : transacao.valor;
 
-  const isParcelado = transacao.parcelas && transacao.parcelas > 1;
-
-  // ✅ O banco já armazena o valor por parcela — não dividir novamente
+  const isParcelado  = transacao.parcelas && transacao.parcelas > 1;
   const valorParcela = valorNum;
 
   const categoriaObj = categorias.find(
@@ -52,7 +51,7 @@ export default function FaturaItem({ transacao }: Props) {
     <div className="group p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200">
       <div className="flex items-start justify-between gap-4">
 
-        {/* ── LEFT ── */}
+        {/* LEFT */}
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${gradiente}`}>
             {IconeCategoria
@@ -66,7 +65,6 @@ export default function FaturaItem({ transacao }: Props) {
               <span className="font-semibold text-gray-900 dark:text-white truncate">
                 {transacao.descricao || "Sem descrição"}
               </span>
-
               {isParcelado && (
                 <Badge
                   variant="outline"
@@ -95,29 +93,28 @@ export default function FaturaItem({ transacao }: Props) {
           </div>
         </div>
 
-        {/* ── RIGHT ── */}
+        {/* RIGHT */}
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           <div className="flex items-center gap-1">
             <TrendingDown size={15} className="text-red-500 dark:text-red-400" />
             <span className="font-bold text-base text-red-600 dark:text-red-400">
-              {formatarMoeda(valorParcela)}
+              {fmt(valorParcela)}
             </span>
           </div>
-
           {isParcelado && (
             <span className="text-xs text-gray-400 dark:text-gray-500">
-              {transacao.parcelas}x de {formatarMoeda(valorParcela)}
+              {transacao.parcelas}x de {fmt(valorParcela)}
             </span>
           )}
         </div>
       </div>
 
-      {/* ── Rodapé parcelamento ── */}
+      {/* Rodapé parcelamento */}
       {isParcelado && (
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
             <span>Parcela {transacao.parcelaAtual} de {transacao.parcelas}</span>
-            <span className="font-semibold">{formatarMoeda(valorParcela)} / parcela</span>
+            <span className="font-semibold">{fmt(valorParcela)} / parcela</span>
           </div>
         </div>
       )}
