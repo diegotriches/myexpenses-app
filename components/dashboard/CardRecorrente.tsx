@@ -6,54 +6,36 @@ import { Repeat, ArrowUpCircle, ArrowDownCircle, Calendar, Loader2 } from 'lucid
 import { useRecorrentes } from '@/hooks/useDashboard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useMemo } from 'react';
+import { useHideValues } from '@/contexts/HideValuesContext';
 
 export function CardRecorrentes() {
   const { data: transacoes, isLoading, error } = useRecorrentes();
+  const { mask } = useHideValues();
 
-  // Agrupa por recorrenciaId
+  const formatarMoeda = (valor: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+
+  const fmt = (valor: number) => mask(formatarMoeda(valor));
+
   const recorrenciasAgrupadas = useMemo(() => {
     if (!transacoes || transacoes.length === 0) return [];
-    
     const mapa = new Map();
-    
     transacoes.forEach(t => {
       const key = t.recorrenciaId || t.id;
       if (!mapa.has(key)) {
         const valorMensal = Number(t.valor);
         const totalRecorrencia = t.repeticoes ? valorMensal * t.repeticoes : valorMensal;
         const quantidadeParcelas = t.repeticoes || 1;
-        
-        mapa.set(key, {
-          ...t,
-          totalRecorrencia,
-          quantidadeParcelas
-        });
+        mapa.set(key, { ...t, totalRecorrencia, quantidadeParcelas });
       }
     });
-    
     return Array.from(mapa.values());
   }, [transacoes]);
-  
-  const receitas = useMemo(
-    () => recorrenciasAgrupadas.filter(t => t.tipo === 'entrada'),
-    [recorrenciasAgrupadas]
-  );
-  
-  const despesas = useMemo(
-    () => recorrenciasAgrupadas.filter(t => t.tipo === 'saida'),
-    [recorrenciasAgrupadas]
-  );
-  
-  const totalReceitas = useMemo(
-    () => receitas.reduce((acc, t) => acc + Number(t.valor), 0),
-    [receitas]
-  );
-  
-  const totalDespesas = useMemo(
-    () => despesas.reduce((acc, t) => acc + Number(t.valor), 0),
-    [despesas]
-  );
-  
+
+  const receitas  = useMemo(() => recorrenciasAgrupadas.filter(t => t.tipo === 'entrada'), [recorrenciasAgrupadas]);
+  const despesas  = useMemo(() => recorrenciasAgrupadas.filter(t => t.tipo === 'saida'),   [recorrenciasAgrupadas]);
+  const totalReceitas = useMemo(() => receitas.reduce((acc, t) => acc + Number(t.valor), 0), [receitas]);
+  const totalDespesas = useMemo(() => despesas.reduce((acc, t) => acc + Number(t.valor), 0), [despesas]);
   const totalRecorrente = totalReceitas + totalDespesas;
 
   const formatarData = (data: string | Date) => {
@@ -61,14 +43,6 @@ export function CardRecorrentes() {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
   };
 
-  const formatarMoeda = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor);
-  };
-
-  // Loading state
   if (isLoading) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
@@ -85,7 +59,6 @@ export function CardRecorrentes() {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
@@ -97,9 +70,7 @@ export function CardRecorrentes() {
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
-            <AlertDescription>
-              Erro ao carregar dados: {error.message}
-            </AlertDescription>
+            <AlertDescription>Erro ao carregar dados: {error.message}</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -128,20 +99,18 @@ export function CardRecorrentes() {
         ) : (
           <div className="space-y-2.5">
             {recorrenciasAgrupadas.slice(0, 5).map((t) => {
-              const porcentagem = totalRecorrente > 0 
-                ? (Number(t.valor) / totalRecorrente) * 100 
+              const porcentagem = totalRecorrente > 0
+                ? (Number(t.valor) / totalRecorrente) * 100
                 : 0;
               const isReceita = t.tipo === 'entrada';
-              
+
               return (
-                <div 
+                <div
                   key={t.recorrenciaId || t.id}
                   className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 >
                   <div className={`p-1.5 rounded-full flex-shrink-0 ${
-                    isReceita 
-                      ? 'bg-green-100 dark:bg-green-900/30' 
-                      : 'bg-red-100 dark:bg-red-900/30'
+                    isReceita ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
                   }`}>
                     {isReceita ? (
                       <ArrowUpCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
@@ -149,27 +118,23 @@ export function CardRecorrentes() {
                       <ArrowDownCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
                     )}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                         {t.descricao || (isReceita ? 'Receita recorrente' : 'Despesa recorrente')}
                       </span>
                       <span className={`text-sm font-bold ml-2 whitespace-nowrap ${
-                        isReceita 
-                          ? 'text-green-600 dark:text-green-400' 
-                          : 'text-red-600 dark:text-red-400'
+                        isReceita ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                       }`}>
-                        {isReceita ? '+' : '-'} {formatarMoeda(Number(t.valor))}
+                        {isReceita ? '+' : '-'} {fmt(Number(t.valor))}
                       </span>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 mb-1">
                       <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-300 ${
-                            isReceita ? 'bg-green-500' : 'bg-red-500'
-                          }`}
+                        <div
+                          className={`h-full transition-all duration-300 ${isReceita ? 'bg-green-500' : 'bg-red-500'}`}
                           style={{ width: `${porcentagem}%` }}
                         />
                       </div>
@@ -177,7 +142,7 @@ export function CardRecorrentes() {
                         {porcentagem.toFixed(1)}%
                       </span>
                     </div>
-                    
+
                     <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                       {t.data && (
                         <div className="flex items-center gap-1">
@@ -196,29 +161,24 @@ export function CardRecorrentes() {
                 </div>
               );
             })}
-            
-            {/* Total e Resumo */}
+
             <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1.5">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Receitas mensais:</span>
-                <span className="font-semibold text-green-600 dark:text-green-400">
-                  {formatarMoeda(totalReceitas)}
-                </span>
+                <span className="font-semibold text-green-600 dark:text-green-400">{fmt(totalReceitas)}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Despesas mensais:</span>
-                <span className="font-semibold text-red-600 dark:text-red-400">
-                  {formatarMoeda(totalDespesas)}
-                </span>
+                <span className="font-semibold text-red-600 dark:text-red-400">{fmt(totalDespesas)}</span>
               </div>
               <div className="flex justify-between items-center pt-1 border-t border-gray-100 dark:border-gray-800">
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Impacto mensal:</span>
                 <span className={`text-base font-bold ${
-                  (totalReceitas - totalDespesas) >= 0 
-                    ? 'text-green-600 dark:text-green-400' 
+                  (totalReceitas - totalDespesas) >= 0
+                    ? 'text-green-600 dark:text-green-400'
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {(totalReceitas - totalDespesas) >= 0 ? '+' : ''} {formatarMoeda(totalReceitas - totalDespesas)}
+                  {(totalReceitas - totalDespesas) >= 0 ? '+' : ''} {fmt(totalReceitas - totalDespesas)}
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">

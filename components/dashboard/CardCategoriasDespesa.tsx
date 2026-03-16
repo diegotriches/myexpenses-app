@@ -8,26 +8,16 @@ import { useMemo } from 'react';
 import { useTransacoes } from '@/hooks/useTransacoes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { useHideValues } from '@/contexts/HideValuesContext';
 
 const CORES_DESPESA = [
   '#ef4444', '#f97316', '#eab308',
   '#a855f7', '#ec4899',
 ];
 
-const CustomTooltip = ({ active, payload }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shadow-lg text-xs">
-      <p className="font-semibold text-gray-800 dark:text-gray-200">{payload[0].name}</p>
-      <p className="text-gray-600 dark:text-gray-400">
-        {payload[0].payload.totalFormatado} ({payload[0].payload.porcentagem.toFixed(1)}%)
-      </p>
-    </div>
-  );
-};
-
 export function CardCategoriasDespesa() {
   const { data: transacoes = [], isLoading } = useTransacoes();
+  const { hidden, mask } = useHideValues();
 
   const categorias = useMemo(() => categoriasDespesa(transacoes), [transacoes]);
 
@@ -39,6 +29,8 @@ export function CardCategoriasDespesa() {
   const formatarMoeda = (valor: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 
+  const fmt = (valor: number) => mask(formatarMoeda(valor));
+
   const chartData = useMemo(() =>
     categorias.slice(0, 5).map((c, i) => ({
       name:           c.categoria,
@@ -49,6 +41,18 @@ export function CardCategoriasDespesa() {
     })),
     [categorias, totalDespesas]
   );
+
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shadow-lg text-xs">
+        <p className="font-semibold text-gray-800 dark:text-gray-200">{payload[0].name}</p>
+        <p className="text-gray-600 dark:text-gray-400">
+          {hidden ? "••••••" : payload[0].payload.totalFormatado} ({payload[0].payload.porcentagem.toFixed(1)}%)
+        </p>
+      </div>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -81,19 +85,11 @@ export function CardCategoriasDespesa() {
         ) : (
           <div className="space-y-4">
 
-            {/* Pizza */}
             <div className="flex justify-center">
               <div className="w-[140px] h-[140px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
-                      data={chartData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={65}
-                      dataKey="value"
-                      strokeWidth={0}
-                    >
+                    <Pie data={chartData} cx="50%" cy="50%" outerRadius={65} dataKey="value" strokeWidth={0}>
                       {chartData.map((entry, index) => (
                         <Cell key={index} fill={entry.cor} />
                       ))}
@@ -104,7 +100,6 @@ export function CardCategoriasDespesa() {
               </div>
             </div>
 
-            {/* Lista rankeada */}
             <div className="space-y-2.5">
               {categorias.slice(0, 5).map((c, index) => {
                 const porcentagem = totalDespesas > 0 ? (c.total / totalDespesas) * 100 : 0;
@@ -128,7 +123,7 @@ export function CardCategoriasDespesa() {
                           {c.categoria}
                         </span>
                         <span className="text-sm font-bold text-red-600 dark:text-red-400 ml-2 whitespace-nowrap">
-                          {formatarMoeda(c.total)}
+                          {fmt(c.total)}
                         </span>
                       </div>
 
@@ -161,7 +156,7 @@ export function CardCategoriasDespesa() {
               <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total em despesas:</span>
                 <span className="text-base font-bold text-red-600 dark:text-red-400">
-                  {formatarMoeda(totalDespesas)}
+                  {fmt(totalDespesas)}
                 </span>
               </div>
             </div>

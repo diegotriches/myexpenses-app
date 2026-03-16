@@ -4,28 +4,24 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertTriangle, Calendar, Tag } from 'lucide-react';
 import { useMaioresGastos } from '@/hooks/useDashboard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useHideValues } from '@/contexts/HideValuesContext';
 
 export function CardMaioresGastos() {
   const { data, isLoading } = useMaioresGastos(5);
+  const { mask } = useHideValues();
 
   const gastos = data?.gastos ?? [];
-  const total = data?.total ?? 0;
-  const media = data?.media ?? 0;
+  const total  = data?.total  ?? 0;
+  const media  = data?.media  ?? 0;
+
+  const formatarMoeda = (valor: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+
+  const fmt = (valor: number) => mask(formatarMoeda(valor));
 
   const formatarData = (data: string | Date) => {
     const date = typeof data === 'string' ? new Date(data) : data;
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
-
-  const formatarMoeda = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor);
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   if (isLoading) {
@@ -80,7 +76,7 @@ export function CardMaioresGastos() {
                         {t.descricao}
                       </span>
                       <span className="text-sm font-bold text-red-600 dark:text-red-400 ml-2 whitespace-nowrap">
-                        {formatarMoeda(t.valor)}
+                        {fmt(t.valor)}
                       </span>
                     </div>
 
@@ -124,7 +120,7 @@ export function CardMaioresGastos() {
                   <span className="sm:hidden">Total:</span>
                 </span>
                 <span className="text-base font-bold text-red-600 dark:text-red-400">
-                  {formatarMoeda(total)}
+                  {fmt(total)}
                 </span>
               </div>
               {gastos.length > 0 && (
@@ -133,7 +129,7 @@ export function CardMaioresGastos() {
                     <span className="hidden sm:inline">Média dos maiores gastos:</span>
                     <span className="sm:hidden">Média:</span>
                   </span>
-                  <span className="font-semibold">{formatarMoeda(media)}</span>
+                  <span className="font-semibold">{fmt(media)}</span>
                 </div>
               )}
             </div>

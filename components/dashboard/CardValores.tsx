@@ -4,21 +4,21 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { CheckCircle2, Clock, TrendingUp, CalendarDays } from 'lucide-react';
 import { useValoresPeriodo } from '@/hooks/useDashboard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useHideValues } from '@/contexts/HideValuesContext';
 
 export function CardValores() {
   const { data, isLoading } = useValoresPeriodo();
+  const { mask } = useHideValues();
 
   const recebidos = data?.recebidos ?? 0;
-  const aReceber = data?.aReceber ?? 0;
-  const aPagar = data?.aPagar ?? 0;
-  const projecao = data?.projecao ?? 0;
+  const aReceber  = data?.aReceber  ?? 0;
+  const aPagar    = data?.aPagar    ?? 0;
+  const projecao  = data?.projecao  ?? 0;
 
-  const formatarMoeda = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor);
-  };
+  const formatarMoeda = (valor: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+
+  const fmt = (valor: number) => mask(formatarMoeda(valor));
 
   if (isLoading) {
     return (
@@ -52,7 +52,7 @@ export function CardValores() {
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-0.5">Já Recebido</p>
                 <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
-                  {formatarMoeda(recebidos)}
+                  {fmt(recebidos)}
                 </p>
               </div>
             </div>
@@ -68,7 +68,7 @@ export function CardValores() {
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-0.5">A Receber</p>
                   <p className="text-lg font-bold text-blue-700 dark:text-blue-400">
-                    {formatarMoeda(aReceber)}
+                    {fmt(aReceber)}
                   </p>
                 </div>
               </div>
@@ -85,7 +85,7 @@ export function CardValores() {
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-0.5">A Pagar</p>
                   <p className="text-lg font-bold text-amber-700 dark:text-amber-400">
-                    {formatarMoeda(aPagar)}
+                    {fmt(aPagar)}
                   </p>
                 </div>
               </div>
@@ -98,20 +98,16 @@ export function CardValores() {
               <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <TrendingUp className={`w-4 h-4 ${
-                    projecao >= 0
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400'
+                    projecao >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                   }`} />
                   <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
                     Projeção (a receber - a pagar):
                   </span>
                 </div>
                 <span className={`text-base font-bold ${
-                  projecao >= 0
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-red-600 dark:text-red-400'
+                  projecao >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {formatarMoeda(projecao)}
+                  {fmt(projecao)}
                 </span>
               </div>
             </div>

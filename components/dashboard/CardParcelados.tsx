@@ -7,15 +7,21 @@ import { useMemo } from 'react';
 import { useTransacoes } from '@/hooks/useTransacoes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Transacao } from '@/types/transacao';
+import { useHideValues } from '@/contexts/HideValuesContext';
 
 export function CardParcelados() {
   const { data: transacoes = [], isLoading } = useTransacoes();
+  const { mask } = useHideValues();
+
+  const formatarMoeda = (valor: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+
+  const fmt = (valor: number) => mask(formatarMoeda(valor));
 
   const parceladas = useMemo(() => filtrarParceladas(transacoes), [transacoes]);
 
   const comprasParceladas = useMemo(() => {
     const mapa = new Map<string, Transacao & { totalCompra: number }>();
-
     parceladas.forEach(t => {
       if (t.parcelamentoId) {
         if (!mapa.has(t.parcelamentoId)) {
@@ -29,21 +35,17 @@ export function CardParcelados() {
         mapa.set(t.id, { ...t, totalCompra });
       }
     });
-
     return Array.from(mapa.values());
   }, [parceladas]);
 
-  const totalParcelado = useMemo(() => {
-    return comprasParceladas.reduce((acc, t) => acc + t.totalCompra, 0);
-  }, [comprasParceladas]);
+  const totalParcelado = useMemo(
+    () => comprasParceladas.reduce((acc, t) => acc + t.totalCompra, 0),
+    [comprasParceladas]
+  );
 
   const formatarData = (data: string | Date) => {
     const date = typeof data === 'string' ? new Date(data) : data;
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
-
-  const formatarMoeda = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
   };
 
   if (isLoading) {
@@ -96,7 +98,7 @@ export function CardParcelados() {
                         {t.descricao || 'Compra parcelada'}
                       </span>
                       <span className="text-sm font-bold text-orange-600 dark:text-orange-400 ml-2 whitespace-nowrap">
-                        {formatarMoeda(t.totalCompra)}
+                        {fmt(t.totalCompra)}
                       </span>
                     </div>
 
@@ -122,7 +124,7 @@ export function CardParcelados() {
                       {t.parcelas && (
                         <div className="flex items-center gap-1 font-medium text-orange-600 dark:text-orange-400">
                           <Layers className="w-3 h-3" />
-                          {t.parcelas}x de {formatarMoeda(Number(t.valor))}
+                          {t.parcelas}x de {fmt(Number(t.valor))}
                         </div>
                       )}
                     </div>
@@ -145,7 +147,7 @@ export function CardParcelados() {
                   Total em compras parceladas:
                 </span>
                 <span className="text-base font-bold text-orange-600 dark:text-orange-400">
-                  {formatarMoeda(totalParcelado)}
+                  {fmt(totalParcelado)}
                 </span>
               </div>
               <div className="flex justify-between items-center">

@@ -4,9 +4,11 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ArrowUpCircle, ArrowDownCircle, Calendar, Clock } from 'lucide-react';
 import { useTransacoesRecentes } from '@/hooks/useDashboard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useHideValues } from '@/contexts/HideValuesContext';
 
 export function CardTransacoesRecentes() {
   const { data, isLoading } = useTransacoesRecentes(5);
+  const { mask } = useHideValues();
 
   const transacoes = data?.transacoes ?? [];
 
@@ -19,12 +21,10 @@ export function CardTransacoesRecentes() {
     });
   };
 
-  const formatarMoeda = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor);
-  };
+  const formatarMoeda = (valor: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+
+  const fmt = (valor: number) => mask(formatarMoeda(valor));
 
   if (isLoading) {
     return (
@@ -91,14 +91,12 @@ export function CardTransacoesRecentes() {
                             {formatarData(t.data)}
                           </div>
                         )}
-
                         {t.categoria && (
                           <>
                             <span>•</span>
                             <span className="truncate">{t.categoria}</span>
                           </>
                         )}
-
                         {t.parcelado && t.parcelas && (
                           <>
                             <span>•</span>
@@ -107,7 +105,6 @@ export function CardTransacoesRecentes() {
                             </span>
                           </>
                         )}
-
                         {t.recorrente && (
                           <>
                             <span>•</span>
@@ -125,7 +122,7 @@ export function CardTransacoesRecentes() {
                       ? 'text-green-600 dark:text-green-400'
                       : 'text-red-600 dark:text-red-400'
                   }`}>
-                    {isReceita ? '+' : '-'} {formatarMoeda(t.valor)}
+                    {isReceita ? '+' : '-'} {fmt(t.valor)}
                   </span>
                 </li>
               );

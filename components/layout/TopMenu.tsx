@@ -2,11 +2,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { signOut } from "next-auth/react";
 import { BsList, BsChevronLeft, BsCalculatorFill } from "react-icons/bs";
-import { Sun, Moon, LogOut, MoreVertical } from "lucide-react";
+import { Sun, Moon, LogOut, MoreVertical, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -28,6 +27,7 @@ import {
 import PeriodoSelector from "@/components/layout/PeriodoSelector";
 import CalculadoraModal from "@/components/common/CalculadoraModal";
 import { NotificacaoPopover } from "@/components/notificacao/NotificacaoPopover";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface TopMenuProps {
   isCollapsed: boolean;
@@ -39,6 +39,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
   const [mounted, setMounted] = useState(false);
   const [calculadoraOpen, setCalculadoraOpen] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const { hidden, toggle: toggleHide } = useHideValues();
 
   useEffect(() => {
     setMounted(true);
@@ -144,6 +145,25 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
           {/* ── RIGHT ── */}
           <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
 
+            {/* Ocultar valores - desktop/tablet */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleHide}
+              className={`
+                hidden md:flex cursor-pointer
+                transition-all duration-100 active:scale-95
+                ${hidden
+                  ? "text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                  : "text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                }
+              `}
+              title={hidden ? "Mostrar valores" : "Ocultar valores"}
+              aria-label={hidden ? "Mostrar valores" : "Ocultar valores"}
+            >
+              {hidden ? <EyeOff size={18} /> : <Eye size={18} />}
+            </Button>
+
             {/* Calculadora - desktop/tablet */}
             <Button
               variant="ghost"
@@ -173,11 +193,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
                 touch-manipulation active:scale-95 transition-all duration-100 cursor-pointer
               "
               title={resolvedTheme === "dark" ? "Modo claro" : "Modo escuro"}
-              aria-label={
-                resolvedTheme === "dark"
-                  ? "Ativar modo claro"
-                  : "Ativar modo escuro"
-              }
+              aria-label={resolvedTheme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
             >
               {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
             </Button>
@@ -228,6 +244,24 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
                   align="end"
                   className="w-48 dark:bg-gray-800 dark:border-gray-700"
                 >
+                  {/* Ocultar valores - mobile */}
+                  <DropdownMenuItem
+                    onClick={toggleHide}
+                    className="flex items-center gap-3 h-11 cursor-pointer dark:hover:bg-gray-700 dark:text-gray-200"
+                  >
+                    {hidden ? (
+                      <>
+                        <Eye size={17} className="text-blue-500 flex-shrink-0" />
+                        <span>Mostrar Valores</span>
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff size={17} className="text-blue-500 flex-shrink-0" />
+                        <span>Ocultar Valores</span>
+                      </>
+                    )}
+                  </DropdownMenuItem>
+
                   <DropdownMenuItem
                     onClick={alternarModo}
                     className="flex items-center gap-3 h-11 cursor-pointer dark:hover:bg-gray-700 dark:text-gray-200"
@@ -249,10 +283,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
                     onClick={() => setCalculadoraOpen(true)}
                     className="flex items-center gap-3 h-11 cursor-pointer dark:hover:bg-gray-700 dark:text-gray-200"
                   >
-                    <BsCalculatorFill
-                      size={16}
-                      className="text-blue-500 flex-shrink-0"
-                    />
+                    <BsCalculatorFill size={16} className="text-blue-500 flex-shrink-0" />
                     <span>Calculadora</span>
                   </DropdownMenuItem>
 
@@ -273,10 +304,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
       </header>
 
       {/* ── MODALS ── */}
-      <CalculadoraModal
-        open={calculadoraOpen}
-        onOpenChange={setCalculadoraOpen}
-      />
+      <CalculadoraModal open={calculadoraOpen} onOpenChange={setCalculadoraOpen} />
 
       <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
         <AlertDialogContent>
@@ -289,10 +317,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleLogout}
-              className="bg-red-600 hover:bg-red-700"
-            >
+            <AlertDialogAction onClick={handleLogout} className="bg-red-600 hover:bg-red-700">
               Sair
             </AlertDialogAction>
           </AlertDialogFooter>

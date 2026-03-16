@@ -4,6 +4,7 @@ import { useState, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import TopMenu from "@/components/layout/TopMenu";
+import { HideValuesProvider } from "@/contexts/HideValuesContext";
 
 interface ClientLayoutWrapperProps {
   children: ReactNode;
@@ -28,41 +29,43 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
     pathname?.includes("/500");
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
-      {!esconderNavbar && <Sidebar isCollapsed={isCollapsed} />}
+    <HideValuesProvider>
+      <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
+        {!esconderNavbar && <Sidebar isCollapsed={isCollapsed} />}
 
-      <div
-        className={`
-          flex-1 flex flex-col min-h-screen w-full max-w-full
-          transition-all duration-300 ease-in-out
-          bg-gray-50 dark:bg-gray-950
-          ${!esconderNavbar
-            ? isCollapsed
-              ? "md:ml-20"  /* sidebar colapsada: w-20 = 5rem = 80px */
-              : "md:ml-64"  /* sidebar expandida: w-64 = 16rem = 256px */
-            : ""
-          }
-        `}
-      >
-        {!esconderNavbar && (
-          <TopMenu
-            isCollapsed={isCollapsed}
-            toggleSidebar={() => setIsCollapsed(!isCollapsed)}
-          />
-        )}
-
-        <main
-          data-collapsed={isCollapsed ? "true" : "false"}
+        <div
           className={`
-            flex-1 w-full max-w-full
-            p-4 md:p-6
-            transition-all duration-300
-            ${!esconderNavbar ? "pt-20 md:pt-24" : "pt-0"}
+            flex-1 flex flex-col min-h-screen w-full max-w-full
+            transition-all duration-300 ease-in-out
+            bg-gray-50 dark:bg-gray-950
+            ${!esconderNavbar
+              ? isCollapsed
+                ? "md:ml-20"
+                : "md:ml-64"
+              : ""
+            }
           `}
         >
-          {children}
-        </main>
+          {!esconderNavbar && (
+            <TopMenu
+              isCollapsed={isCollapsed}
+              toggleSidebar={() => setIsCollapsed(!isCollapsed)}
+            />
+          )}
+
+          <main
+            data-collapsed={isCollapsed ? "true" : "false"}
+            className={`
+              flex-1 w-full max-w-full
+              p-4 md:p-6
+              transition-all duration-300
+              ${!esconderNavbar ? "pt-20 md:pt-24" : "pt-0"}
+            `}
+          >
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </HideValuesProvider>
   );
 }

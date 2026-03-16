@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -15,6 +14,7 @@ import {
 import { Wallet, Loader2, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSaldoHistorico } from "@/hooks/useDashboard";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 const PERIODOS = [
   { label: "3m", value: "3" },
@@ -33,28 +33,22 @@ function formatarMes(mes: string) {
 }
 
 function formatarMoeda(valor: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(valor);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 }
 
 function formatarMoedaCurta(valor: number) {
-  if (Math.abs(valor) >= 1000) {
-    return `R$ ${(valor / 1000).toFixed(1)}k`;
-  }
+  if (Math.abs(valor) >= 1000) return `R$ ${(valor / 1000).toFixed(1)}k`;
   return formatarMoeda(valor);
 }
 
-// Tooltip customizado
-function CustomTooltip({ active, payload, label }: any) {
+function CustomTooltip({ active, payload, label, hidden }: any) {
   if (!active || !payload?.length) return null;
   const valor = payload[0]?.value ?? 0;
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-lg text-xs">
       <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</p>
       <p className={`font-bold text-sm ${valor >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}`}>
-        {formatarMoeda(valor)}
+        {hidden ? "••••••" : formatarMoeda(valor)}
       </p>
     </div>
   );
@@ -63,9 +57,11 @@ function CustomTooltip({ active, payload, label }: any) {
 export function CardSaldoHistorico() {
   const [periodo, setPeriodo] = useState<"3" | "6" | "12">("6");
   const { data: historico, isLoading: loadingHistorico, error } = useSaldoHistorico(periodo);
-  const isLoading = loadingHistorico;
+  const { hidden, mask } = useHideValues();
 
-  // Variação entre primeiro e último mês
+  const fmt  = (v: number) => mask(formatarMoeda(v));
+  const fmtC = (v: number) => mask(formatarMoedaCurta(v));
+
   const variacao = historico && historico.length >= 2
     ? historico[historico.length - 1].saldoTotal - historico[0].saldoTotal
     : null;
@@ -75,7 +71,6 @@ export function CardSaldoHistorico() {
     Saldo: item.saldoTotal,
   })) ?? [];
 
-  // Cor dinâmica baseada na tendência
   const corGrafico = variacao !== null && variacao >= 0
     ? { stroke: "#2563eb", fill: "#2563eb" }
     : { stroke: "#dc2626", fill: "#dc2626" };
@@ -106,7 +101,7 @@ export function CardSaldoHistorico() {
     </div>
   );
 
-  if (isLoading) {
+  if (loadingHistorico) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
         <CardHeader>{cardTitle}</CardHeader>
@@ -136,7 +131,6 @@ export function CardSaldoHistorico() {
       <CardHeader>{cardTitle}</CardHeader>
       <CardContent className="space-y-4">
 
-        {/* Saldo atual + variação */}
         {historico && historico.length > 0 && (
           <div className="flex items-center justify-between">
             <div>
@@ -146,7 +140,7 @@ export function CardSaldoHistorico() {
                   ? "text-gray-900 dark:text-white"
                   : "text-red-600 dark:text-red-400"
               }`}>
-                {formatarMoeda(historico[historico.length - 1].saldoTotal)}
+                {fmt(historico[historico.length - 1].saldoTotal)}
               </p>
             </div>
             {variacao !== null && (
@@ -159,51 +153,46 @@ export function CardSaldoHistorico() {
                   ? <TrendingUp className="h-3.5 w-3.5" />
                   : <TrendingDown className="h-3.5 w-3.5" />
                 }
-                <span className="hidden sm:inline">{formatarMoeda(Math.abs(variacao))}</span>
-                <span className="sm:hidden">{formatarMoedaCurta(Math.abs(variacao))}</span>
+                <span className="hidden sm:inline">{mask(formatarMoeda(Math.abs(variacao)))}</span>
+                <span className="sm:hidden">{mask(formatarMoedaCurta(Math.abs(variacao)))}</span>
               </div>
             )}
           </div>
         )}
 
-        {/* Gráfico de área */}
         {dadosGrafico.length > 0 ? (
-          <>
-            <ResponsiveContainer width="100%" height={160}>
-              <AreaChart data={dadosGrafico} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gradientSaldo" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={corGrafico.fill} stopOpacity={0.2} />
-                    <stop offset="95%" stopColor={corGrafico.fill} stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
-                <XAxis
-                  dataKey="mes"
-                  tick={{ fontSize: 10 }}
-                  className="fill-gray-500 dark:fill-gray-400"
-                />
-                <YAxis
-                  tick={{ fontSize: 10 }}
-                  className="fill-gray-500 dark:fill-gray-400"
-                  tickFormatter={(v) => formatarMoedaCurta(v)}
-                  width={55}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="Saldo"
-                  stroke={corGrafico.stroke}
-                  strokeWidth={2}
-                  fill="url(#gradientSaldo)"
-                  dot={{ fill: corGrafico.stroke, strokeWidth: 0, r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-
-
-          </>
+          <ResponsiveContainer width="100%" height={160}>
+            <AreaChart data={dadosGrafico} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gradientSaldo" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={corGrafico.fill} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={corGrafico.fill} stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+              <XAxis
+                dataKey="mes"
+                tick={{ fontSize: 10 }}
+                className="fill-gray-500 dark:fill-gray-400"
+              />
+              <YAxis
+                tick={{ fontSize: 10 }}
+                className="fill-gray-500 dark:fill-gray-400"
+                tickFormatter={(v) => hidden ? "••••" : formatarMoedaCurta(v)}
+                width={55}
+              />
+              <Tooltip content={<CustomTooltip hidden={hidden} />} />
+              <Area
+                type="monotone"
+                dataKey="Saldo"
+                stroke={corGrafico.stroke}
+                strokeWidth={2}
+                fill="url(#gradientSaldo)"
+                dot={{ fill: corGrafico.stroke, strokeWidth: 0, r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         ) : (
           <div className="text-center py-6">
             <Wallet className="w-10 h-10 text-gray-300 dark:text-gray-700 mx-auto mb-2" />

@@ -9,9 +9,7 @@ import { useFaturasAbertas } from "@/hooks/useDashboard";
 import { CreditCard, ChevronLeft, ChevronRight, Receipt, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 function corUtilizacao(percentual: number) {
   if (percentual >= 80) return {
@@ -36,6 +34,12 @@ export function CardLimiteCredito() {
   const { data: cartoes = [], isLoading: loadingCartoes } = useCartoes();
   const { data: faturasAbertas = [], isLoading: loadingFaturas } = useFaturasAbertas();
   const [indice, setIndice] = useState(0);
+  const { mask } = useHideValues();
+
+  const formatarMoeda = (valor: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+
+  const fmt = (valor: number) => mask(formatarMoeda(valor));
 
   const isLoading = loadingCartoes || loadingFaturas;
 
@@ -75,7 +79,6 @@ export function CardLimiteCredito() {
     router.push("/cartoes/" + cartaoAtual.id + "/fatura?mes=" + mes + "&ano=" + ano);
   };
 
-  // ── Loading ──────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
@@ -93,7 +96,6 @@ export function CardLimiteCredito() {
     );
   }
 
-  // ── Sem cartoes ───────────────────────────────────────────────────────────
   if (cartoesCredito.length === 0) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
@@ -118,10 +120,8 @@ export function CardLimiteCredito() {
   const limiteExibido     = cartaoInfo?.limite       ?? consolidado.limiteTotal;
   const faturaExibida     = cartaoInfo?.faturaAberta ?? null;
 
-  // Fatura consolidada (varios cartoes sem fatura individual exibida)
-  const faturaTotal = faturaExibida?.total
-    ?? (temVariosCartoes ? consolidado.faturaTotal : null);
-  const temFatura   = faturaTotal !== null && faturaTotal > 0;
+  const faturaTotal   = faturaExibida?.total ?? (temVariosCartoes ? consolidado.faturaTotal : null);
+  const temFatura     = faturaTotal !== null && faturaTotal > 0;
   const temBotaoVerFatura = !!faturaExibida && !!cartaoAtual;
 
   const { barra, texto, badge } = corUtilizacao(percentualExibido);
@@ -130,13 +130,12 @@ export function CardLimiteCredito() {
   return (
     <Card className="dark:bg-gray-900 dark:border-gray-800">
 
-      {/* ── Header ── */}
+      {/* Header */}
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-900 dark:text-white">
           <CreditCard className="h-4 w-4 text-blue-500" />
           Limite de Credito
         </CardTitle>
-
         {temVariosCartoes && (
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={anterior}>
@@ -154,7 +153,7 @@ export function CardLimiteCredito() {
 
       <CardContent className="space-y-3">
 
-        {/* ── Nome do cartao (varios cartoes) ── */}
+        {/* Nome do cartao */}
         {temVariosCartoes && cartaoAtual && (
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
@@ -166,7 +165,7 @@ export function CardLimiteCredito() {
           </div>
         )}
 
-        {/* ── Bloco de fatura em destaque ── */}
+        {/* Fatura em destaque */}
         {temFatura && (
           <div className={"rounded-lg p-3 " + (atrasada
             ? "bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900"
@@ -193,11 +192,10 @@ export function CardLimiteCredito() {
                   ? "text-red-700 dark:text-red-300"
                   : "text-orange-700 dark:text-orange-300"
                 )}>
-                  {formatarMoeda(faturaTotal!)}
+                  {fmt(faturaTotal!)}
                 </p>
               </div>
 
-              {/* Botao Ver fatura — so aparece quando ha fatura do cartao atual */}
               {temBotaoVerFatura && (
                 <Button
                   size="sm"
@@ -216,29 +214,23 @@ export function CardLimiteCredito() {
           </div>
         )}
 
-        {/* ── Limite utilizado / disponivel / total (compacto) ── */}
+        {/* Limite utilizado / disponivel / total */}
         <div className="grid grid-cols-3 gap-2">
           <div className="space-y-0.5">
             <p className="text-xs text-gray-500 dark:text-gray-400">Utilizado</p>
-            <p className={"text-sm font-bold " + texto}>
-              {formatarMoeda(usadoExibido)}
-            </p>
+            <p className={"text-sm font-bold " + texto}>{fmt(usadoExibido)}</p>
           </div>
           <div className="space-y-0.5">
             <p className="text-xs text-gray-500 dark:text-gray-400">Disponivel</p>
-            <p className="text-sm font-bold text-blue-600 dark:text-blue-400">
-              {formatarMoeda(disponivelExibido)}
-            </p>
+            <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{fmt(disponivelExibido)}</p>
           </div>
           <div className="space-y-0.5">
             <p className="text-xs text-gray-500 dark:text-gray-400">Total</p>
-            <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
-              {formatarMoeda(limiteExibido)}
-            </p>
+            <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{fmt(limiteExibido)}</p>
           </div>
         </div>
 
-        {/* ── Barra de progresso ── */}
+        {/* Barra de progresso */}
         <div className="space-y-1">
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
             <div
@@ -256,7 +248,7 @@ export function CardLimiteCredito() {
           </div>
         </div>
 
-        {/* ── Indicadores de cartao ── */}
+        {/* Indicadores de cartao */}
         {temVariosCartoes && (
           <div className="flex justify-center gap-1.5 pt-0.5">
             {cartoesCredito.map((_, i) => (
