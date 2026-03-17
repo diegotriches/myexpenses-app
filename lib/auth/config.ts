@@ -64,9 +64,9 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email:      { label: "Email",  type: "email" },
-        password:   { label: "Senha",  type: "password" },
-        rememberMe: { label: "Lembrar", type: "text" },
+        email:      { label: "Email",   type: "email"    },
+        password:   { label: "Senha",   type: "password" },
+        rememberMe: { label: "Lembrar", type: "text"     },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -101,7 +101,7 @@ export const authOptions: NextAuthOptions = {
 
   session: {
     strategy: "jwt",
-    maxAge: REMEMBER_ME_MAX_AGE, // Padrão — sobrescrito no callback jwt
+    maxAge: REMEMBER_ME_MAX_AGE,
   },
 
   pages: {
@@ -109,15 +109,27 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
+    async jwt({ token, user, account }) {
+      // ── Login inicial ─────────────────────────────────────────────────────
+      // account só existe no primeiro login — aqui salvamos tudo que precisamos
+      if (account && user) {
         token.id = user.id;
+
+        // Salva tokens do Google para uso posterior com o Drive
+        if (account.provider === "google") {
+          token.googleAccessToken  = account.access_token  ?? null;
+          token.googleRefreshToken = account.refresh_token ?? null;
+          token.googleTokenExpiry  = account.expires_at    ?? null;
+        }
+
         const rememberMe = (user as any).rememberMe;
         token.rememberMe = rememberMe === false ? false : true;
-        token.maxAge = token.rememberMe ? REMEMBER_ME_MAX_AGE : SESSION_MAX_AGE;
+        token.maxAge     = token.rememberMe ? REMEMBER_ME_MAX_AGE : SESSION_MAX_AGE;
       }
 
-      if (token.rememberMe === false) {
+      // ── Renovações subsequentes ───────────────────────────────────────────
+      // account é undefined nas renovações — apenas ajusta expiração se necessário
+      if (!account && token.rememberMe === false) {
         const now = Math.floor(Date.now() / 1000);
         token.exp = now + SESSION_MAX_AGE;
       }
@@ -129,6 +141,12 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
       }
+
+      // Expõe na sessão se o usuário tem acesso ao Drive
+      // (sem revelar os tokens — eles ficam apenas no JWT server-side)
+      (session as any).hasGoogleDriveAccess =
+        !!(token.googleAccessToken || token.googleRefreshToken);
+
       return session;
     },
 
