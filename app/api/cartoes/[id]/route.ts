@@ -66,7 +66,6 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
 
-    // Verificar se o cartão pertence ao usuário
     const cartaoAtual = await db.query.cartoes.findFirst({
       where: and(
         eq(cartoes.id, Number(id)),
@@ -83,11 +82,9 @@ export async function PUT(
 
     const tipo = body.tipo ?? cartaoAtual.tipo;
 
-    // ✅ NOVO: Validação para cartão de débito
     if (tipo === "debito") {
-      // Se está mudando para débito OU já é débito, precisa ter conta vinculada
       const contaVinculadaId = body.contaVinculadaId ?? cartaoAtual.contaVinculadaId;
-      
+
       if (!contaVinculadaId) {
         return NextResponse.json(
           { error: "Cartão de débito precisa estar vinculado a uma conta" },
@@ -95,7 +92,6 @@ export async function PUT(
         );
       }
 
-      // Verificar se a conta existe e pertence ao usuário
       const [contaVinculada] = await db
         .select()
         .from(contas)
@@ -122,7 +118,6 @@ export async function PUT(
       }
     }
 
-    // Se tem contaVinculadaId sendo enviada, validar
     if (body.contaVinculadaId && body.contaVinculadaId !== cartaoAtual.contaVinculadaId) {
       const [contaVinculada] = await db
         .select()
@@ -150,15 +145,13 @@ export async function PUT(
       }
     }
 
-    // Converter valores
     let novoLimite = Number(cartaoAtual.limite ?? 0);
     let novoLimiteDisponivel = Number(cartaoAtual.limiteDisponivel ?? 0);
 
-    // Regra para cartão de crédito
     if (tipo === "credito") {
       if (body.limite !== undefined) {
-        const limiteNum = typeof body.limite === "string" 
-          ? parseFloat(body.limite) 
+        const limiteNum = typeof body.limite === "string"
+          ? parseFloat(body.limite)
           : Number(body.limite);
 
         if (isNaN(limiteNum) || limiteNum < 0) {
@@ -172,18 +165,13 @@ export async function PUT(
         const diferenca = limiteNum - limiteAnterior;
 
         novoLimite = limiteNum;
-        novoLimiteDisponivel = Math.max(
-          novoLimiteDisponivel + diferenca,
-          0
-        );
+        novoLimiteDisponivel = Math.max(novoLimiteDisponivel + diferenca, 0);
       }
     } else {
-      // Cartão débito não possui limite
       novoLimite = 0;
       novoLimiteDisponivel = 0;
     }
 
-    // Validação da conta vinculada
     if (body.contaVinculadaId !== undefined) {
       if (body.contaVinculadaId !== null && typeof body.contaVinculadaId !== "string") {
         return NextResponse.json(
@@ -211,20 +199,15 @@ export async function PUT(
       }),
 
       ...(body.ativo !== undefined && { ativo: body.ativo }),
-      ...(body.observacoes !== undefined && {
-        observacoes: body.observacoes,
-      }),
-
+      ...(body.observacoes !== undefined && { observacoes: body.observacoes }),
       ...(body.ultimosDigitos !== undefined && {
         ultimosDigitos: Number(body.ultimosDigitos),
       }),
-
       ...(body.contaVinculadaId !== undefined && {
         contaVinculadaId: body.contaVinculadaId,
       }),
     };
 
-    // Se mudando de crédito para débito, zerar campos de crédito
     if (tipo === "debito" && cartaoAtual.tipo === "credito") {
       dadosAtualizacao.limite = "0";
       dadosAtualizacao.limiteDisponivel = "0";
@@ -294,11 +277,28 @@ export async function DELETE(
       );
     }
 
-    return NextResponse.json({
-      message: "Cartão deletado com sucesso."
-    });
-  } catch (error) {
+    return NextResponse.json({ message: "Cartão deletado com sucesso." });
+
+  } catch (error: any) {
     console.error("Erro ao deletar cartão:", error);
+
+    // Constraint de FK — cartão tem movimentações vinculadas
+    const isConstraintError =
+      error?.code === "23503" ||
+      error?.message?.includes("foreign key") ||
+      error?.message?.includes("violates foreign key constraint") ||
+      error?.message?.includes("constraint");
+
+    if (isConstraintError) {
+      return NextResponse.json(
+        {
+          error: "Este cartão possui movimentações e não pode ser excluído.",
+          code: "HAS_TRANSACTIONS",
+        },
+        { status: 409 }
+      );
+    }
+
     const message = error instanceof Error ? error.message : "Erro interno ao deletar cartão.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
