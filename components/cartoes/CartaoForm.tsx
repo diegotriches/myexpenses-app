@@ -302,16 +302,26 @@ export default function CartaoForm({
 
       {/* Tipo de Cartão */}
       <div>
-        <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
-          Tipo de Cartão <span className="text-red-500">*</span>
-        </label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-sm font-medium block text-gray-700 dark:text-gray-300">
+            Tipo de Cartão <span className="text-red-500">*</span>
+          </label>
+          {initialValues && (
+            <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              Não pode ser alterado após a criação
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => handleChange("tipo", "credito")}
+            onClick={() => !initialValues && handleChange("tipo", "credito")}
+            disabled={!!initialValues}
             className={`
               h-24 border-2 rounded-lg transition-all duration-200
               flex flex-col items-center justify-center gap-2
+              ${initialValues ? "cursor-not-allowed opacity-60" : ""}
               ${
                 form.tipo === "credito"
                   ? "border-blue-500 bg-blue-50 dark:bg-blue-950 dark:border-blue-400"
@@ -339,10 +349,12 @@ export default function CartaoForm({
 
           <button
             type="button"
-            onClick={() => handleChange("tipo", "debito")}
+            onClick={() => !initialValues && handleChange("tipo", "debito")}
+            disabled={!!initialValues}
             className={`
               h-24 border-2 rounded-lg transition-all duration-200
               flex flex-col items-center justify-center gap-2
+              ${initialValues ? "cursor-not-allowed opacity-60" : ""}
               ${
                 form.tipo === "debito"
                   ? "border-blue-500 bg-blue-50 dark:bg-blue-950 dark:border-blue-400"
