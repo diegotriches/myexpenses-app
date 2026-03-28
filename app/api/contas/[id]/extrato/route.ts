@@ -6,17 +6,14 @@ import { extratoConta, contas } from "@/db/schema";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 
-// ✅ NOVO: Tipos para os parâmetros
 type RouteParams = {
   params: Promise<{ id: string }>;
 };
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
-    // 🔐 Autenticação
     const userId = await getUserId();
 
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -24,7 +21,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    /* 1. Params */
     const { id } = await params;
     const contaId = id;
 
@@ -32,7 +28,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Conta inválida" }, { status: 400 });
     }
 
-    /* 2. Buscar informações da conta - 🔐 verificar userId */
     const [conta] = await db
       .select()
       .from(contas)
@@ -46,30 +41,23 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    /* 3. Query params */
     const { searchParams } = new URL(req.url);
 
-    const inicio = searchParams.get("inicio");
-    const fim = searchParams.get("fim");
-    const origem = searchParams.get("origem");
-    const tipo = searchParams.get("tipo");
+    const inicio  = searchParams.get("inicio")  || null;
+    const fim     = searchParams.get("fim")      || null;
+    const origem  = searchParams.get("origem")   || null;
+    const tipo    = searchParams.get("tipo")     || null;
+    const limit   = Math.min(Number(searchParams.get("limit")  ?? 50), 100);
+    const offset  = Number(searchParams.get("offset") ?? 0);
 
-    const limit = Math.min(Number(searchParams.get("limit") ?? 50), 100);
-    const offset = Number(searchParams.get("offset") ?? 0);
-
-    /* 4. Filtros dinâmicos - 🔐 SEMPRE filtrar por userId */
+    // ── Filtros para a query principal (movimentações exibidas) ──────────────
     const filtros = [
       eq(extratoConta.contaId, contaId),
       eq(extratoConta.userId, userId),
     ];
 
-    if (inicio) {
-      filtros.push(gte(extratoConta.data, inicio));
-    }
-
-    if (fim) {
-      filtros.push(lte(extratoConta.data, fim));
-    }
+    if (inicio) filtros.push(gte(extratoConta.data, inicio));
+    if (fim)    filtros.push(lte(extratoConta.data, fim));
 
     if (origem && origem !== "TODAS") {
       filtros.push(eq(extratoConta.origem, origem as any));
@@ -79,7 +67,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       filtros.push(eq(extratoConta.tipo, tipo as any));
     }
 
-    /* 5. Query principal - movimentações */
+    // ── Query principal ──────────────────────────────────────────────────────
     const registros = await db
       .select()
       .from(extratoConta)
@@ -88,77 +76,87 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .limit(limit)
       .offset(offset);
 
-    /* 6. Contagem total */
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(extratoConta)
       .where(and(...filtros));
 
-    /* 7. Calcular resumo do período (se houver filtros de data) */
-    let resumo = null;
+    // ── Resumo — SEMPRE calculado ────────────────────────────────────────────
+    // Filtros de data para o resumo (sem tipo/origem para refletir saldo real)
+    const filtrosResumo = [
+      eq(extratoConta.contaId, contaId),
+      eq(extratoConta.userId, userId),
+      ...(inicio ? [gte(extratoConta.data, inicio)] : []),
+      ...(fim    ? [lte(extratoConta.data, fim)]    : []),
+    ];
 
-    if (inicio && fim) {
-      // 🔐 Filtrar movimentações por userId
-      const movimentacoesPeriodo = await db
-        .select()
+    const movimentacoesPeriodo = await db
+      .select({ tipo: extratoConta.tipo, valor: extratoConta.valor })
+      .from(extratoConta)
+      .where(and(...filtrosResumo));
+
+    const totalEntradas = movimentacoesPeriodo
+      .filter((m) => m.tipo === "entrada")
+      .reduce((sum, m) => sum + Number(m.valor), 0);
+
+    const totalSaidas = movimentacoesPeriodo
+      .filter((m) => m.tipo === "saida")
+      .reduce((sum, m) => sum + Number(m.valor), 0);
+
+    // ── Saldo Inicial ────────────────────────────────────────────────────────
+    // Saldo imediatamente ANTES do período:
+    // → Com filtro de início: saldoApos da última mov ESTRITAMENTE antes de `inicio`
+    // → Sem filtro de início: saldo inicial cadastrado na conta (base histórica)
+    let saldoInicial: number;
+
+    if (inicio) {
+      const filtroAnterior = [
+        eq(extratoConta.contaId, contaId),
+        eq(extratoConta.userId, userId),
+        sql`${extratoConta.data} < ${inicio}`,
+      ];
+
+      const [movAnterior] = await db
+        .select({ saldoApos: extratoConta.saldoApos })
         .from(extratoConta)
-        .where(
-          and(
-            eq(extratoConta.contaId, contaId),
-            eq(extratoConta.userId, userId),
-            gte(extratoConta.data, inicio),
-            lte(extratoConta.data, fim)
-          )
-        );
-
-      const totalEntradas = movimentacoesPeriodo
-        .filter((m) => m.tipo === "entrada")
-        .reduce((sum, m) => sum + Number(m.valor), 0);
-
-      const totalSaidas = movimentacoesPeriodo
-        .filter((m) => m.tipo === "saida")
-        .reduce((sum, m) => sum + Number(m.valor), 0);
-
-      // Busca saldo inicial - 🔐 filtrar por userId
-      const [primeiraMovAnterior] = await db
-        .select()
-        .from(extratoConta)
-        .where(
-          and(
-            eq(extratoConta.contaId, contaId),
-            eq(extratoConta.userId, userId),
-            lte(extratoConta.data, inicio)
-          )
-        )
+        .where(and(...filtroAnterior))
         .orderBy(desc(extratoConta.data), desc(extratoConta.createdAt))
         .limit(1);
 
-      const saldoInicial = primeiraMovAnterior
-        ? Number(primeiraMovAnterior.saldoApos)
-        : Number(conta.saldoInicial);
-
-      // Saldo final é o saldoApos da última movimentação do período
-      const saldoFinal =
-        registros.length > 0
-          ? Number(registros[0].saldoApos) // Primeiro porque está ordenado DESC
-          : saldoInicial;
-
-      resumo = {
-        contaId: conta.id,
-        contaNome: conta.nome,
-        saldoInicial,
-        saldoFinal,
-        totalEntradas,
-        totalSaidas,
-        variacao: saldoFinal - saldoInicial,
-        periodo: { inicio, fim },
-      };
+      saldoInicial = movAnterior
+        ? Number(movAnterior.saldoApos)
+        : Number(conta.saldoInicial ?? 0);
+    } else {
+      // Sem filtro de data: saldo inicial é o da conta antes de qualquer movimentação
+      saldoInicial = Number(conta.saldoInicial ?? 0);
     }
 
-    /* 8. Resposta */
+    // ── Saldo Final ──────────────────────────────────────────────────────────
+    // CORREÇÃO: calculado aritmeticamente a partir do saldoInicial do período.
+    // Não depende de ordenação de registros nem de casos-borda de "sem filtro".
+    //
+    // Fórmula: saldoFinal = saldoInicial + totalEntradas - totalSaidas
+    //
+    // Isso é sempre correto porque totalEntradas e totalSaidas já filtram
+    // APENAS as movimentações do período (filtrosResumo), sem tipo/origem,
+    // refletindo o impacto real no saldo da conta no intervalo.
+    const saldoFinal = saldoInicial + totalEntradas - totalSaidas;
+
+    const resumo = {
+      contaId: conta.id,
+      contaNome: conta.nome,
+      saldoInicial,
+      saldoFinal,
+      totalEntradas,
+      totalSaidas,
+      variacao: saldoFinal - saldoInicial,
+      periodo: { inicio, fim },
+    };
+
     return NextResponse.json({
       contaId,
       contaNome: conta.nome,
+      conta: { id: conta.id, nome: conta.nome },
       limit,
       offset,
       total: Number(count),
@@ -177,6 +175,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         createdAt: r.createdAt,
       })),
     });
+
   } catch (error) {
     console.error("Erro ao buscar extrato da conta:", error);
     const message = error instanceof Error ? error.message : "Erro ao buscar extrato da conta";
