@@ -125,7 +125,7 @@ export default function MovimentacaoTabela({
                     Condição
                   </th>
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Cartão
+                    Conta/Cartão
                   </th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Ações

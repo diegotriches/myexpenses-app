@@ -32,6 +32,7 @@ import {
   Smartphone,
   CreditCard,
   ArrowLeftRight,
+  Building2,
 } from "lucide-react";
 
 interface Props {
@@ -105,6 +106,85 @@ export default function MovimentacaoLinha({
   }).format(Number(mov.valor));
 
   const valorExibido = mask(valorFormatado);
+
+  // ── Célula/bloco "Conta / Cartão" ────────────────────────────────────────
+  // Cartão de crédito/débito → exibe logo + nome do cartão
+  // Dinheiro, PIX, Transferência → exibe ícone de banco + nome da conta
+  // Transferência sem conta → exibe "—"
+  const ContaOuCartaoCell = () => {
+    if (isTransferencia) {
+      return <span className="text-gray-400 dark:text-gray-600">—</span>;
+    }
+
+    if (mov.formaPagamento === "cartao") {
+      if (!cartao) return <span className="text-gray-500 dark:text-gray-400">Cartão</span>;
+      const logoSrc = empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc;
+      return (
+        <div className="flex items-center gap-1.5 max-w-[110px]">
+          {logoSrc && (
+            <img src={logoSrc} alt={cartao.empresa} className="w-5 h-5 object-contain flex-shrink-0 rounded" />
+          )}
+          <span className="truncate">{cartao.nome}</span>
+        </div>
+      );
+    }
+
+    // dinheiro / pix / transferencia
+    if (contaAtual) {
+      const bancoLogoSrc = empresaOptions.find((e) => e.value === contaAtual.banco)?.imgSrc;
+      return (
+        <div className="flex items-center gap-1.5 max-w-[110px]">
+          {bancoLogoSrc ? (
+            <img src={bancoLogoSrc} alt={contaAtual.banco ?? ""} className="w-5 h-5 object-contain flex-shrink-0 rounded" />
+          ) : (
+            <Building2 className="w-4 h-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
+          )}
+          <span className="truncate">{contaAtual.nome}</span>
+        </div>
+      );
+    }
+
+    return <span className="text-gray-400 dark:text-gray-600">—</span>;
+  };
+
+  // ── Bloco mobile "Conta / Cartão" ─────────────────────────────────────────
+  const ContaOuCartaoBlock = () => {
+    if (isTransferencia) return null;
+
+    if (mov.formaPagamento === "cartao" && cartao) {
+      const logoSrc = empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc;
+      return (
+        <div className="flex items-center justify-between">
+          <span className="text-gray-600 dark:text-gray-400">Cartão:</span>
+          <div className="flex items-center gap-2">
+            {logoSrc && (
+              <img src={logoSrc} alt={cartao.empresa} className="w-5 h-5 object-contain flex-shrink-0 rounded" />
+            )}
+            <span className="font-medium text-gray-900 dark:text-white truncate max-w-[150px]">{cartao.nome}</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (contaAtual) {
+      const bancoLogoSrc = empresaOptions.find((e) => e.value === contaAtual.banco)?.imgSrc;
+      return (
+        <div className="flex items-center justify-between">
+          <span className="text-gray-600 dark:text-gray-400">Conta:</span>
+          <div className="flex items-center gap-2">
+            {bancoLogoSrc ? (
+              <img src={bancoLogoSrc} alt={contaAtual.banco ?? ""} className="w-5 h-5 object-contain flex-shrink-0 rounded" />
+            ) : (
+              <Building2 className="w-4 h-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
+            )}
+            <span className="font-medium text-gray-900 dark:text-white truncate max-w-[150px]">{contaAtual.nome}</span>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   // ============================================
   // 📱 MOBILE: CARD VIEW
@@ -209,21 +289,8 @@ export default function MovimentacaoLinha({
               </div>
             )}
 
-            {!isTransferencia && mov.formaPagamento === "cartao" && cartao && (
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Cartão:</span>
-                <div className="flex items-center gap-2">
-                  {empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc && (
-                    <img
-                      src={empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc}
-                      alt={cartao.empresa}
-                      className="w-5 h-5 object-contain flex-shrink-0 rounded"
-                    />
-                  )}
-                  <span className="font-medium text-gray-900 dark:text-white truncate max-w-[150px]">{cartao.nome}</span>
-                </div>
-              </div>
-            )}
+            {/* Conta ou Cartão — bloco unificado */}
+            <ContaOuCartaoBlock />
           </div>
         </CardContent>
       </Card>
@@ -245,14 +312,14 @@ export default function MovimentacaoLinha({
         {formatarDataParaExibicao(mov.data)}
       </td>
 
-      {/* Descrição — coluna flexível, truncada */}
+      {/* Descrição */}
       <td className="px-3 py-3 text-sm text-gray-900 dark:text-gray-100 w-0 min-w-0" style={{ maxWidth: 0 }}>
         <div className="truncate" title={isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}>
           {isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}
         </div>
       </td>
 
-      {/* Tipo — centralizado, badge com ícone + texto sempre visíveis */}
+      {/* Tipo */}
       <td className="px-2 py-3 text-center">
         <div className="flex justify-center">
           {mov.tipo === "entrada" ? (
@@ -329,29 +396,12 @@ export default function MovimentacaoLinha({
         )}
       </td>
 
-      {/* Cartão */}
+      {/* Conta / Cartão */}
       <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-        {isTransferencia ? (
-          <span className="text-gray-400 dark:text-gray-600">—</span>
-        ) : mov.formaPagamento === "cartao" && cartao ? (
-          <div className="flex items-center gap-1.5 max-w-[110px]">
-            {empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc && (
-              <img
-                src={empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc}
-                alt={cartao.empresa}
-                className="w-5 h-5 object-contain flex-shrink-0 rounded"
-              />
-            )}
-            <span className="truncate">{cartao.nome}</span>
-          </div>
-        ) : mov.formaPagamento === "cartao" ? (
-          <span className="text-gray-500 dark:text-gray-400">Cartão</span>
-        ) : (
-          <span className="text-gray-400 dark:text-gray-600">—</span>
-        )}
+        <ContaOuCartaoCell />
       </td>
 
-      {/* Ações — centralizado */}
+      {/* Ações */}
       <td className="px-3 py-3 text-center">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
