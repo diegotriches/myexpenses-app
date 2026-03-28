@@ -106,7 +106,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     // ── Saldo Inicial ────────────────────────────────────────────────────────
     // Saldo imediatamente ANTES do período:
     // → Com filtro de início: saldoApos da última mov ESTRITAMENTE antes de `inicio`
-    // → Sem filtro de início: saldo inicial cadastrado na conta (base histórica)
+    // → Sem filtro de início: 0, porque o extrato já contém o lançamento de
+    //   abertura da conta (origem AJUSTE, "Saldo inicial da conta") como primeira
+    //   movimentação. Usar conta.saldoInicial aqui causaria dupla contagem,
+    //   pois esse valor já está incluído em totalEntradas via o registro AJUSTE.
     let saldoInicial: number;
 
     if (inicio) {
@@ -127,8 +130,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         ? Number(movAnterior.saldoApos)
         : Number(conta.saldoInicial ?? 0);
     } else {
-      // Sem filtro de data: saldo inicial é o da conta antes de qualquer movimentação
-      saldoInicial = Number(conta.saldoInicial ?? 0);
+      // Sem filtro de data: saldoInicial = 0 para evitar dupla contagem com o
+      // lançamento AJUSTE de abertura que já está em totalEntradas.
+      saldoInicial = 0;
     }
 
     // ── Saldo Final ──────────────────────────────────────────────────────────
