@@ -16,7 +16,7 @@ import ContaModal from "@/components/contas/ContaModal";
 import ContaCard from "@/components/contas/ContaCard";
 import ConfirmDeleteModal from "@/components/contas/ConfirmDeleteModal";
 import { ModalTransferencia } from "@/components/transferencias/ModalTransferencia";
-import ModalAjustarSaldo from "@/components/contas/ModalAjustarSaldo"; // ✅ NOVO
+import ModalAjustarSaldo from "@/components/contas/ModalAjustarSaldo";
 import { Conta, CreateContaDTO, UpdateContaDTO } from "@/types/conta";
 
 import { 

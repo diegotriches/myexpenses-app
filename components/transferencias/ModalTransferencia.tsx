@@ -36,21 +36,46 @@ export function ModalTransferencia({
 }: ModalTransferenciaProps) {
   const criarTransferencia = useCriarTransferencia();
 
-  // Filtrar apenas contas ativas
   const contasAtivas = contas.filter((c) => c.ativo);
 
-  const [contaOrigemId, setContaOrigemId] = useState("");
+  const [contaOrigemId,  setContaOrigemId]  = useState("");
   const [contaDestinoId, setContaDestinoId] = useState("");
-  const [valor, setValor] = useState("");
-  const [descricao, setDescricao] = useState("");
-  const [data, setData] = useState(
+  const [valorCentavos,  setValorCentavos]  = useState(0);
+  const [descricao,      setDescricao]      = useState("");
+  const [data,           setData]           = useState(
     new Date().toISOString().substring(0, 10)
   );
+
+  // ── Lógica calculadora ───────────────────────────────────────────────────
+  // Mantém o valor em centavos (inteiro). Cada dígito digitado desloca
+  // os existentes uma casa para a esquerda: 0 → 1 → 15 → 150 (= R$ 1,50).
+  const valorNumerico = valorCentavos / 100;
+
+  const valorExibido = valorNumerico.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  const handleValorKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      setValorCentavos((prev) => Math.floor(prev / 10));
+      return;
+    }
+    if (!/^\d$/.test(e.key)) return;
+    e.preventDefault();
+    setValorCentavos((prev) => {
+      const proximo = prev * 10 + Number(e.key);
+      // Limite: 9.999.999,99 (7 dígitos antes da vírgula)
+      return proximo <= 999999999 ? proximo : prev;
+    });
+  };
+  // ────────────────────────────────────────────────────────────────────────
 
   const resetForm = () => {
     setContaOrigemId("");
     setContaDestinoId("");
-    setValor("");
+    setValorCentavos(0);
     setDescricao("");
     setData(new Date().toISOString().substring(0, 10));
   };
@@ -60,13 +85,11 @@ export function ModalTransferencia({
       resetForm();
       return;
     }
-
     if (contaOrigemInicialId) {
       setContaOrigemId(contaOrigemInicialId);
     }
   }, [open, contaOrigemInicialId]);
 
-  const valorNumerico = Number.parseFloat(valor);
   const formularioValido =
     contaOrigemId &&
     contaDestinoId &&
@@ -75,7 +98,6 @@ export function ModalTransferencia({
 
   const handleSubmit = async () => {
     if (!formularioValido || criarTransferencia.isPending) return;
-
     try {
       await criarTransferencia.mutateAsync({
         contaOrigemId,
@@ -84,7 +106,6 @@ export function ModalTransferencia({
         descricao,
         data,
       });
-
       onClose();
     } catch {
       // Erro já tratado no hook
@@ -107,7 +128,7 @@ export function ModalTransferencia({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* ✅ NOVO: Contas Origem e Destino lado a lado com seta */}
+          {/* Contas Origem e Destino lado a lado com seta */}
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-end">
             {/* Conta de Origem */}
             <div>
@@ -136,13 +157,11 @@ export function ModalTransferencia({
                       >
                         <div className="flex items-center justify-between w-full gap-3">
                           <span>{conta.nome}</span>
-                          <span
-                            className={`text-xs font-medium ${
-                              Number(conta.saldoAtual) >= 0
-                                ? "text-green-600 dark:text-green-400"
-                                : "text-red-600 dark:text-red-400"
-                            }`}
-                          >
+                          <span className={`text-xs font-medium ${
+                            Number(conta.saldoAtual) >= 0
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-red-600 dark:text-red-400"
+                          }`}>
                             {Number(conta.saldoAtual).toLocaleString("pt-BR", {
                               style: "currency",
                               currency: "BRL",
@@ -156,7 +175,7 @@ export function ModalTransferencia({
               </Select>
             </div>
 
-            {/* ✅ NOVO: Seta indicadora - Oculta em mobile */}
+            {/* Seta indicadora */}
             <div className="hidden sm:flex items-center justify-center pb-2">
               <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30">
                 <ArrowRight className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -187,13 +206,11 @@ export function ModalTransferencia({
                       >
                         <div className="flex items-center justify-between w-full gap-3">
                           <span>{conta.nome}</span>
-                          <span
-                            className={`text-xs font-medium ${
-                              Number(conta.saldoAtual) >= 0
-                                ? "text-green-600 dark:text-green-400"
-                                : "text-red-600 dark:text-red-400"
-                            }`}
-                          >
+                          <span className={`text-xs font-medium ${
+                            Number(conta.saldoAtual) >= 0
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-red-600 dark:text-red-400"
+                          }`}>
                             {Number(conta.saldoAtual).toLocaleString("pt-BR", {
                               style: "currency",
                               currency: "BRL",
@@ -207,9 +224,9 @@ export function ModalTransferencia({
             </div>
           </div>
 
-          {/* ✅ NOVO: Valor e Data lado a lado */}
+          {/* Valor e Data lado a lado */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Valor */}
+            {/* Valor — estilo calculadora */}
             <div>
               <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
                 Valor <span className="text-red-500">*</span>
@@ -219,12 +236,12 @@ export function ModalTransferencia({
                   R$
                 </span>
                 <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  type="text"
+                  inputMode="numeric"
                   placeholder="0,00"
-                  value={valor}
-                  onChange={(e) => setValor(e.target.value)}
+                  value={valorCentavos === 0 ? "" : valorExibido}
+                  onKeyDown={handleValorKeyDown}
+                  onChange={() => {}}
                   disabled={criarTransferencia.isPending}
                   className="pl-10 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
                 />
@@ -246,7 +263,7 @@ export function ModalTransferencia({
             </div>
           </div>
 
-          {/* Descrição - Largura total */}
+          {/* Descrição */}
           <div>
             <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
               Descrição <span className="text-gray-400 dark:text-gray-500 text-xs">(opcional)</span>
@@ -264,8 +281,7 @@ export function ModalTransferencia({
           {criarTransferencia.isError && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
               <p className="text-sm text-red-600 dark:text-red-400">
-                {criarTransferencia.error?.message ||
-                  "Erro ao criar transferência"}
+                {criarTransferencia.error?.message || "Erro ao criar transferência"}
               </p>
             </div>
           )}
@@ -318,9 +334,7 @@ export function ModalTransferencia({
             disabled={!formularioValido || criarTransferencia.isPending}
             className="bg-blue-700 hover:bg-blue-900"
           >
-            {criarTransferencia.isPending
-              ? "Transferindo..."
-              : "Confirmar Transferência"}
+            {criarTransferencia.isPending ? "Transferindo..." : "Confirmar Transferência"}
           </Button>
         </DialogFooter>
       </DialogContent>
