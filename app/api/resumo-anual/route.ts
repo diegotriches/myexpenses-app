@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, cartoes } from "@/db/schema";
-import { and, eq, gte, lt, sql } from "drizzle-orm";
+import { and, eq, gte, lt } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
@@ -10,20 +10,20 @@ import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
  * GET /api/resumo-anual?ano=2025
  *
  * Retorna dados agregados do ano para a página "Resumo do Ano".
- * Busca o ano solicitado e o anterior em paralelo.
  *
  * Response: {
  *   ano, anoAnterior,
- *   totais:         { receitas, despesas, saldo },
- *   totaisAnteriores: { receitas, despesas, saldo },
- *   meses:          [{ mes, receitas, despesas, saldo }] × 12,
- *   mesesAnteriores:[{ mes, receitas, despesas, saldo }] × 12,
- *   categorias:     [{ categoria, total, percentual }],
- *   maiorReceita:   Transacao | null,
- *   maiorDespesa:   Transacao | null,
- *   mediaMensal:    { receitas, despesas },
- *   melhorMes:      { mes, saldo },
- *   piorMes:        { mes, saldo },
+ *   totais:            { receitas, despesas, saldo },
+ *   totaisAnteriores:  { receitas, despesas, saldo },
+ *   meses:             [{ mes, receitas, despesas, saldo }] × 12,
+ *   mesesAnteriores:   [{ mes, receitas, despesas, saldo }] × 12,
+ *   categorias:        [{ categoria, total, percentual }],
+ *   metodosPagamento:  [{ metodo, quantidade, total, percentual }],
+ *   maiorReceita:      Transacao | null,
+ *   maiorDespesa:      Transacao | null,
+ *   mediaMensal:       { receitas, despesas },
+ *   melhorMes:         { mes, saldo },
+ *   piorMes:           { mes, saldo },
  * }
  */
 export async function GET(req: NextRequest) {
@@ -34,10 +34,9 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const ano = Number(searchParams.get("ano")) || new Date().getFullYear();
+    const ano         = Number(searchParams.get("ano")) || new Date().getFullYear();
     const anoAnterior = ano - 1;
 
-    // ── Busca transações dos dois anos em paralelo ─────────────────────────
     const [txAno, txAnterior, cartoesDb] = await Promise.all([
       db.select().from(transacoes).where(
         and(
@@ -58,17 +57,14 @@ export async function GET(req: NextRequest) {
 
     const cartoesMap = new Map(cartoesDb.map((c) => [c.id, c]));
 
-    // ── Agrega transações respeitando ciclo de fatura de crédito ──────────
     function agregar(txList: typeof txAno, anoRef: number) {
-      // meses[0] = Janeiro, meses[11] = Dezembro
       const meses = Array.from({ length: 12 }, (_, i) => ({
-        mes: i + 1,
-        receitas: 0,
-        despesas: 0,
-        saldo: 0,
+        mes: i + 1, receitas: 0, despesas: 0, saldo: 0,
       }));
 
-      const categoriaMap: Record<string, number> = {};
+      const categoriaMap:      Record<string, number>                               = {};
+      const metodoPagamentoMap: Record<string, { quantidade: number; total: number }> = {};
+
       let maiorReceita: (typeof txAno)[0] | null = null;
       let maiorDespesa: (typeof txAno)[0] | null = null;
 
@@ -77,13 +73,21 @@ export async function GET(req: NextRequest) {
         const dataT = new Date(t.data);
 
         if (t.tipo === "entrada") {
-          const mesIdx = dataT.getMonth(); // 0-based
+          const mesIdx = dataT.getMonth();
           meses[mesIdx].receitas += valor;
           if (!maiorReceita || valor > Number(maiorReceita.valor)) maiorReceita = t;
         }
 
         if (t.tipo === "saida") {
-          // Despesas de cartão de crédito: usa ciclo de fatura
+          // Acumula método de pagamento
+          const metodo = t.formaPagamento || "dinheiro";
+          if (!metodoPagamentoMap[metodo]) {
+            metodoPagamentoMap[metodo] = { quantidade: 0, total: 0 };
+          }
+          metodoPagamentoMap[metodo].quantidade += 1;
+          metodoPagamentoMap[metodo].total      += valor;
+
+          // Cartão de crédito: usa ciclo de fatura
           if (t.formaPagamento === "cartao" && t.cartaoId) {
             const cartao = cartoesMap.get(t.cartaoId);
             if (cartao && cartao.tipo === "credito") {
@@ -92,36 +96,34 @@ export async function GET(req: NextRequest) {
               if (anoFat === anoRef) {
                 meses[mesFat - 1].despesas += valor;
               }
-              // Se a fatura pertence ao anoRef, contabiliza; senão ignora
               if (!maiorDespesa || valor > Number(maiorDespesa.valor)) maiorDespesa = t;
               continue;
             }
           }
-          // Débito / PIX / dinheiro
+
           const mesIdx = dataT.getMonth();
           meses[mesIdx].despesas += valor;
           if (!maiorDespesa || valor > Number(maiorDespesa.valor)) maiorDespesa = t;
 
-          // Categorias (somente despesas)
           const cat = t.categoria || "Outros";
           categoriaMap[cat] = (categoriaMap[cat] || 0) + valor;
         }
       }
 
-      // Calcula saldo de cada mês
       meses.forEach((m) => { m.saldo = m.receitas - m.despesas; });
 
       const totais = meses.reduce(
         (acc, m) => ({
           receitas: acc.receitas + m.receitas,
           despesas: acc.despesas + m.despesas,
-          saldo: acc.saldo + m.saldo,
+          saldo:    acc.saldo    + m.saldo,
         }),
         { receitas: 0, despesas: 0, saldo: 0 }
       );
 
-      // Top 5 categorias
       const totalDespesas = totais.despesas || 1;
+
+      // Top 5 categorias
       const categorias = Object.entries(categoriaMap)
         .map(([categoria, total]) => ({
           categoria,
@@ -131,7 +133,19 @@ export async function GET(req: NextRequest) {
         .sort((a, b) => b.total - a.total)
         .slice(0, 5);
 
-      // Melhor e pior mês (apenas meses com algum movimento)
+      // Todos os métodos ordenados por total gasto
+      const totalMetodos = Object.values(metodoPagamentoMap)
+        .reduce((s, m) => s + m.total, 0) || 1;
+
+      const metodosPagamento = Object.entries(metodoPagamentoMap)
+        .map(([metodo, stats]) => ({
+          metodo,
+          quantidade: stats.quantidade,
+          total:      stats.total,
+          percentual: Math.round((stats.total / totalMetodos) * 100),
+        }))
+        .sort((a, b) => b.total - a.total);
+
       const mesesComMovimento = meses.filter((m) => m.receitas > 0 || m.despesas > 0);
       const melhorMes = mesesComMovimento.length
         ? mesesComMovimento.reduce((a, b) => (a.saldo > b.saldo ? a : b))
@@ -144,38 +158,32 @@ export async function GET(req: NextRequest) {
       const mesesComDespesa = meses.filter((m) => m.despesas > 0).length || 1;
 
       return {
-        meses,
-        totais,
-        categorias,
-        maiorReceita,
-        maiorDespesa,
+        meses, totais, categorias, metodosPagamento,
+        maiorReceita, maiorDespesa,
         mediaMensal: {
           receitas: totais.receitas / mesesComReceita,
           despesas: totais.despesas / mesesComDespesa,
         },
-        melhorMes,
-        piorMes,
+        melhorMes, piorMes,
       };
     }
 
-    const atual   = agregar(txAno,      ano);
+    const atual    = agregar(txAno,      ano);
     const anterior = agregar(txAnterior, anoAnterior);
 
     return NextResponse.json({
-      ano,
-      anoAnterior,
-      // Ano atual
-      totais:          atual.totais,
-      meses:           atual.meses,
-      categorias:      atual.categorias,
-      maiorReceita:    atual.maiorReceita,
-      maiorDespesa:    atual.maiorDespesa,
-      mediaMensal:     atual.mediaMensal,
-      melhorMes:       atual.melhorMes,
-      piorMes:         atual.piorMes,
-      // Ano anterior (para comparativo)
-      totaisAnteriores:  anterior.totais,
-      mesesAnteriores:   anterior.meses,
+      ano, anoAnterior,
+      totais:           atual.totais,
+      meses:            atual.meses,
+      categorias:       atual.categorias,
+      metodosPagamento: atual.metodosPagamento,
+      maiorReceita:     atual.maiorReceita,
+      maiorDespesa:     atual.maiorDespesa,
+      mediaMensal:      atual.mediaMensal,
+      melhorMes:        atual.melhorMes,
+      piorMes:          atual.piorMes,
+      totaisAnteriores: anterior.totais,
+      mesesAnteriores:  anterior.meses,
     });
   } catch (error: any) {
     console.error("Erro ao carregar resumo anual:", error);

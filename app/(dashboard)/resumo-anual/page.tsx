@@ -8,11 +8,13 @@ import {
 import {
   TrendingUp, TrendingDown, DollarSign, Calendar,
   Award, AlertTriangle, Download, ChevronLeft, ChevronRight,
+  Banknote, Smartphone, CreditCard, ArrowLeftRight,
 } from "lucide-react";
 import { MdOutlineAutoGraph } from "react-icons/md";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useResumoAnual } from "@/hooks/useResumoAnual";
 
 // ── Constantes ─────────────────────────────────────────────────────────────
@@ -22,6 +24,17 @@ const MESES_LABEL = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out"
 const CORES_CATEGORIAS = [
   "#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6",
 ];
+
+const CORES_METODOS = [
+  "#6366f1","#0ea5e9","#10b981","#f59e0b",
+];
+
+const METODO_CONFIG: Record<string, { label: string; icon: React.ElementType }> = {
+  dinheiro:      { label: "Dinheiro",      icon: Banknote       },
+  pix:           { label: "PIX",           icon: Smartphone     },
+  cartao:        { label: "Cartão",        icon: CreditCard     },
+  transferencia: { label: "Transferência", icon: ArrowLeftRight },
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -38,23 +51,22 @@ const variacao = (atual: number, anterior: number): number => {
   return Math.round(((atual - anterior) / Math.abs(anterior)) * 100);
 };
 
-// ── Sub-componente: Card de KPI ────────────────────────────────────────────
+// ── KPI Card ───────────────────────────────────────────────────────────────
 
 function KpiCard({
   titulo, valor, anterior, icone: Icone, corPositiva = true,
 }: {
-  titulo:     string;
-  valor:      number;
-  anterior:   number;
-  icone:      React.ElementType;
-  corPositiva?: boolean;
+  titulo: string; valor: number; anterior: number;
+  icone: React.ElementType; corPositiva?: boolean;
 }) {
-  const diff = variacao(valor, anterior);
+  const diff    = variacao(valor, anterior);
   const subindo = diff > 0;
   const neutro  = diff === 0;
   const cor = neutro
     ? "text-gray-500"
-    : (subindo === corPositiva ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400");
+    : (subindo === corPositiva
+        ? "text-green-600 dark:text-green-400"
+        : "text-red-600 dark:text-red-400");
 
   return (
     <Card className="dark:bg-gray-800 dark:border-gray-700">
@@ -91,6 +103,90 @@ function TooltipMoeda({ active, payload, label }: any) {
   );
 }
 
+// ── Lista com rosca — reutilizada para categorias e métodos ───────────────
+
+function RoscaComLista({
+  itens,
+  cores,
+  labelKey,
+  valorKey = "total",
+  renderLabel,
+  renderDetalhe,
+}: {
+  itens:        any[];
+  cores:        string[];
+  labelKey:     string;
+  valorKey?:    string;
+  renderLabel:  (item: any, i: number) => React.ReactNode;
+  renderDetalhe?: (item: any) => React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col md:flex-row items-center gap-6">
+      {/* Gráfico de rosca */}
+      <div className="w-full md:w-2/5">
+        <ResponsiveContainer width="100%" height={220}>
+          <PieChart>
+            <Pie
+              data={itens}
+              dataKey={valorKey}
+              nameKey={labelKey}
+              cx="50%" cy="50%"
+              innerRadius={60} outerRadius={90}
+              paddingAngle={3}
+            >
+              {itens.map((_, i) => (
+                <Cell key={i} fill={cores[i % cores.length]} />
+              ))}
+            </Pie>
+            <Tooltip formatter={(v: any) => fmt(Number(v))} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Barras de progresso */}
+      <div className="w-full md:w-3/5 space-y-4">
+        {itens.map((item, i) => (
+          <div key={item[labelKey]}>
+            <div className="flex items-center justify-between text-sm mb-1.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className="inline-block w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ background: cores[i % cores.length] }}
+                />
+                {renderLabel(item, i)}
+              </div>
+              <div className="text-right ml-2 flex-shrink-0">
+                <span className="font-semibold text-gray-900 dark:text-white block">
+                  {fmt(item.total)}
+                </span>
+                {renderDetalhe && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {renderDetalhe(item)}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-2">
+                <div
+                  className="h-2 rounded-full transition-all"
+                  style={{
+                    width:      `${item.percentual}%`,
+                    background: cores[i % cores.length],
+                  }}
+                />
+              </div>
+              <span className="text-xs text-gray-500 dark:text-gray-400 w-8 text-right">
+                {item.percentual}%
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Página principal ───────────────────────────────────────────────────────
 
 export default function ResumoAnualPage() {
@@ -100,19 +196,16 @@ export default function ResumoAnualPage() {
 
   const { data, isLoading, error } = useResumoAnual(ano);
 
-  // ── Exportar PDF ──────────────────────────────────────────────────────
   const exportarPDF = useCallback(async () => {
     if (!data) return;
     setExportando(true);
     try {
-      const { pdf } = await import("@react-pdf/renderer");
+      const { pdf }            = await import("@react-pdf/renderer");
       const { ResumoAnualPDF } = await import("@/components/resumo-anual/ResumoAnualPDF");
       const blob = await pdf(<ResumoAnualPDF data={data} />).toBlob();
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
-      a.href     = url;
-      a.download = `resumo-${ano}.pdf`;
-      a.click();
+      a.href = url; a.download = `resumo-${ano}.pdf`; a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error("Erro ao exportar PDF:", e);
@@ -121,7 +214,6 @@ export default function ResumoAnualPage() {
     }
   }, [data, ano]);
 
-  // ── Loading ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="page-container p-4 md:p-6 space-y-6">
@@ -138,7 +230,6 @@ export default function ResumoAnualPage() {
     );
   }
 
-  // ── Error ──────────────────────────────────────────────────────────────
   if (error) {
     return (
       <div className="page-container p-4 md:p-6">
@@ -155,18 +246,14 @@ export default function ResumoAnualPage() {
 
   if (!data) return null;
 
-  // ── Dados para gráficos ────────────────────────────────────────────────
-
-  // Comparativo de barras (ano atual vs anterior)
   const dadosComparativo = MESES_LABEL.map((label, i) => ({
-    mes:          label,
-    [ano]:        Math.round(data.meses[i].despesas),
+    mes:                label,
+    [ano]:              Math.round(data.meses[i].despesas),
     [data.anoAnterior]: Math.round(data.mesesAnteriores[i].despesas),
   }));
 
-  // Evolução do saldo (linha)
   const dadosEvolucao = MESES_LABEL.map((label, i) => ({
-    mes:    label,
+    mes:      label,
     receitas: Math.round(data.meses[i].receitas),
     despesas: Math.round(data.meses[i].despesas),
     saldo:    Math.round(data.meses[i].saldo),
@@ -176,6 +263,10 @@ export default function ResumoAnualPage() {
     "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
   ][m - 1] ?? "";
+
+  const metodosPagamento = (data as any).metodosPagamento as {
+    metodo: string; quantidade: number; total: number; percentual: number;
+  }[];
 
   return (
     <div className="page-container p-4 md:p-6 space-y-6">
@@ -189,13 +280,8 @@ export default function ResumoAnualPage() {
               Resumo do Ano
             </h1>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportarPDF}
-            disabled={exportando || !data}
-            className="hidden md:flex dark:border-gray-700"
-          >
+          <Button variant="outline" size="sm" onClick={exportarPDF}
+            disabled={exportando || !data} className="hidden md:flex dark:border-gray-700">
             <Download className="h-4 w-4 mr-2" />
             {exportando ? "Gerando PDF..." : "Exportar PDF"}
           </Button>
@@ -208,24 +294,12 @@ export default function ResumoAnualPage() {
 
       {/* ── Seletor de ano ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setAno(a => a - 1)}
-          className="dark:border-gray-700"
-        >
+        <Button variant="outline" size="icon" onClick={() => setAno(a => a - 1)} className="dark:border-gray-700">
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="text-lg font-semibold text-gray-900 dark:text-white w-16 text-center">
-          {ano}
-        </span>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setAno(a => a + 1)}
-          disabled={ano >= anoAtual}
-          className="dark:border-gray-700"
-        >
+        <span className="text-lg font-semibold text-gray-900 dark:text-white w-16 text-center">{ano}</span>
+        <Button variant="outline" size="icon" onClick={() => setAno(a => a + 1)}
+          disabled={ano >= anoAtual} className="dark:border-gray-700">
           <ChevronRight className="h-4 w-4" />
         </Button>
         {ano !== anoAtual && (
@@ -238,59 +312,36 @@ export default function ResumoAnualPage() {
 
       {/* ── KPIs ───────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <KpiCard
-          titulo="Total de Receitas"
-          valor={data.totais.receitas}
-          anterior={data.totaisAnteriores.receitas}
-          icone={TrendingUp}
-          corPositiva={true}
-        />
-        <KpiCard
-          titulo="Total de Despesas"
-          valor={data.totais.despesas}
-          anterior={data.totaisAnteriores.despesas}
-          icone={TrendingDown}
-          corPositiva={false}
-        />
-        <KpiCard
-          titulo="Saldo do Ano"
-          valor={data.totais.saldo}
-          anterior={data.totaisAnteriores.saldo}
-          icone={DollarSign}
-          corPositiva={true}
-        />
+        <KpiCard titulo="Total de Receitas" valor={data.totais.receitas}
+          anterior={data.totaisAnteriores.receitas} icone={TrendingUp} corPositiva={true} />
+        <KpiCard titulo="Total de Despesas" valor={data.totais.despesas}
+          anterior={data.totaisAnteriores.despesas} icone={TrendingDown} corPositiva={false} />
+        <KpiCard titulo="Saldo do Ano" valor={data.totais.saldo}
+          anterior={data.totaisAnteriores.saldo} icone={DollarSign} corPositiva={true} />
       </div>
 
       {/* ── Destaques ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
-        {/* Melhor mês */}
         {data.melhorMes && (
           <Card className="dark:bg-gray-800 dark:border-gray-700 border-green-200 dark:border-green-900">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Award className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  Melhor Mês
-                </p>
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Melhor Mês</p>
               </div>
               <p className="font-bold text-gray-900 dark:text-white">{nomeMes(data.melhorMes.mes)}</p>
-              <p className="text-sm text-green-600 dark:text-green-400 font-medium">
-                {fmt(data.melhorMes.saldo)}
-              </p>
+              <p className="text-sm text-green-600 dark:text-green-400 font-medium">{fmt(data.melhorMes.saldo)}</p>
             </CardContent>
           </Card>
         )}
 
-        {/* Pior mês */}
         {data.piorMes && (
           <Card className="dark:bg-gray-800 dark:border-gray-700 border-red-200 dark:border-red-900">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-4 w-4 text-red-500 dark:text-red-400" />
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  Mês Mais Difícil
-                </p>
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Mês Mais Difícil</p>
               </div>
               <p className="font-bold text-gray-900 dark:text-white">{nomeMes(data.piorMes.mes)}</p>
               <p className={`text-sm font-medium ${data.piorMes.saldo >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
@@ -300,35 +351,25 @@ export default function ResumoAnualPage() {
           </Card>
         )}
 
-        {/* Média mensal */}
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                Média Mensal
-              </p>
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Média Mensal</p>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Receitas</p>
-            <p className="font-bold text-green-600 dark:text-green-400 text-sm">
-              {fmt(data.mediaMensal.receitas)}
-            </p>
+            <p className="font-bold text-green-600 dark:text-green-400 text-sm">{fmt(data.mediaMensal.receitas)}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-1">Despesas</p>
-            <p className="font-bold text-red-600 dark:text-red-400 text-sm">
-              {fmt(data.mediaMensal.despesas)}
-            </p>
+            <p className="font-bold text-red-600 dark:text-red-400 text-sm">{fmt(data.mediaMensal.despesas)}</p>
           </CardContent>
         </Card>
 
-        {/* Maior transação */}
         {data.maiorDespesa && (
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="h-4 w-4 text-orange-500 dark:text-orange-400" />
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                  Maior Despesa
-                </p>
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Maior Despesa</p>
               </div>
               <p className="font-bold text-gray-900 dark:text-white text-sm truncate" title={data.maiorDespesa.descricao ?? ""}>
                 {data.maiorDespesa.descricao || "Sem descrição"}
@@ -346,7 +387,7 @@ export default function ResumoAnualPage() {
         )}
       </div>
 
-      {/* ── Gráfico 1: Evolução mensal (receitas vs despesas) ──────────── */}
+      {/* ── Gráfico 1: Evolução mensal ─────────────────────────────────── */}
       <Card className="dark:bg-gray-800 dark:border-gray-700">
         <CardHeader>
           <CardTitle className="text-base md:text-lg text-gray-900 dark:text-white">
@@ -368,7 +409,7 @@ export default function ResumoAnualPage() {
         </CardContent>
       </Card>
 
-      {/* ── Gráfico 2: Saldo acumulado mês a mês ──────────────────────── */}
+      {/* ── Gráfico 2: Saldo por mês ────────────────────────────────────── */}
       <Card className="dark:bg-gray-800 dark:border-gray-700">
         <CardHeader>
           <CardTitle className="text-base md:text-lg text-gray-900 dark:text-white">
@@ -382,17 +423,14 @@ export default function ResumoAnualPage() {
               <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
               <YAxis tickFormatter={fmtK} tick={{ fontSize: 11 }} width={55} />
               <Tooltip content={<TooltipMoeda />} />
-              <Line
-                type="monotone" dataKey="saldo" name="Saldo"
-                stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 4 }}
-                activeDot={{ r: 6 }}
-              />
+              <Line type="monotone" dataKey="saldo" name="Saldo"
+                stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* ── Gráfico 3: Comparativo de despesas (ano atual vs anterior) ── */}
+      {/* ── Gráfico 3: Comparativo de despesas ─────────────────────────── */}
       <Card className="dark:bg-gray-800 dark:border-gray-700">
         <CardHeader>
           <CardTitle className="text-base md:text-lg text-gray-900 dark:text-white">
@@ -414,80 +452,82 @@ export default function ResumoAnualPage() {
         </CardContent>
       </Card>
 
-      {/* ── Gráfico 4: Distribuição por categoria ─────────────────────── */}
-      {data.categorias.length > 0 && (
+      {/* ── Card unificado: Categorias | Métodos de Pagamento ──────────── */}
+      {(data.categorias.length > 0 || metodosPagamento?.length > 0) && (
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
             <CardTitle className="text-base md:text-lg text-gray-900 dark:text-white">
-              Despesas por Categoria — {ano}
+              Distribuição Anual — {ano}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              {/* Gráfico de rosca */}
-              <div className="w-full md:w-1/2">
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie
-                      data={data.categorias}
-                      dataKey="total"
-                      nameKey="categoria"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={3}
-                    >
-                      {data.categorias.map((_, i) => (
-                        <Cell key={i} fill={CORES_CATEGORIAS[i % CORES_CATEGORIAS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => fmt(Number(v))} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+            <Tabs defaultValue="categorias">
+              <TabsList className="mb-6 dark:bg-gray-700">
+                <TabsTrigger value="categorias" className="dark:data-[state=active]:bg-gray-900">
+                  Categorias
+                </TabsTrigger>
+                <TabsTrigger value="metodos" className="dark:data-[state=active]:bg-gray-900">
+                  Métodos de Pagamento
+                </TabsTrigger>
+              </TabsList>
 
-              {/* Legenda com barras */}
-              <div className="w-full md:w-1/2 space-y-3">
-                {data.categorias.map((cat, i) => (
-                  <div key={cat.categoria}>
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="inline-block w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ background: CORES_CATEGORIAS[i % CORES_CATEGORIAS.length] }}
-                        />
-                        <span className="text-gray-700 dark:text-gray-300 truncate max-w-[140px]">
-                          {cat.categoria}
-                        </span>
-                      </div>
-                      <span className="font-medium text-gray-900 dark:text-white whitespace-nowrap ml-2">
-                        {fmt(cat.total)}
+              {/* Aba Categorias */}
+              <TabsContent value="categorias">
+                {data.categorias.length > 0 ? (
+                  <RoscaComLista
+                    itens={data.categorias}
+                    cores={CORES_CATEGORIAS}
+                    labelKey="categoria"
+                    renderLabel={(item) => (
+                      <span className="text-gray-700 dark:text-gray-300 truncate max-w-[140px]">
+                        {item.categoria}
                       </span>
-                    </div>
-                    <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
-                      <div
-                        className="h-1.5 rounded-full transition-all"
-                        style={{
-                          width: `${cat.percentual}%`,
-                          background: CORES_CATEGORIAS[i % CORES_CATEGORIAS.length],
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+                    )}
+                  />
+                ) : (
+                  <p className="text-center text-gray-500 dark:text-gray-400 py-8 text-sm">
+                    Nenhuma categoria registrada em {ano}
+                  </p>
+                )}
+              </TabsContent>
+
+              {/* Aba Métodos de Pagamento */}
+              <TabsContent value="metodos">
+                {metodosPagamento?.length > 0 ? (
+                  <RoscaComLista
+                    itens={metodosPagamento}
+                    cores={CORES_METODOS}
+                    labelKey="metodo"
+                    renderLabel={(item) => {
+                      const config = METODO_CONFIG[item.metodo];
+                      const Icon   = config?.icon;
+                      return (
+                        <div className="flex items-center gap-1.5">
+                          {Icon && <Icon className="w-4 h-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />}
+                          <span className="text-gray-700 dark:text-gray-300">
+                            {config?.label ?? item.metodo}
+                          </span>
+                        </div>
+                      );
+                    }}
+                    renderDetalhe={(item) =>
+                      `${item.quantidade} transaç${item.quantidade === 1 ? "ão" : "ões"}`
+                    }
+                  />
+                ) : (
+                  <p className="text-center text-gray-500 dark:text-gray-400 py-8 text-sm">
+                    Nenhuma despesa registrada em {ano}
+                  </p>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       )}
 
       {/* ── Botão exportar mobile ──────────────────────────────────────── */}
-      <Button
-        className="md:hidden w-full bg-blue-700 hover:bg-blue-900"
-        onClick={exportarPDF}
-        disabled={exportando || !data}
-      >
+      <Button className="md:hidden w-full bg-blue-700 hover:bg-blue-900"
+        onClick={exportarPDF} disabled={exportando || !data}>
         <Download className="h-4 w-4 mr-2" />
         {exportando ? "Gerando PDF..." : "Exportar PDF"}
       </Button>
