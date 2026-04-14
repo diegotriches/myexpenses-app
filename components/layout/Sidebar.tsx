@@ -66,9 +66,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     {
       title: "Principal",
       links: [
-        { href: "/dashboard",    icon: BsHouse,            label: "Dashboard"     },
-        { href: "/transacoes",   icon: BsArrowLeftRight,   label: "Movimentações" },
-        { href: "/resumo-anual", icon: MdOutlineAutoGraph, label: "Resumo Anual"  },
+        { href: "/dashboard",  icon: BsHouse,          label: "Dashboard"     },
+        { href: "/transacoes", icon: BsArrowLeftRight,  label: "Movimentações" },
       ],
     },
     {
@@ -286,8 +285,33 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           </div>
         ))}
 
-        {/* Ajustes no final */}
-        <div className="mt-auto pt-4 border-t border-blue-600 dark:border-slate-700">
+        {/* Resumo Anual + Ajustes no final */}
+        <div className="mt-auto flex flex-col gap-1">
+          {/* Resumo Anual — acima do separador */}
+          <p
+            className={`
+              text-xs font-semibold text-blue-200 dark:text-slate-400
+              uppercase tracking-wider mb-2 px-3
+              transition-all duration-300
+              ${isExpanded || isMobile
+                ? "opacity-100 translate-x-0"
+                : "opacity-0 -translate-x-4 absolute pointer-events-none"
+              }
+            `}
+          >
+            Análise
+          </p>
+          <NavLink
+            href="/resumo-anual"
+            icon={MdOutlineAutoGraph}
+            label="Resumo Anual"
+            isMobile={isMobile}
+          />
+
+          {/* Separador */}
+          <div className="border-t border-blue-600 dark:border-slate-700 my-2" />
+
+          {/* Ajustes */}
           <NavLink href="/ajustes" icon={BsFillGearFill} label="Ajustes" isMobile={isMobile} />
         </div>
       </div>
