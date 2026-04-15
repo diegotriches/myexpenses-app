@@ -2,7 +2,6 @@
 
 import { useMemo, useEffect, useState, useRef } from 'react';
 import { useSession } from 'next-auth/react';
-import Link from 'next/link';
 
 import { useDashboard, useDespesasFuturas } from '@/hooks/useDashboard';
 import { useContas } from '@/hooks/useContas';
@@ -26,8 +25,7 @@ import { CardSaldoHistorico } from '@/components/dashboard/CardSaldoHistorico';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PieChart, BarChart3, Calendar, ArrowRight } from 'lucide-react';
-import { MdOutlineAutoGraph } from 'react-icons/md';
+import { PieChart, BarChart3, Calendar } from 'lucide-react';
 import { BsHouse } from "react-icons/bs";
 
 function useSaudacao() {
@@ -58,64 +56,6 @@ function useSaudacao() {
   }, []);
 
   return { saudacao, dataFormatada };
-}
-
-// ── Banner Resumo Anual ────────────────────────────────────────────────────
-
-function BannerResumoAnual() {
-  const ano = new Date().getFullYear();
-  const mes = new Date().getMonth() + 1; // 1-based
-  // Destaque visual em dezembro (encerramento) e janeiro (início do ano)
-  const destacado = mes === 12 || mes === 1;
-
-  return (
-    <Link href="/resumo-anual">
-      <Card className={`
-        group cursor-pointer transition-all duration-200 hover:shadow-md
-        ${destacado
-          ? "border-blue-300 dark:border-blue-700 bg-blue-50/60 dark:bg-blue-950/20"
-          : "dark:bg-gray-800 dark:border-gray-700"
-        }
-      `}>
-        <CardContent className="p-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className={`
-              flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center
-              ${destacado
-                ? "bg-blue-100 dark:bg-blue-900/40"
-                : "bg-gray-100 dark:bg-gray-700"
-              }
-            `}>
-              <MdOutlineAutoGraph className={`text-xl ${
-                destacado
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-gray-500 dark:text-gray-300"
-              }`} />
-            </div>
-            <div>
-              <p className={`font-semibold text-sm ${
-                destacado
-                  ? "text-blue-700 dark:text-blue-300"
-                  : "text-gray-900 dark:text-white"
-              }`}>
-                {mes === 12
-                  ? `Veja o Resumo de ${ano} — o ano está acabando!`
-                  : `Resumo do Ano ${ano}`
-                }
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Visão consolidada das suas finanças com gráficos e comparativos
-              </p>
-            </div>
-          </div>
-          <ArrowRight className={`
-            flex-shrink-0 h-4 w-4 transition-transform group-hover:translate-x-1
-            ${destacado ? "text-blue-500 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"}
-          `} />
-        </CardContent>
-      </Card>
-    </Link>
-  );
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
@@ -371,9 +311,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      {/* Banner Resumo Anual */}
-      <BannerResumoAnual />
     </div>
   );
 }
