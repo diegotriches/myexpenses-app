@@ -12,12 +12,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -49,6 +43,9 @@ interface Props {
   onAjustarSaldo?: (conta: Conta) => void;
 }
 
+// Identificador de cada botão desktop
+type BotaoAtivo = "ajustar" | "extrato" | "transferir" | null;
+
 export default function ContaCard({
   conta,
   onEditar,
@@ -59,6 +56,8 @@ export default function ContaCard({
   onAjustarSaldo,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  // ✅ NOVO: qual botão está em hover (desktop)
+  const [botaoHover, setBotaoHover] = useState<BotaoAtivo>(null);
   const { mask } = useHideValues();
 
   const bancoImagem = conta.banco
@@ -77,6 +76,21 @@ export default function ContaCard({
   };
 
   const IconeSaldo = conta.saldoAtual >= 0 ? TrendingUp : TrendingDown;
+
+  // ─── Helpers para classes dos botões desktop ──────────────────────────────
+  //
+  // Regra:
+  //   • Nenhum hover → todos os botões com flex-1 (iguais)
+  //   • Hover num botão → ele expande (flex: 2 + mostra texto), os outros encolhem (flex: 0 → largura mínima)
+  //
+  // Usamos inline styles para controlar `flex` dinamicamente, pois classes
+  // Tailwind com valores arbitrários dinâmicos não são purged corretamente.
+
+  function getFlexStyle(id: BotaoAtivo): React.CSSProperties {
+    if (botaoHover === null) return { flex: 1 };
+    if (botaoHover === id)   return { flex: 2 };
+    return { flex: 0, minWidth: 0, overflow: "hidden" };
+  }
 
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
@@ -168,58 +182,74 @@ export default function ContaCard({
           </span>
         </div>
 
-        {/* Botões Desktop */}
-        <TooltipProvider delayDuration={300}>
-          <div className="hidden md:flex items-center justify-center gap-2">
-            {onAjustarSaldo && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={() => onAjustarSaldo(conta)}
-                    variant="outline"
-                    size="lg"
-                    className="flex-1 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border-blue-200 text-blue-700 hover:text-blue-800 dark:from-blue-950/30 dark:to-blue-900/30 dark:border-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-all duration-200 shadow-sm hover:shadow-md"
-                  >
-                    <DollarSign size={20} className="flex-shrink-0" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p className="font-medium">Ajustar Saldo</p></TooltipContent>
-              </Tooltip>
-            )}
-            {onExtrato && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={() => onExtrato(conta)}
-                    variant="outline"
-                    size="lg"
-                    className="flex-1 bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 border-purple-200 text-purple-700 hover:text-purple-800 dark:from-purple-950/30 dark:to-purple-900/30 dark:border-purple-800 dark:text-purple-400 dark:hover:text-purple-300 transition-all duration-200 shadow-sm hover:shadow-md"
-                  >
-                    <FileText size={20} className="flex-shrink-0" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p className="font-medium">Ver Extrato</p></TooltipContent>
-              </Tooltip>
-            )}
-            {onTransferir && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={() => onTransferir(conta.id)}
-                    variant="outline"
-                    size="lg"
-                    className="flex-1 bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 border-green-200 text-green-700 hover:text-green-800 dark:from-green-950/30 dark:to-green-900/30 dark:border-green-800 dark:text-green-400 dark:hover:text-green-300 transition-all duration-200 shadow-sm hover:shadow-md"
-                  >
-                    <Repeat size={20} className="flex-shrink-0" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p className="font-medium">Nova Transferência</p></TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        </TooltipProvider>
+        {/* ✅ Botões Desktop — hover expansivo */}
+        <div
+          className="hidden md:flex items-center gap-2 w-full"
+          onMouseLeave={() => setBotaoHover(null)}
+        >
+          {onAjustarSaldo && (
+            <button
+              onClick={() => onAjustarSaldo(conta)}
+              onMouseEnter={() => setBotaoHover("ajustar")}
+              style={getFlexStyle("ajustar")}
+              className={[
+                // Base
+                "flex items-center justify-center gap-2 h-10 rounded-md border text-sm font-medium",
+                "bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 text-blue-700",
+                "hover:from-blue-100 hover:to-blue-200 hover:text-blue-800",
+                "dark:from-blue-950/30 dark:to-blue-900/30 dark:border-blue-800 dark:text-blue-400 dark:hover:text-blue-300",
+                "transition-all duration-300 ease-in-out shadow-sm hover:shadow-md overflow-hidden whitespace-nowrap",
+              ].join(" ")}
+            >
+              <DollarSign size={18} className="flex-shrink-0" />
+              {botaoHover === "ajustar" && (
+                <span className="truncate">Ajustar Saldo</span>
+              )}
+            </button>
+          )}
 
-        {/* Botões Mobile */}
+          {onExtrato && (
+            <button
+              onClick={() => onExtrato(conta)}
+              onMouseEnter={() => setBotaoHover("extrato")}
+              style={getFlexStyle("extrato")}
+              className={[
+                "flex items-center justify-center gap-2 h-10 rounded-md border text-sm font-medium",
+                "bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200 text-purple-700",
+                "hover:from-purple-100 hover:to-purple-200 hover:text-purple-800",
+                "dark:from-purple-950/30 dark:to-purple-900/30 dark:border-purple-800 dark:text-purple-400 dark:hover:text-purple-300",
+                "transition-all duration-300 ease-in-out shadow-sm hover:shadow-md overflow-hidden whitespace-nowrap",
+              ].join(" ")}
+            >
+              <FileText size={18} className="flex-shrink-0" />
+              {botaoHover === "extrato" && (
+                <span className="truncate">Ver Extrato</span>
+              )}
+            </button>
+          )}
+
+          {onTransferir && (
+            <button
+              onClick={() => onTransferir(conta.id)}
+              onMouseEnter={() => setBotaoHover("transferir")}
+              style={getFlexStyle("transferir")}
+              className={[
+                "flex items-center justify-center gap-2 h-10 rounded-md border text-sm font-medium",
+                "bg-gradient-to-r from-green-50 to-green-100 border-green-200 text-green-700",
+                "hover:from-green-100 hover:to-green-200 hover:text-green-800",
+                "dark:from-green-950/30 dark:to-green-900/30 dark:border-green-800 dark:text-green-400 dark:hover:text-green-300",
+                "transition-all duration-300 ease-in-out shadow-sm hover:shadow-md overflow-hidden whitespace-nowrap",
+              ].join(" ")}
+            >
+              <Repeat size={18} className="flex-shrink-0" />
+              {botaoHover === "transferir" && (
+                <span className="truncate">Nova Transferência</span>
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Botões Mobile — inalterados */}
         <Collapsible open={menuOpen} onOpenChange={setMenuOpen} className="md:hidden">
           <CollapsibleTrigger asChild>
             <Button variant="outline" className="w-full flex items-center justify-between">

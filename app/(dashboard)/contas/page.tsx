@@ -17,6 +17,7 @@ import ContaCard from "@/components/contas/ContaCard";
 import ConfirmDeleteModal from "@/components/contas/ConfirmDeleteModal";
 import { ModalTransferencia } from "@/components/transferencias/ModalTransferencia";
 import ModalAjustarSaldo from "@/components/contas/ModalAjustarSaldo";
+import PatrimonioCard from "@/components/contas/PatrimonioCard"; // ✅ NOVO
 import { Conta, CreateContaDTO, UpdateContaDTO } from "@/types/conta";
 
 import { 
@@ -46,7 +47,6 @@ export default function ContasPage() {
   const [modalTransferenciaOpen, setModalTransferenciaOpen] = useState(false);
   const [contaOrigemSelecionada, setContaOrigemSelecionada] = useState<string | null>(null);
   
-  // ✅ NOVO: Estado para modal de ajuste de saldo
   const [modalAjusteOpen, setModalAjusteOpen] = useState(false);
   const [contaParaAjustar, setContaParaAjustar] = useState<Conta | null>(null);
   
@@ -58,7 +58,6 @@ export default function ContasPage() {
   const contasFiltradas = useMemo(() => {
     let resultado = [...contas];
 
-    // Busca por nome
     if (busca) {
       resultado = resultado.filter(c =>
         c.nome.toLowerCase().includes(busca.toLowerCase()) ||
@@ -66,7 +65,6 @@ export default function ContasPage() {
       );
     }
 
-    // Ordenação
     resultado.sort((a, b) => {
       switch (ordenacao) {
         case "nome":
@@ -119,7 +117,6 @@ export default function ContasPage() {
 
   async function confirmarExclusao() {
     if (!contaParaExcluir) return;
-    
     try {
       await removerConta.mutateAsync(contaParaExcluir.id);
       setContaParaExcluir(null);
@@ -142,13 +139,11 @@ export default function ContasPage() {
     setContaOrigemSelecionada(null);
   };
 
-  // ✅ NOVO: Handler para abrir modal de ajuste
   const handleAbrirAjuste = (conta: Conta) => {
     setContaParaAjustar(conta);
     setModalAjusteOpen(true);
   };
 
-  // ✅ NOVO: Handler para fechar modal de ajuste
   const handleFecharAjuste = () => {
     setModalAjusteOpen(false);
     setContaParaAjustar(null);
@@ -206,6 +201,11 @@ export default function ContasPage() {
 
         <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
       </div>
+
+      {/* ✅ NOVO: Card de Patrimônio — exibido apenas quando há contas */}
+      {!loading && contas.length > 0 && (
+        <PatrimonioCard />
+      )}
 
       {/* Barra de busca e ações */}
       {!loading && contas.length > 0 && (
@@ -284,7 +284,7 @@ export default function ContasPage() {
               onExcluir={solicitarExclusao}
               onExtrato={(c) => router.push(`/contas/${c.id}/extrato`)}
               onTransferir={handleAbrirTransferencia}
-              onAjustarSaldo={handleAbrirAjuste} // ✅ NOVO
+              onAjustarSaldo={handleAbrirAjuste}
             />
           ))}
         </div>
@@ -305,7 +305,6 @@ export default function ContasPage() {
         contaOrigemInicialId={contaOrigemSelecionada}
       />
 
-      {/* ✅ NOVO: Modal de Ajuste de Saldo */}
       <ModalAjustarSaldo
         open={modalAjusteOpen}
         onClose={handleFecharAjuste}
