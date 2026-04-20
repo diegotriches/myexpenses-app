@@ -1,7 +1,6 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,69 +9,106 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Edit, Trash2, TrendingUp, TrendingDown, Tag } from "lucide-react";
+import {
+  MoreVertical,
+  Edit,
+  Trash2,
+  TrendingUp,
+  TrendingDown,
+  Tag,
+  Receipt,
+} from "lucide-react";
 import { iconOptions } from "@/utils/iconOptions";
 import { Categoria } from "@/types/categoria";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 type Props = {
   categoria: Categoria;
   onEditar: () => void;
   onExcluir: () => void;
+  totalEntrada?: number;
+  totalSaida?: number;
+  quantidade?: number;
+  loadingTotais?: boolean;
+  // Mobile: ao clicar no card em tela pequena, delega para o pai abrir o bottom sheet
+  onMobileSelect?: () => void;
 };
 
-export default function CategoriaCard({ categoria, onEditar, onExcluir }: Props) {
-  const IconComp = iconOptions.find(i => i.name === categoria.icone)?.component || null;
+const formatarMoeda = (valor: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
-  // Cor baseada no tipo
+export default function CategoriaCard({
+  categoria,
+  onEditar,
+  onExcluir,
+  totalEntrada = 0,
+  totalSaida = 0,
+  quantidade = 0,
+  loadingTotais = false,
+  onMobileSelect,
+}: Props) {
+  const { mask } = useHideValues();
+  const [virado, setVirado] = useState(false);
+
+  const IconComp = iconOptions.find((i) => i.name === categoria.icone)?.component || null;
+
   const getCorGradiente = () => {
-    if (categoria.tipo === "entrada") {
-      return "from-green-500 to-green-600 dark:from-green-600 dark:to-green-700";
-    } else if (categoria.tipo === "saida") {
-      return "from-red-500 to-red-600 dark:from-red-600 dark:to-red-700";
-    } else {
-      // Para tipo "ambos"
-      return "from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700";
-    }
-  };
-
-  const getCorBadge = () => {
-    if (categoria.tipo === "entrada") {
-      return "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/50";
-    } else if (categoria.tipo === "saida") {
-      return "bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/50";
-    } else {
-      // Para tipo "ambos"
-      return "bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900/50";
-    }
-  };
-
-  const getTipoLabel = () => {
-    if (categoria.tipo === "entrada") return "Receita";
-    if (categoria.tipo === "saida") return "Despesa";
-    return "Ambos";
+    if (categoria.tipo === "entrada") return "from-green-500 to-green-600 dark:from-green-600 dark:to-green-700";
+    if (categoria.tipo === "saida")   return "from-red-500 to-red-600 dark:from-red-600 dark:to-red-700";
+    return "from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700";
   };
 
   const getTipoIcon = () => {
-    if (categoria.tipo === "entrada") return <TrendingUp size={12} className="mr-1" aria-hidden="true" />;
-    if (categoria.tipo === "saida") return <TrendingDown size={12} className="mr-1" aria-hidden="true" />;
-    return <Tag size={12} className="mr-1" aria-hidden="true" />;
+    if (categoria.tipo === "entrada") return <TrendingUp size={12} className="mr-1" />;
+    if (categoria.tipo === "saida")   return <TrendingDown size={12} className="mr-1" />;
+    return <Tag size={12} className="mr-1" />;
   };
 
-  // ✅ NOVO: Texto acessível para screen readers
-  const getAriaLabel = () => {
-    return `Categoria ${categoria.nome}, tipo ${getTipoLabel()}`;
-  };
+  const temMovimentacao = totalEntrada > 0 || totalSaida > 0;
+
+  // Ao clicar no card: em mobile delega para o pai; em desktop faz flip
+  function handleCardClick() {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      onMobileSelect?.();
+    } else {
+      setVirado((v) => !v);
+    }
+  }
+
+  // Impede que cliques nos menus/botões internos propaguem o flip
+  function stopFlip(e: React.MouseEvent) {
+    e.stopPropagation();
+  }
 
   return (
-    <Card 
-      className="group hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-gray-200 dark:border-gray-700"
-      role="article"
-      aria-label={getAriaLabel()}
+    // Wrapper com perspectiva 3D — altura fixa para o flip funcionar
+    <div
+      className="cursor-pointer"
+      style={{ perspective: "1000px", height: "128px" }}
+      onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+      aria-label={`Categoria ${categoria.nome}. ${virado ? "Verso com detalhes" : "Clique para ver detalhes"}`}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleCardClick(); }}
     >
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          {/* Ícone com gradiente */}
-          <div 
+      {/* Contêiner que rotaciona */}
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          transformStyle: "preserve-3d",
+          transition: "transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)",
+          transform: virado ? "rotateY(180deg)" : "rotateY(0deg)",
+        }}
+      >
+        {/* ── FRENTE ─────────────────────────────────────────────────────── */}
+        <div
+          style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+          className="absolute inset-0 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow duration-200 p-4 flex items-center gap-3 overflow-hidden"
+        >
+          {/* Ícone */}
+          <div
             className={`flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br ${getCorGradiente()} flex items-center justify-center shadow-md`}
             aria-hidden="true"
           >
@@ -83,55 +119,122 @@ export default function CategoriaCard({ categoria, onEditar, onExcluir }: Props)
             )}
           </div>
 
-          {/* Informações ao lado */}
+          {/* Nome */}
           <div className="flex-1 min-w-0">
-            {/* Nome da categoria */}
-            <h3 className="font-semibold text-base text-gray-900 dark:text-white truncate mb-1">
+            <h3 className="font-semibold text-base text-gray-900 dark:text-white truncate">
               {categoria.nome}
             </h3>
-
-            {/* Badge de tipo */}
-            <Badge 
-              className={`${getCorBadge()} text-xs`}
-              aria-label={`Tipo: ${getTipoLabel()}`}
-            >
-              {getTipoIcon()}
-              <span>{getTipoLabel()}</span>
-            </Badge>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 hidden md:block">
+              Clique para detalhes
+            </p>
           </div>
 
-          {/* Menu Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 hover:bg-gray-100 dark:hover:bg-gray-800"
-                aria-label={`Opções para categoria ${categoria.nome}`}
-              >
-                <MoreVertical size={16} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem 
-                onClick={onEditar} 
-                className="cursor-pointer focus:bg-gray-100 dark:focus:bg-gray-800"
-              >
-                <Edit size={14} className="mr-2" aria-hidden="true" />
-                <span>Editar</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={onExcluir} 
-                className="cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50 dark:text-red-400 dark:focus:text-red-300 dark:focus:bg-red-900/20"
-              >
-                <Trash2 size={14} className="mr-2" aria-hidden="true" />
-                <span>Excluir</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Menu ⋮ — apenas na frente, stopPropagation para não acionar flip */}
+          <div onClick={stopFlip}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 flex-shrink-0 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  aria-label={`Opções para ${categoria.nome}`}
+                >
+                  <MoreVertical size={16} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={onEditar} className="cursor-pointer">
+                  <Edit size={14} className="mr-2" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={onExcluir}
+                  className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-700 focus:bg-red-50 dark:focus:bg-red-900/20"
+                >
+                  <Trash2 size={14} className="mr-2" />
+                  Excluir
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* ── VERSO ──────────────────────────────────────────────────────── */}
+        <div
+          style={{
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "rotateY(180deg)",
+          }}
+          className="absolute inset-0 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-md p-4 flex flex-col justify-between overflow-hidden"
+        >
+          {/* Totais */}
+          <div className="flex-1 flex flex-col justify-center py-1 space-y-0.5">
+            {loadingTotais ? (
+              <div className="space-y-1.5 animate-pulse">
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+              </div>
+            ) : !temMovimentacao ? (
+              <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+                Sem movimentações no ano
+              </p>
+            ) : (
+              <>
+                {categoria.tipo !== "saida" && totalEntrada > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                      <TrendingUp size={11} /> {categoria.tipo === "ambos" ? "Entradas" : "Total"}
+                    </span>
+                    <span className="text-xs font-semibold tabular-nums text-green-600 dark:text-green-400">
+                      {mask(formatarMoeda(totalEntrada))}
+                    </span>
+                  </div>
+                )}
+                {categoria.tipo !== "entrada" && totalSaida > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                      <TrendingDown size={11} /> {categoria.tipo === "ambos" ? "Saídas" : "Total"}
+                    </span>
+                    <span className="text-xs font-semibold tabular-nums text-red-600 dark:text-red-400">
+                      {mask(formatarMoeda(totalSaida))}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1 pt-0.5">
+                  <Receipt size={11} className="text-gray-400 dark:text-gray-500" />
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                    {quantidade} {quantidade === 1 ? "transação" : "transações"}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Rodapé: botões de ação */}
+          <div className="flex gap-2 pt-1" onClick={stopFlip}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onEditar}
+              className="flex-1 h-7 text-xs border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <Edit size={12} className="mr-1" />
+              Editar
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onExcluir}
+              className="flex-1 h-7 text-xs border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              <Trash2 size={12} className="mr-1" />
+              Excluir
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
