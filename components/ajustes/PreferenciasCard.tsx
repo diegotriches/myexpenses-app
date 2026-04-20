@@ -5,13 +5,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
@@ -23,7 +16,6 @@ import {
   Moon,
   Monitor,
   Globe,
-  DollarSign,
   Bell,
   Info
 } from "lucide-react";
@@ -50,14 +42,10 @@ export default function PreferenciasCard({ preferencias }: Props) {
     setPreferenciasOriginais(preferencias);
   }, [preferencias]);
 
-  const temAlteracoes = () => {
-    return JSON.stringify(form) !== JSON.stringify(preferenciasOriginais);
-  };
+  const temAlteracoes = () =>
+    JSON.stringify(form) !== JSON.stringify(preferenciasOriginais);
 
-  const handleChange = <K extends keyof Preferencias>(
-    campo: K,
-    valor: Preferencias[K]
-  ) => {
+  const handleChange = <K extends keyof Preferencias>(campo: K, valor: Preferencias[K]) => {
     setForm({ ...form, [campo]: valor });
     if (sucesso) setSucesso(false);
   };
@@ -87,23 +75,24 @@ export default function PreferenciasCard({ preferencias }: Props) {
     setSucesso(false);
   };
 
-  const idiomas = [
-    { value: "pt-BR", label: "Português (Brasil)" },
-    { value: "en-US", label: "English (US)" },
-    { value: "es-ES", label: "Español" },
-  ];
+  // TODO: idiomas, moedas e formatosData mantidos para implementação futura
+  // const idiomas = [
+  //   { value: "pt-BR", label: "Português (Brasil)" },
+  //   { value: "en-US", label: "English (US)" },
+  //   { value: "es-ES", label: "Español" },
+  // ];
 
-  const moedas = [
-    { value: "BRL", label: "Real (R$)", simbolo: "R$" },
-    { value: "USD", label: "Dólar ($)", simbolo: "$" },
-    { value: "EUR", label: "Euro (€)", simbolo: "€" },
-  ];
+  // const moedas = [
+  //   { value: "BRL", label: "Real (R$)",  simbolo: "R$" },
+  //   { value: "USD", label: "Dólar ($)",  simbolo: "$"  },
+  //   { value: "EUR", label: "Euro (€)",   simbolo: "€"  },
+  // ];
 
-  const formatosData = [
-    { value: "DD/MM/YYYY", label: "DD/MM/YYYY (31/12/2024)" },
-    { value: "MM/DD/YYYY", label: "MM/DD/YYYY (12/31/2024)" },
-    { value: "YYYY-MM-DD", label: "YYYY-MM-DD (2024-12-31)" },
-  ];
+  // const formatosData = [
+  //   { value: "DD/MM/YYYY", label: "DD/MM/YYYY (31/12/2024)" },
+  //   { value: "MM/DD/YYYY", label: "MM/DD/YYYY (12/31/2024)" },
+  //   { value: "YYYY-MM-DD", label: "YYYY-MM-DD (2024-12-31)" },
+  // ];
 
   return (
     <div className="space-y-6">
@@ -200,13 +189,23 @@ export default function PreferenciasCard({ preferencias }: Props) {
         </div>
       </div>
 
-      {/* Seção: Regionalização */}
+      {/* Seção: Região e Idioma */}
+      {/* TODO: idioma, moeda e formato de data desativados — não implementados ainda.
+               Descomentar os blocos abaixo quando a funcionalidade for implementada. */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
           <Globe size={18} className="text-gray-600 dark:text-gray-400" />
           <h3 className="font-semibold text-gray-900 dark:text-white">Região e Idioma</h3>
         </div>
 
+        <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900">
+          <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+            As opções de idioma, moeda e formato de data estão em desenvolvimento e serão disponibilizadas em breve.
+          </AlertDescription>
+        </Alert>
+
+        {/* Idioma — desativado até implementação
         <div className="space-y-2">
           <Label htmlFor="idioma">Idioma</Label>
           <Select value={form.idioma || "pt-BR"} onValueChange={(v) => handleChange("idioma", v)} disabled={atualizarPreferencias.isPending}>
@@ -217,7 +216,9 @@ export default function PreferenciasCard({ preferencias }: Props) {
           </Select>
           <p className="text-xs text-gray-500 dark:text-gray-400">Idioma da interface e notificações</p>
         </div>
+        */}
 
+        {/* Moeda Padrão — desativado até implementação
         <div className="space-y-2">
           <Label htmlFor="moeda">Moeda Padrão</Label>
           <Select value={form.moeda || "BRL"} onValueChange={(v) => handleChange("moeda", v)} disabled={atualizarPreferencias.isPending}>
@@ -232,7 +233,9 @@ export default function PreferenciasCard({ preferencias }: Props) {
           </Select>
           <p className="text-xs text-gray-500 dark:text-gray-400">Moeda utilizada para exibir valores</p>
         </div>
+        */}
 
+        {/* Formato de Data — desativado até implementação
         <div className="space-y-2">
           <Label htmlFor="formatoData">Formato de Data</Label>
           <Select value={form.formatoData || "DD/MM/YYYY"} onValueChange={(v) => handleChange("formatoData", v as any)} disabled={atualizarPreferencias.isPending}>
@@ -242,7 +245,9 @@ export default function PreferenciasCard({ preferencias }: Props) {
             </SelectContent>
           </Select>
         </div>
+        */}
 
+        {/* Início da Semana — removido (não implementado e sem previsão)
         <div className="space-y-2">
           <Label htmlFor="inicioSemana">Início da Semana</Label>
           <Select value={form.inicioSemana || "domingo"} onValueChange={(v) => handleChange("inicioSemana", v as "domingo" | "segunda")} disabled={atualizarPreferencias.isPending}>
@@ -254,6 +259,7 @@ export default function PreferenciasCard({ preferencias }: Props) {
           </Select>
           <p className="text-xs text-gray-500 dark:text-gray-400">Primeiro dia da semana em calendários</p>
         </div>
+        */}
       </div>
 
       {/* Seção: Notificações */}
