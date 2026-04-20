@@ -21,6 +21,7 @@ import CartaoFormModal from "@/components/cartoes/CartaoFormModal";
 import CartaoItem from "@/components/cartoes/CartaoItem";
 import CartaoItemInativo from "@/components/cartoes/CartaoItemInativo";
 import { CartaoExclusaoModal } from "@/components/cartoes/CartaoExclusaoModal";
+import GastosAnuaisCard from "@/components/cartoes/GastosAnuaisCard"; // ✅ NOVO
 
 import { Cartao, CreateCartaoDTO, UpdateCartaoDTO } from "@/types/cartao";
 
@@ -36,9 +37,9 @@ type OrdenacaoType = "nome" | "limite-maior" | "limite-menor" | "uso-maior" | "u
 
 export default function CartoesPage() {
   const { data: cartoes = [], isLoading: loading, error } = useCartoes();
-  const criarCartao    = useCriarCartao();
+  const criarCartao     = useCriarCartao();
   const atualizarCartao = useAtualizarCartao();
-  const removerCartao  = useRemoverCartao();
+  const removerCartao   = useRemoverCartao();
 
   const { data: transacoes = [] } = useTransacoes();
 
@@ -49,11 +50,15 @@ export default function CartoesPage() {
   const [busca,             setBusca]              = useState("");
   const [ordenacao,         setOrdenacao]          = useState<OrdenacaoType>("nome");
   const [abaAtiva,          setAbaAtiva]           = useState("ativos");
-
-  // Alerta inline quando exclusão é bloqueada por constraint
-  const [alertaBloqueio, setAlertaBloqueio] = useState<string | null>(null);
+  const [alertaBloqueio,    setAlertaBloqueio]     = useState<string | null>(null);
 
   const router = useRouter();
+
+  // ✅ NOVO: só exibe o card de gastos se houver pelo menos um cartão de crédito
+  const temCartaoCredito = useMemo(
+    () => cartoes.some((c) => c.tipo === "credito"),
+    [cartoes]
+  );
 
   const possuiDependencias = (cartaoId: number) =>
     transacoes.some((t) => t.cartaoId === cartaoId);
@@ -109,8 +114,9 @@ export default function CartoesPage() {
   }), [cartoes]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  const abrirNovo    = () => { setCartaoEdicao(null); setModalOpen(true); };
-  const abrirEdicao  = (c: Cartao) => { setCartaoEdicao(c); setModalOpen(true); };
+  const abrirNovo   = () => { setCartaoEdicao(null); setModalOpen(true); };
+  const abrirEdicao = (c: Cartao) => { setCartaoEdicao(c); setModalOpen(true); };
+
   const abrirExclusao = (c: Cartao) => {
     setAlertaBloqueio(null);
     setCartaoParaExcluir(c);
@@ -125,14 +131,12 @@ export default function CartoesPage() {
       setCartaoParaExcluir(null);
       setAlertaBloqueio(null);
     } catch (err: any) {
-      // 409 — cartão tem movimentações
       if (err?.status === 409 || err?.response?.status === 409 || err?.code === "HAS_TRANSACTIONS") {
         setModalExclusaoOpen(false);
         setAlertaBloqueio(
           `O cartão "${cartaoParaExcluir.nome}" possui movimentações e não pode ser excluído. ` +
           `Ele foi movido para a aba de inativos automaticamente.`
         );
-        // Desativa automaticamente e muda para aba inativos
         await atualizarCartao.mutateAsync({
           id: cartaoParaExcluir.id,
           dados: { ativo: false } as UpdateCartaoDTO,
@@ -184,7 +188,7 @@ export default function CartoesPage() {
 
   const EmptyState = () => (
     <div className="text-center py-16 bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
-      <CreditCard className="text-6xl text-gray-300 dark:text-gray-600 mx-auto mb-4" size={64} />
+      <CreditCard className="text-gray-300 dark:text-gray-600 mx-auto mb-4" size={64} />
       <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
         Nenhum cartão cadastrado
       </h3>
@@ -212,6 +216,9 @@ export default function CartoesPage() {
         </p>
         <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
       </header>
+
+      {/* ✅ NOVO: Card de gastos anuais — só para cartões de crédito */}
+      {!loading && temCartaoCredito && <GastosAnuaisCard />}
 
       {/* Alerta de bloqueio de exclusão */}
       {alertaBloqueio && (
@@ -272,19 +279,14 @@ export default function CartoesPage() {
       {!loading && cartoes.length > 0 && (
         <Tabs value={abaAtiva} onValueChange={(v) => { setAbaAtiva(v); setAlertaBloqueio(null); }} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 max-w-xs">
-            <TabsTrigger value="ativos">
-              Ativos ({contadores.ativos})
-            </TabsTrigger>
-            <TabsTrigger value="inativos">
-              Inativos ({contadores.inativos})
-            </TabsTrigger>
+            <TabsTrigger value="ativos">Ativos ({contadores.ativos})</TabsTrigger>
+            <TabsTrigger value="inativos">Inativos ({contadores.inativos})</TabsTrigger>
           </TabsList>
 
-          {/* Aba Ativos — cards completos */}
           <TabsContent value="ativos" className="space-y-4">
             {cartoesAtivos.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                <Search className="text-4xl text-gray-300 dark:text-gray-600 mx-auto mb-3" size={48} />
+                <Search className="text-gray-300 dark:text-gray-600 mx-auto mb-3" size={48} />
                 <p className="text-gray-600 dark:text-gray-300 font-medium mb-1">Nenhum cartão ativo encontrado</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Tente ajustar a busca</p>
               </div>
@@ -304,11 +306,10 @@ export default function CartoesPage() {
             )}
           </TabsContent>
 
-          {/* Aba Inativos — cards simplificados */}
           <TabsContent value="inativos" className="space-y-4">
             {cartoesInativos.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                <CreditCard className="text-4xl text-gray-300 dark:text-gray-600 mx-auto mb-3" size={48} />
+                <CreditCard className="text-gray-300 dark:text-gray-600 mx-auto mb-3" size={48} />
                 <p className="text-gray-600 dark:text-gray-300 font-medium mb-1">Nenhum cartão inativo</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Cartões desativados aparecerão aqui</p>
               </div>
