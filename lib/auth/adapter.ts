@@ -9,7 +9,7 @@ export function DrizzleAdapter(): Adapter {
   return {
     async createUser(data: Omit<AdapterUser, "id">) {
       const id = crypto.randomUUID();
-      
+
       await db.insert(users).values({
         id,
         name: data.name,
@@ -26,7 +26,7 @@ export function DrizzleAdapter(): Adapter {
 
       return {
         ...user,
-        id: user.id, // Garantir que retorna UUID
+        id: user.id,
         emailVerified: user.emailVerified ?? null,
       };
     },
@@ -37,7 +37,7 @@ export function DrizzleAdapter(): Adapter {
         .from(users)
         .where(eq(users.id, id))
         .limit(1);
-      
+
       return user || null;
     },
 
@@ -47,7 +47,7 @@ export function DrizzleAdapter(): Adapter {
         .from(users)
         .where(eq(users.email, email))
         .limit(1);
-      
+
       return user || null;
     },
 
@@ -100,21 +100,64 @@ export function DrizzleAdapter(): Adapter {
       await db.delete(users).where(eq(users.id, userId));
     },
 
+    /**
+     * ✅ CORRIGIDO: usa upsert em vez de insert puro.
+     *
+     * O schema original tinha uniqueIndex em userId, o que causava violação
+     * de constraint ao reautorizar (ex: novo login Google para adicionar scope
+     * do Drive). O INSERT falhava silenciosamente no NextAuth, e o novo
+     * refresh_token gerado pelo Google nunca era persistido no banco.
+     *
+     * Agora: se já existe uma conta para (provider + providerAccountId),
+     * atualiza os tokens. Se não existe, insere.
+     *
+     * Importante: o refresh_token do Google só vem em alguns cenários
+     * (primeiro login ou após prompt=consent). Quando presente, sempre
+     * persiste. Quando ausente (renovação normal), preserva o existente.
+     */
     async linkAccount(account: AdapterAccount): Promise<void> {
-      await db.insert(accounts).values({
-        id: crypto.randomUUID(),
-        userId: account.userId,
-        type: account.type,
-        provider: account.provider,
-        providerAccountId: account.providerAccountId,
-        refresh_token: account.refresh_token,
-        access_token: account.access_token,
-        expires_at: account.expires_at,
-        token_type: account.token_type,
-        scope: account.scope,
-        id_token: account.id_token,
-        session_state: account.session_state,
-      });
+      const existing = await db
+        .select({ id: accounts.id, refresh_token: accounts.refresh_token })
+        .from(accounts)
+        .where(
+          and(
+            eq(accounts.provider,          account.provider),
+            eq(accounts.providerAccountId, account.providerAccountId)
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        // Atualiza tokens — preserva refresh_token existente se o novo vier nulo
+        // (o Google não repete o refresh_token em logins subsequentes sem consent)
+        await db
+          .update(accounts)
+          .set({
+            access_token:  account.access_token  ?? null,
+            refresh_token: account.refresh_token ?? existing[0].refresh_token,
+            expires_at:    account.expires_at    ?? null,
+            token_type:    account.token_type    ?? null,
+            scope:         account.scope         ?? null,
+            id_token:      account.id_token      ?? null,
+            session_state: account.session_state ?? null,
+          })
+          .where(eq(accounts.id, existing[0].id));
+      } else {
+        await db.insert(accounts).values({
+          id:                crypto.randomUUID(),
+          userId:            account.userId,
+          type:              account.type,
+          provider:          account.provider,
+          providerAccountId: account.providerAccountId,
+          refresh_token:     account.refresh_token     ?? null,
+          access_token:      account.access_token      ?? null,
+          expires_at:        account.expires_at        ?? null,
+          token_type:        account.token_type        ?? null,
+          scope:             account.scope             ?? null,
+          id_token:          account.id_token          ?? null,
+          session_state:     account.session_state     ?? null,
+        });
+      }
     },
 
     async unlinkAccount({ providerAccountId, provider }: { providerAccountId: string; provider: string }): Promise<void> {
@@ -122,7 +165,7 @@ export function DrizzleAdapter(): Adapter {
         .delete(accounts)
         .where(
           and(
-            eq(accounts.provider, provider),
+            eq(accounts.provider,          provider),
             eq(accounts.providerAccountId, providerAccountId)
           )
         );
@@ -168,9 +211,7 @@ export function DrizzleAdapter(): Adapter {
     async updateSession(data: Partial<AdapterSession> & { sessionToken: string }): Promise<AdapterSession | null | undefined> {
       await db
         .update(sessions)
-        .set({
-          expires: data.expires,
-        })
+        .set({ expires: data.expires })
         .where(eq(sessions.sessionToken, data.sessionToken));
 
       const [session] = await db
@@ -211,7 +252,7 @@ export function DrizzleAdapter(): Adapter {
         .where(
           and(
             eq(verificationTokens.identifier, identifier),
-            eq(verificationTokens.token, token)
+            eq(verificationTokens.token,      token)
           )
         )
         .limit(1);
@@ -223,7 +264,7 @@ export function DrizzleAdapter(): Adapter {
         .where(
           and(
             eq(verificationTokens.identifier, identifier),
-            eq(verificationTokens.token, token)
+            eq(verificationTokens.token,      token)
           )
         );
 

@@ -8,27 +8,30 @@ import { uploadBackupToDrive } from "@/lib/googleDriveBackup";
 import type { ExportFile, ExportMetadata, ExportStatistics, ExportData } from "@/types/export";
 
 interface BackupResultado {
-  userId: string;
-  email: string;
-  status: "sucesso" | "erro" | "sem_drive";
+  userId:    string;
+  email:     string;
+  status:    "sucesso" | "erro" | "sem_drive";
   filename?: string;
-  fileId?: string;
-  tamanho?: number;
-  erro?: string;
-  duracao: number;
+  fileId?:   string;
+  tamanho?:  number;
+  erro?:     string;
+  duracao:   number;
 }
 
-// ✅ Query parametrizada via Drizzle — sem risco de SQL Injection
-async function getGoogleTokens(userId: string): Promise<{ accessToken: string; refreshToken: string | null } | null> {
+// ✅ Retorna também o userId para ser repassado ao uploadBackupToDrive,
+// que precisa dele para persistir o access_token renovado no banco.
+async function getGoogleTokens(
+  userId: string
+): Promise<{ accessToken: string; refreshToken: string | null; userId: string } | null> {
   const rows = await db
     .select({
-      access_token: accounts.access_token,
+      access_token:  accounts.access_token,
       refresh_token: accounts.refresh_token,
     })
     .from(accounts)
     .where(
       and(
-        eq(accounts.userId, userId),
+        eq(accounts.userId,   userId),
         eq(accounts.provider, "google")
       )
     )
@@ -37,12 +40,16 @@ async function getGoogleTokens(userId: string): Promise<{ accessToken: string; r
   if (!rows.length || !rows[0].access_token) return null;
 
   return {
-    accessToken: rows[0].access_token,
+    accessToken:  rows[0].access_token,
     refreshToken: rows[0].refresh_token || null,
+    userId,       // ✅ NOVO: necessário para persistir token renovado
   };
 }
 
-async function gerarBackupJSON(userId: string, userData: { name: string | null; email: string }): Promise<string> {
+async function gerarBackupJSON(
+  userId:   string,
+  userData: { name: string | null; email: string }
+): Promise<string> {
   const [
     contasData,
     cartoesData,
@@ -66,48 +73,48 @@ async function gerarBackupJSON(userId: string, userData: { name: string | null; 
   ]);
 
   const data: ExportData = {
-    categorias: categoriasData,
-    contas: contasData,
-    cartoes: cartoesData,
-    transacoes: transacoesData,
-    faturas: faturasData.map(f => ({ ...f, mesReferencia: f.mes, anoReferencia: f.ano })),
-    extrato: extratoData,
+    categorias:   categoriasData,
+    contas:       contasData,
+    cartoes:      cartoesData,
+    transacoes:   transacoesData,
+    faturas:      faturasData.map(f => ({ ...f, mesReferencia: f.mes, anoReferencia: f.ano })),
+    extrato:      extratoData,
     notificacoes: notificacoesData,
     preferencias: preferenciasNotifData,
   };
 
   const statistics: ExportStatistics = {
-    categorias: categoriasData.length,
-    contas: contasData.length,
-    cartoes: cartoesData.length,
-    transacoes: transacoesData.length,
-    faturas: faturasData.length,
-    extrato: extratoData.length,
-    notificacoes: notificacoesData.length,
-    preferencias: preferencesData.length,
-    tamanhoBytes: 0,
+    categorias:       categoriasData.length,
+    contas:           contasData.length,
+    cartoes:          cartoesData.length,
+    transacoes:       transacoesData.length,
+    faturas:          faturasData.length,
+    extrato:          extratoData.length,
+    notificacoes:     notificacoesData.length,
+    preferencias:     preferencesData.length,
+    tamanhoBytes:     0,
     tamanhoFormatado: "",
   };
 
   const metadata: ExportMetadata = {
-    version: "1.0.0",
+    version:    "1.0.0",
     exportDate: new Date().toISOString(),
     userId,
-    userName: userData.name || "Usuário",
-    userEmail: userData.email,
-    tipo: "completo",
-    formato: "json",
-    encrypted: false,
-    appName: "MyExpenses",
+    userName:   userData.name || "Usuário",
+    userEmail:  userData.email,
+    tipo:       "completo",
+    formato:    "json",
+    encrypted:  false,
+    appName:    "MyExpenses",
     appVersion: "1.0.0",
-    appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://myexpenses-app-ten.vercel.app",
+    appUrl:     process.env.NEXT_PUBLIC_APP_URL || "https://myexpenses-app-ten.vercel.app",
   };
 
   const exportFile: ExportFile = { metadata, statistics, data };
   const json = JSON.stringify(exportFile, null, 2);
 
   const tamanho = Buffer.byteLength(json, "utf-8");
-  exportFile.statistics.tamanhoBytes = tamanho;
+  exportFile.statistics.tamanhoBytes    = tamanho;
   exportFile.statistics.tamanhoFormatado = formatBytes(tamanho);
 
   return JSON.stringify(exportFile, null, 2);
@@ -119,7 +126,7 @@ async function criarNotificacao(
   detalhes?: { filename?: string; tamanho?: number; erro?: string }
 ): Promise<void> {
   const titulo =
-    status === "sucesso" ? "Backup semanal concluído"
+    status === "sucesso"   ? "Backup semanal concluído"
     : status === "sem_drive" ? "Backup não realizado"
     : "Erro no backup semanal";
 
@@ -131,7 +138,7 @@ async function criarNotificacao(
       : `Não foi possível realizar o backup: ${detalhes?.erro || "Erro desconhecido"}. Tente exportar manualmente.`;
 
   const severidade =
-    status === "sucesso" ? "info"
+    status === "sucesso"   ? "info"
     : status === "sem_drive" ? "aviso"
     : "erro";
 
@@ -139,25 +146,24 @@ async function criarNotificacao(
     userId,
     titulo,
     mensagem,
-    tipo: "backup",
+    tipo:      "backup",
     severidade,
-    lida: false,
+    lida:      false,
     createdAt: new Date(),
   });
 }
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 Bytes";
-  const k = 1024;
+  const k     = 1024;
   const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const i     = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
 export async function GET(req: NextRequest) {
   const inicioTotal = Date.now();
 
-  // ✅ Valida CRON_SECRET para evitar chamadas não autorizadas
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     console.warn("[Cron Backup] Tentativa não autorizada");
@@ -184,34 +190,36 @@ export async function GET(req: NextRequest) {
         console.log(`[Cron Backup] Usuário ${usuario.email} sem conta Google vinculada — pulando`);
         await criarNotificacao(usuario.id, "sem_drive");
         resultados.push({
-          userId: usuario.id,
-          email: usuario.email,
-          status: "sem_drive",
+          userId:  usuario.id,
+          email:   usuario.email,
+          status:  "sem_drive",
           duracao: Date.now() - inicioUsuario,
         });
         continue;
       }
 
-      const json = await gerarBackupJSON(usuario.id, { name: usuario.name, email: usuario.email });
-      const dataHoje = new Date().toISOString().split("T")[0];
-      const filename = `myexpenses-backup-${dataHoje}.json`;
+      const json      = await gerarBackupJSON(usuario.id, { name: usuario.name, email: usuario.email });
+      const dataHoje  = new Date().toISOString().split("T")[0];
+      const filename  = `myexpenses-backup-${dataHoje}.json`;
+
+      // ✅ tokens agora inclui userId para que o Drive possa persistir token renovado
       const resultado = await uploadBackupToDrive(tokens, filename, json);
 
       await criarNotificacao(usuario.id, "sucesso", {
         filename: resultado.filename,
-        tamanho: resultado.size,
+        tamanho:  resultado.size,
       });
 
       const duracao = Date.now() - inicioUsuario;
       console.log(`[Cron Backup] ✅ ${usuario.email} — ${resultado.filename} (${duracao}ms)`);
 
       resultados.push({
-        userId: usuario.id,
-        email: usuario.email,
-        status: "sucesso",
+        userId:   usuario.id,
+        email:    usuario.email,
+        status:   "sucesso",
         filename: resultado.filename,
-        fileId: resultado.fileId,
-        tamanho: resultado.size,
+        fileId:   resultado.fileId,
+        tamanho:  resultado.size,
         duracao,
       });
     } catch (error: any) {
@@ -219,26 +227,26 @@ export async function GET(req: NextRequest) {
       console.error(`[Cron Backup] ❌ Erro no usuário ${usuario.email}:`, error.message);
       await criarNotificacao(usuario.id, "erro", { erro: error.message });
       resultados.push({
-        userId: usuario.id,
-        email: usuario.email,
-        status: "erro",
-        erro: error.message,
+        userId:  usuario.id,
+        email:   usuario.email,
+        status:  "erro",
+        erro:    error.message,
         duracao,
       });
     }
   }
 
   const duracaoTotal = Date.now() - inicioTotal;
-  const sucessos = resultados.filter(r => r.status === "sucesso").length;
-  const erros = resultados.filter(r => r.status === "erro").length;
-  const semDrive = resultados.filter(r => r.status === "sem_drive").length;
+  const sucessos     = resultados.filter(r => r.status === "sucesso").length;
+  const erros        = resultados.filter(r => r.status === "erro").length;
+  const semDrive     = resultados.filter(r => r.status === "sem_drive").length;
 
   console.log(`[Cron Backup] Concluído em ${duracaoTotal}ms — ✅ ${sucessos} | ❌ ${erros} | ⚠️ ${semDrive}`);
 
   return NextResponse.json({
-    message: "Backup semanal concluído",
-    duracao: `${duracaoTotal}ms`,
-    resumo: { total: todosUsuarios.length, sucessos, erros, semDrive },
+    message:   "Backup semanal concluído",
+    duracao:   `${duracaoTotal}ms`,
+    resumo:    { total: todosUsuarios.length, sucessos, erros, semDrive },
     resultados,
   });
 }
