@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ResponsiveContainer,
@@ -14,6 +14,13 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CreditCard, Loader2, TrendingDown, CheckCircle2, Clock } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
 
@@ -48,7 +55,6 @@ interface GastosAnuaisData {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const ANO_ATUAL = new Date().getFullYear();
-const ANOS = Array.from({ length: 6 }, (_, i) => ANO_ATUAL - i);
 
 const formatarMoeda = (valor: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
@@ -84,17 +90,43 @@ function TooltipCustomizado({ active, payload, label }: any) {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function GastosAnuaisCard() {
-  const [ano, setAno] = useState(ANO_ATUAL);
+  const [ano, setAno] = useState<number | null>(null);
   const { mask } = useHideValues();
 
-  const { data, isLoading, isError } = useQuery<GastosAnuaisData>({
-    queryKey: ["cartoes-gastos-anuais", ano],
+  // Busca anos disponíveis com faturas de cartão de crédito
+  const { data: anosData, isLoading: loadingAnos } = useQuery<{ anos: number[] }>({
+    queryKey: ["cartoes-gastos-anos"],
     queryFn: async () => {
-      const res = await fetch(`/api/cartoes/gastos-anuais?ano=${ano}`);
+      const res = await fetch("/api/cartoes/gastos-anuais/anos");
+      if (!res.ok) throw new Error("Erro ao carregar anos disponíveis");
+      return res.json();
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+
+  // Inicializa no ano mais recente assim que os anos chegarem
+  // (onSuccess foi removido no TanStack Query v5 — useEffect é a forma correta)
+  useEffect(() => {
+    if (ano === null && anosData?.anos && anosData.anos.length > 0) {
+      setAno(anosData.anos[0]);
+    }
+  }, [anosData, ano]);
+
+  const anos = anosData?.anos ?? [];
+  const anoSelecionado = ano ?? ANO_ATUAL;
+
+  // Exibe botões individuais para até 5 anos; acima disso usa Select
+  const usarSelect = anos.length > 5;
+
+  const { data, isLoading, isError } = useQuery<GastosAnuaisData>({
+    queryKey: ["cartoes-gastos-anuais", anoSelecionado],
+    queryFn: async () => {
+      const res = await fetch(`/api/cartoes/gastos-anuais?ano=${anoSelecionado}`);
       if (!res.ok) throw new Error("Erro ao carregar gastos anuais");
       return res.json();
     },
     staleTime: 1000 * 60 * 5,
+    enabled: !loadingAnos,
   });
 
   const semDados = !isLoading && !isError && data?.totalGasto === 0;
@@ -150,24 +182,44 @@ export default function GastosAnuaisCard() {
             </div>
           </div>
 
-          {/* Seletor de ano */}
-          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-900 rounded-lg p-1 self-start">
-            {ANOS.map((a) => (
-              <Button
-                key={a}
-                variant="ghost"
-                size="sm"
-                onClick={() => setAno(a)}
-                className={`h-7 px-3 text-xs font-medium rounded-md transition-all ${
-                  ano === a
-                    ? "bg-white dark:bg-gray-700 text-purple-700 dark:text-purple-400 shadow-sm"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                }`}
-              >
-                {a}
-              </Button>
-            ))}
-          </div>
+          {/* Seletor de ano — dinâmico com os anos que têm faturas */}
+          {loadingAnos ? (
+            <div className="h-9 w-32 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse self-start" />
+          ) : usarSelect ? (
+            <Select
+              value={String(anoSelecionado)}
+              onValueChange={(v) => setAno(Number(v))}
+            >
+              <SelectTrigger className="w-[110px] h-9 text-xs self-start">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {anos.map((a) => (
+                  <SelectItem key={a} value={String(a)} className="text-xs">
+                    {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-900 rounded-lg p-1 self-start">
+              {anos.map((a) => (
+                <Button
+                  key={a}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAno(a)}
+                  className={`h-7 px-3 text-xs font-medium rounded-md transition-all ${
+                    anoSelecionado === a
+                      ? "bg-white dark:bg-gray-700 text-purple-700 dark:text-purple-400 shadow-sm"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  }`}
+                >
+                  {a}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
       </CardHeader>
 
