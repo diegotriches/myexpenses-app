@@ -5,6 +5,7 @@ import { Transacao } from "@/types/transacao";
 import { Cartao } from "@/types/cartao";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowUpCircle, ArrowDownCircle, Loader2 } from "lucide-react";
+import { useEstabelecimentos } from "@/hooks/useEstabelecimentos";
 
 interface Props {
   movimentacoes: Transacao[];
@@ -21,6 +22,9 @@ export default function MovimentacaoTabela({
   onEditar,
   onExcluir,
 }: Props) {
+  // ✅ NOVO: carrega estabelecimentos para lookup por ID
+  const { data: estabelecimentos = [] } = useEstabelecimentos();
+
   if (loading) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
@@ -57,15 +61,19 @@ export default function MovimentacaoTabela({
 
   return (
     <>
-      {/* 📱 MOBILE: CARDS VIEW */}
+      {/* 📱 MOBILE: cards */}
       <div className="md:hidden space-y-3">
         {movimentacoes.map((mov) => {
-          const cartao = cartoes.find((c) => c.id === mov.cartaoId) || null;
+          const cartao         = cartoes.find((c) => c.id === mov.cartaoId) || null;
+          const estabelecimento = mov.estabelecimentoId
+            ? estabelecimentos.find((e) => e.id === mov.estabelecimentoId) ?? null
+            : null;
           return (
             <MovimentacaoLinha
               key={mov.id}
               mov={mov}
               cartao={cartao}
+              estabelecimento={estabelecimento}
               onEditar={() => onEditar(mov)}
               onExcluir={() => onExcluir(mov)}
               viewMode="card"
@@ -84,7 +92,7 @@ export default function MovimentacaoTabela({
         </Card>
       </div>
 
-      {/* 💻 DESKTOP: TABLE VIEW */}
+      {/* 💻 DESKTOP: tabela */}
       <Card className="hidden md:block dark:bg-gray-900 dark:border-gray-800">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -98,49 +106,37 @@ export default function MovimentacaoTabela({
                 <col className="w-[105px]" />
                 <col className="w-[108px]" />
                 <col className="w-[115px]" />
+                <col className="w-[120px]" />
                 <col className="w-[60px]" />
               </colgroup>
 
               <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                 <tr>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Data
-                  </th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Descrição
-                  </th>
-                  <th className="text-center px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Categoria
-                  </th>
-                  <th className="text-right px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Valor
-                  </th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Pagamento
-                  </th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Condição
-                  </th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Conta/Cartão
-                  </th>
-                  <th className="text-center px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Ações
-                  </th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Data</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Descrição</th>
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Tipo</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Categoria</th>
+                  <th className="text-right px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Valor</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Pagamento</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Condição</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Conta/Cartão</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Estabelecimento</th>
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Ações</th>
                 </tr>
               </thead>
 
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                 {movimentacoes.map((mov) => {
-                  const cartao = cartoes.find((c) => c.id === mov.cartaoId) || null;
+                  const cartao         = cartoes.find((c) => c.id === mov.cartaoId) || null;
+                  const estabelecimento = mov.estabelecimentoId
+                    ? estabelecimentos.find((e) => e.id === mov.estabelecimentoId) ?? null
+                    : null;
                   return (
                     <MovimentacaoLinha
                       key={mov.id}
                       mov={mov}
                       cartao={cartao}
+                      estabelecimento={estabelecimento}
                       onEditar={() => onEditar(mov)}
                       onExcluir={() => onExcluir(mov)}
                       viewMode="table"

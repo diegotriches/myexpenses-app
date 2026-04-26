@@ -18,7 +18,7 @@ import {
   useTransacoes,
   useCriarTransacao,
   useAtualizarTransacao,
-  useExcluirTransacao
+  useExcluirTransacao,
 } from "@/hooks/useTransacoes";
 import { useCartoes } from "@/hooks/useCartoes";
 import { useContas } from "@/hooks/useContas";
@@ -47,21 +47,25 @@ export default function TransacoesPage() {
   const [modalFaturaFechada, setModalFaturaFechada] = useState(false);
 
   const [filtros, setFiltros] = useState<FiltrosState>({
-    tipo: "todas",
-    categoria: "",
-    formaPagamento: "",
-    busca: "",
-    valorMin: "",
-    valorMax: "",
+    tipo:              "todas",
+    categoria:         "",
+    formaPagamento:    "",
+    estabelecimentoId: "",
+    busca:             "",
+    valorMin:          "",
+    valorMax:          "",
   });
 
-  const temContasAtivas = useMemo(() => contas.some(c => c.ativo), [contas]);
+  const temContasAtivas = useMemo(() => contas.some((c) => c.ativo), [contas]);
 
   const movimentacoesFiltradas = useMemo(() => {
     return transacoes.filter((mov) => {
       if (filtros.tipo !== "todas" && mov.tipo !== filtros.tipo) return false;
-      if (filtros.categoria && mov.categoria !== filtros.categoria) return false;
+      if (filtros.categoria      && mov.categoria      !== filtros.categoria)      return false;
       if (filtros.formaPagamento && mov.formaPagamento !== filtros.formaPagamento) return false;
+      if (filtros.estabelecimentoId && filtros.estabelecimentoId !== "all") {
+        if (mov.estabelecimentoId !== filtros.estabelecimentoId) return false;
+      }
       if (filtros.busca) {
         const busca     = filtros.busca.toLowerCase();
         const descricao = mov.descricao?.toLowerCase() || "";
@@ -80,40 +84,27 @@ export default function TransacoesPage() {
     });
   }, [transacoes, filtros]);
 
-  const categoriasUnicas = useMemo(() =>
-    Array.from(new Set(transacoes.map(m => m.categoria).filter(Boolean))).sort() as string[],
+  const categoriasUnicas = useMemo(
+    () => Array.from(new Set(transacoes.map((m) => m.categoria).filter(Boolean))).sort() as string[],
     [transacoes]
   );
 
-  const formasPagamentoUnicas = useMemo(() =>
-    Array.from(new Set(transacoes.map(m => m.formaPagamento).filter(Boolean))).sort() as string[],
+  const formasPagamentoUnicas = useMemo(
+    () => Array.from(new Set(transacoes.map((m) => m.formaPagamento).filter(Boolean))).sort() as string[],
     [transacoes]
   );
 
-  // ============================================================
-  // Verifica se uma transação parcelada em crédito tem fatura
-  // fechada ou paga — bloqueia edição nesses casos
-  // ============================================================
   async function faturaParcelaEstaBloqueada(mov: Transacao): Promise<boolean> {
     if (!mov.parcelamentoId || !mov.cartaoId || mov.formaPagamento !== "cartao") return false;
-
-    const cartao = cartoes.find(c => c.id === mov.cartaoId);
+    const cartao = cartoes.find((c) => c.id === mov.cartaoId);
     if (!cartao || cartao.tipo !== "credito") return false;
-
     const diaFechamento = cartao.diaFechamento || 1;
     const { mes, ano }  = calcularFaturaDaTransacao(new Date(mov.data), diaFechamento);
-
-    // Verifica se a fatura está fechada (sem precisar de dados externos)
     if (faturaEstaFechada(mes, ano, diaFechamento)) return true;
-
-    // Verifica se a fatura está paga (busca da API/cache)
     try {
       const faturaData = await buscarFatura(mov.cartaoId, ano, mes);
       return faturaData?.fatura?.paga === true;
-    } catch {
-      // Se não encontrou fatura, não bloqueia
-      return false;
-    }
+    } catch { return false; }
   }
 
   function abrirNovo() {
@@ -124,26 +115,13 @@ export default function TransacoesPage() {
   }
 
   async function editarItem(mov: Transacao) {
-    // ✅ Bloqueia edição de parceladas em crédito com fatura fechada/paga
-    if (await faturaParcelaEstaBloqueada(mov)) {
-      setModalFaturaFechada(true);
-      return;
-    }
-
+    if (await faturaParcelaEstaBloqueada(mov)) { setModalFaturaFechada(true); return; }
     const isParcelada  = !!mov.parcelamentoId;
     const isRecorrente = !!mov.recorrenciaId;
-
     setEditando(mov);
-
-    if (isParcelada) {
-      setTipoEdicao("todas_parcelas");
-      setOpenModal(true);
-    } else if (isRecorrente) {
-      setModalEdicao(true);
-    } else {
-      setTipoEdicao("unica");
-      setOpenModal(true);
-    }
+    if (isParcelada) { setTipoEdicao("todas_parcelas"); setOpenModal(true); }
+    else if (isRecorrente) { setModalEdicao(true); }
+    else { setTipoEdicao("unica"); setOpenModal(true); }
   }
 
   function confirmarExclusao(mov: Transacao) {
@@ -201,10 +179,7 @@ export default function TransacoesPage() {
       <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mb-2 max-w-md mx-auto px-4">
         Você precisa cadastrar pelo menos uma conta bancária antes de registrar movimentações.
       </p>
-      <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto px-4">
-        As movimentações são vinculadas a contas para calcular saldos e gerar relatórios precisos.
-      </p>
-      <Button onClick={() => router.push('/contas')} size="lg" className="bg-blue-700 hover:bg-blue-900">
+      <Button onClick={() => router.push("/contas")} size="lg" className="bg-blue-700 hover:bg-blue-900">
         <BsBank className="mr-2 text-xl" />
         Cadastrar Primeira Conta
       </Button>
@@ -217,7 +192,7 @@ export default function TransacoesPage() {
     return (
       <div className="page-container mx-auto p-4 md:p-6">
         <div className="flex items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700" />
         </div>
       </div>
     );
@@ -265,7 +240,7 @@ export default function TransacoesPage() {
               <Button
                 onClick={abrirNovo}
                 disabled={criarTransacao.isPending}
-                className="flex items-center gap-2 bg-blue-700 hover:bg-blue-900 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 bg-blue-700 hover:bg-blue-900 text-white disabled:opacity-50"
               >
                 <MdAdd className="text-xl" />
                 {criarTransacao.isPending ? "Criando..." : "Nova Movimentação"}
@@ -315,7 +290,6 @@ export default function TransacoesPage() {
         }}
       />
 
-      {/* ✅ Aviso de fatura fechada/paga */}
       <FaturaFechadaModal
         open={modalFaturaFechada}
         onClose={() => setModalFaturaFechada(false)}

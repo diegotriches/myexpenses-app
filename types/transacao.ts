@@ -17,23 +17,24 @@ export interface TransacaoBase {
   data: string | Date;
   tipo: TipoTransacao;
   descricao?: string | null;
-  valor: number | string; // NUMERIC do PostgreSQL pode vir como string
+  valor: number | string;
   categoria?: string | null;
   formaPagamento?: FormaPagamento | null;
   contaId: string;
   cartaoId?: number | null;
-  
+  estabelecimentoId?: string | null;
+
   // Parcelamento
   parcelado?: boolean;
   parcelamentoId?: string | null;
   parcelas?: number | null;
   parcelaAtual?: number | null;
-  
+
   // Recorrência
   recorrente?: boolean;
   recorrenciaId?: string | null;
   repeticoes?: number | null;
-  
+
   // Transferência
   transferenciaId?: string | null;
 }
@@ -53,17 +54,18 @@ export interface Transacao extends TransacaoBase {
 export interface CreateTransacaoDTO {
   tipo: TipoTransacao;
   valor: number;
-  data: string; // ISO date: YYYY-MM-DD
+  data: string;
   descricao?: string;
   categoria?: string;
   formaPagamento?: FormaPagamento;
   contaId: string;
   cartaoId?: number;
-  
+  estabelecimentoId?: string;
+
   // Parcelamento
   parcelado?: boolean;
   parcelas?: number;
-  
+
   // Recorrência
   recorrente?: boolean;
   repeticoes?: number;
@@ -82,13 +84,12 @@ export interface UpdateTransacaoDTO {
   formaPagamento?: FormaPagamento;
   contaId?: string;
   cartaoId?: number | null;
-  
-  // ✅ Parcelamento — necessário para converter à vista → parcelado
+  estabelecimentoId?: string | null;
+
   parcelado?: boolean;
   parcelas?: number | null;
   parcelamentoId?: string | null;
 
-  // ✅ Recorrência — necessário para converter à vista → recorrente
   recorrente?: boolean;
   repeticoes?: number | null;
   recorrenciaId?: string | null;
@@ -99,13 +100,14 @@ export interface UpdateTransacaoDTO {
  */
 export interface FiltrosTransacao {
   ano?: number;
-  mes?: number; // 1-12
+  mes?: number;
   tipo?: TipoTransacao;
   categoria?: string;
   formaPagamento?: FormaPagamento;
   contaId?: string;
   cartaoId?: number;
-  busca?: string; // Busca por descrição
+  estabelecimentoId?: string;
+  busca?: string;
 }
 
 /**
@@ -118,6 +120,7 @@ export interface CreateTransacaoCartaoDTO {
   valor: number;
   data?: string;
   categoria?: string;
+  estabelecimentoId?: string;
   parcelado?: boolean;
   parcelas?: number;
 }
@@ -135,18 +138,12 @@ export interface TransacaoCartaoResponse {
 // HELPERS
 // ========================================
 
-/**
- * Converte valor de transação para number
- */
 export function transacaoValorAsNumber(transacao: Transacao): number {
   return typeof transacao.valor === 'string'
     ? parseFloat(transacao.valor)
     : transacao.valor;
 }
 
-/**
- * Formata data de transação
- */
 export function formatarDataTransacao(data: string | Date): string {
   try {
     const date = typeof data === 'string' ? new Date(data) : data;
@@ -160,73 +157,35 @@ export function formatarDataTransacao(data: string | Date): string {
   }
 }
 
-/**
- * Verifica se transação é parcelada
- */
 export function isTransacaoParcelada(transacao: Transacao): boolean {
   return !!transacao.parcelado && !!transacao.parcelas && transacao.parcelas > 1;
 }
 
-/**
- * Verifica se transação é recorrente
- */
 export function isTransacaoRecorrente(transacao: Transacao): boolean {
   return !!transacao.recorrente && !!transacao.recorrenciaId;
 }
 
-/**
- * Verifica se transação é de transferência
- */
 export function isTransferenciaManual(transacao: Transacao): boolean {
   return transacao.formaPagamento === 'transferencia' && !!transacao.transferenciaId;
 }
 
-/**
- * Valida dados de criação de transação
- */
 export function validarTransacao(
   dados: CreateTransacaoDTO
 ): { valido: boolean; erro?: string } {
-  if (!dados.tipo) {
-    return { valido: false, erro: "Tipo é obrigatório" };
-  }
-
-  if (!dados.valor || dados.valor <= 0) {
-    return { valido: false, erro: "Valor deve ser maior que zero" };
-  }
-
-  if (!dados.data) {
-    return { valido: false, erro: "Data é obrigatória" };
-  }
-
-  if (!dados.contaId && !dados.cartaoId) {
-    return { valido: false, erro: "Selecione uma conta ou cartão" };
-  }
-
-  if (dados.parcelado && (!dados.parcelas || dados.parcelas < 2)) {
+  if (!dados.tipo) return { valido: false, erro: "Tipo é obrigatório" };
+  if (!dados.valor || dados.valor <= 0) return { valido: false, erro: "Valor deve ser maior que zero" };
+  if (!dados.data) return { valido: false, erro: "Data é obrigatória" };
+  if (!dados.contaId && !dados.cartaoId) return { valido: false, erro: "Selecione uma conta ou cartão" };
+  if (dados.parcelado && (!dados.parcelas || dados.parcelas < 2))
     return { valido: false, erro: "Parcelamento deve ter pelo menos 2 parcelas" };
-  }
-
-  if (dados.recorrente && (!dados.repeticoes || dados.repeticoes < 2)) {
+  if (dados.recorrente && (!dados.repeticoes || dados.repeticoes < 2))
     return { valido: false, erro: "Recorrência deve ter pelo menos 2 repetições" };
-  }
-
   return { valido: true };
 }
 
-/**
- * Formata descrição de transação parcelada/recorrente
- */
 export function formatarDescricaoTransacao(transacao: Transacao): string {
   const base = transacao.descricao || "Sem descrição";
-  
-  if (isTransacaoParcelada(transacao)) {
-    return `${base} (${transacao.parcelaAtual}/${transacao.parcelas})`;
-  }
-  
-  if (isTransacaoRecorrente(transacao)) {
-    return `${base} (Recorrente)`;
-  }
-  
+  if (isTransacaoParcelada(transacao)) return `${base} (${transacao.parcelaAtual}/${transacao.parcelas})`;
+  if (isTransacaoRecorrente(transacao)) return `${base} (Recorrente)`;
   return base;
 }

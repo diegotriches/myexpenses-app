@@ -21,6 +21,7 @@ import {
   BsTags,
   BsCreditCard,
   BsFillGearFill,
+  BsShop, // ✅ NOVO: ícone para Estabelecimentos
 } from "react-icons/bs";
 import { MdOutlineAutoGraph } from "react-icons/md";
 import { Menu, ChevronRight } from "lucide-react";
@@ -31,22 +32,20 @@ interface SidebarProps {
 
 const Sidebar = ({ isCollapsed }: SidebarProps) => {
   const { data: userData, isLoading: loading } = useProfile();
-  
-  const [fotoError, setFotoError] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+
+  const [fotoError,   setFotoError]   = useState(false);
+  const [mobileOpen,  setMobileOpen]  = useState(false);
+  const [isHovered,   setIsHovered]   = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
+  const router   = useRouter();
 
   const touchStartX = useRef<number>(0);
-  const touchEndX = useRef<number>(0);
+  const touchEndX   = useRef<number>(0);
   const sheetContentRef = useRef<HTMLDivElement>(null);
 
   const isExpanded = !isCollapsed || isHovered;
 
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === href;
@@ -54,10 +53,10 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   };
 
   const linkClasses = (href: string) => {
-    const base = "flex items-center gap-3 p-3 rounded-lg transition-all duration-200 relative group";
-    const hover = "hover:bg-blue-600 dark:hover:bg-blue-500 hover:shadow-md";
-    const active = isActive(href) 
-      ? "bg-blue-600 dark:bg-blue-500 shadow-md" 
+    const base   = "flex items-center gap-3 p-3 rounded-lg transition-all duration-200 relative group";
+    const hover  = "hover:bg-blue-600 dark:hover:bg-blue-500 hover:shadow-md";
+    const active = isActive(href)
+      ? "bg-blue-600 dark:bg-blue-500 shadow-md"
       : "hover:bg-blue-600/50 dark:hover:bg-blue-500/50";
     return `${base} ${hover} ${active}`;
   };
@@ -66,35 +65,36 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     {
       title: "Principal",
       links: [
-        { href: "/dashboard",  icon: BsHouse,          label: "Dashboard"     },
-        { href: "/transacoes", icon: BsArrowLeftRight,  label: "Movimentações" },
+        { href: "/dashboard",  icon: BsHouse,         label: "Dashboard"     },
+        { href: "/transacoes", icon: BsArrowLeftRight, label: "Movimentações" },
       ],
     },
     {
       title: "Financeiro",
       links: [
-        { href: "/contas",     icon: BsBank,       label: "Contas"     },
-        { href: "/cartoes",    icon: BsCreditCard, label: "Cartões"    },
-        { href: "/categorias", icon: BsTags,       label: "Categorias" },
+        { href: "/contas",             icon: BsBank,       label: "Contas"             },
+        { href: "/cartoes",            icon: BsCreditCard, label: "Cartões"            },
+        { href: "/categorias",         icon: BsTags,       label: "Categorias"         },
+        { href: "/estabelecimentos",   icon: BsShop,       label: "Estabelecimentos"   }, // ✅ NOVO
       ],
     },
   ];
 
-  const NavLink = ({ 
-    href, 
-    icon: Icon, 
-    label, 
-    isMobile = false 
-  }: { 
-    href: string; 
-    icon: any; 
+  const NavLink = ({
+    href,
+    icon: Icon,
+    label,
+    isMobile = false,
+  }: {
+    href: string;
+    icon: any;
     label: string;
     isMobile?: boolean;
   }) => {
     const content = (
       <Link href={href} className={linkClasses(href)}>
         <Icon size={20} className="flex-shrink-0" />
-        <span 
+        <span
           className={`
             font-medium whitespace-nowrap
             transition-all duration-300
@@ -120,9 +120,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>{content}</TooltipTrigger>
-            <TooltipContent side="right" className="font-medium">
-              {label}
-            </TooltipContent>
+            <TooltipContent side="right" className="font-medium">{label}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       );
@@ -134,18 +132,13 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   const UserProfileCard = ({ isMobile = false }: { isMobile?: boolean }) => {
     const getInitials = () => {
       if (userData?.name) {
-        return userData.name
-          .split(' ')
-          .map(n => n[0])
-          .join('')
-          .slice(0, 2)
-          .toUpperCase();
+        return userData.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
       }
       return userData?.email?.[0]?.toUpperCase() || "U";
     };
 
-    const initials = getInitials();
-    const displayName = userData?.name || "Usuário";
+    const initials     = getInitials();
+    const displayName  = userData?.name  || "Usuário";
     const displayEmail = userData?.email || "";
 
     const cardContent = (
@@ -167,10 +160,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
                 src={userData.image}
                 alt={displayName}
                 className="w-full h-full object-cover"
-                onError={() => {
-                  console.error("❌ Erro ao carregar foto:", userData.image);
-                  setFotoError(true);
-                }}
+                onError={() => setFotoError(true)}
               />
             ) : (
               <span className="text-white font-bold text-sm">{initials}</span>
@@ -179,10 +169,9 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-blue-800 dark:border-slate-800 rounded-full" />
         </div>
 
-        <div 
+        <div
           className={`
-            text-left overflow-hidden
-            transition-all duration-300
+            text-left overflow-hidden transition-all duration-300
             ${isExpanded || isMobile
               ? "opacity-100 max-w-[160px] flex-1 min-w-0"
               : "opacity-0 max-w-0 flex-none pointer-events-none"
@@ -204,14 +193,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           )}
         </div>
 
-        <div className={`
-          transition-all duration-300 overflow-hidden flex-shrink-0
-          ${isExpanded || isMobile ? "max-w-[16px] opacity-100" : "max-w-0 opacity-0"}
-        `}>
-          <ChevronRight 
-            size={16} 
-            className="text-blue-200 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" 
-          />
+        <div className={`transition-all duration-300 overflow-hidden flex-shrink-0 ${isExpanded || isMobile ? "max-w-[16px] opacity-100" : "max-w-0 opacity-0"}`}>
+          <ChevronRight size={16} className="text-blue-200 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
       </button>
     );
@@ -224,9 +207,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
             <TooltipContent side="right" className="font-medium">
               <div className="text-left">
                 <p className="font-semibold">{displayName}</p>
-                {displayEmail && (
-                  <p className="text-xs text-muted-foreground">{displayEmail}</p>
-                )}
+                {displayEmail && <p className="text-xs text-muted-foreground">{displayEmail}</p>}
               </div>
             </TooltipContent>
           </Tooltip>
@@ -245,14 +226,10 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-all border border-blue-100 dark:border-slate-700">
             <BsCashCoin size={24} className="text-blue-600 dark:text-blue-400" />
           </div>
-          <span 
+          <span
             className={`
-              text-xl font-bold text-white whitespace-nowrap
-              transition-all duration-300
-              ${isExpanded || isMobile
-                ? "opacity-100 translate-x-0"
-                : "opacity-0 -translate-x-4 absolute pointer-events-none"
-              }
+              text-xl font-bold text-white whitespace-nowrap transition-all duration-300
+              ${isExpanded || isMobile ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 absolute pointer-events-none"}
             `}
           >
             MyExpenses
@@ -264,15 +241,11 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       <div className="flex-1 flex flex-col gap-6 overflow-y-auto overflow-x-hidden">
         {navigationGroups.map((group) => (
           <div key={group.title}>
-            <p 
+            <p
               className={`
-                text-xs font-semibold text-blue-200 dark:text-slate-400 
-                uppercase tracking-wider mb-2 px-3
-                transition-all duration-300
-                ${isExpanded || isMobile
-                  ? "opacity-100 translate-x-0"
-                  : "opacity-0 -translate-x-4 absolute pointer-events-none"
-                }
+                text-xs font-semibold text-blue-200 dark:text-slate-400
+                uppercase tracking-wider mb-2 px-3 transition-all duration-300
+                ${isExpanded || isMobile ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 absolute pointer-events-none"}
               `}
             >
               {group.title}
@@ -285,33 +258,21 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           </div>
         ))}
 
-        {/* Resumo Anual + Ajustes no final */}
+        {/* Análise + Ajustes */}
         <div className="mt-auto flex flex-col gap-1">
-          {/* Resumo Anual — acima do separador */}
           <p
             className={`
               text-xs font-semibold text-blue-200 dark:text-slate-400
-              uppercase tracking-wider mb-2 px-3
-              transition-all duration-300
-              ${isExpanded || isMobile
-                ? "opacity-100 translate-x-0"
-                : "opacity-0 -translate-x-4 absolute pointer-events-none"
-              }
+              uppercase tracking-wider mb-2 px-3 transition-all duration-300
+              ${isExpanded || isMobile ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 absolute pointer-events-none"}
             `}
           >
             Análise
           </p>
-          <NavLink
-            href="/resumo-anual"
-            icon={MdOutlineAutoGraph}
-            label="Resumo Anual"
-            isMobile={isMobile}
-          />
+          <NavLink href="/resumo-anual" icon={MdOutlineAutoGraph} label="Resumo Anual" isMobile={isMobile} />
 
-          {/* Separador */}
           <div className="border-t border-blue-600 dark:border-slate-700 my-2" />
 
-          {/* Ajustes */}
           <NavLink href="/ajustes" icon={BsFillGearFill} label="Ajustes" isMobile={isMobile} />
         </div>
       </div>
@@ -336,9 +297,9 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       <nav
         className={`
           hidden md:flex fixed top-0 left-0 h-screen
-          bg-gradient-to-b from-blue-600 to-blue-700 
+          bg-gradient-to-b from-blue-600 to-blue-700
           dark:from-slate-950 dark:via-slate-900 dark:to-slate-950
-          text-white p-4 flex-col 
+          text-white p-4 flex-col
           transition-all duration-300 shadow-2xl z-40
           border-r border-blue-800 dark:border-slate-800
           overflow-x-hidden
@@ -362,13 +323,13 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent 
+          <SheetContent
             ref={sheetContentRef}
             side="left"
             className="
-              w-64 p-4 
-              bg-gradient-to-b from-blue-600 to-blue-700 
-              dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 
+              w-64 p-4
+              bg-gradient-to-b from-blue-600 to-blue-700
+              dark:from-slate-950 dark:via-slate-900 dark:to-slate-950
               text-white border-none
               [&>button]:hidden
             "
@@ -376,15 +337,13 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
             <VisuallyHidden>
               <SheetTitle>Menu de Navegação</SheetTitle>
             </VisuallyHidden>
-            <div 
+            <div
               className="flex flex-col h-full relative"
               onTouchStart={(e) => {
                 touchStartX.current = e.touches[0].clientX;
                 touchEndX.current   = e.touches[0].clientX;
               }}
-              onTouchMove={(e) => {
-                touchEndX.current = e.touches[0].clientX;
-              }}
+              onTouchMove={(e) => { touchEndX.current = e.touches[0].clientX; }}
               onTouchEnd={() => {
                 const swipeDistance = touchStartX.current - touchEndX.current;
                 if (swipeDistance > 50) setMobileOpen(false);
