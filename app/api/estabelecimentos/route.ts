@@ -10,7 +10,8 @@ import { getUserId } from "@/lib/auth";
  *
  * Retorna todos os estabelecimentos do usuário com stats calculados:
  * - totalTransacoes: quantidade de transações vinculadas
- * - totalGasto: soma dos valores das transações vinculadas
+ * - totalEntrada: soma dos valores das transações do tipo "entrada"
+ * - totalSaida: soma dos valores das transações do tipo "saida"
  */
 export async function GET() {
   try {
@@ -19,7 +20,6 @@ export async function GET() {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    // Busca estabelecimentos com stats em uma única query via LEFT JOIN + GROUP BY
     const resultado = await db.execute(sql`
       SELECT
         e.id,
@@ -30,7 +30,8 @@ export async function GET() {
         e.created_at     AS "createdAt",
         e.updated_at     AS "updatedAt",
         COUNT(t.id)::int AS "totalTransacoes",
-        COALESCE(SUM(CAST(t.valor AS NUMERIC)), 0)::float AS "totalGasto"
+        COALESCE(SUM(CASE WHEN t.tipo = 'entrada' THEN CAST(t.valor AS NUMERIC) ELSE 0 END), 0)::float AS "totalEntrada",
+        COALESCE(SUM(CASE WHEN t.tipo = 'saida'   THEN CAST(t.valor AS NUMERIC) ELSE 0 END), 0)::float AS "totalSaida"
       FROM estabelecimentos e
       LEFT JOIN transacoes t
         ON t.estabelecimento_id = e.id
@@ -82,7 +83,7 @@ export async function POST(req: Request) {
       .returning();
 
     return NextResponse.json(
-      { ...novo, totalTransacoes: 0, totalGasto: 0 },
+      { ...novo, totalTransacoes: 0, totalEntrada: 0, totalSaida: 0 },
       { status: 201 }
     );
   } catch (error) {

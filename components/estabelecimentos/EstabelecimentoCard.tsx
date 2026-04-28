@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Edit, Trash2, MapPin, Receipt, TrendingDown } from "lucide-react";
+import { MoreVertical, Edit, Trash2, MapPin, Receipt, TrendingDown, TrendingUp } from "lucide-react";
 import { iconOptions } from "@/utils/iconOptions";
 import { Estabelecimento } from "@/types/estabelecimento";
 import { useHideValues } from "@/contexts/HideValuesContext";
@@ -27,7 +27,13 @@ export default function EstabelecimentoCard({ estabelecimento, onEditar, onExclu
   const { mask } = useHideValues();
   const IconComp = iconOptions.find((i) => i.name === estabelecimento.icone)?.component || null;
 
+  const totalEntrada    = estabelecimento.totalEntrada    ?? 0;
+  const totalSaida      = estabelecimento.totalSaida      ?? 0;
   const temMovimentacao = (estabelecimento.totalTransacoes ?? 0) > 0;
+
+  const soPossuiEntrada = totalEntrada > 0 && totalSaida === 0;
+  const soPossuiSaida   = totalSaida   > 0 && totalEntrada === 0;
+  const possuiAmbos     = totalEntrada > 0 && totalSaida   > 0;
 
   return (
     <Card
@@ -38,7 +44,6 @@ export default function EstabelecimentoCard({ estabelecimento, onEditar, onExclu
       <CardContent className="p-4 space-y-3">
         {/* ── Linha superior: ícone + nome + menu ── */}
         <div className="flex items-center gap-3">
-          {/* Ícone */}
           <div
             className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 flex items-center justify-center shadow-md"
             aria-hidden="true"
@@ -50,7 +55,6 @@ export default function EstabelecimentoCard({ estabelecimento, onEditar, onExclu
             )}
           </div>
 
-          {/* Nome + localização */}
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-base text-gray-900 dark:text-white truncate">
               {estabelecimento.nome}
@@ -67,7 +71,6 @@ export default function EstabelecimentoCard({ estabelecimento, onEditar, onExclu
             )}
           </div>
 
-          {/* Menu ⋮ */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -103,18 +106,57 @@ export default function EstabelecimentoCard({ estabelecimento, onEditar, onExclu
               Sem movimentações registradas
             </p>
           ) : (
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+            <div className="space-y-1">
+              {/* Contador de transações */}
+              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mb-1">
                 <Receipt size={12} />
                 <span>
                   {estabelecimento.totalTransacoes}{" "}
                   {estabelecimento.totalTransacoes === 1 ? "transação" : "transações"}
                 </span>
               </div>
-              <div className="flex items-center gap-1 text-xs font-semibold tabular-nums text-red-600 dark:text-red-400">
-                <TrendingDown size={12} />
-                <span>{mask(formatarMoeda(estabelecimento.totalGasto ?? 0))}</span>
-              </div>
+
+              {/* Só entradas */}
+              {soPossuiEntrada && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-green-600 dark:text-green-400">Receitas</span>
+                  <div className="flex items-center gap-1 text-xs font-semibold tabular-nums text-green-600 dark:text-green-400">
+                    <TrendingUp size={12} />
+                    <span>{mask(formatarMoeda(totalEntrada))}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Só saídas */}
+              {soPossuiSaida && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-red-600 dark:text-red-400">Despesas</span>
+                  <div className="flex items-center gap-1 text-xs font-semibold tabular-nums text-red-600 dark:text-red-400">
+                    <TrendingDown size={12} />
+                    <span>{mask(formatarMoeda(totalSaida))}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Ambos — exibe as duas linhas */}
+              {possuiAmbos && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-green-600 dark:text-green-400">Receitas</span>
+                    <div className="flex items-center gap-1 text-xs font-semibold tabular-nums text-green-600 dark:text-green-400">
+                      <TrendingUp size={12} />
+                      <span>{mask(formatarMoeda(totalEntrada))}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-red-600 dark:text-red-400">Despesas</span>
+                    <div className="flex items-center gap-1 text-xs font-semibold tabular-nums text-red-600 dark:text-red-400">
+                      <TrendingDown size={12} />
+                      <span>{mask(formatarMoeda(totalSaida))}</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

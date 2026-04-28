@@ -17,7 +17,8 @@ export interface Estabelecimento {
   updatedAt: string | Date;
   // Campos calculados retornados pela API (não persistidos)
   totalTransacoes?: number;
-  totalGasto?: number;
+  totalEntrada?: number;  // soma das transações tipo "entrada"
+  totalSaida?: number;    // soma das transações tipo "saida"
 }
 
 /**
