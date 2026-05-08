@@ -100,21 +100,6 @@ export function DrizzleAdapter(): Adapter {
       await db.delete(users).where(eq(users.id, userId));
     },
 
-    /**
-     * ✅ CORRIGIDO: usa upsert em vez de insert puro.
-     *
-     * O schema original tinha uniqueIndex em userId, o que causava violação
-     * de constraint ao reautorizar (ex: novo login Google para adicionar scope
-     * do Drive). O INSERT falhava silenciosamente no NextAuth, e o novo
-     * refresh_token gerado pelo Google nunca era persistido no banco.
-     *
-     * Agora: se já existe uma conta para (provider + providerAccountId),
-     * atualiza os tokens. Se não existe, insere.
-     *
-     * Importante: o refresh_token do Google só vem em alguns cenários
-     * (primeiro login ou após prompt=consent). Quando presente, sempre
-     * persiste. Quando ausente (renovação normal), preserva o existente.
-     */
     async linkAccount(account: AdapterAccount): Promise<void> {
       const existing = await db
         .select({ id: accounts.id, refresh_token: accounts.refresh_token })
