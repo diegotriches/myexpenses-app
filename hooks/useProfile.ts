@@ -108,11 +108,17 @@ export function useDeletarConta() {
     mutationFn: ({ userId, senha }: { userId: string; senha: string }) =>
       profileService.deletarConta(userId, senha),
 
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Conta deletada",
         description: "Sua conta foi excluída permanentemente.",
       });
+
+      // ✅ CORRIGIDO: signOut primeiro para invalidar o cookie JWT no browser.
+      // Sem isso, o token continua válido e o AutoLoginWrapper redireciona o
+      // usuário para /dashboard mesmo após a exclusão da conta no banco.
+      const { signOut } = await import("next-auth/react");
+      await signOut({ redirect: false });
 
       setTimeout(() => {
         window.location.href = "/";
