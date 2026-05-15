@@ -1,46 +1,22 @@
+// src/app/api/auth/register/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, verificationTokens } from "@/db/schema";
 import bcryptjs from "bcryptjs";
 import { eq } from "drizzle-orm";
+import crypto from "crypto";
 import { criarDadosIniciaisUsuario } from "@/services/onboardingService";
 import { validatePassword } from "@/lib/validators/password";
+import { sendVerificationEmail } from "@/lib/email";
 
-/**
- * POST /api/auth/register
- * 
- * Registra novo usuário com email/senha
- * 
- * Body:
- * - name: string (obrigatório, min 2 chars)
- * - email: string (obrigatório, formato válido)
- * - password: string (obrigatório, senha forte)
- * 
- * Retorna:
- * - 201: Usuário criado com sucesso
- * - 400: Validação falhou
- * - 409: Email já cadastrado
- * - 500: Erro interno
- */
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { name, email, password } = body;
 
-    console.log("📝 Tentativa de registro:", email);
+    // ── Validações ────────────────────────────────────────────────────────────
 
-    // ========================================
-    // VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS
-    // ========================================
-    
-    if (!name || typeof name !== "string") {
-      return NextResponse.json(
-        { error: "Nome é obrigatório" },
-        { status: 400 }
-      );
-    }
-
-    if (name.trim().length < 2) {
+    if (!name || typeof name !== "string" || name.trim().length < 2) {
       return NextResponse.json(
         { error: "Nome deve ter pelo menos 2 caracteres" },
         { status: 400 }
@@ -48,32 +24,17 @@ export async function POST(req: Request) {
     }
 
     if (!email || typeof email !== "string") {
-      return NextResponse.json(
-        { error: "Email é obrigatório" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Email é obrigatório" }, { status: 400 });
     }
 
-    // ========================================
-    // VALIDAÇÃO DE EMAIL
-    // ========================================
-    
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: "Email inválido" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Email inválido" }, { status: 400 });
     }
 
-    const emailLowerCase = email.toLowerCase().trim();
+    const emailLower = email.toLowerCase().trim();
 
-    // ========================================
-    // VALIDAÇÃO DE SENHA FORTE (usando validator)
-    // ========================================
-    
     const passwordValidation = validatePassword(password);
-    
     if (!passwordValidation.valid) {
       return NextResponse.json(
         { error: passwordValidation.error },
@@ -81,80 +42,105 @@ export async function POST(req: Request) {
       );
     }
 
-    // ========================================
-    // VERIFICAR SE USUÁRIO JÁ EXISTE
-    // ========================================
-    
+    // ── Verificar e-mail duplicado ────────────────────────────────────────────
+
     const [existingUser] = await db
-      .select({ id: users.id, email: users.email })
+      .select({ id: users.id, emailVerified: users.emailVerified })
       .from(users)
-      .where(eq(users.email, emailLowerCase))
+      .where(eq(users.email, emailLower))
       .limit(1);
 
     if (existingUser) {
-      console.log("⚠️ Email já cadastrado:", emailLowerCase);
+      // ✅ Se existir mas não verificado, reenvia o e-mail em vez de bloquear
+      if (!existingUser.emailVerified) {
+        // Remove token anterior e gera novo
+        await db
+          .delete(verificationTokens)
+          .where(eq(verificationTokens.identifier, emailLower));
+
+        const token   = crypto.randomBytes(32).toString("hex");
+        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await db.insert(verificationTokens).values({
+          identifier: emailLower,
+          token,
+          expires,
+        });
+
+        const [user] = await db
+          .select({ name: users.name })
+          .from(users)
+          .where(eq(users.id, existingUser.id))
+          .limit(1);
+
+        await sendVerificationEmail(emailLower, user?.name ?? "Usuário", token)
+          .catch((err) => console.error("Erro ao reenviar verificação:", err));
+
+        return NextResponse.json(
+          {
+            error:     "Este e-mail já está cadastrado mas não foi verificado. " +
+                       "Enviamos um novo link de verificação para sua caixa de entrada.",
+            needsVerification: true,
+          },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Este email já está cadastrado. Faça login ou recupere sua senha." },
         { status: 409 }
       );
     }
 
-    // ========================================
-    // CRIAR HASH DA SENHA
-    // ========================================
-    
+    // ── Criar usuário ─────────────────────────────────────────────────────────
+
     const hashedPassword = await bcryptjs.hash(password, 12);
 
-    // ========================================
-    // CRIAR USUÁRIO NO BANCO
-    // ========================================
-    
     const [newUser] = await db
       .insert(users)
       .values({
-        name: name.trim(),
-        email: emailLowerCase,
+        name:     name.trim(),
+        email:    emailLower,
         password: hashedPassword,
+        // emailVerified permanece null até o usuário clicar no link
       })
-      .returning({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-      });
+      .returning({ id: users.id, name: users.name, email: users.email });
 
     console.log("✅ Usuário criado:", newUser.email);
 
-    // ========================================
-    // CRIAR DADOS INICIAIS (ONBOARDING)
-    // ========================================
-    
+    // ── Onboarding ────────────────────────────────────────────────────────────
+
     try {
       await criarDadosIniciaisUsuario(newUser.id);
-      console.log("✅ Onboarding concluído para:", newUser.email);
-    } catch (onboardingError) {
-      console.error("❌ Erro no onboarding (não bloqueia registro):", onboardingError);
-      // Não bloquear registro se onboarding falhar
+    } catch (err) {
+      console.error("❌ Erro no onboarding (não bloqueia registro):", err);
     }
 
-    // ========================================
-    // RETORNAR SUCESSO
-    // ========================================
-    
+    // ── Gerar token de verificação e enviar e-mail ────────────────────────────
+
+    const token   = crypto.randomBytes(32).toString("hex");
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
+    await db.insert(verificationTokens).values({
+      identifier: emailLower,
+      token,
+      expires,
+    });
+
+    // Envia em background — não bloqueia a resposta se falhar
+    sendVerificationEmail(emailLower, newUser.name ?? "Usuário", token)
+      .then(() => console.log("✅ E-mail de verificação enviado:", emailLower))
+      .catch((err) => console.error("❌ Erro ao enviar e-mail de verificação:", err));
+
     return NextResponse.json(
       {
-        message: "Conta criada com sucesso! Você já pode fazer login.",
-        user: {
-          id: newUser.id,
-          name: newUser.name,
-          email: newUser.email,
-        },
+        message: "Conta criada! Verifique sua caixa de entrada para ativar sua conta.",
+        user: { id: newUser.id, name: newUser.name, email: newUser.email },
       },
       { status: 201 }
     );
-
   } catch (error) {
     console.error("❌ Erro ao registrar usuário:", error);
-    
     return NextResponse.json(
       { error: "Erro ao criar conta. Tente novamente mais tarde." },
       { status: 500 }

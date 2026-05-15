@@ -1,40 +1,43 @@
 // src/lib/email.ts
 
-import nodemailer from 'nodemailer';
+import nodemailer from "nodemailer";
 
 // ========================================
 // VALIDAÇÕES E INICIALIZAÇÃO
 // ========================================
 
 if (!process.env.GMAIL_USER) {
-  console.error('❌ [EMAIL] GMAIL_USER não está definido no .env');
+  console.error("❌ [EMAIL] GMAIL_USER não está definido no .env");
   throw new Error(
-    '❌ GMAIL_USER não está definido.\n' +
-    'Configure a variável GMAIL_USER no arquivo .env.local\n' +
-    'Exemplo: GMAIL_USER=myexpenses.noreply@gmail.com'
+    "❌ GMAIL_USER não está definido.\n" +
+      "Configure a variável GMAIL_USER no arquivo .env.local\n" +
+      "Exemplo: GMAIL_USER=myexpenses.noreply@gmail.com",
   );
 }
 
 if (!process.env.GMAIL_APP_PASSWORD) {
-  console.error('❌ [EMAIL] GMAIL_APP_PASSWORD não está definido no .env');
+  console.error("❌ [EMAIL] GMAIL_APP_PASSWORD não está definido no .env");
   throw new Error(
-    '❌ GMAIL_APP_PASSWORD não está definido.\n' +
-    'Configure a variável GMAIL_APP_PASSWORD no arquivo .env.local\n' +
-    'Gere em: myaccount.google.com → Segurança → Senhas de app'
+    "❌ GMAIL_APP_PASSWORD não está definido.\n" +
+      "Configure a variável GMAIL_APP_PASSWORD no arquivo .env.local\n" +
+      "Gere em: myaccount.google.com → Segurança → Senhas de app",
   );
 }
 
 // Inicializar transporter do Nodemailer com Gmail
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: "gmail",
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
   },
 });
 
-if (process.env.NODE_ENV === 'development') {
-  console.log('✅ [EMAIL] Nodemailer inicializado com Gmail:', process.env.GMAIL_USER);
+if (process.env.NODE_ENV === "development") {
+  console.log(
+    "✅ [EMAIL] Nodemailer inicializado com Gmail:",
+    process.env.GMAIL_USER,
+  );
 }
 
 // ========================================
@@ -42,8 +45,8 @@ if (process.env.NODE_ENV === 'development') {
 // ========================================
 
 const EMAIL_FROM = `MyExpenses <${process.env.GMAIL_USER}>`;
-const APP_NAME = 'MyExpenses';
-const APP_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+const APP_NAME = "MyExpenses";
+const APP_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
 // Rate limiting simples (em memória)
 const emailRateLimit = new Map<string, number>();
@@ -119,16 +122,18 @@ export async function sendEmail({
 }: SendEmailParams): Promise<SendEmailResult> {
   try {
     if (!isValidEmail(to)) {
-      console.error('❌ [EMAIL] Email inválido:', to);
-      throw new Error('Email inválido');
+      console.error("❌ [EMAIL] Email inválido:", to);
+      throw new Error("Email inválido");
     }
 
     if (!checkRateLimit(to)) {
-      throw new Error('Rate limit atingido. Tente novamente em alguns minutos.');
+      throw new Error(
+        "Rate limit atingido. Tente novamente em alguns minutos.",
+      );
     }
 
-    console.log('📧 [EMAIL] Enviando email para:', to);
-    console.log('📧 [EMAIL] Assunto:', subject);
+    console.log("📧 [EMAIL] Enviando email para:", to);
+    console.log("📧 [EMAIL] Assunto:", subject);
 
     const info = await transporter.sendMail({
       from: EMAIL_FROM,
@@ -140,21 +145,20 @@ export async function sendEmail({
 
     updateRateLimit(to);
 
-    console.log('✅ [EMAIL] Enviado com sucesso:', info.messageId);
+    console.log("✅ [EMAIL] Enviado com sucesso:", info.messageId);
     return { success: true, id: info.messageId };
-
   } catch (error: any) {
-    console.error('❌ [EMAIL] Erro:', error);
+    console.error("❌ [EMAIL] Erro:", error);
     return {
       success: false,
-      error: error.message || 'Erro desconhecido',
+      error: error.message || "Erro desconhecido",
     };
   }
 }
 
 export async function sendEmailWithRetry(
   params: SendEmailParams,
-  maxRetries: number = 3
+  maxRetries: number = 3,
 ): Promise<SendEmailResult> {
   let lastError: any;
 
@@ -168,16 +172,20 @@ export async function sendEmailWithRetry(
 
       lastError = new Error(result.error);
 
-      if (result.error?.includes('inválido') || result.error?.includes('Rate limit')) {
+      if (
+        result.error?.includes("inválido") ||
+        result.error?.includes("Rate limit")
+      ) {
         throw lastError;
       }
 
       if (attempt < maxRetries) {
         const delay = attempt * 1000;
-        console.warn(`⚠️ [EMAIL] Tentativa ${attempt} falhou. Tentando novamente em ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        console.warn(
+          `⚠️ [EMAIL] Tentativa ${attempt} falhou. Tentando novamente em ${delay}ms...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
-
     } catch (error) {
       lastError = error;
       if (attempt === maxRetries) {
@@ -196,7 +204,7 @@ export async function sendEmailWithRetry(
 export async function sendPasswordResetEmail(
   to: string,
   name: string,
-  resetToken: string
+  resetToken: string,
 ) {
   const resetLink = `${APP_URL}/reset-password?token=${resetToken}`;
 
@@ -235,7 +243,7 @@ export async function sendPasswordResetEmail(
             <p style="margin: 0; opacity: 0.9;">MyExpenses - Gestão Financeira</p>
           </div>
           <div class="content">
-            <p style="font-size: 18px; margin-bottom: 10px;">Olá, <strong>${name || 'Usuário'}</strong>!</p>
+            <p style="font-size: 18px; margin-bottom: 10px;">Olá, <strong>${name || "Usuário"}</strong>!</p>
             <p>Recebemos uma solicitação para redefinir a senha da sua conta no <strong>${APP_NAME}</strong>.</p>
             <p>Para criar uma nova senha, clique no botão abaixo:</p>
             <div style="text-align: center;">
@@ -263,7 +271,7 @@ export async function sendPasswordResetEmail(
   const text = `
 Recuperação de Senha - ${APP_NAME}
 
-Olá, ${name || 'Usuário'}!
+Olá, ${name || "Usuário"}!
 
 Acesse o link abaixo para redefinir sua senha:
 ${resetLink}
@@ -277,7 +285,12 @@ ${APP_NAME} - Gestão Financeira Pessoal
 ${APP_URL}
   `;
 
-  return sendEmailWithRetry({ to, subject: `🔐 Recuperação de Senha - ${APP_NAME}`, html, text });
+  return sendEmailWithRetry({
+    to,
+    subject: `🔐 Recuperação de Senha - ${APP_NAME}`,
+    html,
+    text,
+  });
 }
 
 export async function sendPasswordChangedEmail(to: string, name: string) {
@@ -303,7 +316,7 @@ export async function sendPasswordChangedEmail(to: string, name: string) {
         <div class="container">
           <div class="header"><h1>✅ Senha Alterada com Sucesso</h1></div>
           <div class="content">
-            <p style="font-size: 18px;">Olá, <strong>${name || 'Usuário'}</strong>!</p>
+            <p style="font-size: 18px;">Olá, <strong>${name || "Usuário"}</strong>!</p>
             <p>Sua senha foi <strong>alterada com sucesso</strong>. Você já pode fazer login com sua nova senha.</p>
             <div style="text-align: center;">
               <a href="${APP_URL}/login" class="button">Fazer Login</a>
@@ -324,7 +337,7 @@ export async function sendPasswordChangedEmail(to: string, name: string) {
   const text = `
 Senha Alterada com Sucesso - ${APP_NAME}
 
-Olá, ${name || 'Usuário'}!
+Olá, ${name || "Usuário"}!
 
 Sua senha foi alterada com sucesso. Fazer login: ${APP_URL}/login
 
@@ -334,11 +347,22 @@ Sua senha foi alterada com sucesso. Fazer login: ${APP_URL}/login
 ${APP_NAME} - Gestão Financeira Pessoal
   `;
 
-  return sendEmailWithRetry({ to, subject: `✅ Senha Alterada - ${APP_NAME}`, html, text });
+  return sendEmailWithRetry({
+    to,
+    subject: `✅ Senha Alterada - ${APP_NAME}`,
+    html,
+    text,
+  });
 }
 
-export async function sendVerificationEmail(to: string, name: string, verificationToken: string) {
-  const verificationLink = `${APP_URL}/verify-email?token=${verificationToken}`;
+export async function sendVerificationEmail(
+  to: string,
+  name: string,
+  verificationToken: string,
+) {
+  // ✅ CORRIGIDO: encodeURIComponent garante que o token chegue íntegro na URL
+  // mesmo que contenha caracteres especiais (improvável com hex, mas seguro).
+  const verificationLink = `${APP_URL}/verify-email?token=${encodeURIComponent(verificationToken)}`;
 
   const html = `
     <!DOCTYPE html>
@@ -353,44 +377,62 @@ export async function sendVerificationEmail(to: string, name: string, verificati
           .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
           .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center; }
           .content { padding: 40px 30px; }
-          .button { display: inline-block; padding: 16px 32px; background: #667eea; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
-          .link-box { background: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0; word-break: break-all; font-size: 14px; color: #666; }
+          .button { display: inline-block; padding: 16px 32px; background: #667eea; color: white !important; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
+          .link-box { background: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0; word-break: break-all; font-size: 13px; color: #666; font-family: monospace; }
+          .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 8px; margin: 20px 0; color: #856404; font-size: 14px; }
           .footer { background: #f9f9f9; padding: 30px; text-align: center; border-top: 1px solid #e0e0e0; font-size: 14px; color: #888; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="header"><h1>📧 Verifique seu Email</h1></div>
-          <div class="content">
-            <p style="font-size: 18px;">Olá, <strong>${name}</strong>!</p>
-            <p>Obrigado por se cadastrar no <strong>${APP_NAME}</strong>! Para começar, precisamos verificar seu email.</p>
-            <div style="text-align: center;">
-              <a href="${verificationLink}" class="button">Verificar Meu Email</a>
-            </div>
-            <p style="font-size: 14px; color: #888;">Ou copie e cole este link no seu navegador:</p>
-            <div class="link-box">${verificationLink}</div>
-            <p style="font-size: 14px; color: #888; margin-top: 30px;">Este link expira em 24 horas.</p>
+          <div class="header">
+            <h1>📧 Verifique seu Email</h1>
+            <p style="margin: 0; opacity: 0.9;">MyExpenses - Gestão Financeira</p>
           </div>
-          <div class="footer"><p><strong>${APP_NAME}</strong> - Gestão Financeira Pessoal</p></div>
+          <div class="content">
+            <p style="font-size: 18px; margin-bottom: 16px;">Olá, <strong>${name}</strong>!</p>
+            <p style="margin-bottom: 16px;">Obrigado por se cadastrar no <strong>MyExpenses</strong>! Para ativar sua conta, clique no botão abaixo:</p>
+            <div style="text-align: center;">
+              <a href="${verificationLink}" class="button">✅ Verificar Minha Conta</a>
+            </div>
+            <p style="font-size: 14px; color: #888; margin-top: 24px;">Se o botão não funcionar, copie e cole este link no seu navegador:</p>
+            <div class="link-box">${verificationLink}</div>
+            <div class="warning">
+              <strong>⚠️ Este link expira em 24 horas.</strong><br>
+              Se você não criou uma conta no MyExpenses, ignore este e-mail.
+            </div>
+          </div>
+          <div class="footer">
+            <p><strong>MyExpenses</strong> - Gestão Financeira Pessoal</p>
+            <p style="margin-top: 8px; font-size: 12px;">Este é um e-mail automático, por favor não responda.</p>
+          </div>
         </div>
       </body>
     </html>
   `;
 
   const text = `
-Verifique seu Email - ${APP_NAME}
-
+Verifique seu Email - MyExpenses
+ 
 Olá, ${name}!
-
-Para verificar seu email, acesse: ${verificationLink}
-
-Este link expira em 24 horas.
-
+ 
+Para ativar sua conta, acesse o link abaixo:
+${verificationLink}
+ 
+⚠️ Este link expira em 24 horas.
+ 
+Se você não criou uma conta no MyExpenses, ignore este e-mail.
+ 
 ---
-${APP_NAME} - Gestão Financeira Pessoal
+MyExpenses - Gestão Financeira Pessoal
   `;
 
-  return sendEmailWithRetry({ to, subject: `📧 Verifique seu Email - ${APP_NAME}`, html, text });
+  return sendEmailWithRetry({
+    to,
+    subject: `📧 Confirme seu cadastro no MyExpenses`,
+    html,
+    text,
+  });
 }
 
 export async function sendWelcomeEmail(to: string, name: string) {
@@ -432,5 +474,9 @@ export async function sendWelcomeEmail(to: string, name: string) {
     </html>
   `;
 
-  return sendEmailWithRetry({ to, subject: `🎉 Bem-vindo ao ${APP_NAME}!`, html });
+  return sendEmailWithRetry({
+    to,
+    subject: `🎉 Bem-vindo ao ${APP_NAME}!`,
+    html,
+  });
 }

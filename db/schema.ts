@@ -55,27 +55,24 @@ export type NewPreference = typeof preferences.$inferInsert;
 export const accounts = pgTable(
   "accounts",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("userId")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    type: text("type").notNull(),
-    provider: text("provider").notNull(),
-    providerAccountId: text("providerAccountId").notNull(),
-    refresh_token: text("refresh_token"),
-    access_token: text("access_token"),
-    expires_at: integer("expires_at"),
-    token_type: text("token_type"),
-    scope: text("scope"),
-    id_token: text("id_token"),
-    session_state: text("session_state"),
+    userId:            uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    type:              text("type").notNull(),
+    provider:          text("provider").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    refresh_token:     text("refresh_token"),
+    access_token:      text("access_token"),
+    expires_at:        integer("expires_at"),
+    token_type:        text("token_type"),
+    scope:             text("scope"),
+    id_token:          text("id_token"),
+    session_state:     text("session_state"),
   },
   (table) => ({
+    userIdIdx:          index("accounts_user_id_idx").on(table.userId),
     providerAccountIdx: uniqueIndex("accounts_provider_account_idx").on(
       table.provider,
       table.providerAccountId
     ),
-    userIdIdx: uniqueIndex("accounts_user_id_idx").on(table.userId),
   })
 );
 
