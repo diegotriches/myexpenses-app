@@ -1,12 +1,11 @@
 // src/app/api/notificacoes/verificar/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { notificacoes, cartoes, faturas, preferenciasNotificacao, accounts } from "@/db/schema";
+import { notificacoes, cartoes, faturas, preferenciasNotificacao, accounts, users } from "@/db/schema";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 
-// ==================== HELPER ====================
+// ── Helper ────────────────────────────────────────────────────────────────────
 
 async function jaNotificouRecentemente(
   userId: string,
@@ -41,13 +40,29 @@ async function jaNotificouRecentemente(
   return result.length > 0;
 }
 
-// ==================== ROUTE ====================
+// ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
     const userId = await getUserId();
     if (!userId) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
+    // ✅ NOVO: guard contra token JWT órfão após exclusão de conta.
+    // Se o usuário foi deletado mas o cookie de sessão ainda está ativo,
+    // a rota retorna 200 silencioso em vez de 500.
+    const [usuarioExiste] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!usuarioExiste) {
+      return NextResponse.json(
+        { message: "Usuário não encontrado", criadas: 0 },
+        { status: 200 }
+      );
     }
 
     let notificacoesCriadas = 0;
@@ -68,7 +83,7 @@ export async function POST(req: NextRequest) {
 
     const hoje = new Date();
 
-    // ==================== 1. FATURAS ====================
+    // ── 1. Faturas ────────────────────────────────────────────────────────────
     if (prefs.faturas) {
       const cartoesUsuario = await db
         .select()
@@ -82,28 +97,23 @@ export async function POST(req: NextRequest) {
           .where(and(eq(faturas.cartaoId, cartao.id), eq(faturas.paga, false)));
 
         for (const fatura of faturasNaoPagas) {
-          const vencimento = new Date(fatura.ano, fatura.mes - 1, cartao.diaVencimento || 15);
+          const vencimento    = new Date(fatura.ano, fatura.mes - 1, cartao.diaVencimento || 15);
           const diasRestantes = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-
           const metadataFatura = {
             cartaoId: String(cartao.id),
-            mes: String(fatura.mes),
-            ano: String(fatura.ano),
+            mes:      String(fatura.mes),
+            ano:      String(fatura.ano),
           };
-
           const linkFatura = `/cartoes/${cartao.id}/fatura?mes=${fatura.mes}&ano=${fatura.ano}`;
 
           if (diasRestantes < 0) {
             const jaNotificou = await jaNotificouRecentemente(userId, "FATURA_VENCIDA", metadataFatura);
             if (!jaNotificou) {
               await db.insert(notificacoes).values({
-                userId,
-                tipo: "FATURA_VENCIDA",
-                severidade: "error",
-                titulo: `Fatura ${cartao.nome} vencida!`,
+                userId, tipo: "FATURA_VENCIDA", severidade: "error",
+                titulo:   `Fatura ${cartao.nome} vencida!`,
                 mensagem: `A fatura de ${fatura.mes}/${fatura.ano} está atrasada. Valor: R$ ${Number(fatura.total).toFixed(2)}`,
-                link: linkFatura,
-                metadata: metadataFatura,
+                link: linkFatura, metadata: metadataFatura,
               });
               notificacoesCriadas++;
             }
@@ -111,13 +121,10 @@ export async function POST(req: NextRequest) {
             const jaNotificou = await jaNotificouRecentemente(userId, "FATURA_PROXIMA_VENCIMENTO", metadataFatura);
             if (!jaNotificou) {
               await db.insert(notificacoes).values({
-                userId,
-                tipo: "FATURA_PROXIMA_VENCIMENTO",
-                severidade: "warning",
-                titulo: `Fatura ${cartao.nome} vence em ${diasRestantes} ${diasRestantes === 1 ? "dia" : "dias"}`,
-                mensagem: `Vencimento: ${vencimento.toLocaleDateString('pt-BR')}. Valor: R$ ${Number(fatura.total).toFixed(2)}`,
-                link: linkFatura,
-                metadata: metadataFatura,
+                userId, tipo: "FATURA_PROXIMA_VENCIMENTO", severidade: "warning",
+                titulo:   `Fatura ${cartao.nome} vence em ${diasRestantes} ${diasRestantes === 1 ? "dia" : "dias"}`,
+                mensagem: `Vencimento: ${vencimento.toLocaleDateString("pt-BR")}. Valor: R$ ${Number(fatura.total).toFixed(2)}`,
+                link: linkFatura, metadata: metadataFatura,
               });
               notificacoesCriadas++;
             }
@@ -126,7 +133,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ==================== 2. LIMITE DE CARTÃO ====================
+    // ── 2. Limite de cartão ───────────────────────────────────────────────────
     if (prefs.limiteCartao) {
       const cartoesUsuario = await db
         .select()
@@ -134,20 +141,17 @@ export async function POST(req: NextRequest) {
         .where(and(eq(cartoes.userId, userId), eq(cartoes.ativo, true)));
 
       for (const cartao of cartoesUsuario) {
-        const limite = Number(cartao.limite);
-        const disponivel = Number(cartao.limiteDisponivel);
+        const limite         = Number(cartao.limite);
+        const disponivel     = Number(cartao.limiteDisponivel);
         const percentualUsado = ((limite - disponivel) / limite) * 100;
-
-        const metadataLimite = { cartaoId: String(cartao.id) };
+        const metadataLimite  = { cartaoId: String(cartao.id) };
 
         if (percentualUsado >= 95) {
           const jaNotificou = await jaNotificouRecentemente(userId, "LIMITE_CARTAO_95", metadataLimite);
           if (!jaNotificou) {
             await db.insert(notificacoes).values({
-              userId,
-              tipo: "LIMITE_CARTAO_95",
-              severidade: "error",
-              titulo: `Limite do ${cartao.nome} quase esgotado!`,
+              userId, tipo: "LIMITE_CARTAO_95", severidade: "error",
+              titulo:   `Limite do ${cartao.nome} quase esgotado!`,
               mensagem: `${percentualUsado.toFixed(0)}% do limite usado. Disponível: R$ ${disponivel.toFixed(2)}`,
               link: `/cartoes`,
               metadata: { ...metadataLimite, percentual: String(percentualUsado) },
@@ -158,10 +162,8 @@ export async function POST(req: NextRequest) {
           const jaNotificou = await jaNotificouRecentemente(userId, "LIMITE_CARTAO_80", metadataLimite);
           if (!jaNotificou) {
             await db.insert(notificacoes).values({
-              userId,
-              tipo: "LIMITE_CARTAO_80",
-              severidade: "warning",
-              titulo: `Atenção ao limite do ${cartao.nome}`,
+              userId, tipo: "LIMITE_CARTAO_80", severidade: "warning",
+              titulo:   `Atenção ao limite do ${cartao.nome}`,
               mensagem: `${percentualUsado.toFixed(0)}% do limite usado. Disponível: R$ ${disponivel.toFixed(2)}`,
               link: `/cartoes`,
               metadata: { ...metadataLimite, percentual: String(percentualUsado) },
@@ -172,9 +174,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ==================== 3. BACKUP INATIVO ====================
+    // ── 3. Backup inativo ─────────────────────────────────────────────────────
+    // ✅ CORRIGIDO: query de accounts usa apenas userId + provider sem depender
+    // de índice composto que pode ter sido alterado na migration de schema.
     const contaGoogle = await db
-      .select()
+      .select({ userId: accounts.userId })
       .from(accounts)
       .where(
         and(
@@ -187,24 +191,16 @@ export async function POST(req: NextRequest) {
     const temBackupAtivo = contaGoogle.length > 0;
 
     if (!temBackupAtivo) {
-      // Notifica apenas uma vez por semana (168 horas)
-      const jaNotificou = await jaNotificouRecentemente(
-        userId,
-        "BACKUP_INATIVO",
-        {},
-        168
-      );
-
+      const jaNotificou = await jaNotificouRecentemente(userId, "BACKUP_INATIVO", {}, 168);
       if (!jaNotificou) {
         await db.insert(notificacoes).values({
           userId,
-          tipo: "BACKUP_INATIVO",
+          tipo:      "BACKUP_INATIVO",
           severidade: "warning",
-          titulo: "Backup automático inativo",
-          mensagem:
-            "Seus dados não estão sendo salvos automaticamente. Vincule sua conta Google em Ajustes para ativar o backup.",
-          link: "/ajustes",
-          metadata: {},
+          titulo:    "Backup automático inativo",
+          mensagem:  "Seus dados não estão sendo salvos automaticamente. Vincule sua conta Google em Ajustes para ativar o backup.",
+          link:      "/ajustes",
+          metadata:  {},
         });
         notificacoesCriadas++;
       }
