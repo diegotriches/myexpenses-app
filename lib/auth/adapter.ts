@@ -12,10 +12,10 @@ export function DrizzleAdapter(): Adapter {
 
       await db.insert(users).values({
         id,
-        name: data.name,
-        email: data.email,
+        name:          data.name,
+        email:         data.email,
         emailVerified: data.emailVerified,
-        image: data.image,
+        image:         data.image,
       });
 
       const [user] = await db
@@ -24,11 +24,7 @@ export function DrizzleAdapter(): Adapter {
         .where(eq(users.id, id))
         .limit(1);
 
-      return {
-        ...user,
-        id: user.id,
-        emailVerified: user.emailVerified ?? null,
-      };
+      return { ...user, id: user.id, emailVerified: user.emailVerified ?? null };
     },
 
     async getUser(id: string): Promise<AdapterUser | null> {
@@ -37,7 +33,6 @@ export function DrizzleAdapter(): Adapter {
         .from(users)
         .where(eq(users.id, id))
         .limit(1);
-
       return user || null;
     },
 
@@ -47,7 +42,6 @@ export function DrizzleAdapter(): Adapter {
         .from(users)
         .where(eq(users.email, email))
         .limit(1);
-
       return user || null;
     },
 
@@ -57,7 +51,7 @@ export function DrizzleAdapter(): Adapter {
         .from(accounts)
         .where(
           and(
-            eq(accounts.provider, provider),
+            eq(accounts.provider,          provider),
             eq(accounts.providerAccountId, providerAccountId)
           )
         )
@@ -80,10 +74,10 @@ export function DrizzleAdapter(): Adapter {
       await db
         .update(users)
         .set({
-          name: data.name,
-          email: data.email,
+          name:          data.name,
+          email:         data.email,
           emailVerified: data.emailVerified,
-          image: data.image,
+          image:         data.image,
         })
         .where(eq(users.id, data.id));
 
@@ -101,8 +95,10 @@ export function DrizzleAdapter(): Adapter {
     },
 
     async linkAccount(account: AdapterAccount): Promise<void> {
-      const existing = await db
-        .select({ id: accounts.id, refresh_token: accounts.refresh_token })
+      // ✅ CORRIGIDO: accounts não tem coluna "id" — chave é (provider + providerAccountId).
+      // Busca pelo par composto e faz upsert manual sem referenciar accounts.id.
+      const [existing] = await db
+        .select({ refresh_token: accounts.refresh_token })
         .from(accounts)
         .where(
           and(
@@ -112,35 +108,39 @@ export function DrizzleAdapter(): Adapter {
         )
         .limit(1);
 
-      if (existing.length > 0) {
+      if (existing) {
         // Atualiza tokens — preserva refresh_token existente se o novo vier nulo
         // (o Google não repete o refresh_token em logins subsequentes sem consent)
         await db
           .update(accounts)
           .set({
             access_token:  account.access_token  ?? null,
-            refresh_token: account.refresh_token ?? existing[0].refresh_token,
+            refresh_token: account.refresh_token ?? existing.refresh_token,
             expires_at:    account.expires_at    ?? null,
             token_type:    account.token_type    ?? null,
             scope:         account.scope         ?? null,
             id_token:      account.id_token      ?? null,
             session_state: account.session_state ?? null,
           })
-          .where(eq(accounts.id, existing[0].id));
+          .where(
+            and(
+              eq(accounts.provider,          account.provider),
+              eq(accounts.providerAccountId, account.providerAccountId)
+            )
+          );
       } else {
         await db.insert(accounts).values({
-          id:                crypto.randomUUID(),
           userId:            account.userId,
           type:              account.type,
           provider:          account.provider,
           providerAccountId: account.providerAccountId,
-          refresh_token:     account.refresh_token     ?? null,
-          access_token:      account.access_token      ?? null,
-          expires_at:        account.expires_at        ?? null,
-          token_type:        account.token_type        ?? null,
-          scope:             account.scope             ?? null,
-          id_token:          account.id_token          ?? null,
-          session_state:     account.session_state     ?? null,
+          refresh_token:     account.refresh_token  ?? null,
+          access_token:      account.access_token   ?? null,
+          expires_at:        account.expires_at     ?? null,
+          token_type:        account.token_type     ?? null,
+          scope:             account.scope          ?? null,
+          id_token:          account.id_token       ?? null,
+          session_state:     account.session_state  ?? null,
         });
       }
     },
@@ -215,11 +215,7 @@ export function DrizzleAdapter(): Adapter {
     },
 
     async createVerificationToken({ identifier, expires, token }: { identifier: string; expires: Date; token: string }): Promise<VerificationToken | null | undefined> {
-      await db.insert(verificationTokens).values({
-        identifier,
-        token,
-        expires,
-      });
+      await db.insert(verificationTokens).values({ identifier, token, expires });
 
       const [verificationToken] = await db
         .select()
