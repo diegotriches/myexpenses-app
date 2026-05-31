@@ -6,15 +6,11 @@ import { TransacaoFatura } from "./cartao";
 // TIPOS: Fatura de Cartão
 // ========================================
 
-/**
- * Interface principal de Fatura
- * Representa uma fatura de cartão de crédito
- */
 export interface Fatura {
   id: number;
   userId?: string;
   cartaoId: number;
-  mes: number;        // 1-12
+  mes: number;
   ano: number;
   total: number;
   paga: boolean;
@@ -24,27 +20,14 @@ export interface Fatura {
   updatedAt?: string | Date;
 }
 
-/**
- * Status da fatura (calculado dinamicamente)
- */
 export type StatusFatura = "PAGA" | "EM_ABERTO" | "ATRASADA";
 
-/**
- * Resumo de fatura com status calculado
- * Usado em listagens e cards
- */
 export interface FaturaResumo extends Fatura {
   status: StatusFatura;
   dataVencimento: string;
   diasAteVencimento?: number;
 }
 
-/**
- * Resposta detalhada da API de fatura
- * GET /api/cartoes/[id]/fatura
- * 
- * Inclui dados do cartão, período, transações e totais
- */
 export interface FaturaDetalhada {
   fatura: FaturaResumo;
   cartao: {
@@ -56,27 +39,20 @@ export interface FaturaDetalhada {
     limiteDisponivel: number;
   };
   periodo: {
-    inicio: string;      // ISO date string
-    fim: string;         // ISO date string
-    descricao: string;   // Ex: "11/12/2025 - 10/01/2026"
+    inicio: string;
+    fim: string;
+    descricao: string;
   };
   transacoes: TransacaoFatura[];
   totalTransacoes: number;
-  porCategoria?: Record<string, number>; // { "Alimentação": 150.00, ... }
+  porCategoria?: Record<string, number>;
 }
 
-/**
- * DTO para pagar fatura
- * POST /api/cartoes/[id]/fatura
- */
 export interface PagarFaturaDTO {
   contaId: string;
-  dataPagamento?: string; // ISO date, opcional (usa data atual se não fornecido)
+  dataPagamento?: string;
 }
 
-/**
- * DTO para criar fatura (usado internamente pela API)
- */
 export interface CreateFaturaDTO {
   cartaoId: number;
   mes: number;
@@ -84,9 +60,6 @@ export interface CreateFaturaDTO {
   total: number;
 }
 
-/**
- * DTO para atualizar fatura (usado internamente pela API)
- */
 export interface UpdateFaturaDTO {
   total?: number;
   paga?: boolean;
@@ -94,14 +67,6 @@ export interface UpdateFaturaDTO {
   contaPagamentoId?: string | null;
 }
 
-// ========================================
-// TIPOS AUXILIARES
-// ========================================
-
-/**
- * Filtros para buscar faturas
- * Usado em queries de listagem
- */
 export interface FiltrosFatura {
   cartaoId?: number;
   mes?: number;
@@ -111,9 +76,6 @@ export interface FiltrosFatura {
   offset?: number;
 }
 
-/**
- * Resposta de listagem de faturas
- */
 export interface ListaFaturasResponse {
   faturas: FaturaResumo[];
   total: number;
@@ -122,15 +84,58 @@ export interface ListaFaturasResponse {
 }
 
 // ========================================
+// TIPOS: Adiantamento de Fatura
+// ========================================
+
+/**
+ * Adiantamento de fatura
+ * Pagamento parcial ou total antecipado de uma fatura aberta.
+ * A fatura não é fechada — apenas o total é reduzido e o limite restaurado.
+ */
+export interface AdiantamentoFatura {
+  id:        string;
+  userId:    string;
+  faturaId:  number;
+  contaId:   string;
+  valor:     string;   // numeric vem como string do Drizzle/Postgres
+  descricao: string | null;
+  createdAt: string;
+}
+
+/**
+ * DTO para registrar adiantamento
+ * POST /api/cartoes/[id]/fatura/adiantamento
+ */
+export interface RegistrarAdiantamentoDTO {
+  cartaoId:   number | string;
+  mes:        number;
+  ano:        number;
+  contaId:    string;
+  valor:      number;
+  descricao?: string;
+}
+
+/**
+ * DTO para cancelar adiantamento
+ * DELETE /api/cartoes/[id]/fatura/adiantamento/[adiantamentoId]
+ */
+export interface CancelarAdiantamentoDTO {
+  cartaoId:       number | string;
+  adiantamentoId: string;
+  mes:            number;
+  ano:            number;
+}
+
+// ========================================
 // NOTAS SOBRE FUNÇÕES UTILITÁRIAS
 // ========================================
 
 /**
  * ⚠️ IMPORTANTE:
- * 
+ *
  * Todas as funções utilitárias relacionadas a faturas
  * foram movidas para @/utils/faturaUtils.ts
- * 
+ *
  * Funções disponíveis:
  * - calcularFaturaDaTransacao()
  * - calcularPeriodoFatura()
@@ -142,9 +147,9 @@ export interface ListaFaturasResponse {
  * - validarAdicaoTransacao()
  * - formatarNomeFatura()
  * - formatarNomeFaturaAbreviado()
- * 
+ *
  * @example
  * import { calcularStatusFatura } from "@/utils/faturaUtils";
- * 
+ *
  * const status = calcularStatusFatura(fatura, cartao.diaVencimento);
  */

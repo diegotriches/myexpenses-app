@@ -320,6 +320,31 @@ export const faturas = pgTable(
   }),
 );
 
+// ─── ADIANTAMENTOS DE FATURA ──────────────────────────────────────────────────
+// Registra pagamentos parciais ou totais antecipados de faturas abertas.
+// Diferente do pagamento normal: a fatura NÃO é marcada como paga —
+// apenas o total é reduzido e o limite do cartão é restaurado.
+ 
+export const adiantamentosFatura = pgTable(
+  "adiantamentos_fatura",
+  {
+    id:        uuid("id").defaultRandom().primaryKey(),
+    userId:    uuid("user_id").notNull().references(() => users.id,   { onDelete: "cascade"  }),
+    faturaId:  integer("fatura_id").notNull().references(() => faturas.id, { onDelete: "cascade" }),
+    contaId:   uuid("conta_id").notNull().references(() => contas.id, { onDelete: "restrict" }),
+    valor:     numeric("valor", { precision: 14, scale: 2 }).notNull(),
+    descricao: text("descricao"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdIdx:   index("adiantamentos_fatura_user_id_idx").on(table.userId),
+    faturaIdIdx: index("adiantamentos_fatura_fatura_id_idx").on(table.faturaId),
+  })
+);
+ 
+export type AdiantamentoFatura    = typeof adiantamentosFatura.$inferSelect;
+export type NovoAdiantamentoFatura = typeof adiantamentosFatura.$inferInsert;
+
 // EXTRATO (Isolado por usuário)
 
 export const extratoTipoEnum = pgEnum("extrato_tipo", ["entrada", "saida"]);
