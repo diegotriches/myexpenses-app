@@ -5,23 +5,24 @@ import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft, MoreVertical, Trash2, TrendingUp, TrendingDown,
-  ChevronUp, ChevronDown, ChevronsUpDown,
+  ArrowLeft, TrendingUp, TrendingDown,
+  ChevronUp, ChevronDown, ChevronsUpDown, Info,
 } from "lucide-react";
+import { Badge }   from "@/components/ui/badge";
+import { BsBank }  from "react-icons/bs";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { BsBank } from "react-icons/bs";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import FiltrosExtrato, { FiltrosExtratoState } from "@/components/extrato/FiltrosExtrato";
-import ModalExcluirExtrato from "@/components/extrato/ModalExcluirExtrato";
-
-import { useExtratoConta, useRemoverExtrato } from "@/hooks/useContas";
+import { useExtratoConta } from "@/hooks/useContas";
 import type { MovimentacaoExtrato } from "@/types/conta";
 import { useHideValues } from "@/contexts/HideValuesContext";
 
-// ─── Constantes ───────────────────────────────────────────────
+// ─── Constantes ───────────────────────────────────────────────────────────────
 const ITENS_POR_PAGINA = 20;
 
 type ColunaOrdenacao  = "data" | "valor" | "saldo";
@@ -32,6 +33,35 @@ interface EstadoOrdenacao {
   direcao: DirecaoOrdenacao;
 }
 
+// Mapeia cada origem para como o usuário deve corrigir aquele lançamento
+const ORIGEM_INFO: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; dica: string }> = {
+  TRANSACAO_MANUAL: {
+    label:   "Transação",
+    variant: "default",
+    dica:    "Para corrigir, edite ou exclua a transação em Movimentações.",
+  },
+  TRANSFERENCIA: {
+    label:   "Transferência",
+    variant: "secondary",
+    dica:    "Para corrigir, exclua a transferência na página de Transferências.",
+  },
+  PAGAMENTO_FATURA: {
+    label:   "Pag. Fatura",
+    variant: "default",
+    dica:    "Para corrigir, cancele o pagamento na página da Fatura do cartão.",
+  },
+  ESTORNO: {
+    label:   "Estorno",
+    variant: "destructive",
+    dica:    "Registro gerado automaticamente por um cancelamento. Não pode ser removido isoladamente.",
+  },
+  AJUSTE: {
+    label:   "Ajuste",
+    variant: "outline",
+    dica:    "Ajuste manual de saldo. Entre em contato com o suporte se necessário.",
+  },
+};
+
 function IconeOrdenacao({ coluna, estado }: { coluna: ColunaOrdenacao; estado: EstadoOrdenacao }) {
   if (estado.coluna !== coluna)
     return <ChevronsUpDown className="h-3.5 w-3.5 ml-1 opacity-40" />;
@@ -41,19 +71,14 @@ function IconeOrdenacao({ coluna, estado }: { coluna: ColunaOrdenacao; estado: E
 }
 
 export default function ExtratoContaPage() {
-  const params  = useParams();
-  const router  = useRouter();
-  const contaId = params?.id as string;
+  const params   = useParams();
+  const router   = useRouter();
+  const contaId  = params?.id as string;
   const { mask } = useHideValues();
 
-  const removerExtrato = useRemoverExtrato();
-
-  const [modalExcluir, setModalExcluir] = useState(false);
-  const [itemExcluir,  setItemExcluir]  = useState<MovimentacaoExtrato | null>(null);
-  const [pagina,       setPagina]       = useState(1);
-  const [ordenacao,    setOrdenacao]    = useState<EstadoOrdenacao>({ coluna: null, direcao: null });
-
-  const [filtros, setFiltros] = useState<FiltrosExtratoState>({
+  const [pagina,    setPagina]    = useState(1);
+  const [ordenacao, setOrdenacao] = useState<EstadoOrdenacao>({ coluna: null, direcao: null });
+  const [filtros,   setFiltros]   = useState<FiltrosExtratoState>({
     inicio: "", fim: "", tipo: "TODOS", origem: "TODAS", valorMin: "", valorMax: "",
   });
 
@@ -112,32 +137,31 @@ export default function ExtratoContaPage() {
     });
   };
 
-  const handleExcluir = async () => {
-    if (!itemExcluir) return;
-    try {
-      await removerExtrato.mutateAsync({ contaId, extratoId: itemExcluir.id });
-      setModalExcluir(false);
-      setItemExcluir(null);
-    } catch (err) {
-      console.error("Erro ao excluir:", err);
-    }
-  };
-
   const formatarMoeda = (valor: number) =>
     valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const fmt = (valor: number) => mask(formatarMoeda(valor));
 
-  const getOrigemBadge = (origem: string) => {
-    const badges: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      TRANSACAO_MANUAL: { label: "Transação",    variant: "default"     },
-      TRANSFERENCIA:    { label: "Transferência", variant: "secondary"   },
-      AJUSTE:           { label: "Ajuste",        variant: "outline"     },
-      ESTORNO:          { label: "Estorno",       variant: "destructive" },
-      PAGAMENTO_FATURA: { label: "Pag. Fatura",   variant: "default"     },
-    };
-    const badge = badges[origem] || { label: origem, variant: "outline" as const };
-    return <Badge variant={badge.variant}>{badge.label}</Badge>;
+  // Badge de origem com tooltip informando como corrigir
+  const OrigemBadge = ({ origem }: { origem: string }) => {
+    const info = ORIGEM_INFO[origem] ?? { label: origem, variant: "outline" as const, dica: "" };
+    return (
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex items-center gap-1 cursor-help">
+              <Badge variant={info.variant}>{info.label}</Badge>
+              {info.dica && <Info size={11} className="text-gray-400 flex-shrink-0" />}
+            </span>
+          </TooltipTrigger>
+          {info.dica && (
+            <TooltipContent side="top" className="max-w-[220px] text-xs text-center">
+              {info.dica}
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </TooltipProvider>
+    );
   };
 
   const ThOrdenavel = ({
@@ -155,6 +179,7 @@ export default function ExtratoContaPage() {
     </th>
   );
 
+  // Card mobile
   const MovimentacaoCard = ({ item }: { item: MovimentacaoExtrato }) => (
     <Card className={`hover:shadow-md transition-shadow dark:border-gray-700 ${
       item.tipo === "entrada"
@@ -164,29 +189,14 @@ export default function ExtratoContaPage() {
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              {getOrigemBadge(item.origem)}
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <OrigemBadge origem={item.origem} />
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {new Date(item.data).toLocaleDateString("pt-BR")}
               </span>
             </div>
             <p className="font-medium text-gray-900 dark:text-white">{item.descricao}</p>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 -mt-1">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => { setItemExcluir(item); setModalExcluir(true); }}
-                className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
-              >
-                <Trash2 className="h-4 w-4 mr-2" /> Excluir
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
@@ -244,43 +254,28 @@ export default function ExtratoContaPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">Saldo Inicial</p>
-                <p className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
-                  {fmt(resumo.saldoInicial)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">Entradas</p>
-                <p className="text-base md:text-lg font-bold text-green-600 dark:text-green-400 flex items-center gap-1">
-                  <TrendingUp className="h-4 w-4" />
-                  {fmt(resumo.totalEntradas)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">Saídas</p>
-                <p className="text-base md:text-lg font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
-                  <TrendingDown className="h-4 w-4" />
-                  {fmt(resumo.totalSaidas)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">Variação</p>
-                <p className={`text-base md:text-lg font-bold ${
-                  (resumo.saldoFinal - resumo.saldoInicial) >= 0
+              {[
+                { label: "Saldo Inicial", value: resumo.saldoInicial, color: "text-gray-900 dark:text-white" },
+                { label: "Entradas", value: resumo.totalEntradas, color: "text-green-600 dark:text-green-400", icon: TrendingUp },
+                { label: "Saídas",   value: resumo.totalSaidas,   color: "text-red-600 dark:text-red-400",   icon: TrendingDown },
+                {
+                  label: "Variação",
+                  value: resumo.saldoFinal - resumo.saldoInicial,
+                  color: (resumo.saldoFinal - resumo.saldoInicial) >= 0
                     ? "text-green-600 dark:text-green-400"
-                    : "text-red-600 dark:text-red-400"
-                }`}>
-                  {(resumo.saldoFinal - resumo.saldoInicial) >= 0 ? "+" : ""}
-                  {fmt(resumo.saldoFinal - resumo.saldoInicial)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">Saldo Final</p>
-                <p className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
-                  {fmt(resumo.saldoFinal)}
-                </p>
-              </div>
+                    : "text-red-600 dark:text-red-400",
+                  prefix: (resumo.saldoFinal - resumo.saldoInicial) >= 0 ? "+" : "",
+                },
+                { label: "Saldo Final", value: resumo.saldoFinal, color: "text-gray-900 dark:text-white" },
+              ].map(({ label, value, color, icon: Icon, prefix }) => (
+                <div key={label}>
+                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1">{label}</p>
+                  <p className={`text-base md:text-lg font-bold ${color} flex items-center gap-1`}>
+                    {Icon && <Icon className="h-4 w-4" />}
+                    {prefix}{fmt(value)}
+                  </p>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -296,7 +291,7 @@ export default function ExtratoContaPage() {
         </p>
       )}
 
-      {/* Error */}
+      {/* Erro */}
       {error && (
         <Card className="border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20">
           <CardContent className="p-6 text-center">
@@ -324,7 +319,7 @@ export default function ExtratoContaPage() {
         </div>
       )}
 
-      {/* Empty */}
+      {/* Vazio */}
       {!loading && !error && extratoFiltrado.length === 0 && (
         <Card className="border-dashed dark:bg-gray-800 dark:border-gray-700">
           <CardContent className="p-12 text-center">
@@ -354,21 +349,33 @@ export default function ExtratoContaPage() {
                 <colgroup>
                   <col className="w-[100px]" />
                   <col />
+                  <col className="w-[145px]" />
                   <col className="w-[130px]" />
                   <col className="w-[120px]" />
                   <col className="w-[120px]" />
-                  <col className="w-[120px]" />
-                  <col className="w-[52px]"  />
                 </colgroup>
                 <thead className="bg-gray-50 dark:bg-gray-900">
                   <tr>
                     <ThOrdenavel coluna="data"  label="Data"    className="text-left"  />
                     <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Descrição</th>
-                    <th className="text-center p-3 font-medium text-gray-900 dark:text-white">Origem</th>
+                    <th className="text-center p-3 font-medium text-gray-900 dark:text-white">
+                      <span className="inline-flex items-center gap-1">
+                        Origem
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info size={12} className="text-gray-400 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[240px] text-xs">
+                              Passe o cursor sobre o badge para ver como corrigir cada tipo de lançamento.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </span>
+                    </th>
                     <ThOrdenavel coluna="valor" label="Entrada" className="text-right" />
                     <ThOrdenavel coluna="valor" label="Saída"   className="text-right" />
                     <ThOrdenavel coluna="saldo" label="Saldo"   className="text-right" />
-                    <th className="text-center p-3 font-medium text-gray-900 dark:text-white">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -387,7 +394,9 @@ export default function ExtratoContaPage() {
                       <td className="p-3 text-gray-900 dark:text-gray-200 w-0 min-w-0" style={{ maxWidth: 0 }}>
                         <div className="truncate" title={item.descricao}>{item.descricao}</div>
                       </td>
-                      <td className="p-3 text-center">{getOrigemBadge(item.origem)}</td>
+                      <td className="p-3 text-center">
+                        <OrigemBadge origem={item.origem} />
+                      </td>
                       <td className="p-3 text-right font-medium text-green-600 dark:text-green-400 whitespace-nowrap">
                         {item.tipo === "entrada" && `+ ${fmt(item.valor)}`}
                       </td>
@@ -398,23 +407,6 @@ export default function ExtratoContaPage() {
                         item.saldoApos >= 0 ? "text-gray-900 dark:text-white" : "text-red-600 dark:text-red-400"
                       }`}>
                         {fmt(item.saldoApos)}
-                      </td>
-                      <td className="p-3 text-center">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => { setItemExcluir(item); setModalExcluir(true); }}
-                              className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" /> Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </td>
                     </tr>
                   ))}
@@ -463,14 +455,6 @@ export default function ExtratoContaPage() {
           </div>
         </div>
       )}
-
-      {/* Modal */}
-      <ModalExcluirExtrato
-        open={modalExcluir}
-        onClose={() => { setModalExcluir(false); setItemExcluir(null); }}
-        item={itemExcluir}
-        onConfirmar={handleExcluir}
-      />
     </div>
   );
 }
