@@ -488,3 +488,27 @@ export const contatos = pgTable(
 
 export type Contato = typeof contatos.$inferSelect;
 export type NovoContato = typeof contatos.$inferInsert;
+
+// ─── NOTAS ────────────────────────────────────────────────────────────────────
+// Notas pessoais do usuário — acessíveis pelo painel flutuante em qualquer página.
+ 
+export const notas = pgTable(
+  "notas",
+  {
+    id:        uuid("id").defaultRandom().primaryKey(),
+    userId:    uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    titulo:    varchar("titulo",   { length: 100 }).notNull().default(""),
+    conteudo:  text("conteudo").notNull().default(""),
+    // Cor identificadora — valores: yellow | blue | green | red | purple | gray
+    cor:       varchar("cor", { length: 20 }).notNull().default("yellow"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdIdx:    index("notas_user_id_idx").on(table.userId),
+    updatedAtIdx: index("notas_updated_at_idx").on(table.userId, table.updatedAt),
+  })
+);
+ 
+export type Nota    = typeof notas.$inferSelect;
+export type NovaNota = typeof notas.$inferInsert;

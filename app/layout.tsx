@@ -39,7 +39,6 @@ export const metadata: Metadata = {
   },
 };
 
-// ✅ Server Component — busca sessão no servidor antes de renderizar
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const session = await getSession();
 
