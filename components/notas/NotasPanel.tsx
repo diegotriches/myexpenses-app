@@ -6,6 +6,7 @@ import { Input }    from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   StickyNote, Plus, X, Trash2, ChevronLeft, Check, Loader2,
+  Maximize2, Minimize2, GripHorizontal,
 } from "lucide-react";
 import { useNotas, useCriarNota, useAtualizarNota, useExcluirNota } from "@/hooks/useNotas";
 import type { Nota, CorNota } from "@/types/nota";
@@ -14,10 +15,64 @@ import { COR_CONFIG } from "@/types/nota";
 const CORES = Object.keys(COR_CONFIG) as CorNota[];
 const AUTO_SAVE_DELAY = 1000;
 
+// ── Constantes de layout ────────────────────────────────────────────────────
+const WIDTH_MIN  = 280;
+const WIDTH_MAX  = 560;
+const HEIGHT_MIN = 320;
+const HEIGHT_MAX = 720;
+const DEFAULT_WIDTH  = 320;
+const DEFAULT_HEIGHT = 460;
+const STORAGE_KEY = "notas-panel-layout";
+
+interface PanelLayout {
+  x: number | null;       // null = posição padrão (canto inferior direito)
+  y: number | null;
+  width: number;
+  height: number;
+  isFullscreen: boolean;  // usado apenas no mobile
+}
+
+const DEFAULT_LAYOUT: PanelLayout = {
+  x: null, y: null,
+  width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT,
+  isFullscreen: false,
+};
+
+function loadLayout(): PanelLayout {
+  if (typeof window === "undefined") return DEFAULT_LAYOUT;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_LAYOUT;
+    const parsed = JSON.parse(raw);
+    return { ...DEFAULT_LAYOUT, ...parsed };
+  } catch {
+    return DEFAULT_LAYOUT;
+  }
+}
+
+function saveLayout(layout: PanelLayout) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(layout));
+  } catch {
+    // localStorage indisponível (modo privado etc.) — ignora silenciosamente
+  }
+}
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
+
 // ── Modo edição ───────────────────────────────────────────────────────────────
 function EditarNota({ nota, onVoltar }: { nota: Nota; onVoltar: () => void }) {
-  const atualizar  = useAtualizarNota();
-  const excluir    = useExcluirNota();
+  const atualizar = useAtualizarNota();
+  const excluir   = useExcluirNota();
 
   const [titulo,   setTitulo]   = useState(nota.titulo);
   const [conteudo, setConteudo] = useState(nota.conteudo);
@@ -136,9 +191,28 @@ interface NotasPanelProps {
 
 export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
   const [notaEditando, setNotaEditando] = useState<Nota | null>(null);
+  const [layout, setLayout] = useState<PanelLayout>(DEFAULT_LAYOUT);
+  const [hidratado, setHidratado] = useState(false);
+
+  const isMobile = useIsMobile();
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const { data: notas = [], isLoading } = useNotas();
   const criarNota = useCriarNota();
+
+  // Carrega layout salvo apenas no client (evita mismatch de hidratação)
+  useEffect(() => {
+    setLayout(loadLayout());
+    setHidratado(true);
+  }, []);
+
+  // Persiste layout sempre que mudar (debounced via ref simples)
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistLayout = useCallback((novo: PanelLayout) => {
+    setLayout(novo);
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => saveLayout(novo), 300);
+  }, []);
 
   async function handleNovaNota() {
     const nova = await criarNota.mutateAsync({ titulo: "", conteudo: "", cor: "yellow" });
@@ -161,30 +235,152 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
     if (!open) setNotaEditando(null);
   }, [open]);
 
+  // ── Arrastar (desktop) ──────────────────────────────────────────────────────
+  const dragStateRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  function handleDragStart(e: React.MouseEvent) {
+    if (isMobile) return;
+    e.preventDefault();
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    // Se ainda não há posição customizada, inicializa com a posição atual na tela
+    const origX = layout.x ?? rect.left;
+    const origY = layout.y ?? rect.top;
+
+    dragStateRef.current = { startX: e.clientX, startY: e.clientY, origX, origY };
+
+    function onMove(ev: MouseEvent) {
+      if (!dragStateRef.current) return;
+      const { startX, startY, origX, origY } = dragStateRef.current;
+      const deltaX = ev.clientX - startX;
+      const deltaY = ev.clientY - startY;
+
+      const novoX = Math.max(8, Math.min(window.innerWidth  - layout.width  - 8, origX + deltaX));
+      const novoY = Math.max(8, Math.min(window.innerHeight - layout.height - 8, origY + deltaY));
+
+      setLayout((prev) => ({ ...prev, x: novoX, y: novoY }));
+    }
+
+    function onUp() {
+      dragStateRef.current = null;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      setLayout((current) => { saveLayout(current); return current; });
+    }
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
+  // ── Redimensionar (desktop) ──────────────────────────────────────────────────
+  const resizeStateRef = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number } | null>(null);
+
+  function handleResizeStart(e: React.MouseEvent) {
+    if (isMobile) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const origX = layout.x ?? rect.left;
+    const origY = layout.y ?? rect.top;
+
+    resizeStateRef.current = {
+      startX: e.clientX, startY: e.clientY,
+      origW: layout.width, origH: layout.height,
+      origX, origY,
+    };
+
+    function onMove(ev: MouseEvent) {
+      if (!resizeStateRef.current) return;
+      const { startX, startY, origW, origH, origX, origY } = resizeStateRef.current;
+      const deltaX = ev.clientX - startX;
+      const deltaY = ev.clientY - startY;
+
+      const novaLargura = Math.max(WIDTH_MIN,  Math.min(WIDTH_MAX,  origW + deltaX));
+      const novaAltura   = Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, origH + deltaY));
+
+      setLayout((prev) => ({ ...prev, width: novaLargura, height: novaAltura, x: origX, y: origY }));
+    }
+
+    function onUp() {
+      resizeStateRef.current = null;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      setLayout((current) => { saveLayout(current); return current; });
+    }
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
+  // ── Toggle fullscreen (mobile) ────────────────────────────────────────────
+  function toggleFullscreen() {
+    persistLayout({ ...layout, isFullscreen: !layout.isFullscreen });
+  }
+
+  // ── Estilo dinâmico do painel ────────────────────────────────────────────────
+  function getPanelStyle(): React.CSSProperties {
+    if (isMobile) {
+      if (layout.isFullscreen) {
+        return { top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", borderRadius: 0 };
+      }
+      // Modo flutuante mobile: canto inferior direito, tamanho fixo confortável
+      return { bottom: 80, right: 16, width: "calc(100vw - 32px)", maxWidth: 360, height: 440 };
+    }
+
+    // Desktop
+    if (layout.x !== null && layout.y !== null) {
+      return { left: layout.x, top: layout.y, width: layout.width, height: layout.height };
+    }
+    // Posição padrão (canto inferior direito) — ainda não foi arrastado
+    return { bottom: 80, right: 24, width: layout.width, height: layout.height };
+  }
+
+  if (!hidratado) return null; // evita flash de posição errada antes de ler localStorage
+
   return (
     <>
       {/* Painel */}
       <div
-        className={`fixed bottom-20 right-6 z-40 w-80 rounded-2xl shadow-2xl overflow-hidden
+        ref={panelRef}
+        className={`fixed z-40 rounded-2xl shadow-2xl overflow-hidden
           border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900
-          transition-all duration-300 origin-bottom-right
-          ${open ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-95 pointer-events-none"}`}
-        style={{ height: "460px" }}
+          ${open ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-95 pointer-events-none"}
+          ${!isMobile && !dragStateRef.current ? "transition-[opacity,transform] duration-300" : ""}`}
+        style={getPanelStyle()}
       >
         {notaEditando ? (
           <EditarNota nota={notaEditando} onVoltar={() => setNotaEditando(null)} />
         ) : (
           <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+            {/* Header — arrastável no desktop */}
+            <div
+              onMouseDown={handleDragStart}
+              className={`flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900
+                ${!isMobile ? "cursor-move select-none" : ""}`}
+            >
               <div className="flex items-center gap-2">
-                <StickyNote size={16} className="text-amber-500" />
+                {!isMobile && <GripHorizontal size={14} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />}
+                <StickyNote size={16} className="text-amber-500 flex-shrink-0" />
                 <span className="text-sm font-semibold text-gray-900 dark:text-white">Notas</span>
                 {notas.length > 0 && (
                   <span className="text-xs text-gray-400 dark:text-gray-500">({notas.length})</span>
                 )}
               </div>
               <div className="flex items-center gap-1">
+                {/* Toggle fullscreen — mobile apenas */}
+                {isMobile && (
+                  <Button
+                    variant="ghost" size="icon"
+                    className="h-7 w-7 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    onClick={toggleFullscreen}
+                    title={layout.isFullscreen ? "Restaurar" : "Tela cheia"}
+                  >
+                    {layout.isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                  </Button>
+                )}
                 <Button
                   variant="ghost" size="icon"
                   className="h-7 w-7 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
@@ -227,13 +423,25 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
             </div>
           </div>
         )}
+
+        {/* Handle de resize — desktop apenas, canto inferior direito */}
+        {!isMobile && (
+          <div
+            onMouseDown={handleResizeStart}
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize group"
+            title="Arraste para redimensionar"
+          >
+            <div className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 border-b-2 border-r-2 border-gray-300 dark:border-gray-600 group-hover:border-amber-400 transition-colors rounded-br-sm" />
+          </div>
+        )}
       </div>
 
-      {/* Backdrop — fecha ao clicar fora */}
+      {/* Backdrop — fecha ao clicar fora (não captura cliques durante drag/resize) */}
       {open && (
         <div
           className="fixed inset-0 z-30"
           onClick={() => {
+            if (dragStateRef.current || resizeStateRef.current) return;
             if (notaEditando) setNotaEditando(null);
             else onOpenChange(false);
           }}
