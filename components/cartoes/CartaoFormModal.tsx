@@ -31,7 +31,9 @@ export default function CartaoFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[100dvh] md:h-auto sm:max-w-[650px] p-0 gap-0 flex flex-col">
+      {/* ✅ max-w reduzido de 650px para 560px — form ficou mais compacto
+          com os campos lado a lado, então o modal não precisa ser tão largo */}
+      <DialogContent className="h-[100dvh] md:h-auto sm:max-w-[560px] p-0 gap-0 flex flex-col">
         {/* Header Fixo */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b dark:border-gray-800 shrink-0">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
