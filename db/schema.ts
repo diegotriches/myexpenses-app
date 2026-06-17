@@ -510,3 +510,28 @@ export const notas = pgTable(
  
 export type Nota    = typeof notas.$inferSelect;
 export type NovaNota = typeof notas.$inferInsert;
+
+// ─── BACKUPS DE USUÁRIO ───────────────────────────────────────────────────────
+// Snapshot completo dos dados do usuário, gerado automaticamente uma vez por
+// semana pelo cron job. Mantém histórico das últimas semanas para restauração.
+ 
+export const backupsUsuario = pgTable(
+  "backups_usuario",
+  {
+    id:            uuid("id").defaultRandom().primaryKey(),
+    userId:        uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    // Snapshot completo de todas as tabelas do usuário, serializado como JSON
+    dados:         jsonb("dados").notNull(),
+    tamanhoBytes:  integer("tamanho_bytes").notNull().default(0),
+    // Estatísticas resumidas (contagens por tabela) para exibição rápida na UI
+    estatisticas:  jsonb("estatisticas"),
+    createdAt:     timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdIdx:    index("backups_usuario_user_id_idx").on(table.userId),
+    createdAtIdx: index("backups_usuario_created_at_idx").on(table.userId, table.createdAt),
+  })
+);
+ 
+export type BackupUsuario    = typeof backupsUsuario.$inferSelect;
+export type NovoBackupUsuario = typeof backupsUsuario.$inferInsert;

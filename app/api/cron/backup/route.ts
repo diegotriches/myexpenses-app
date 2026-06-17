@@ -2,64 +2,36 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, contas, cartoes, transacoes, categorias, faturas, extratoConta, notificacoes, preferenciasNotificacao, preferences, accounts } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { uploadBackupToDrive } from "@/lib/googleDriveBackup";
-import type { ExportFile, ExportMetadata, ExportStatistics, ExportData } from "@/types/export";
+import {
+  users, contas, cartoes, transacoes, categorias, faturas, extratoConta,
+  notificacoes, preferenciasNotificacao, preferences, estabelecimentos,
+  transferencias, notas, adiantamentosFatura, backupsUsuario,
+} from "@/db/schema";
+import { eq, and, lt, asc } from "drizzle-orm";
+import type { ExportMetadata, ExportStatistics, ExportData } from "@/types/export";
+
+// Quantidade de backups a manter por usuário (≈ 8 semanas de histórico)
+const BACKUPS_PARA_MANTER = 8;
 
 interface BackupResultado {
-  userId:    string;
-  email:     string;
-  status:    "sucesso" | "erro" | "sem_drive";
-  filename?: string;
-  fileId?:   string;
-  tamanho?:  number;
-  erro?:     string;
-  duracao:   number;
+  userId:   string;
+  email:    string;
+  status:   "sucesso" | "erro";
+  backupId?: string;
+  tamanho?: number;
+  erro?:    string;
+  duracao:  number;
 }
 
-// ✅ Retorna também o userId para ser repassado ao uploadBackupToDrive,
-// que precisa dele para persistir o access_token renovado no banco.
-async function getGoogleTokens(
-  userId: string
-): Promise<{ accessToken: string; refreshToken: string | null; userId: string } | null> {
-  const rows = await db
-    .select({
-      access_token:  accounts.access_token,
-      refresh_token: accounts.refresh_token,
-    })
-    .from(accounts)
-    .where(
-      and(
-        eq(accounts.userId,   userId),
-        eq(accounts.provider, "google")
-      )
-    )
-    .limit(1);
-
-  if (!rows.length || !rows[0].access_token) return null;
-
-  return {
-    accessToken:  rows[0].access_token,
-    refreshToken: rows[0].refresh_token || null,
-    userId,       // ✅ NOVO: necessário para persistir token renovado
-  };
-}
-
-async function gerarBackupJSON(
-  userId:   string,
+// ── Geração do snapshot ─────────────────────────────────────────────────────
+async function gerarSnapshot(
+  userId: string,
   userData: { name: string | null; email: string }
-): Promise<string> {
+): Promise<{ json: string; data: ExportData; statistics: ExportStatistics }> {
   const [
-    contasData,
-    cartoesData,
-    transacoesData,
-    categoriasData,
-    faturasData,
-    extratoData,
-    notificacoesData,
-    preferenciasNotifData,
-    preferencesData,
+    contasData, cartoesData, transacoesData, categoriasData, faturasData,
+    extratoData, notificacoesData, preferenciasNotifData, preferencesData,
+    estabelecimentosData, transferenciasData, notasData, adiantamentosData,
   ] = await Promise.all([
     db.select().from(contas).where(eq(contas.userId, userId)),
     db.select().from(cartoes).where(eq(cartoes.userId, userId)),
@@ -70,20 +42,30 @@ async function gerarBackupJSON(
     db.select().from(notificacoes).where(eq(notificacoes.userId, userId)),
     db.select().from(preferenciasNotificacao).where(eq(preferenciasNotificacao.userId, userId)),
     db.select().from(preferences).where(eq(preferences.userId, userId)),
+    db.select().from(estabelecimentos).where(eq(estabelecimentos.userId, userId)),
+    db.select().from(transferencias).where(eq(transferencias.userId, userId)),
+    db.select().from(notas).where(eq(notas.userId, userId)),
+    db.select().from(adiantamentosFatura).where(eq(adiantamentosFatura.userId, userId)),
   ]);
 
-  const data: ExportData = {
+  const data: ExportData & Record<string, any> = {
     categorias:   categoriasData,
     contas:       contasData,
     cartoes:      cartoesData,
     transacoes:   transacoesData,
-    faturas:      faturasData.map(f => ({ ...f, mesReferencia: f.mes, anoReferencia: f.ano })),
+    faturas:      faturasData.map((f) => ({ ...f, mesReferencia: f.mes, anoReferencia: f.ano })),
     extrato:      extratoData,
     notificacoes: notificacoesData,
     preferencias: preferenciasNotifData,
+    estabelecimentos: estabelecimentosData,
+    transferencias:   transferenciasData,
+    notas:            notasData,
+    adiantamentos:    adiantamentosData,
   };
 
-  const statistics: ExportStatistics = {
+  if (preferencesData.length > 0) data.preferences = preferencesData[0];
+
+  const statistics: ExportStatistics & Record<string, any> = {
     categorias:       categoriasData.length,
     contas:           contasData.length,
     cartoes:          cartoesData.length,
@@ -92,12 +74,16 @@ async function gerarBackupJSON(
     extrato:          extratoData.length,
     notificacoes:     notificacoesData.length,
     preferencias:     preferencesData.length,
+    estabelecimentos: estabelecimentosData.length,
+    transferencias:   transferenciasData.length,
+    notas:            notasData.length,
+    adiantamentos:    adiantamentosData.length,
     tamanhoBytes:     0,
     tamanhoFormatado: "",
   };
 
   const metadata: ExportMetadata = {
-    version:    "1.0.0",
+    version:    "2.0.0",
     exportDate: new Date().toISOString(),
     userId,
     userName:   userData.name || "Usuário",
@@ -110,46 +96,81 @@ async function gerarBackupJSON(
     appUrl:     process.env.NEXT_PUBLIC_APP_URL || "https://myexpenses-app-ten.vercel.app",
   };
 
-  const exportFile: ExportFile = { metadata, statistics, data };
-  const json = JSON.stringify(exportFile, null, 2);
-
+  const exportFile = {
+    metadata,
+    statistics,
+    data,
+    // Campo extra fora do tipo ExportMetadata — identifica a origem do backup
+    origem: "cron-automatico" as const,
+  };
+  const json    = JSON.stringify(exportFile);
   const tamanho = Buffer.byteLength(json, "utf-8");
-  exportFile.statistics.tamanhoBytes    = tamanho;
-  exportFile.statistics.tamanhoFormatado = formatBytes(tamanho);
 
-  return JSON.stringify(exportFile, null, 2);
+  statistics.tamanhoBytes     = tamanho;
+  statistics.tamanhoFormatado = formatBytes(tamanho);
+
+  return { json: JSON.stringify({ metadata, statistics, data, origem: "cron-automatico" }), data, statistics };
 }
 
+// ── Persistência no banco ────────────────────────────────────────────────────
+async function salvarBackupNoBanco(
+  userId: string,
+  data: ExportData,
+  statistics: ExportStatistics,
+  tamanhoBytes: number
+): Promise<string> {
+  const [registro] = await db
+    .insert(backupsUsuario)
+    .values({
+      userId,
+      dados:        data,
+      tamanhoBytes,
+      estatisticas: statistics,
+    })
+    .returning({ id: backupsUsuario.id });
+
+  return registro.id;
+}
+
+// ── Limpeza de backups antigos ───────────────────────────────────────────────
+async function limparBackupsAntigos(userId: string): Promise<void> {
+  const todos = await db
+    .select({ id: backupsUsuario.id })
+    .from(backupsUsuario)
+    .where(eq(backupsUsuario.userId, userId))
+    .orderBy(asc(backupsUsuario.createdAt));
+
+  if (todos.length <= BACKUPS_PARA_MANTER) return;
+
+  const idsParaRemover = todos.slice(0, todos.length - BACKUPS_PARA_MANTER).map((b) => b.id);
+
+  for (const id of idsParaRemover) {
+    await db.delete(backupsUsuario).where(eq(backupsUsuario.id, id));
+  }
+  console.log(`[Cron Backup] ${idsParaRemover.length} backup(s) antigo(s) removido(s) — userId=${userId}`);
+}
+
+// ── Notificação ───────────────────────────────────────────────────────────────
 async function criarNotificacao(
   userId: string,
-  status: "sucesso" | "erro" | "sem_drive",
-  detalhes?: { filename?: string; tamanho?: number; erro?: string }
+  status: "sucesso" | "erro",
+  detalhes?: { tamanho?: number; erro?: string }
 ): Promise<void> {
-  const titulo =
-    status === "sucesso"   ? "Backup semanal concluído"
-    : status === "sem_drive" ? "Backup não realizado"
-    : "Erro no backup semanal";
+  const titulo = status === "sucesso" ? "Backup semanal concluído" : "Erro no backup semanal";
 
   const mensagem =
     status === "sucesso"
-      ? `Seus dados foram salvos no Google Drive (${formatBytes(detalhes?.tamanho || 0)}). Arquivo: ${detalhes?.filename}`
-      : status === "sem_drive"
-      ? "Conecte sua conta Google nas configurações para ativar o backup automático semanal."
-      : `Não foi possível realizar o backup: ${detalhes?.erro || "Erro desconhecido"}. Tente exportar manualmente.`;
-
-  const severidade =
-    status === "sucesso"   ? "info"
-    : status === "sem_drive" ? "aviso"
-    : "erro";
+      ? `Seus dados foram salvos automaticamente (${formatBytes(detalhes?.tamanho || 0)}). Acesse Configurações > Backups para ver o histórico.`
+      : `Não foi possível realizar o backup: ${detalhes?.erro || "Erro desconhecido"}. Tente exportar manualmente em Configurações.`;
 
   await db.insert(notificacoes).values({
     userId,
     titulo,
     mensagem,
-    tipo:      "backup",
-    severidade,
-    lida:      false,
-    createdAt: new Date(),
+    tipo:       "backup",
+    severidade: status === "sucesso" ? "info" : "erro",
+    lida:       false,
+    createdAt:  new Date(),
   });
 }
 
@@ -161,6 +182,7 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
+// ── Handler principal ─────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const inicioTotal = Date.now();
 
@@ -170,7 +192,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
-  console.log("[Cron Backup] Iniciando backup semanal...");
+  console.log("[Cron Backup] Iniciando backup semanal (Postgres)...");
 
   const todosUsuarios = await db
     .select({ id: users.id, name: users.name, email: users.email })
@@ -184,42 +206,31 @@ export async function GET(req: NextRequest) {
     const inicioUsuario = Date.now();
 
     try {
-      const tokens = await getGoogleTokens(usuario.id);
-
-      if (!tokens) {
-        console.log(`[Cron Backup] Usuário ${usuario.email} sem conta Google vinculada — pulando`);
-        await criarNotificacao(usuario.id, "sem_drive");
-        resultados.push({
-          userId:  usuario.id,
-          email:   usuario.email,
-          status:  "sem_drive",
-          duracao: Date.now() - inicioUsuario,
-        });
-        continue;
-      }
-
-      const json      = await gerarBackupJSON(usuario.id, { name: usuario.name, email: usuario.email });
-      const dataHoje  = new Date().toISOString().split("T")[0];
-      const filename  = `myexpenses-backup-${dataHoje}.json`;
-
-      // ✅ tokens agora inclui userId para que o Drive possa persistir token renovado
-      const resultado = await uploadBackupToDrive(tokens, filename, json);
-
-      await criarNotificacao(usuario.id, "sucesso", {
-        filename: resultado.filename,
-        tamanho:  resultado.size,
+      const { data, statistics } = await gerarSnapshot(usuario.id, {
+        name:  usuario.name,
+        email: usuario.email,
       });
 
+      const backupId = await salvarBackupNoBanco(
+        usuario.id,
+        data,
+        statistics,
+        statistics.tamanhoBytes
+      );
+
+      await limparBackupsAntigos(usuario.id);
+
+      await criarNotificacao(usuario.id, "sucesso", { tamanho: statistics.tamanhoBytes });
+
       const duracao = Date.now() - inicioUsuario;
-      console.log(`[Cron Backup] ✅ ${usuario.email} — ${resultado.filename} (${duracao}ms)`);
+      console.log(`[Cron Backup] ✅ ${usuario.email} — backup ${backupId} (${formatBytes(statistics.tamanhoBytes)}, ${duracao}ms)`);
 
       resultados.push({
         userId:   usuario.id,
         email:    usuario.email,
         status:   "sucesso",
-        filename: resultado.filename,
-        fileId:   resultado.fileId,
-        tamanho:  resultado.size,
+        backupId,
+        tamanho:  statistics.tamanhoBytes,
         duracao,
       });
     } catch (error: any) {
@@ -237,16 +248,15 @@ export async function GET(req: NextRequest) {
   }
 
   const duracaoTotal = Date.now() - inicioTotal;
-  const sucessos     = resultados.filter(r => r.status === "sucesso").length;
-  const erros        = resultados.filter(r => r.status === "erro").length;
-  const semDrive     = resultados.filter(r => r.status === "sem_drive").length;
+  const sucessos      = resultados.filter((r) => r.status === "sucesso").length;
+  const erros         = resultados.filter((r) => r.status === "erro").length;
 
-  console.log(`[Cron Backup] Concluído em ${duracaoTotal}ms — ✅ ${sucessos} | ❌ ${erros} | ⚠️ ${semDrive}`);
+  console.log(`[Cron Backup] Concluído em ${duracaoTotal}ms — ✅ ${sucessos} | ❌ ${erros}`);
 
   return NextResponse.json({
-    message:   "Backup semanal concluído",
-    duracao:   `${duracaoTotal}ms`,
-    resumo:    { total: todosUsuarios.length, sucessos, erros, semDrive },
+    message: "Backup semanal concluído",
+    duracao: `${duracaoTotal}ms`,
+    resumo:  { total: todosUsuarios.length, sucessos, erros },
     resultados,
   });
 }

@@ -47,7 +47,7 @@ export const authOptions: NextAuthOptions = {
       allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {
-          scope:       "openid email profile https://www.googleapis.com/auth/drive.file",
+          scope:       "openid email profile",
           access_type: "offline",
           prompt:      "consent",
         },
@@ -81,7 +81,6 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Senha incorreta");
         }
 
-        // ✅ NOVO: bloqueia login de contas com e-mail não verificado
         if (!user.emailVerified) {
           throw new Error("EMAIL_NOT_VERIFIED");
         }
@@ -111,12 +110,6 @@ export const authOptions: NextAuthOptions = {
       if (account && user) {
         token.id = user.id;
 
-        if (account.provider === "google") {
-          token.googleAccessToken  = account.access_token  ?? null;
-          token.googleRefreshToken = account.refresh_token ?? null;
-          token.googleTokenExpiry  = account.expires_at    ?? null;
-        }
-
         const rememberMe = (user as any).rememberMe;
         token.rememberMe = rememberMe === false ? false : true;
         token.maxAge     = token.rememberMe ? REMEMBER_ME_MAX_AGE : SESSION_MAX_AGE;
@@ -134,9 +127,6 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
       }
-
-      (session as any).hasGoogleDriveAccess =
-        !!(token.googleAccessToken || token.googleRefreshToken);
 
       return session;
     },
