@@ -99,6 +99,7 @@ export async function POST(
       tipo:       "backup",
       severidade: "info",
       lida:       false,
+      link:       "/ajustes?tab=exportar",
       createdAt:  new Date(),
     });
 

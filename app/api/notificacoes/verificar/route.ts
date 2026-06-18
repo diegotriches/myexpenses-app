@@ -1,7 +1,7 @@
 // src/app/api/notificacoes/verificar/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { notificacoes, cartoes, faturas, preferenciasNotificacao, accounts, users } from "@/db/schema";
+import { notificacoes, cartoes, faturas, preferenciasNotificacao, users } from "@/db/schema";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    // ✅ NOVO: guard contra token JWT órfão após exclusão de conta.
+    // Guard contra token JWT órfão após exclusão de conta.
     // Se o usuário foi deletado mas o cookie de sessão ainda está ativo,
     // a rota retorna 200 silencioso em vez de 500.
     const [usuarioExiste] = await db
@@ -171,38 +171,6 @@ export async function POST(req: NextRequest) {
             notificacoesCriadas++;
           }
         }
-      }
-    }
-
-    // ── 3. Backup inativo ─────────────────────────────────────────────────────
-    // ✅ CORRIGIDO: query de accounts usa apenas userId + provider sem depender
-    // de índice composto que pode ter sido alterado na migration de schema.
-    const contaGoogle = await db
-      .select({ userId: accounts.userId })
-      .from(accounts)
-      .where(
-        and(
-          eq(accounts.userId, userId),
-          eq(accounts.provider, "google")
-        )
-      )
-      .limit(1);
-
-    const temBackupAtivo = contaGoogle.length > 0;
-
-    if (!temBackupAtivo) {
-      const jaNotificou = await jaNotificouRecentemente(userId, "BACKUP_INATIVO", {}, 168);
-      if (!jaNotificou) {
-        await db.insert(notificacoes).values({
-          userId,
-          tipo:      "BACKUP_INATIVO",
-          severidade: "warning",
-          titulo:    "Backup automático inativo",
-          mensagem:  "Seus dados não estão sendo salvos automaticamente. Vincule sua conta Google em Ajustes para ativar o backup.",
-          link:      "/ajustes",
-          metadata:  {},
-        });
-        notificacoesCriadas++;
       }
     }
 

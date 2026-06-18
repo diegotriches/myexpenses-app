@@ -168,8 +168,13 @@ async function criarNotificacao(
     titulo,
     mensagem,
     tipo:       "backup",
-    severidade: status === "sucesso" ? "info" : "erro",
+    // ✅ CORRIGIDO: "erro" → "error" — o NotificacaoPopover e a página de
+    // notificações usam severidadeConfig em inglês ("error"/"warning"/
+    // "info"/"success"); o valor em português caía no fallback cinza.
+    severidade: status === "sucesso" ? "info" : "error",
     lida:       false,
+    // ✅ NOVO: leva direto para o card de backups ao clicar na notificação
+    link:       "/ajustes?tab=exportar",
     createdAt:  new Date(),
   });
 }

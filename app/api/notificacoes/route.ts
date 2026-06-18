@@ -28,16 +28,13 @@ export async function GET(req: NextRequest) {
     const lidasParam = searchParams.get("lidas");
     const limiteParam = searchParams.get("limite");
 
-    // Construir condições WHERE
     const conditions = [eq(notificacoes.userId, userId)];
-    
-    // Filtrar por status de lida
+
     if (lidasParam !== null) {
       const lidas = lidasParam === "true";
       conditions.push(eq(notificacoes.lida, lidas));
     }
 
-    // Parsear limite (com validação)
     let limite: number | undefined;
     if (limiteParam) {
       const parsed = parseInt(limiteParam, 10);
@@ -46,18 +43,16 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Executar query
     const queryBase = db
       .select()
       .from(notificacoes)
       .where(and(...conditions))
       .orderBy(desc(notificacoes.createdAt));
 
-    const results = limite 
+    const results = limite
       ? await queryBase.limit(limite)
       : await queryBase;
 
-    // Contar não lidas (sempre retorna, independente do filtro)
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(notificacoes)
@@ -97,7 +92,6 @@ export async function POST(req: NextRequest) {
 
     const body: CriarNotificacaoDTO = await req.json();
 
-    // Validações obrigatórias
     if (!body.tipo || !body.severidade || !body.titulo || !body.mensagem) {
       return NextResponse.json(
         { error: "Campos obrigatórios: tipo, severidade, titulo, mensagem" },
@@ -105,7 +99,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validar tipos válidos
+    // ✅ CORRIGIDO: adicionado "backup" — usado pelo cron job e pela rota
+    // de restauração do sistema de backups automáticos (Postgres).
     const tiposValidos = [
       "FATURA_PROXIMA_VENCIMENTO",
       "FATURA_VENCIDA",
@@ -116,6 +111,7 @@ export async function POST(req: NextRequest) {
       "SALDO_NEGATIVO",
       "TRANSACAO_ENTRADA_ALTA",
       "TRANSACAO_SAIDA_ALTA",
+      "backup",
     ];
 
     if (!tiposValidos.includes(body.tipo)) {
@@ -133,7 +129,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Criar notificação
     const [notificacao] = await db
       .insert(notificacoes)
       .values({

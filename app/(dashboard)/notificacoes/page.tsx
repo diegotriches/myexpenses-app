@@ -1,226 +1,201 @@
-// src/app/(protected)/notificacoes/page.tsx
+// src/app/(dashboard)/ajustes/page.tsx
+
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import PreferenciasCard from "@/components/ajustes/PreferenciasCard";
+import ExportarDadosCard from "@/components/ajustes/ExportarDadosCard";
+import ImportarDadosCard from "@/components/ajustes/ImportarDadosCard";
+import BackupsCard from "@/components/ajustes/BackupsCard";
+import { usePreferences } from "@/hooks/usePreferences";
 import {
-  Bell,
-  Check,
-  CheckCheck,
-  Filter,
-  RefreshCw,
   Settings,
+  AlertCircle,
+  Download,
+  Upload,
+  Sliders,
 } from "lucide-react";
-import {
-  useNotificacoes,
-  useMarcarNotificacaoLida,
-  useMarcarTodasNotificacoesLidas,
-  useVerificarNotificacoes,
-} from "@/hooks/useNotificacoes";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { cn } from "@/lib/utils";
-import type { Notificacao, SeveridadeNotificacao } from "@/types/notificacao";
+import { BsFillGearFill } from "react-icons/bs";
 
-// Configuração de cores e labels por severidade
-const severidadeConfig = {
-  info:    { color: "text-blue-500",   bg: "bg-blue-50 dark:bg-blue-950",     label: "Informação" },
-  warning: { color: "text-yellow-500", bg: "bg-yellow-50 dark:bg-yellow-950", label: "Aviso"      },
-  error:   { color: "text-red-500",    bg: "bg-red-50 dark:bg-red-950",       label: "Erro"       },
-  success: { color: "text-green-500",  bg: "bg-green-50 dark:bg-green-950",   label: "Sucesso"    },
-};
+const TABS_VALIDAS = ["preferencias", "exportar", "importar"] as const;
+type TabValida = typeof TABS_VALIDAS[number];
 
-export default function NotificacoesPage() {
-  const { data, isLoading }  = useNotificacoes();
-  const marcarComoLida       = useMarcarNotificacaoLida();
-  const marcarTodasLidas     = useMarcarTodasNotificacoesLidas();
-  const verificarNotificacoes = useVerificarNotificacoes();
+export default function AjustesPage() {
+  const { data: preferencias, isLoading: loading, error: queryError } = usePreferences();
+  const searchParams = useSearchParams();
 
-  const router = useRouter();
+  // ✅ NOVO: lê ?tab= da URL para abrir direto na aba correta
+  // (usado pelos links de notificação, ex: /ajustes?tab=exportar)
+  const tabParam = searchParams.get("tab");
+  const tabInicial: TabValida =
+    tabParam && TABS_VALIDAS.includes(tabParam as TabValida)
+      ? (tabParam as TabValida)
+      : "preferencias";
 
-  const [filtroStatus,     setFiltroStatus]     = useState<"todas" | "lidas" | "nao-lidas">("todas");
-  const [filtroSeveridade, setFiltroSeveridade] = useState<SeveridadeNotificacao | "todas">("todas");
+  const [activeTab, setActiveTab] = useState<TabValida>(tabInicial);
 
-  const notificacoes = data?.notificacoes || [];
-  const naoLidas     = data?.naoLidas     || 0;
-
-  const notificacoesFiltradas = notificacoes.filter((n) => {
-    if (filtroStatus === "lidas"     && !n.lida) return false;
-    if (filtroStatus === "nao-lidas" &&  n.lida) return false;
-    if (filtroSeveridade !== "todas" && n.severidade !== filtroSeveridade) return false;
-    return true;
-  });
-
-  const handleClickNotificacao = async (notif: Notificacao) => {
-    if (!notif.lida) {
-      await marcarComoLida.mutateAsync(notif.id);
+  // Atualiza a aba ativa se o usuário navegar para a página já aberta
+  // com um ?tab= diferente (ex: clicar em outra notificação)
+  useEffect(() => {
+    if (tabParam && TABS_VALIDAS.includes(tabParam as TabValida)) {
+      setActiveTab(tabParam as TabValida);
     }
-    if (notif.link) {
-      router.push(notif.link);
-    }
-  };
+  }, [tabParam]);
+
+  const SkeletonCard = () => (
+    <Card>
+      <CardHeader>
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2 animate-pulse" />
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 animate-pulse" />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+      </CardContent>
+    </Card>
+  );
+
+  if (loading) {
+    return (
+      <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-6">
+        <div className="space-y-2">
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 animate-pulse" />
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse" />
+        </div>
+        <SkeletonCard />
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto max-w-4xl space-y-6 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Notificações</h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            {naoLidas > 0
-              ? `${naoLidas} não ${naoLidas === 1 ? "lida" : "lidas"}`
-              : "Todas as notificações estão lidas"}
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => verificarNotificacoes.mutate()}
-            disabled={verificarNotificacoes.isPending}
-          >
-            <RefreshCw className={cn("h-4 w-4 mr-2", verificarNotificacoes.isPending && "animate-spin")} />
-            Verificar novas
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push("/ajustes?tab=preferencias")}
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            Configurações
-          </Button>
-        </div>
-      </div>
-
-      {/* Filtros + Ações */}
-      <Card className="p-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-            <Select value={filtroStatus} onValueChange={(v: any) => setFiltroStatus(v)}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
-                <SelectItem value="nao-lidas">Não lidas</SelectItem>
-                <SelectItem value="lidas">Lidas</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filtroSeveridade} onValueChange={(v: any) => setFiltroSeveridade(v)}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todos os tipos</SelectItem>
-                <SelectItem value="info">Informação</SelectItem>
-                <SelectItem value="warning">Aviso</SelectItem>
-                <SelectItem value="error">Erro</SelectItem>
-                <SelectItem value="success">Sucesso</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {naoLidas > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => marcarTodasLidas.mutate()}
-              disabled={marcarTodasLidas.isPending}
-            >
-              <CheckCheck className="h-4 w-4 mr-2" />
-              Marcar todas como lidas
-            </Button>
-          )}
-        </div>
-      </Card>
-
-      {/* Lista */}
+    <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-6">
+      {/* Cabeçalho */}
       <div className="space-y-2">
-        {isLoading && notificacoes.length === 0 ? (
-          <Card className="p-8 text-center">
-            <p className="text-gray-600 dark:text-gray-400">Carregando notificações...</p>
-          </Card>
-        ) : notificacoesFiltradas.length === 0 ? (
-          <Card className="p-8 text-center">
-            <Bell className="mx-auto mb-4 h-12 w-12 text-gray-400 dark:text-gray-600" />
-            <p className="text-gray-600 dark:text-gray-400">
-              {notificacoes.length === 0
-                ? "Você não tem notificações"
-                : "Nenhuma notificação encontrada com os filtros aplicados"}
-            </p>
-          </Card>
-        ) : (
-          notificacoesFiltradas.map((notif) => {
-            const config = severidadeConfig[notif.severidade];
-            return (
-              <Card
-                key={notif.id}
-                className={cn(
-                  "cursor-pointer transition-all hover:shadow-md",
-                  !notif.lida && "border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/10"
-                )}
-                onClick={() => handleClickNotificacao(notif)}
-              >
-                <div className="flex items-start gap-4 p-4">
-                  {/* Ícone */}
-                  <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full", config.bg)}>
-                    <Bell className={cn("h-5 w-5", config.color)} />
-                  </div>
-
-                  {/* Conteúdo */}
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
-                        {notif.titulo}
-                      </h3>
-                      <span className={cn(
-                        "rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-                        config.bg, config.color
-                      )}>
-                        {config.label}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{notif.mensagem}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500">
-                      {new Date(notif.createdAt).toLocaleString("pt-BR", {
-                        day: "2-digit", month: "2-digit", year: "numeric",
-                        hour: "2-digit", minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-
-                  {/* Ação: apenas marcar como lida */}
-                  {!notif.lida && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        marcarComoLida.mutate(notif.id);
-                      }}
-                      disabled={marcarComoLida.isPending}
-                      title="Marcar como lida"
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            );
-          })
-        )}
+        <div className="flex items-center gap-3">
+          <BsFillGearFill className="text-2xl md:text-3xl text-blue-700 dark:text-blue-400" />
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+            Ajustes
+          </h1>
+        </div>
+        <p className="text-gray-600 dark:text-gray-400">
+          Gerencie suas preferências, backup e importação de dados
+        </p>
       </div>
+
+      <Separator />
+
+      {/* Error Alert */}
+      {queryError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {queryError instanceof Error ? queryError.message : "Erro ao carregar preferências"}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Tabs de Navegação */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValida)} className="space-y-6">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
+          <TabsTrigger value="preferencias" className="flex items-center gap-2">
+            <Sliders className="h-4 w-4" />
+            <span className="hidden sm:inline">Preferências</span>
+          </TabsTrigger>
+          <TabsTrigger value="exportar" className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Exportar</span>
+          </TabsTrigger>
+          <TabsTrigger value="importar" className="flex items-center gap-2">
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Importar</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* TAB 1: PREFERÊNCIAS */}
+        <TabsContent value="preferencias" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings size={20} className="text-blue-600 dark:text-blue-400" />
+                Preferências do Sistema
+              </CardTitle>
+              <CardDescription>
+                Configure a aparência e o comportamento do aplicativo de acordo com suas preferências
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {preferencias && (
+                <PreferenciasCard preferencias={preferencias} />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card informativo */}
+          <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    Procurando por outras configurações?
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Suas informações pessoais, foto de perfil e configurações de segurança estão na página{" "}
+                    <a href="/perfil" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium underline">
+                      Meu Perfil
+                    </a>
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 2: EXPORTAR DADOS */}
+        <TabsContent value="exportar" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Download className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <CardTitle>Exportar Dados</CardTitle>
+              </div>
+              <CardDescription>
+                Faça backup dos seus dados financeiros de forma segura
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ExportarDadosCard />
+            </CardContent>
+          </Card>
+
+          {/* ✅ NOVO: Backups automáticos (substitui o card do Google Drive) */}
+          <BackupsCard />
+        </TabsContent>
+
+        {/* TAB 3: IMPORTAR DADOS */}
+        <TabsContent value="importar" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Upload className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <CardTitle>Importar Dados</CardTitle>
+              </div>
+              <CardDescription>
+                Restaure seus dados a partir de um backup anterior
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ImportarDadosCard />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
