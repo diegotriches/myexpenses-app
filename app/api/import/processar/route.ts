@@ -1,429 +1,207 @@
 // src/app/api/import/processar/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { getUserId } from "@/lib/auth";
 import { db } from "@/db";
 import {
-  categorias,
-  contas,
-  cartoes,
-  transacoes,
-  faturas,
-  extratoConta,
-  notificacoes,
-  preferenciasNotificacao,
-  preferences
+  categorias, contas, cartoes, transacoes, faturas, extratoConta,
+  notificacoes, preferenciasNotificacao, preferences, estabelecimentos,
+  transferencias, notas, adiantamentosFatura,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import type { ExportFile, ModuloExport } from "@/types/export";
-import type {
-  ImportProcessarDTO,
-  ImportProcessarResponse,
-  ImportResult,
-  ImportModuloResult,
-  EstrategiaConflito
-} from "@/types/import";
+import { getUserId } from "@/lib/auth";
+
+interface ImportResultado {
+  modulo: string;
+  importados: number;
+}
 
 /**
  * POST /api/import/processar
- * Processa importação dos dados com estratégia de conflito
- * 
+ *
+ * ✅ REESCRITO DO ZERO. O sistema anterior tinha bugs críticos:
+ * - Tentava inserir mesReferencia/anoReferencia em faturas (campos que
+ *   não existem na tabela), o que quebrava todo import de faturas
+ * - Gerava novos UUIDs para todo registro, então "pular duplicados"
+ *   nunca funcionava de fato para transações/faturas/extrato
+ * - Tratava "preferencias" (array de preferenciasNotificacao) como se
+ *   fosse o objeto singular "preferences", inserindo na tabela errada
+ * - Tinha um "rollback" que nunca desfazia nada e um "criarBackup" que
+ *   era apenas um TODO sem implementação
+ *
+ * Nova abordagem: estratégia única e honesta — SUBSTITUI todos os
+ * dados do usuário pelo conteúdo do arquivo, dentro de uma transação
+ * atômica. É a mesma lógica já testada em
+ * /api/backups/[id]/restaurar/route.ts. Não há mais tentativa de
+ * "mesclar" ou "pular duplicados": ao importar um arquivo, o usuário
+ * está dizendo "quero que meus dados sejam exatamente este arquivo".
+ *
  * Body:
  * {
- *   dados: ExportFile,
- *   estrategiaConflito: "skip" | "substituir" | "mesclar",
- *   modulosSelecionados?: ModuloExport[],
- *   criarBackup?: boolean
+ *   dados: { metadata, statistics, data },
+ *   confirmar: true
  * }
  */
 export async function POST(req: NextRequest) {
-  const inicioTotal = Date.now();
-  
+  const inicio = Date.now();
+
   try {
-    // 1. Autenticação
     const userId = await getUserId();
     if (!userId) {
-      return NextResponse.json(
-        { error: "Não autenticado", timestamp: new Date().toISOString() },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    // 2. Parse body
-    const body: ImportProcessarDTO = await req.json();
-    const {
-      dados,
-      estrategiaConflito = "skip",
-      modulosSelecionados,
-      criarBackup = false
-    } = body;
+    const body = await req.json().catch(() => ({}));
+    const { dados, confirmar } = body;
 
-    if (!dados) {
+    if (confirmar !== true) {
       return NextResponse.json(
-        {
-          error: "Campo 'dados' é obrigatório",
-          timestamp: new Date().toISOString()
-        },
+        { error: "Confirmação obrigatória — envie { confirmar: true } no body" },
         { status: 400 }
       );
     }
 
-    console.log("[Import Processar] Iniciando importação:", {
-      userId,
-      estrategia: estrategiaConflito,
-      modulos: modulosSelecionados || "todos",
-      backup: criarBackup
-    });
-
-    // 3. Criar backup se solicitado
-    let backupUrl: string | undefined;
-    if (criarBackup) {
-      console.log("[Import Processar] Criando backup antes de importar...");
-      // TODO: Implementar backup
-      // backupUrl = await criarBackupUsuario(userId);
+    if (!dados?.data) {
+      return NextResponse.json(
+        { error: "Arquivo inválido — estrutura 'data' não encontrada" },
+        { status: 400 }
+      );
     }
 
-    // 4. Determinar módulos a importar
-    const exportData = dados as ExportFile;
-    const modulosDisponiveis = Object.keys(exportData.data) as ModuloExport[];
-    const modulosAImportar = modulosSelecionados || modulosDisponiveis;
+    // Validação estrutural mínima: confirma que é um arquivo do MyExpenses
+    if (!dados.metadata?.appName || dados.metadata.appName !== "MyExpenses") {
+      return NextResponse.json(
+        { error: "Arquivo não reconhecido como um export válido do MyExpenses" },
+        { status: 400 }
+      );
+    }
 
-    console.log("[Import Processar] Módulos a importar:", modulosAImportar);
+    const data = dados.data;
+    const resultados: ImportResultado[] = [];
 
-    // 5. Processar cada módulo
-    const detalhes: Record<string, ImportModuloResult> = {};
-    const modulosRollback: ModuloExport[] = [];
-    let sucessoTotal = true;
+    await db.transaction(async (tx) => {
+      // 1. Remove dados atuais do usuário (filhas → pais, respeitando FKs)
+      await tx.delete(adiantamentosFatura).where(eq(adiantamentosFatura.userId, userId));
+      await tx.delete(extratoConta).where(eq(extratoConta.userId, userId));
+      await tx.delete(transferencias).where(eq(transferencias.userId, userId));
+      await tx.delete(faturas).where(eq(faturas.userId, userId));
+      await tx.delete(transacoes).where(eq(transacoes.userId, userId));
+      await tx.delete(notas).where(eq(notas.userId, userId));
+      await tx.delete(notificacoes).where(eq(notificacoes.userId, userId));
+      await tx.delete(preferenciasNotificacao).where(eq(preferenciasNotificacao.userId, userId));
+      await tx.delete(estabelecimentos).where(eq(estabelecimentos.userId, userId));
+      await tx.delete(cartoes).where(eq(cartoes.userId, userId));
+      await tx.delete(contas).where(eq(contas.userId, userId));
+      await tx.delete(categorias).where(eq(categorias.userId, userId));
+      await tx.delete(preferences).where(eq(preferences.userId, userId));
 
-    for (const modulo of modulosAImportar) {
-      const inicioModulo = Date.now();
-      
-      try {
-        console.log(`[Import Processar] Processando módulo: ${modulo}`);
-        
-        const resultado = await processarModulo(
-          modulo,
-          exportData.data[modulo as keyof typeof exportData.data] || [],
-          userId,
-          estrategiaConflito
-        );
-        
-        detalhes[modulo] = resultado;
-        
-        if (!resultado.sucesso) {
-          sucessoTotal = false;
-        }
-        
-        console.log(`[Import Processar] Módulo ${modulo} concluído:`, {
-          importados: resultado.importados,
-          pulados: resultado.pulados,
-          erros: resultado.erros,
-          duracao: `${resultado.duracao}ms`
+      // 2. Reinsere a partir do arquivo (pais → filhas)
+      // Todos os registros têm seu userId forçado para o usuário atual,
+      // independente do que estava no arquivo — protege contra um
+      // arquivo de outro usuário sendo importado por engano/manipulação.
+
+      if (data.categorias?.length) {
+        const registros = data.categorias.map((r: any) => ({ ...r, userId }));
+        await tx.insert(categorias).values(registros);
+        resultados.push({ modulo: "categorias", importados: registros.length });
+      }
+
+      if (data.contas?.length) {
+        const registros = data.contas.map((r: any) => ({ ...r, userId }));
+        await tx.insert(contas).values(registros);
+        resultados.push({ modulo: "contas", importados: registros.length });
+      }
+
+      if (data.cartoes?.length) {
+        const registros = data.cartoes.map((r: any) => ({ ...r, userId }));
+        await tx.insert(cartoes).values(registros);
+        resultados.push({ modulo: "cartoes", importados: registros.length });
+      }
+
+      if (data.estabelecimentos?.length) {
+        const registros = data.estabelecimentos.map((r: any) => ({ ...r, userId }));
+        await tx.insert(estabelecimentos).values(registros);
+        resultados.push({ modulo: "estabelecimentos", importados: registros.length });
+      }
+
+      if (data.transacoes?.length) {
+        const registros = data.transacoes.map((r: any) => ({ ...r, userId }));
+        await tx.insert(transacoes).values(registros);
+        resultados.push({ modulo: "transacoes", importados: registros.length });
+      }
+
+      if (data.faturas?.length) {
+        // ✅ Remove os campos calculados que não existem na tabela real
+        const registros = data.faturas.map((f: any) => {
+          const { mesReferencia, anoReferencia, ...resto } = f;
+          return { ...resto, userId };
         });
-        
-      } catch (error: any) {
-        console.error(`[Import Processar] Erro no módulo ${modulo}:`, error);
-        
-        // Registrar erro
-        detalhes[modulo] = {
-          modulo,
-          sucesso: false,
-          total: 0,
-          importados: 0,
-          pulados: 0,
-          erros: 1,
-          listaErros: [{
-            severidade: "erro",
-            tipo: "schema_invalido",
-            modulo,
-            codigo: "ERRO_PROCESSAMENTO",
-            mensagem: error.message
-          }],
-          idsCriados: [],
-          idsAtualizados: [],
-          idsPulados: [],
-          duracao: Date.now() - inicioModulo
-        };
-        
-        modulosRollback.push(modulo);
-        sucessoTotal = false;
+        await tx.insert(faturas).values(registros);
+        resultados.push({ modulo: "faturas", importados: registros.length });
       }
-    }
 
-    // 6. Calcular resumo
-    const resumo = {
-      totalRegistros: 0,
-      importados: 0,
-      pulados: 0,
-      erros: 0
-    };
+      if (data.adiantamentos?.length) {
+        const registros = data.adiantamentos.map((r: any) => ({ ...r, userId }));
+        await tx.insert(adiantamentosFatura).values(registros);
+        resultados.push({ modulo: "adiantamentos", importados: registros.length });
+      }
 
-    Object.values(detalhes).forEach(resultado => {
-      resumo.totalRegistros += resultado.total;
-      resumo.importados += resultado.importados;
-      resumo.pulados += resultado.pulados;
-      resumo.erros += resultado.erros;
-    });
+      if (data.transferencias?.length) {
+        const registros = data.transferencias.map((r: any) => ({ ...r, userId }));
+        await tx.insert(transferencias).values(registros);
+        resultados.push({ modulo: "transferencias", importados: registros.length });
+      }
 
-    // 7. Montar resultado
-    const duracaoTotal = Date.now() - inicioTotal;
-    
-    const resultado: ImportResult = {
-      sucesso: sucessoTotal,
-      status: sucessoTotal ? "concluido" : (resumo.importados > 0 ? "concluido_parcial" : "erro"),
-      modulos: modulosAImportar,
-      detalhes: detalhes as Record<ModuloExport, ImportModuloResult>,
-      resumo,
-      errosFatais: [],
-      rollback: modulosRollback.length > 0,
-      modulosRollback,
-      iniciadoEm: new Date(inicioTotal).toISOString(),
-      concluidoEm: new Date().toISOString(),
-      duracaoTotal
-    };
+      if (data.extrato?.length) {
+        const registros = data.extrato.map((r: any) => ({ ...r, userId }));
+        await tx.insert(extratoConta).values(registros);
+        resultados.push({ modulo: "extrato", importados: registros.length });
+      }
 
-    console.log("[Import Processar] Importação concluída:", {
-      status: resultado.status,
-      importados: resumo.importados,
-      pulados: resumo.pulados,
-      erros: resumo.erros,
-      duracao: `${duracaoTotal}ms`
-    });
+      if (data.notas?.length) {
+        const registros = data.notas.map((r: any) => ({ ...r, userId }));
+        await tx.insert(notas).values(registros);
+        resultados.push({ modulo: "notas", importados: registros.length });
+      }
 
-    // 8. Preparar resposta
-    const response: ImportProcessarResponse = {
-      resultado,
-      backupUrl,
-      timestamp: new Date().toISOString()
-    };
+      if (data.notificacoes?.length) {
+        const registros = data.notificacoes.map((r: any) => ({ ...r, userId }));
+        await tx.insert(notificacoes).values(registros);
+        resultados.push({ modulo: "notificacoes", importados: registros.length });
+      }
 
-    return NextResponse.json(response, {
-      status: 200,
-      headers: {
-        "X-Import-Duration": duracaoTotal.toString(),
-        "X-Import-Records": resumo.importados.toString()
+      // ✅ CORRIGIDO: "preferencias" (array) vai para preferenciasNotificacao,
+      // que é a tabela correta — não para "preferences" (singular, outra
+      // tabela), que era o bug do código anterior.
+      if (data.preferencias?.length) {
+        const registros = data.preferencias.map((r: any) => ({ ...r, userId }));
+        await tx.insert(preferenciasNotificacao).values(registros);
+        resultados.push({ modulo: "preferencias_notificacao", importados: registros.length });
+      }
+
+      // ✅ CORRIGIDO: "preferences" (objeto singular) agora é processado
+      // separadamente — no código anterior, essa chave nunca era lida.
+      if (data.preferences) {
+        await tx.insert(preferences).values({ ...data.preferences, userId });
+        resultados.push({ modulo: "preferences", importados: 1 });
       }
     });
-    
+
+    const duracao = Date.now() - inicio;
+    const totalImportado = resultados.reduce((acc, r) => acc + r.importados, 0);
+
+    console.log(`[Import] Importação concluída em ${duracao}ms — ${totalImportado} registros`, resultados);
+
+    return NextResponse.json({
+      message:    "Importação concluída com sucesso",
+      resultados,
+      totalImportado,
+      duracao,
+    });
   } catch (error: any) {
-    const duracao = Date.now() - inicioTotal;
-    
-    console.error("[Import Processar] Erro fatal na importação:", {
-      error: error.message,
-      stack: error.stack,
-      duracao: `${duracao}ms`
-    });
-    
+    console.error("[Import] Erro ao processar importação:", error);
     return NextResponse.json(
-      {
-        error: "Erro ao processar importação",
-        details: process.env.NODE_ENV === "development" ? error.message : undefined,
-        timestamp: new Date().toISOString()
-      },
+      { error: error.message || "Erro ao processar importação" },
       { status: 500 }
     );
   }
-}
-
-// ============================================================================
-// HELPERS - PROCESSAMENTO POR MÓDULO
-// ============================================================================
-
-/**
- * Processa importação de um módulo específico
- */
-async function processarModulo(
-  modulo: ModuloExport,
-  registros: any[],
-  userId: string,
-  estrategia: EstrategiaConflito
-): Promise<ImportModuloResult> {
-  const inicio = Date.now();
-  
-  const resultado: ImportModuloResult = {
-    modulo,
-    sucesso: true,
-    total: Array.isArray(registros) ? registros.length : 0,
-    importados: 0,
-    pulados: 0,
-    erros: 0,
-    listaErros: [],
-    idsCriados: [],
-    idsAtualizados: [],
-    idsPulados: [],
-    duracao: 0
-  };
-
-  if (!Array.isArray(registros) || registros.length === 0) {
-    resultado.duracao = Date.now() - inicio;
-    return resultado;
-  }
-
-  // Processar cada registro
-  for (const registro of registros) {
-    try {
-      // Adicionar userId ao registro
-      const registroComUserId = {
-        ...registro,
-        userId,
-        // Gerar novo ID para evitar conflitos
-        id: crypto.randomUUID()
-      };
-
-      // Verificar duplicata por nome (para categorias, contas, cartões)
-      let isDuplicado = false;
-      
-      if (["categorias", "contas", "cartoes"].includes(modulo) && registro.nome) {
-        isDuplicado = await verificarDuplicata(modulo, registro.nome, userId);
-      }
-
-      // Aplicar estratégia
-      if (isDuplicado) {
-        if (estrategia === "skip") {
-          resultado.pulados++;
-          resultado.idsPulados.push(registro.id);
-          continue;
-        } else if (estrategia === "substituir") {
-          // TODO: Implementar atualização
-          resultado.pulados++;
-          resultado.idsPulados.push(registro.id);
-          continue;
-        }
-      }
-
-      // Inserir registro
-      await inserirRegistro(modulo, registroComUserId);
-      
-      resultado.importados++;
-      resultado.idsCriados.push(registroComUserId.id);
-      
-    } catch (error: any) {
-      console.error(`[Import] Erro ao importar registro em ${modulo}:`, error);
-      
-      resultado.erros++;
-      resultado.listaErros.push({
-        severidade: "erro",
-        tipo: "schema_invalido",
-        modulo,
-        codigo: "ERRO_INSERCAO",
-        mensagem: error.message,
-        registroId: registro.id
-      });
-    }
-  }
-
-  resultado.sucesso = resultado.erros === 0;
-  resultado.duracao = Date.now() - inicio;
-  
-  return resultado;
-}
-
-/**
- * Verifica se registro é duplicado por nome
- */
-async function verificarDuplicata(
-  modulo: ModuloExport,
-  nome: string,
-  userId: string
-): Promise<boolean> {
-  try {
-    switch (modulo) {
-      case "categorias":
-        const cats = await db
-          .select({ id: categorias.id, nome: categorias.nome })
-          .from(categorias)
-          .where(eq(categorias.userId, userId))
-          .limit(100);
-        
-        // ✅ CORRETO: Comparar nomes (case-insensitive)
-        return cats.some(c => c.nome?.toLowerCase() === nome.toLowerCase());
-        
-      case "contas":
-        const cts = await db
-          .select({ id: contas.id, nome: contas.nome })
-          .from(contas)
-          .where(eq(contas.userId, userId))
-          .limit(100);
-        
-        // ✅ CORRETO: Comparar nomes (case-insensitive)
-        return cts.some(c => c.nome?.toLowerCase() === nome.toLowerCase());
-        
-      case "cartoes":
-        const cards = await db
-          .select({ id: cartoes.id, nome: cartoes.nome })
-          .from(cartoes)
-          .where(eq(cartoes.userId, userId))
-          .limit(100);
-        
-        // ✅ CORRETO: Comparar nomes (case-insensitive)
-        return cards.some(c => c.nome?.toLowerCase() === nome.toLowerCase());
-        
-      default:
-        return false;
-    }
-  } catch (error) {
-    console.warn("[Import] Erro ao verificar duplicata:", error);
-    return false;
-  }
-}
-
-/**
- * Insere registro no módulo específico
- */
-async function inserirRegistro(modulo: ModuloExport, registro: any): Promise<void> {
-  switch (modulo) {
-    case "categorias":
-      await db.insert(categorias).values(registro);
-      break;
-      
-    case "contas":
-      await db.insert(contas).values(registro);
-      break;
-      
-    case "cartoes":
-      await db.insert(cartoes).values(registro);
-      break;
-      
-    case "transacoes":
-      await db.insert(transacoes).values(registro);
-      break;
-      
-    case "faturas":
-      await db.insert(faturas).values(registro);
-      break;
-      
-    case "extrato":
-      await db.insert(extratoConta).values(registro);
-      break;
-      
-    case "notificacoes":
-      await db.insert(notificacoes).values(registro);
-      break;
-      
-    case "preferencias":
-      // Preferences é objeto único, não array
-      await db.insert(preferences).values(registro).onConflictDoUpdate({
-        target: preferences.userId,
-        set: registro
-      });
-      break;
-      
-    default:
-      throw new Error(`Módulo não suportado: ${modulo}`);
-  }
-}
-
-/**
- * OPTIONS /api/import/processar
- * CORS preflight
- */
-export async function OPTIONS(req: NextRequest) {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      "Allow": "POST, OPTIONS",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization"
-    }
-  });
 }

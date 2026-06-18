@@ -1,86 +1,57 @@
 // src/app/api/export/meus-dados/route.ts
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { db } from "@/db";
 import {
-  users,
-  contas,
-  cartoes,
-  transacoes,
-  categorias,
-  faturas,
-  extratoConta,
-  notificacoes,
-  preferenciasNotificacao,
-  preferences
+  users, contas, cartoes, transacoes, categorias, faturas, extratoConta,
+  notificacoes, preferenciasNotificacao, preferences, estabelecimentos,
+  transferencias, notas, adiantamentosFatura,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import type { ExportFile, ExportMetadata, ExportStatistics, ExportData } from "@/types/export";
 
 /**
  * GET /api/export/meus-dados
- * Exporta TODOS os dados do usuário em formato JSON
- * 
- * Query params:
- * - formato: "json" | "csv" | "zip" (padrão: json)
- * - encrypted: "true" | "false" (padrão: false)
- * 
- * Headers:
- * - X-Encryption-Password: senha para criptografia (se encrypted=true)
+ * Exporta TODOS os dados do usuário em formato JSON para download.
+ *
+ * ✅ REESCRITO: agora usa exatamente o mesmo conjunto de tabelas do
+ * snapshot gerado pelo backup automático (cron job), incluindo
+ * estabelecimentos, transferencias, notas e adiantamentosFatura, que
+ * não estavam no export original. Isso garante que o arquivo exportado
+ * manualmente aqui é 100% compatível com a rota de importação, que
+ * espera essa mesma estrutura.
+ *
+ * Não há mais opções de "seletivo" ou "por período" — simplificado
+ * para uma única exportação completa, que é o caso de uso real
+ * (backup manual / migração de dados).
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   const inicio = Date.now();
-  
+
   try {
-    // 1. Autenticação
     const userId = await getUserId();
     if (!userId) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    console.log(`[Export] Iniciando exportação completa para userId: ${userId}`);
-
-    // 2. Query params
-    const searchParams = req.nextUrl.searchParams;
-    const formato = searchParams.get("formato") || "json";
-    const encrypted = searchParams.get("encrypted") === "true";
-
-    // 3. Buscar dados do usuário (sem senha!)
     const [userData] = await db
       .select({
-        id: users.id,
-        name: users.name,
+        id:    users.id,
+        name:  users.name,
         email: users.email,
-        image: users.image,
-        emailVerified: users.emailVerified,
-        createdAt: users.createdAt,
       })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
 
     if (!userData) {
-      return NextResponse.json(
-        { error: "Usuário não encontrado" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
     }
 
-    // 4. Buscar todos os dados relacionados em paralelo
     const [
-      contasData,
-      cartoesData,
-      transacoesData,
-      categoriasData,
-      faturasData,
-      extratoData,
-      notificacoesData,
-      preferenciasNotifData,
-      preferencesData
+      contasData, cartoesData, transacoesData, categoriasData, faturasData,
+      extratoData, notificacoesData, preferenciasNotifData, preferencesData,
+      estabelecimentosData, transferenciasData, notasData, adiantamentosData,
     ] = await Promise.all([
       db.select().from(contas).where(eq(contas.userId, userId)),
       db.select().from(cartoes).where(eq(cartoes.userId, userId)),
@@ -90,133 +61,96 @@ export async function GET(req: NextRequest) {
       db.select().from(extratoConta).where(eq(extratoConta.userId, userId)),
       db.select().from(notificacoes).where(eq(notificacoes.userId, userId)),
       db.select().from(preferenciasNotificacao).where(eq(preferenciasNotificacao.userId, userId)),
-      db.select().from(preferences).where(eq(preferences.userId, userId))
+      db.select().from(preferences).where(eq(preferences.userId, userId)),
+      db.select().from(estabelecimentos).where(eq(estabelecimentos.userId, userId)),
+      db.select().from(transferencias).where(eq(transferencias.userId, userId)),
+      db.select().from(notas).where(eq(notas.userId, userId)),
+      db.select().from(adiantamentosFatura).where(eq(adiantamentosFatura.userId, userId)),
     ]);
 
-    // 5. Montar metadata
-    const metadata: ExportMetadata = {
-      version: "1.0.0",
+    const data = {
+      categorias:       categoriasData,
+      contas:           contasData,
+      cartoes:          cartoesData,
+      transacoes:       transacoesData,
+      // mesReferencia/anoReferencia são removidos na importação antes do
+      // insert (não existem na tabela real) — mantidos aqui só como
+      // informação de leitura para quem abrir o JSON manualmente.
+      faturas:          faturasData.map((f) => ({ ...f, mesReferencia: f.mes, anoReferencia: f.ano })),
+      extrato:          extratoData,
+      notificacoes:     notificacoesData,
+      preferencias:     preferenciasNotifData,
+      preferences:      preferencesData[0] ?? null,
+      estabelecimentos: estabelecimentosData,
+      transferencias:   transferenciasData,
+      notas:            notasData,
+      adiantamentos:    adiantamentosData,
+    };
+
+    const statistics = {
+      categorias:       categoriasData.length,
+      contas:           contasData.length,
+      cartoes:          cartoesData.length,
+      transacoes:       transacoesData.length,
+      faturas:          faturasData.length,
+      extrato:          extratoData.length,
+      notificacoes:     notificacoesData.length,
+      preferencias:     preferenciasNotifData.length,
+      estabelecimentos: estabelecimentosData.length,
+      transferencias:   transferenciasData.length,
+      notas:            notasData.length,
+      adiantamentos:    adiantamentosData.length,
+      tamanhoBytes:     0,
+      tamanhoFormatado: "",
+    };
+
+    const metadata = {
+      version:    "2.0.0",
       exportDate: new Date().toISOString(),
-      userId: userData.id,
-      userName: userData.name || "Usuário",
-      userEmail: userData.email,
-      tipo: "completo",
-      formato: formato as any,
-      encrypted,
-      appName: "MyExpenses",
-      appVersion: "1.0.0",
-      appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://myexpenses-app-ten.vercel.app"
+      userId:     userData.id,
+      userName:   userData.name || "Usuário",
+      userEmail:  userData.email,
+      appName:    "MyExpenses",
     };
 
-    // 6. Calcular estatísticas
-    const statistics: ExportStatistics = {
-      categorias: categoriasData.length,
-      contas: contasData.length,
-      cartoes: cartoesData.length,
-      transacoes: transacoesData.length,
-      faturas: faturasData.length,
-      extrato: extratoData.length,
-      notificacoes: notificacoesData.length,
-      preferencias: preferencesData.length,
-      tamanhoBytes: 0, // Será calculado após stringify
-      tamanhoFormatado: ""
-    };
-
-    // 7. Montar dados exportados
-    const data: ExportData = {
-      categorias: categoriasData,
-      contas: contasData,
-      cartoes: cartoesData,
-      transacoes: transacoesData,
-      // ✅ CORREÇÃO: Mapear faturas para adicionar mesReferencia e anoReferencia
-      faturas: faturasData.map(fatura => ({
-        ...fatura,
-        mesReferencia: fatura.mes,
-        anoReferencia: fatura.ano
-      })),
-      extrato: extratoData,
-      notificacoes: notificacoesData,
-      // ✅ CORREÇÃO: Usar 'preferencias' ao invés de 'preferenciasNotificacao'
-      preferencias: preferenciasNotifData
-    };
-
-    // 8. Adicionar preferências se existir
-    if (preferencesData.length > 0) {
-      (data as any).preferences = preferencesData[0];
-    }
-
-    // 9. Montar objeto final
-    const exportData: ExportFile = {
-      metadata,
-      statistics,
-      data
-    };
-
-    // 10. Converter para JSON formatado
-    const json = JSON.stringify(exportData, null, 2);
+    const exportFile = { metadata, statistics, data };
+    const json   = JSON.stringify(exportFile, null, 2);
     const buffer = Buffer.from(json, "utf-8");
 
-    // Atualizar estatísticas com tamanho real
-    exportData.statistics.tamanhoBytes = buffer.length;
-    exportData.statistics.tamanhoFormatado = formatBytes(buffer.length);
+    exportFile.statistics.tamanhoBytes     = buffer.length;
+    exportFile.statistics.tamanhoFormatado = formatBytes(buffer.length);
 
-    // 11. Gerar nome do arquivo
+    // Reserializa com o tamanho já preenchido
+    const jsonFinal   = JSON.stringify(exportFile, null, 2);
+    const bufferFinal = Buffer.from(jsonFinal, "utf-8");
+
     const timestamp = new Date().toISOString().split("T")[0];
-    const filename = `myexpenses-backup-${timestamp}.json`;
+    const filename  = `myexpenses-export-${timestamp}.json`;
 
-    // 12. Logs
     const duracao = Date.now() - inicio;
-    console.log(`[Export] Exportação concluída em ${duracao}ms:`, {
-      filename,
-      tamanho: exportData.statistics.tamanhoFormatado,
-      categorias: statistics.categorias,
-      contas: statistics.contas,
-      transacoes: statistics.transacoes
-    });
+    console.log(`[Export] Exportação concluída em ${duracao}ms — ${filename} (${exportFile.statistics.tamanhoFormatado})`);
 
-    // 13. Retornar como download
-    return new NextResponse(buffer, {
+    return new NextResponse(bufferFinal, {
       status: 200,
       headers: {
-        "Content-Type": "application/json; charset=utf-8",
+        "Content-Type":        "application/json; charset=utf-8",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "Content-Length": buffer.length.toString(),
-        "X-Export-Duration": duracao.toString(),
-        "X-Export-Records": statistics.transacoes.toString()
+        "Content-Length":      bufferFinal.length.toString(),
       },
     });
-    
   } catch (error: any) {
-    const duracao = Date.now() - inicio;
-    
-    console.error("[Export] Erro ao exportar dados:", {
-      error: error.message,
-      stack: error.stack,
-      duracao
-    });
-    
+    console.error("[Export] Erro ao exportar dados:", error);
     return NextResponse.json(
-      {
-        error: "Erro ao exportar dados",
-        details: process.env.NODE_ENV === "development" ? error.message : undefined,
-        timestamp: new Date().toISOString()
-      },
+      { error: error.message || "Erro ao exportar dados" },
       { status: 500 }
     );
   }
 }
 
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-/**
- * Formata bytes para string legível
- */
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 Bytes";
-  const k = 1024;
+  const k     = 1024;
   const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const i     = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
