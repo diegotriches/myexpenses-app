@@ -28,9 +28,6 @@ type TabValida = typeof TABS_VALIDAS[number];
 export default function AjustesPage() {
   const { data: preferencias, isLoading: loading, error: queryError } = usePreferences();
   const searchParams = useSearchParams();
-
-  // ✅ Lê ?tab= da URL para abrir direto na aba correta
-  // (usado pelos links de notificação, ex: /ajustes?tab=exportar)
   const tabParam = searchParams.get("tab");
   const tabInicial: TabValida =
     tabParam && TABS_VALIDAS.includes(tabParam as TabValida)
