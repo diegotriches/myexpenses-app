@@ -96,7 +96,6 @@ import {
   FaHotel,
   FaBed,
   FaConciergeBell,
-  FaUtensils as FaFork,
   FaGlassCheers,
   FaBaby,
   FaBabyCarriage,
@@ -278,7 +277,6 @@ import {
   MdWork,
   MdPets,
   MdFastfood,
-  MdRestaurant,
   MdLocalGroceryStore,
   MdMovie,
   MdTheaters,
@@ -319,11 +317,9 @@ import {
   MdMeetingRoom,
   MdRoomService,
   MdKitchen,
-  MdMicrowave,
-  MdBlender,
   MdCoffeeMaker,
-  MdOutdoorGrill,
 } from "react-icons/md";
+import { ImScissors } from "react-icons/im";
 
 export const iconOptions = [
   // === DINHEIRO & FINANÇAS ===
@@ -371,7 +367,6 @@ export const iconOptions = [
 
   // === ALIMENTAÇÃO ===
   { name: "FaUtensils", component: FaUtensils, category: "Alimentação" },
-  { name: "MdRestaurant", component: MdRestaurant, category: "Alimentação" },
   { name: "MdFastfood", component: MdFastfood, category: "Alimentação" },
   { name: "FaPizzaSlice", component: FaPizzaSlice, category: "Alimentação" },
   { name: "FaHamburger", component: FaHamburger, category: "Alimentação" },
@@ -554,6 +549,7 @@ export const iconOptions = [
   { name: "FaEraser", component: FaEraser, category: "Escritório" },
   { name: "FaRuler", component: FaRuler, category: "Escritório" },
   { name: "FaPrint", component: FaPrint, category: "Escritório" },
+  { name: "ImScissors", component: ImScissors, category: "Escritório" },
 
   // === CIÊNCIA & PESQUISA ===
   { name: "FaFlask", component: FaFlask, category: "Ciência" },
@@ -730,5 +726,4 @@ export const iconOptions = [
   { name: "FaUmbrella", component: FaUmbrella, category: "Diversos" },
   { name: "FaBell", component: FaBell, category: "Diversos" },
   { name: "FaFlag", component: FaFlag, category: "Diversos" },
-  { name: "FaFork", component: FaFork, category: "Diversos" },
 ];
