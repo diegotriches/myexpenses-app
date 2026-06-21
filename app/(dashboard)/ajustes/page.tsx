@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,7 +25,28 @@ import { BsFillGearFill } from "react-icons/bs";
 const TABS_VALIDAS = ["preferencias", "exportar", "importar"] as const;
 type TabValida = typeof TABS_VALIDAS[number];
 
-export default function AjustesPage() {
+const SkeletonCard = () => (
+  <Card>
+    <CardHeader>
+      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2 animate-pulse" />
+      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 animate-pulse" />
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+      <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+      <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+    </CardContent>
+  </Card>
+);
+
+/**
+ * ✅ CORRIGIDO: useSearchParams() isolado neste componente interno,
+ * envolvido por <Suspense> no componente exportado por padrão (abaixo).
+ * Sem isso, o Next tenta pré-renderizar a página estaticamente no build
+ * e useSearchParams() sem Suspense causa:
+ * "Error occurred prerendering page /ajustes" / prerender-error.
+ */
+function AjustesContent() {
   const { data: preferencias, isLoading: loading, error: queryError } = usePreferences();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
@@ -43,20 +64,6 @@ export default function AjustesPage() {
       setActiveTab(tabParam as TabValida);
     }
   }, [tabParam]);
-
-  const SkeletonCard = () => (
-    <Card>
-      <CardHeader>
-        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2 animate-pulse" />
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 animate-pulse" />
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-      </CardContent>
-    </Card>
-  );
 
   if (loading) {
     return (
@@ -193,5 +200,23 @@ export default function AjustesPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function AjustesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-6">
+          <div className="space-y-2">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 animate-pulse" />
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse" />
+          </div>
+          <SkeletonCard />
+        </div>
+      }
+    >
+      <AjustesContent />
+    </Suspense>
   );
 }
