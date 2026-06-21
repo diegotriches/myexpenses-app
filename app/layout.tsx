@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppProviders } from "@/components/providers/AppProviders";
-import { getSession } from "@/lib/auth";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -39,13 +38,21 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
-  const session = await getSession();
-
+// ✅ CORRIGIDO: RootLayout deixou de ser "async" e não chama mais
+// getSession() — essa chamada lia cookies/headers durante a renderização
+// no servidor, o que forçava TODO o app (inclusive páginas que poderiam
+// ser estáticas) a ser tratado como dinâmico pelo Next, causando o erro
+// "Dynamic server usage: ... couldn't be rendered statically because it
+// used `headers`" no build.
+//
+// A sessão agora é obtida pelo SessionProvider no client (veja
+// AppProviders.tsx) via fetch em /api/auth/session, e não mais
+// pré-carregada do servidor neste layout raiz.
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-br" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <AppProviders session={session}>{children}</AppProviders>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

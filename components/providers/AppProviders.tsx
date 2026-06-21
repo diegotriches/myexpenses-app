@@ -3,7 +3,6 @@
 
 import { ReactNode, useState } from "react";
 import { SessionProvider } from "next-auth/react";
-import { Session } from "next-auth";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -30,15 +29,29 @@ const createQueryClient = () =>
 
 interface AppProvidersProps {
   children: ReactNode;
-  session: Session | null; // ✅ Recebe sessão do servidor
+  // ✅ REMOVIDO: prop "session" vinda do servidor (RootLayout chamava
+  // getSession() incondicionalmente, o que forçava o Next a tratar TODO
+  // o app como dinâmico — qualquer página que passasse por esse layout
+  // disparava DYNAMIC_SERVER_USAGE no build, mesmo páginas que poderiam
+  // ser estáticas (landing, login, termos de uso, etc.)
 }
 
-export function AppProviders({ children, session }: AppProvidersProps) {
+export function AppProviders({ children }: AppProvidersProps) {
   const [queryClient] = useState(createQueryClient);
 
   return (
-    // ✅ Passa session inicial — NextAuth não precisa fazer fetch no cliente
-    <SessionProvider session={session}>
+    // ✅ CORRIGIDO: sem prop "session" — o SessionProvider busca a sessão
+    // via fetch no client (comportamento padrão do NextAuth, GET /api/auth/session).
+    // Isso desacopla a leitura de sessão da renderização no servidor: o
+    // RootLayout não precisa mais ser async nem chamar getSession(), então
+    // páginas que não dependem de dados de sessão no servidor voltam a
+    // poder ser pré-renderizadas estaticamente.
+    //
+    // Tradeoff: há um pequeno delay (um fetch extra) antes da sessão
+    // estar disponível no client, comparado a vir pré-carregada do
+    // servidor. Na prática é imperceptível e os hooks que dependem de
+    // sessão (useSession) já lidam com o estado de loading.
+    <SessionProvider>
       <ThemeProvider
         attribute="class"
         defaultTheme="system"
