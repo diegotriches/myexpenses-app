@@ -2,7 +2,8 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -21,9 +22,30 @@ import {
 } from "lucide-react";
 import { BsFillGearFill } from "react-icons/bs";
 
+const TABS_VALIDAS = ["preferencias", "exportar", "importar"] as const;
+type TabValida = typeof TABS_VALIDAS[number];
+
 export default function AjustesPage() {
   const { data: preferencias, isLoading: loading, error: queryError } = usePreferences();
-  const [activeTab, setActiveTab] = useState("preferencias");
+  const searchParams = useSearchParams();
+
+  // ✅ Lê ?tab= da URL para abrir direto na aba correta
+  // (usado pelos links de notificação, ex: /ajustes?tab=exportar)
+  const tabParam = searchParams.get("tab");
+  const tabInicial: TabValida =
+    tabParam && TABS_VALIDAS.includes(tabParam as TabValida)
+      ? (tabParam as TabValida)
+      : "preferencias";
+
+  const [activeTab, setActiveTab] = useState<TabValida>(tabInicial);
+
+  // Atualiza a aba ativa se o usuário navegar para a página já aberta
+  // com um ?tab= diferente (ex: clicar em outra notificação)
+  useEffect(() => {
+    if (tabParam && TABS_VALIDAS.includes(tabParam as TabValida)) {
+      setActiveTab(tabParam as TabValida);
+    }
+  }, [tabParam]);
 
   const SkeletonCard = () => (
     <Card>
@@ -79,7 +101,7 @@ export default function AjustesPage() {
       )}
 
       {/* Tabs de Navegação */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValida)} className="space-y-6">
         <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="preferencias" className="flex items-center gap-2">
             <Sliders className="h-4 w-4" />
@@ -152,7 +174,6 @@ export default function AjustesPage() {
             </CardContent>
           </Card>
 
-          {/* ✅ NOVO: Backups automáticos (substitui o card do Google Drive) */}
           <BackupsCard />
         </TabsContent>
 

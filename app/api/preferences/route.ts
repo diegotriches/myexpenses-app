@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
           notificacoes: true,
           formatoData: "DD/MM/YYYY",
           inicioSemana: "domingo",
+          backupAutomatico: true,
         })
         .returning();
 
@@ -73,6 +74,14 @@ export async function PUT(req: NextRequest) {
     if (body.inicioSemana && !["domingo", "segunda"].includes(body.inicioSemana)) {
       return NextResponse.json(
         { message: "Início de semana inválido. Use: domingo ou segunda" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ NOVO: valida backupAutomatico
+    if (body.backupAutomatico !== undefined && typeof body.backupAutomatico !== "boolean") {
+      return NextResponse.json(
+        { message: "backupAutomatico deve ser um valor booleano (true/false)" },
         { status: 400 }
       );
     }
@@ -134,6 +143,7 @@ export async function DELETE(req: NextRequest) {
         notificacoes: true,
         formatoData: "DD/MM/YYYY",
         inicioSemana: "domingo",
+        backupAutomatico: true,
       })
       .returning();
 

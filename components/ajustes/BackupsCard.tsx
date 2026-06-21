@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +27,7 @@ import {
   HardDrive,
 } from "lucide-react";
 import { useBackups, useDownloadBackup, useRestaurarBackup, useExcluirBackup } from "@/hooks/useBackups";
+import { usePreferences, useAtualizarPreferences } from "@/hooks/usePreferences";
 import type { BackupListItem } from "@/types/backup";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -42,6 +45,11 @@ export default function BackupsCard() {
   const downloadBackup    = useDownloadBackup();
   const restaurarBackup   = useRestaurarBackup();
   const excluirBackup     = useExcluirBackup();
+
+  // ✅ Toggle de backup automático
+  const { data: prefs }   = usePreferences();
+  const updatePrefs       = useAtualizarPreferences();
+  const backupAtivo       = prefs?.backupAutomatico ?? true;
 
   const [backupRestaurar, setBackupRestaurar] = useState<BackupListItem | null>(null);
   const [backupExcluir,   setBackupExcluir]   = useState<BackupListItem | null>(null);
@@ -80,16 +88,37 @@ export default function BackupsCard() {
             <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30 flex-shrink-0">
               <DatabaseBackup className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Backup automático ativado
-                </p>
-                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Backup automático
+                  </p>
+                  {backupAtivo
+                    ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    : <span className="text-xs text-gray-400 dark:text-gray-500">(desativado)</span>
+                  }
+                </div>
+                {/* ✅ Toggle para ativar/desativar backup automático */}
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="backup-toggle" className="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                    {backupAtivo ? "Ativado" : "Desativado"}
+                  </Label>
+                  <Switch
+                    id="backup-toggle"
+                    checked={backupAtivo}
+                    disabled={updatePrefs.isPending}
+                    onCheckedChange={(checked) =>
+                      updatePrefs.mutate({ backupAutomatico: checked })
+                    }
+                  />
+                </div>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Seus dados são salvos automaticamente toda semana. As últimas 8 versões
-                ficam disponíveis aqui para download ou restauração.
+                {backupAtivo
+                  ? "Seus dados são salvos automaticamente toda semana. As últimas 8 versões ficam disponíveis aqui para download ou restauração."
+                  : "O backup automático está desativado. Você pode ainda exportar seus dados manualmente a qualquer momento."
+                }
               </p>
             </div>
           </div>

@@ -64,6 +64,7 @@ export const preferences = pgTable(
       .$type<"domingo" | "segunda">()
       .default("domingo"),
     notificacoes: boolean("notificacoes").default(true),
+    backupAutomatico: boolean("backup_automatico").default(true),  // ← ADICIONAR ESTA LINHA
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

@@ -211,6 +211,25 @@ export async function GET(req: NextRequest) {
     const inicioUsuario = Date.now();
 
     try {
+      // ✅ Verifica se o usuário optou por desativar o backup automático.
+      // DEFAULT true — usuários sem registro em preferences também recebem backup.
+      const [prefs] = await db
+        .select({ backupAutomatico: preferences.backupAutomatico })
+        .from(preferences)
+        .where(eq(preferences.userId, usuario.id))
+        .limit(1);
+
+      if (prefs?.backupAutomatico === false) {
+        console.log(`[Cron Backup] ⏭️ ${usuario.email} — backup automático desativado, pulando`);
+        resultados.push({
+          userId:  usuario.id,
+          email:   usuario.email,
+          status:  "pulado" as any,
+          duracao: Date.now() - inicioUsuario,
+        });
+        continue;
+      }
+
       const { data, statistics } = await gerarSnapshot(usuario.id, {
         name:  usuario.name,
         email: usuario.email,
@@ -253,15 +272,16 @@ export async function GET(req: NextRequest) {
   }
 
   const duracaoTotal = Date.now() - inicioTotal;
-  const sucessos      = resultados.filter((r) => r.status === "sucesso").length;
-  const erros         = resultados.filter((r) => r.status === "erro").length;
+  const sucessos = resultados.filter((r) => r.status === "sucesso").length;
+  const erros    = resultados.filter((r) => r.status === "erro").length;
+  const pulados  = resultados.filter((r) => (r as any).status === "pulado").length;
 
-  console.log(`[Cron Backup] Concluído em ${duracaoTotal}ms — ✅ ${sucessos} | ❌ ${erros}`);
+  console.log(`[Cron Backup] Concluído em ${duracaoTotal}ms — ✅ ${sucessos} | ❌ ${erros} | ⏭️ ${pulados} pulados`);
 
   return NextResponse.json({
     message: "Backup semanal concluído",
     duracao: `${duracaoTotal}ms`,
-    resumo:  { total: todosUsuarios.length, sucessos, erros },
+    resumo:  { total: todosUsuarios.length, sucessos, erros, pulados },
     resultados,
   });
 }
