@@ -320,6 +320,48 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
     persistLayout({ ...layout, isFullscreen: !layout.isFullscreen });
   }
 
+  // ── Drag por touch (mobile, modo janela apenas) ───────────────────────────
+  const touchDragOffset = useRef<{ x: number; y: number } | null>(null);
+
+  const onTouchMovePanel = useCallback((e: TouchEvent) => {
+    if (!touchDragOffset.current) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    const novoX = Math.max(8, Math.min(
+      window.innerWidth  - layout.width  - 8,
+      t.clientX - touchDragOffset.current.x
+    ));
+    const novoY = Math.max(8, Math.min(
+      window.innerHeight - layout.height - 8,
+      t.clientY - touchDragOffset.current.y
+    ));
+    setLayout((prev) => ({ ...prev, x: novoX, y: novoY }));
+  }, [layout.width, layout.height]);
+
+  const onTouchEndPanel = useCallback(() => {
+    touchDragOffset.current = null;
+    setLayout((current) => { saveLayout(current); return current; });
+    document.removeEventListener("touchmove", onTouchMovePanel);
+    document.removeEventListener("touchend",  onTouchEndPanel);
+  }, [onTouchMovePanel]);
+
+  function handleTouchDragStart(e: React.TouchEvent) {
+    // Só arrasta no mobile em modo janela (não fullscreen)
+    if (!isMobile || layout.isFullscreen) return;
+    if ((e.target as HTMLElement).closest("button")) return;
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const t = e.touches[0];
+    const origX = layout.x ?? rect.left;
+    const origY = layout.y ?? rect.top;
+    touchDragOffset.current = {
+      x: t.clientX - origX,
+      y: t.clientY - origY,
+    };
+    document.addEventListener("touchmove", onTouchMovePanel, { passive: false });
+    document.addEventListener("touchend",  onTouchEndPanel);
+  }
+
   // ── Estilo dinâmico do painel ────────────────────────────────────────────────
   function getPanelStyle(): React.CSSProperties {
     if (isMobile) {
@@ -338,6 +380,13 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
     return { bottom: 80, right: 24, width: layout.width, height: layout.height };
   }
 
+  useEffect(() => {
+    return () => {
+      document.removeEventListener("touchmove", onTouchMovePanel);
+      document.removeEventListener("touchend",  onTouchEndPanel);
+    };
+  }, [onTouchMovePanel, onTouchEndPanel]);
+
   if (!hidratado) return null; // evita flash de posição errada antes de ler localStorage
 
   return (
@@ -355,11 +404,13 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
           <EditarNota nota={notaEditando} onVoltar={() => setNotaEditando(null)} />
         ) : (
           <div className="flex flex-col h-full">
-            {/* Header — arrastável no desktop */}
+            {/* Header — arrastável no desktop e no mobile (modo janela) */}
             <div
               onMouseDown={handleDragStart}
+              onTouchStart={isMobile && !layout.isFullscreen ? handleTouchDragStart : undefined}
               className={`flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900
-                ${!isMobile ? "cursor-move select-none" : ""}`}
+                ${!isMobile ? "cursor-move select-none" : ""}
+                ${isMobile && !layout.isFullscreen ? "cursor-grab select-none" : ""}`}
             >
               <div className="flex items-center gap-2">
                 {!isMobile && <GripHorizontal size={14} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />}

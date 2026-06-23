@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import PeriodoSelector      from "@/components/layout/PeriodoSelector";
 import CalculadoraModal     from "@/components/common/CalculadoraModal";
-import NotasPanel           from "@/components/notas/NotasPanel";
+import NotasPanel           from "@/components/common/NotasPanel";
 import { NotificacaoPopover } from "@/components/notificacao/NotificacaoPopover";
 import { useHideValues }    from "@/contexts/HideValuesContext";
 

@@ -2,19 +2,24 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Copy, Trash2, Check, Minus, X, GripHorizontal } from "lucide-react";
+import { Copy, Trash2, Check, Minus, X, GripHorizontal, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const STORAGE_KEY  = "calculadora-posicao";
-const LARGURA      = 340;   // px — largura fixa da janela
-const SNAP_MARGEM  = 24;    // px — distância da borda para acionar snap
-const OFFSET_PADRAO = { x: 24, y: 24 }; // canto inferior direito (calculado no mount)
+const STORAGE_KEY   = "calculadora-posicao";
+const LARGURA       = 340;
+const SNAP_MARGEM   = 24;
+const OFFSET_PADRAO = { x: 24, y: 24 };
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface Pos { x: number; y: number }
+
+interface CalculadoraState {
+  pos:         Pos;
+  fullscreen:  boolean; // mobile apenas
+}
 
 interface CalculadoraModalProps {
   open: boolean;
@@ -23,28 +28,27 @@ interface CalculadoraModalProps {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function carregarPosicao(): Pos | null {
+function carregarEstado(): CalculadoraState | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const pos = JSON.parse(raw) as Pos;
-    // Valida se ainda está dentro da janela atual
+    const parsed = JSON.parse(raw) as CalculadoraState;
+    // Valida posição
     if (
-      pos.x >= 0 && pos.x <= window.innerWidth  - LARGURA &&
-      pos.y >= 0 && pos.y <= window.innerHeight - 80
-    ) return pos;
-    return null;
+      parsed.pos &&
+      parsed.pos.x >= 0 && parsed.pos.x <= window.innerWidth  - LARGURA &&
+      parsed.pos.y >= 0 && parsed.pos.y <= window.innerHeight - 80
+    ) return parsed;
+    // Posição inválida mas fullscreen é válido
+    return { pos: posicaoInicial(), fullscreen: parsed.fullscreen ?? false };
   } catch { return null; }
 }
 
-function salvarPosicao(pos: Pos) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(pos)); } catch {}
+function salvarEstado(state: CalculadoraState) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
 }
 
 function posicaoInicial(): Pos {
-  const salva = carregarPosicao();
-  if (salva) return salva;
-  // Canto inferior direito por padrão
   return {
     x: window.innerWidth  - LARGURA - OFFSET_PADRAO.x,
     y: window.innerHeight - 560     - OFFSET_PADRAO.y,
@@ -55,51 +59,73 @@ function aplicarSnap(pos: Pos, alturaJanela: number): Pos {
   let { x, y } = pos;
   const maxX = window.innerWidth  - LARGURA;
   const maxY = window.innerHeight - alturaJanela;
-
-  // Snap horizontal
-  if (x < SNAP_MARGEM)       x = 0;
+  if (x < SNAP_MARGEM)        x = 0;
   if (x > maxX - SNAP_MARGEM) x = maxX;
-
-  // Snap vertical
-  if (y < SNAP_MARGEM)       y = 0;
+  if (y < SNAP_MARGEM)        y = 0;
   if (y > maxY - SNAP_MARGEM) y = maxY;
-
-  // Garante dentro dos limites
   x = Math.max(0, Math.min(x, maxX));
   y = Math.max(0, Math.min(y, maxY));
-
   return { x, y };
+}
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModalProps) {
-  const [pos,         setPos]         = useState<Pos>({ x: 0, y: 0 });
-  const [minimizado,  setMinimizado]  = useState(false);
-  const [display,     setDisplay]     = useState("0");
-  const [expressao,   setExpressao]   = useState("");
-  const [historico,   setHistorico]   = useState<string[]>([]);
-  const [copiado,     setCopiado]     = useState(false);
-  const [arrastando,  setArrastando]  = useState(false);
+  const [pos,        setPos]        = useState<Pos>({ x: 0, y: 0 });
+  const [fullscreen, setFullscreen] = useState(false); // mobile fullscreen
+  const [minimizado, setMinimizado] = useState(false);
+  const [display,    setDisplay]    = useState("0");
+  const [expressao,  setExpressao]  = useState("");
+  const [historico,  setHistorico]  = useState<string[]>([]);
+  const [copiado,    setCopiado]    = useState(false);
+  const [arrastando, setArrastando] = useState(false);
 
+  const isMobile    = useIsMobile();
   const janelRef    = useRef<HTMLDivElement>(null);
   const dragOffset  = useRef<Pos>({ x: 0, y: 0 });
-  const posRef      = useRef<Pos>(pos); // ref para acesso em event listeners sem closure stale
+  const posRef      = useRef<Pos>(pos);
   posRef.current    = pos;
 
-  // Inicializa posição ao montar / abrir
+  // Inicializa posição + fullscreen ao montar / abrir
   useEffect(() => {
-    if (open) setPos(posicaoInicial());
+    if (open) {
+      const saved = carregarEstado();
+      if (saved) {
+        setPos(saved.pos);
+        setFullscreen(saved.fullscreen);
+      } else {
+        setPos(posicaoInicial());
+        setFullscreen(false);
+      }
+    }
   }, [open]);
 
-  // ─── Drag (mouse) ──────────────────────────────────────────────────────────
+  // ─── Toggle fullscreen (mobile) ────────────────────────────────────────────
+  function toggleFullscreen() {
+    setFullscreen((prev) => {
+      const next = !prev;
+      salvarEstado({ pos, fullscreen: next });
+      return next;
+    });
+  }
 
+  // ─── Drag (mouse — desktop) ────────────────────────────────────────────────
   const onMouseMove = useCallback((e: MouseEvent) => {
     const novaPos = {
       x: e.clientX - dragOffset.current.x,
       y: e.clientY - dragOffset.current.y,
     };
-    // Limita ao viewport durante o drag
     const alturaJanela = janelRef.current?.offsetHeight ?? 500;
     novaPos.x = Math.max(0, Math.min(novaPos.x, window.innerWidth  - LARGURA));
     novaPos.y = Math.max(0, Math.min(novaPos.y, window.innerHeight - alturaJanela));
@@ -111,15 +137,14 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
     const alturaJanela = janelRef.current?.offsetHeight ?? 500;
     setPos(prev => {
       const snapped = aplicarSnap(prev, alturaJanela);
-      salvarPosicao(snapped);
+      salvarEstado({ pos: snapped, fullscreen });
       return snapped;
     });
     window.removeEventListener("mousemove", onMouseMove);
     window.removeEventListener("mouseup",   onMouseUp);
-  }, [onMouseMove]);
+  }, [onMouseMove, fullscreen]);
 
   const onDragStart = useCallback((e: React.MouseEvent) => {
-    // Ignora cliques em botões dentro da barra
     if ((e.target as HTMLElement).closest("button")) return;
     e.preventDefault();
     dragOffset.current = {
@@ -131,9 +156,9 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
     window.addEventListener("mouseup",   onMouseUp);
   }, [onMouseMove, onMouseUp]);
 
-  // ─── Drag (touch) ──────────────────────────────────────────────────────────
-
+  // ─── Drag (touch — mobile, só no modo janela) ─────────────────────────────
   const onTouchMove = useCallback((e: TouchEvent) => {
+    e.preventDefault(); // evita scroll da página durante drag
     const t = e.touches[0];
     const novaPos = {
       x: t.clientX - dragOffset.current.x,
@@ -149,14 +174,16 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
     const alturaJanela = janelRef.current?.offsetHeight ?? 500;
     setPos(prev => {
       const snapped = aplicarSnap(prev, alturaJanela);
-      salvarPosicao(snapped);
+      salvarEstado({ pos: snapped, fullscreen });
       return snapped;
     });
     window.removeEventListener("touchmove", onTouchMove);
     window.removeEventListener("touchend",  onTouchEnd);
-  }, [onTouchMove]);
+  }, [onTouchMove, fullscreen]);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
+    // Não arrasta em fullscreen nem ao tocar em botão
+    if (fullscreen) return;
     if ((e.target as HTMLElement).closest("button")) return;
     const t = e.touches[0];
     dragOffset.current = {
@@ -165,9 +192,9 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
     };
     window.addEventListener("touchmove", onTouchMove, { passive: false });
     window.addEventListener("touchend",  onTouchEnd);
-  }, [onTouchMove, onTouchEnd]);
+  }, [onTouchMove, onTouchEnd, fullscreen]);
 
-  // Cleanup ao desmontar
+  // Cleanup
   useEffect(() => {
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
@@ -178,7 +205,6 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
   }, [onMouseMove, onMouseUp, onTouchMove, onTouchEnd]);
 
   // ─── Lógica da calculadora ─────────────────────────────────────────────────
-
   const calcularSeguro = (expr: string): number => {
     try {
       expr = expr.replace(/\s/g, "");
@@ -205,7 +231,6 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
 
   const handleButtonClick = useCallback((value: string) => {
     if (display === "Erro") { setDisplay("0"); setExpressao(""); }
-
     if (value === "AC") {
       setDisplay("0"); setExpressao("");
     } else if (value === "⌫") {
@@ -232,13 +257,11 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      // Não captura quando o foco está em inputs de outras partes da página
       if (
         document.activeElement &&
         document.activeElement !== document.body &&
         !janelRef.current?.contains(document.activeElement)
       ) return;
-
       e.preventDefault();
       if (e.key >= "0" && e.key <= "9") handleButtonClick(e.key);
       else if (["+", "-", "*", "/", "(", ")", ".", "%"].includes(e.key)) handleButtonClick(e.key);
@@ -258,8 +281,27 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
     } catch {}
   };
 
-  // ─── Botão da calculadora ──────────────────────────────────────────────────
+  // ─── Estilo da janela ──────────────────────────────────────────────────────
+  function getStyle(): React.CSSProperties {
+    if (isMobile && fullscreen) {
+      return {
+        position: "fixed", inset: 0,
+        width: "100%", height: "100%",
+        borderRadius: 0, zIndex: 9999,
+        boxShadow: "none",
+      };
+    }
+    return {
+      position:  "fixed",
+      left:      pos.x,
+      top:       pos.y,
+      width:     LARGURA,
+      zIndex:    9999,
+      boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)",
+    };
+  }
 
+  // ─── Botão da calculadora ──────────────────────────────────────────────────
   const BotaoCalc = ({
     value, variant = "default", span = 1,
   }: {
@@ -284,32 +326,23 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
     );
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
-
   if (!open) return null;
 
   return (
     <div
       ref={janelRef}
-      style={{
-        position:  "fixed",
-        left:      pos.x,
-        top:       pos.y,
-        width:     LARGURA,
-        zIndex:    9999,
-        // Sombra mais pronunciada para destacar do conteúdo
-        boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)",
-      }}
+      style={getStyle()}
       className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden select-none"
     >
-      {/* ── Barra de título (área de drag) ──────────────────────────────────── */}
+      {/* ── Barra de título ──────────────────────────────────────────────── */}
       <div
-        onMouseDown={onDragStart}
-        onTouchStart={onTouchStart}
+        onMouseDown={!isMobile ? onDragStart : undefined}
+        onTouchStart={isMobile && !fullscreen ? onTouchStart : undefined}
         className={cn(
           "flex items-center justify-between px-3 py-2 border-b border-gray-100 dark:border-gray-700",
           "bg-gray-50 dark:bg-gray-900",
-          arrastando ? "cursor-grabbing" : "cursor-grab"
+          !isMobile && (arrastando ? "cursor-grabbing" : "cursor-grab"),
+          isMobile && !fullscreen && "cursor-grab"
         )}
       >
         <div className="flex items-center gap-2">
@@ -319,16 +352,26 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost" size="icon"
-            onClick={copiarResultado}
-            className="h-7 w-7"
-            title="Copiar resultado"
-          >
+          <Button variant="ghost" size="icon" onClick={copiarResultado} className="h-7 w-7" title="Copiar resultado">
             {copiado
               ? <Check size={13} className="text-green-600" />
-              : <Copy size={13} className="text-gray-500" />}
+              : <Copy  size={13} className="text-gray-500" />}
           </Button>
+
+          {/* ✅ NOVO: toggle fullscreen — mobile apenas */}
+          {isMobile && (
+            <Button
+              variant="ghost" size="icon"
+              onClick={toggleFullscreen}
+              className="h-7 w-7"
+              title={fullscreen ? "Restaurar" : "Tela cheia"}
+            >
+              {fullscreen
+                ? <Minimize2 size={13} className="text-gray-500" />
+                : <Maximize2 size={13} className="text-gray-500" />}
+            </Button>
+          )}
+
           <Button
             variant="ghost" size="icon"
             onClick={() => setMinimizado(m => !m)}
@@ -348,9 +391,9 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
         </div>
       </div>
 
-      {/* ── Corpo — oculto quando minimizado ────────────────────────────────── */}
+      {/* ── Corpo ─────────────────────────────────────────────────────────── */}
       {!minimizado && (
-        <div className="p-3">
+        <div className={cn("p-3", isMobile && fullscreen && "flex flex-col h-[calc(100%-44px)]")}>
           {/* Display */}
           <div className="bg-gray-50 dark:bg-gray-900 rounded-lg px-4 py-3 mb-3">
             {expressao && (
@@ -358,38 +401,39 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
                 {expressao}
               </div>
             )}
-            <div className="text-2xl font-bold text-right text-gray-900 dark:text-white break-all leading-tight">
+            <div className={cn(
+              "font-bold text-right text-gray-900 dark:text-white break-all leading-tight",
+              isMobile && fullscreen ? "text-4xl" : "text-2xl"
+            )}>
               {display}
             </div>
           </div>
 
-          {/* Grid de botões */}
-          <div className="grid grid-cols-4 gap-1.5 mb-3">
+          {/* Grid de botões — cresce para ocupar a tela em fullscreen */}
+          <div className={cn(
+            "grid grid-cols-4 gap-1.5 mb-3",
+            isMobile && fullscreen && "flex-1"
+          )}>
             <BotaoCalc value="AC" variant="clear" />
             <BotaoCalc value="(" variant="operator" />
             <BotaoCalc value=")" variant="operator" />
             <BotaoCalc value="⌫" variant="operator" />
-
             <BotaoCalc value="7" />
             <BotaoCalc value="8" />
             <BotaoCalc value="9" />
             <BotaoCalc value="/" variant="operator" />
-
             <BotaoCalc value="4" />
             <BotaoCalc value="5" />
             <BotaoCalc value="6" />
             <BotaoCalc value="*" variant="operator" />
-
             <BotaoCalc value="1" />
             <BotaoCalc value="2" />
             <BotaoCalc value="3" />
             <BotaoCalc value="-" variant="operator" />
-
             <BotaoCalc value="0" />
             <BotaoCalc value="." />
             <BotaoCalc value="%" variant="operator" />
             <BotaoCalc value="+" variant="operator" />
-
             <BotaoCalc value="=" variant="equals" span={4} />
           </div>
 
