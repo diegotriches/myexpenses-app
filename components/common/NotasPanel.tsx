@@ -6,7 +6,7 @@ import { Input }    from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   StickyNote, Plus, X, Trash2, ChevronLeft, Check, Loader2,
-  Maximize2, Minimize2, GripHorizontal,
+  Maximize2, Minimize2, GripHorizontal, Minus,
 } from "lucide-react";
 import { useNotas, useCriarNota, useAtualizarNota, useExcluirNota } from "@/hooks/useNotas";
 import type { Nota, CorNota } from "@/types/nota";
@@ -191,8 +191,9 @@ interface NotasPanelProps {
 
 export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
   const [notaEditando, setNotaEditando] = useState<Nota | null>(null);
-  const [layout, setLayout] = useState<PanelLayout>(DEFAULT_LAYOUT);
-  const [hidratado, setHidratado] = useState(false);
+  const [layout,       setLayout]       = useState<PanelLayout>(DEFAULT_LAYOUT);
+  const [hidratado,    setHidratado]    = useState(false);
+  const [minimizado,   setMinimizado]   = useState(false);
 
   const isMobile = useIsMobile();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -202,7 +203,16 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
 
   // Carrega layout salvo apenas no client (evita mismatch de hidratação)
   useEffect(() => {
-    setLayout(loadLayout());
+    const saved = loadLayout();
+    // No mobile, se não há posição salva, pré-calcula top/left para evitar
+    // salto no primeiro drag (que usa left/top, não bottom/right)
+    if (saved.x === null && saved.y === null && window.innerWidth < 768) {
+      const largura = Math.min(360, window.innerWidth - 32);
+      const altura  = 440;
+      saved.x = Math.max(0, window.innerWidth  - largura - 16);
+      saved.y = Math.max(0, window.innerHeight - altura  - 80);
+    }
+    setLayout(saved);
     setHidratado(true);
   }, []);
 
@@ -368,8 +378,26 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
       if (layout.isFullscreen) {
         return { top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", borderRadius: 0 };
       }
-      // Modo flutuante mobile: canto inferior direito, tamanho fixo confortável
-      return { bottom: 80, right: 16, width: "calc(100vw - 32px)", maxWidth: 360, height: 440 };
+      const altura  = 440;
+      const largura = Math.min(360, window.innerWidth - 32);
+
+      // Usa left/top se já foi arrastado — garante que não sai da tela
+      if (layout.x !== null && layout.y !== null) {
+        return {
+          left:     Math.max(0, Math.min(layout.x, window.innerWidth  - largura)),
+          top:      Math.max(0, Math.min(layout.y, window.innerHeight - altura)),
+          width:    largura,
+          height:   altura,
+        };
+      }
+
+      // Posição padrão: canto inferior direito
+      return {
+        left:   Math.max(0, window.innerWidth  - largura - 16),
+        top:    Math.max(0, window.innerHeight - altura  - 80),
+        width:  largura,
+        height: altura,
+      };
     }
 
     // Desktop
@@ -408,30 +436,20 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
             <div
               onMouseDown={handleDragStart}
               onTouchStart={isMobile && !layout.isFullscreen ? handleTouchDragStart : undefined}
-              className={`flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900
+              className={`flex items-center justify-between px-3 py-2 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900
                 ${!isMobile ? "cursor-move select-none" : ""}
                 ${isMobile && !layout.isFullscreen ? "cursor-grab select-none" : ""}`}
             >
               <div className="flex items-center gap-2">
-                {!isMobile && <GripHorizontal size={14} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />}
+                <GripHorizontal size={14} className="text-gray-400 dark:text-gray-500" />
                 <StickyNote size={16} className="text-amber-500 flex-shrink-0" />
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">Notas</span>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Notas</span>
                 {notas.length > 0 && (
                   <span className="text-xs text-gray-400 dark:text-gray-500">({notas.length})</span>
                 )}
               </div>
               <div className="flex items-center gap-1">
-                {/* Toggle fullscreen — mobile apenas */}
-                {isMobile && (
-                  <Button
-                    variant="ghost" size="icon"
-                    className="h-7 w-7 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                    onClick={toggleFullscreen}
-                    title={layout.isFullscreen ? "Restaurar" : "Tela cheia"}
-                  >
-                    {layout.isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                  </Button>
-                )}
+                {/* Nova nota */}
                 <Button
                   variant="ghost" size="icon"
                   className="h-7 w-7 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
@@ -439,39 +457,62 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
                   disabled={criarNota.isPending}
                   title="Nova nota"
                 >
-                  {criarNota.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={16} />}
+                  {criarNota.isPending ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
                 </Button>
+                {/* Fullscreen — mobile apenas */}
+                {isMobile && (
+                  <Button
+                    variant="ghost" size="icon"
+                    className="h-7 w-7 text-gray-500"
+                    onClick={toggleFullscreen}
+                    title={layout.isFullscreen ? "Restaurar" : "Tela cheia"}
+                  >
+                    {layout.isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                  </Button>
+                )}
+                {/* Minimizar */}
                 <Button
                   variant="ghost" size="icon"
-                  className="h-7 w-7 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="h-7 w-7 text-gray-500"
+                  onClick={() => setMinimizado(m => !m)}
+                  title={minimizado ? "Expandir" : "Minimizar"}
+                >
+                  <Minus size={13} />
+                </Button>
+                {/* Fechar */}
+                <Button
+                  variant="ghost" size="icon"
+                  className="h-7 w-7 hover:bg-red-50 dark:hover:bg-red-950/30"
                   onClick={() => onOpenChange(false)}
                   title="Fechar"
                 >
-                  <X size={14} />
+                  <X size={13} className="text-gray-500 hover:text-red-500" />
                 </Button>
               </div>
             </div>
 
-            {/* Lista */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {isLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 size={24} className="animate-spin text-gray-300" />
-                </div>
-              ) : notas.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center gap-3 pb-6">
-                  <StickyNote size={40} className="text-gray-200 dark:text-gray-700" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Nenhuma nota ainda</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Clique em + para criar sua primeira nota</p>
+            {/* Corpo — oculto quando minimizado */}
+            {!minimizado && (
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {isLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 size={24} className="animate-spin text-gray-300" />
                   </div>
-                </div>
-              ) : (
-                notas.map((nota) => (
-                  <NotaCard key={nota.id} nota={nota} onClick={() => setNotaEditando(nota)} />
-                ))
-              )}
-            </div>
+                ) : notas.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center gap-3 pb-6">
+                    <StickyNote size={40} className="text-gray-200 dark:text-gray-700" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Nenhuma nota ainda</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Clique em + para criar sua primeira nota</p>
+                    </div>
+                  </div>
+                ) : (
+                  notas.map((nota) => (
+                    <NotaCard key={nota.id} nota={nota} onClick={() => setNotaEditando(nota)} />
+                  ))
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -491,8 +532,9 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
       {open && (
         <div
           className="fixed inset-0 z-30"
+          style={{ touchAction: "none" }}
           onClick={() => {
-            if (dragStateRef.current || resizeStateRef.current) return;
+            if (dragStateRef.current || resizeStateRef.current || touchDragOffset.current) return;
             if (notaEditando) setNotaEditando(null);
             else onOpenChange(false);
           }}
