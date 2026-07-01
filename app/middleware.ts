@@ -1,16 +1,28 @@
 // src/middleware.ts
-
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
-    // Middleware executa apenas para rotas autenticadas
-    // Aqui podemos adicionar lógica extra se necessário no futuro
+    const token = (req as any).nextauth?.token;
+    const now   = Math.floor(Date.now() / 1000);
+
+    // Se o token existe mas já expirou (exp no passado),
+    // redireciona para o login com aviso de sessão expirada.
+    // Isso cobre o caso em que o cookie ainda está presente mas
+    // o JWT já não é mais válido pelo tempo.
+    if (token && token.exp && (token.exp as number) < now) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("reason", "session_expired");
+      return NextResponse.redirect(loginUrl);
+    }
+
     return NextResponse.next();
   },
   {
     callbacks: {
+      // authorized retorna true apenas se o token existe —
+      // a verificação de expiração é feita no middleware acima
       authorized: ({ token }) => !!token,
     },
     pages: {

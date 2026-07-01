@@ -1,4 +1,4 @@
-// app/(auth)/login/page.tsx
+// src/app/(auth)/login/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn, useSession } from "next-auth/react";
-import { FiLogIn, FiMail, FiLock, FiArrowLeft, FiEye, FiEyeOff, FiAlertCircle, FiX } from "react-icons/fi";
+import { FiLogIn, FiMail, FiLock, FiArrowLeft, FiEye, FiEyeOff, FiAlertCircle, FiX, FiClock } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { BsCashCoin } from "react-icons/bs";
 import { useState, useEffect, Suspense } from "react";
@@ -16,11 +16,11 @@ import { Loader2 } from "lucide-react";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Input }    from "@/components/ui/input";
+import { Button }   from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox }  from "@/components/ui/checkbox";
 
 const loginSchema = z.object({
   email:    z.string().email("Email inválido"),
@@ -33,13 +33,30 @@ const REMEMBER_ME_KEY = "myexpenses_remember_me";
 
 function AutoLoginWrapper({ children }: { children: React.ReactNode }) {
   const router                    = useRouter();
+  const searchParams              = useSearchParams();
   const { data: session, status } = useSession();
 
+  // ✅ CORRIGIDO: não redireciona automaticamente se há um motivo explícito
+  // para estar na página de login (sessão expirada, logout manual, etc.)
+  // Antes redirecionava sempre que havia sessão ativa, mesmo que o usuário
+  // tivesse chegado aqui via link "Já tenho conta" após a sessão expirar.
+  const reason = searchParams.get("reason");
+  const sessionExpired = reason === "session_expired";
+
   useEffect(() => {
-    if (status === "authenticated" && session?.user) {
+    // Só redireciona automaticamente se:
+    // 1. Há sessão autenticada E
+    // 2. Não foi redirecionado por sessão expirada
+    if (status === "authenticated" && session?.user && !sessionExpired) {
       router.replace("/dashboard");
     }
-  }, [status, session, router]);
+  }, [status, session, router, sessionExpired]);
+
+  // Se sessão expirou, mostra o formulário de login imediatamente
+  // sem exibir o loading de "Verificando autenticação..."
+  if (sessionExpired) {
+    return <>{children}</>;
+  }
 
   if (status === "loading" || status === "authenticated") {
     return (
@@ -86,6 +103,10 @@ function LoginForm() {
     defaultValues: { email: "", password: "" },
   });
 
+  // ✅ NOVO: detecta reason=session_expired e exibe aviso informativo
+  const reason         = searchParams.get("reason");
+  const sessionExpired = reason === "session_expired";
+
   useEffect(() => {
     const errorParam = searchParams.get("error");
     if (!errorParam) return;
@@ -124,7 +145,6 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        // ✅ NOVO: trata o erro de e-mail não verificado
         if (result.error === "EMAIL_NOT_VERIFIED") {
           router.push(`/verify-email?email=${encodeURIComponent(values.email)}`);
           return;
@@ -162,6 +182,19 @@ function LoginForm() {
 
   return (
     <>
+      {/* ✅ NOVO: aviso de sessão expirada — padrão de mercado */}
+      {sessionExpired && (
+        <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
+          <FiClock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertDescription className="text-amber-800 dark:text-amber-300">
+            <p className="font-medium">Sua sessão expirou</p>
+            <p className="text-sm mt-0.5">
+              Por segurança, faça login novamente para continuar.
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {error && (
         <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2 duration-300">
           <FiAlertCircle className="h-4 w-4" />
@@ -241,7 +274,7 @@ function LoginForm() {
                 disabled={isAnyLoading}
               />
               <label htmlFor="remember-me" className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none">
-                Lembrar de mim
+                Lembrar de mim (7 dias)
               </label>
             </div>
             <Link href="/forgot-password" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
@@ -314,69 +347,79 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <AutoLoginWrapper>
-      <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl" />
-        </div>
-
-        <Link href="/" className="absolute top-6 left-6 flex items-center gap-2 text-white hover:text-blue-200 transition-colors group">
-          <FiArrowLeft className="group-hover:-translate-x-1 transition-transform" />
-          <span className="font-medium">Voltar</span>
-        </Link>
-
-        <div className="relative w-full max-w-6xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-8 items-center">
-            <div className="hidden lg:block text-white space-y-6">
-              <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full mb-4">
-                <BsCashCoin className="text-yellow-300" size={24} />
-                <span className="font-semibold text-lg">MyExpenses</span>
-              </div>
-              <h1 className="text-5xl font-extrabold leading-tight">Bem-vindo de volta!</h1>
-              <p className="text-xl text-blue-100 leading-relaxed">
-                Continue gerenciando suas finanças com inteligência. Seus dados estão seguros e prontos para você.
-              </p>
-              <div className="space-y-4 pt-4">
-                {[
-                  "Acesso a todas suas transações",
-                  "Dashboard com análises em tempo real",
-                  "Controle completo de receitas e despesas",
-                ].map((item, index) => (
-                  <div key={index} className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full bg-green-400/20 flex items-center justify-center flex-shrink-0">
-                      <div className="w-3 h-3 rounded-full bg-green-400" />
-                    </div>
-                    <span className="text-blue-100">{item}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <Card className="bg-white dark:bg-gray-800 shadow-2xl border-0">
-              <CardHeader className="space-y-2 pb-6">
-                <div className="lg:hidden flex justify-center mb-4">
-                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full">
-                    <BsCashCoin size={20} />
-                    <span className="font-semibold">MyExpenses</span>
-                  </div>
-                </div>
-                <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white text-center">
-                  Entrar na sua conta
-                </CardTitle>
-                <p className="text-center text-gray-600 dark:text-gray-400">
-                  Acesse o painel e gerencie suas finanças
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <Suspense fallback={<div className="text-center py-8"><Loader2 className="h-8 w-8 text-blue-600 animate-spin mx-auto" /></div>}>
-                  <LoginForm />
-                </Suspense>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+    <Suspense fallback={
+      <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4">
+        <Card className="bg-white dark:bg-gray-800 shadow-2xl border-0 w-full max-w-md">
+          <CardContent className="p-12 text-center">
+            <Loader2 className="h-12 w-12 text-blue-600 animate-spin mx-auto" />
+          </CardContent>
+        </Card>
       </main>
-    </AutoLoginWrapper>
+    }>
+      <AutoLoginWrapper>
+        <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4 relative overflow-hidden">
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl" />
+            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl" />
+          </div>
+
+          <Link href="/" className="absolute top-6 left-6 flex items-center gap-2 text-white hover:text-blue-200 transition-colors group">
+            <FiArrowLeft className="group-hover:-translate-x-1 transition-transform" />
+            <span className="font-medium">Voltar</span>
+          </Link>
+
+          <div className="relative w-full max-w-6xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-8 items-center">
+              <div className="hidden lg:block text-white space-y-6">
+                <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full mb-4">
+                  <BsCashCoin className="text-yellow-300" size={24} />
+                  <span className="font-semibold text-lg">MyExpenses</span>
+                </div>
+                <h1 className="text-5xl font-extrabold leading-tight">Bem-vindo de volta!</h1>
+                <p className="text-xl text-blue-100 leading-relaxed">
+                  Continue gerenciando suas finanças com inteligência. Seus dados estão seguros e prontos para você.
+                </p>
+                <div className="space-y-4 pt-4">
+                  {[
+                    "Acesso a todas suas transações",
+                    "Dashboard com análises em tempo real",
+                    "Controle completo de receitas e despesas",
+                  ].map((item, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-full bg-green-400/20 flex items-center justify-center flex-shrink-0">
+                        <div className="w-3 h-3 rounded-full bg-green-400" />
+                      </div>
+                      <span className="text-blue-100">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Card className="bg-white dark:bg-gray-800 shadow-2xl border-0">
+                <CardHeader className="space-y-2 pb-6">
+                  <div className="lg:hidden flex justify-center mb-4">
+                    <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full">
+                      <BsCashCoin size={20} />
+                      <span className="font-semibold">MyExpenses</span>
+                    </div>
+                  </div>
+                  <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white text-center">
+                    Entrar na sua conta
+                  </CardTitle>
+                  <p className="text-center text-gray-600 dark:text-gray-400">
+                    Acesse o painel e gerencie suas finanças
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <Suspense fallback={<div className="text-center py-8"><Loader2 className="h-8 w-8 text-blue-600 animate-spin mx-auto" /></div>}>
+                    <LoginForm />
+                  </Suspense>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </main>
+      </AutoLoginWrapper>
+    </Suspense>
   );
 }

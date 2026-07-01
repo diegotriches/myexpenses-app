@@ -50,8 +50,8 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
   };
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/login", redirect: true });
-  };
+  await signOut({ callbackUrl: `${window.location.origin}/login`, redirect: true });
+};
 
   if (!mounted) {
     return (
