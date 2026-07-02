@@ -373,25 +373,26 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
   }
 
   // ── Estilo dinâmico do painel ────────────────────────────────────────────────
+  // Altura do header: 44px (py-2 = 8px top+bottom + conteúdo ~28px)
+  const HEADER_HEIGHT = 44;
+
   function getPanelStyle(): React.CSSProperties {
     if (isMobile) {
       if (layout.isFullscreen) {
         return { top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", borderRadius: 0 };
       }
-      const altura  = 440;
+      const altura  = minimizado ? HEADER_HEIGHT : 440;
       const largura = Math.min(360, window.innerWidth - 32);
 
-      // Usa left/top se já foi arrastado — garante que não sai da tela
       if (layout.x !== null && layout.y !== null) {
         return {
-          left:     Math.max(0, Math.min(layout.x, window.innerWidth  - largura)),
-          top:      Math.max(0, Math.min(layout.y, window.innerHeight - altura)),
-          width:    largura,
-          height:   altura,
+          left:   Math.max(0, Math.min(layout.x, window.innerWidth  - largura)),
+          top:    Math.max(0, Math.min(layout.y, window.innerHeight - altura)),
+          width:  largura,
+          height: altura,
         };
       }
 
-      // Posição padrão: canto inferior direito
       return {
         left:   Math.max(0, window.innerWidth  - largura - 16),
         top:    Math.max(0, window.innerHeight - altura  - 80),
@@ -401,11 +402,11 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
     }
 
     // Desktop
+    const alturaDesktop = minimizado ? HEADER_HEIGHT : layout.height;
     if (layout.x !== null && layout.y !== null) {
-      return { left: layout.x, top: layout.y, width: layout.width, height: layout.height };
+      return { left: layout.x, top: layout.y, width: layout.width, height: alturaDesktop };
     }
-    // Posição padrão (canto inferior direito) — ainda não foi arrastado
-    return { bottom: 80, right: 24, width: layout.width, height: layout.height };
+    return { bottom: 80, right: 24, width: layout.width, height: alturaDesktop };
   }
 
   useEffect(() => {
