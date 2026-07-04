@@ -15,6 +15,61 @@ interface ImportResultado {
   importados: number;
 }
 
+// ── Mapeamento de IDs antigos → novos ────────────────────────────────────────
+// Ao importar, geramos novos UUIDs para todos os registros para evitar
+// conflito de chave primária (o banco pode ter registros de outros usuários
+// com os mesmos IDs). Mantemos um mapa de id_antigo → id_novo para corrigir
+// as referências entre tabelas (ex: transacoes.contaId → novo id da conta).
+function gerarIdMap(registros: any[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const r of registros) {
+    if (r.id) map.set(r.id, crypto.randomUUID());
+  }
+  return map;
+}
+
+function aplicarIdMap(registros: any[], map: Map<string, string>, campo = "id"): any[] {
+  return registros.map((r) => ({
+    ...r,
+    [campo]: map.get(r[campo]) ?? r[campo],
+  }));
+}
+
+function substituirReferencias(registros: any[], campos: string[], maps: Map<string, string>[]): any[] {
+  return registros.map((r) => {
+    const novo = { ...r };
+    for (const campo of campos) {
+      if (novo[campo]) {
+        for (const map of maps) {
+          if (map.has(novo[campo])) {
+            novo[campo] = map.get(novo[campo]);
+            break;
+          }
+        }
+      }
+    }
+    return novo;
+  });
+}
+// O Drizzle espera objetos Date para colunas timestamp, mas o JSON do arquivo
+// exportado traz todas as datas como strings ISO. Essa função converte
+// recursivamente qualquer string que pareça uma data ISO para objeto Date.
+const ISO_REGEX = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/;
+
+function normalizarDatas(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === "string") {
+    return ISO_REGEX.test(obj) ? new Date(obj) : obj;
+  }
+  if (Array.isArray(obj)) return obj.map(normalizarDatas);
+  if (typeof obj === "object") {
+    return Object.fromEntries(
+      Object.entries(obj).map(([k, v]) => [k, normalizarDatas(v)])
+    );
+  }
+  return obj;
+}
+
 /**
  * POST /api/import/processar
  *
@@ -95,93 +150,169 @@ export async function POST(req: NextRequest) {
       await tx.delete(preferences).where(eq(preferences.userId, userId));
 
       // 2. Reinsere a partir do arquivo (pais → filhas)
-      // Todos os registros têm seu userId forçado para o usuário atual,
-      // independente do que estava no arquivo — protege contra um
-      // arquivo de outro usuário sendo importado por engano/manipulação.
+      // Geramos novos UUIDs para todos os registros para evitar conflito
+      // de chave primária — o banco pode ter registros de outros usuários
+      // com os mesmos IDs do arquivo. Mantemos mapas id_antigo→id_novo
+      // para corrigir referências entre tabelas.
 
+      // ── Categorias ────────────────────────────────────────────────────────
+      const categoriasMap = gerarIdMap(data.categorias ?? []);
       if (data.categorias?.length) {
-        const registros = data.categorias.map((r: any) => ({ ...r, userId }));
+        const registros = normalizarDatas(
+          aplicarIdMap(data.categorias, categoriasMap).map((r: any) => ({ ...r, userId }))
+        );
         await tx.insert(categorias).values(registros);
         resultados.push({ modulo: "categorias", importados: registros.length });
       }
 
+      // ── Contas ────────────────────────────────────────────────────────────
+      const contasMap = gerarIdMap(data.contas ?? []);
       if (data.contas?.length) {
-        const registros = data.contas.map((r: any) => ({ ...r, userId }));
+        const registros = normalizarDatas(
+          aplicarIdMap(data.contas, contasMap).map((r: any) => ({ ...r, userId }))
+        );
         await tx.insert(contas).values(registros);
         resultados.push({ modulo: "contas", importados: registros.length });
       }
 
+      // ── Cartões (id serial — gerado pelo banco) ───────────────────────────
+      const cartoesIdMap = new Map<number, number>(); // id_antigo → id_novo
       if (data.cartoes?.length) {
-        const registros = data.cartoes.map((r: any) => ({ ...r, userId }));
-        await tx.insert(cartoes).values(registros);
-        resultados.push({ modulo: "cartoes", importados: registros.length });
+        for (const cartao of data.cartoes) {
+          const { id: idAntigo, ...resto } = cartao;
+          const registro = normalizarDatas({
+            ...resto,
+            userId,
+            contaVinculadaId: cartao.contaVinculadaId
+              ? (contasMap.get(cartao.contaVinculadaId) ?? cartao.contaVinculadaId)
+              : null,
+          });
+          const [inserido] = await tx.insert(cartoes).values(registro).returning({ id: cartoes.id });
+          if (idAntigo != null) cartoesIdMap.set(Number(idAntigo), Number(inserido.id));
+        }
+        resultados.push({ modulo: "cartoes", importados: data.cartoes.length });
       }
 
+      // ── Estabelecimentos ──────────────────────────────────────────────────
+      const estabelecimentosMap = gerarIdMap(data.estabelecimentos ?? []);
       if (data.estabelecimentos?.length) {
-        const registros = data.estabelecimentos.map((r: any) => ({ ...r, userId }));
+        const registros = normalizarDatas(
+          aplicarIdMap(data.estabelecimentos, estabelecimentosMap).map((r: any) => ({ ...r, userId }))
+        );
         await tx.insert(estabelecimentos).values(registros);
         resultados.push({ modulo: "estabelecimentos", importados: registros.length });
       }
 
+      // ── Transações (id serial — gerado pelo banco) ────────────────────────
+      const transacoesIdMap = new Map<number, number>();
       if (data.transacoes?.length) {
-        const registros = data.transacoes.map((r: any) => ({ ...r, userId }));
-        await tx.insert(transacoes).values(registros);
-        resultados.push({ modulo: "transacoes", importados: registros.length });
+        for (const transacao of data.transacoes) {
+          const { id: idAntigo, ...resto } = transacao;
+          const registro = normalizarDatas({
+            ...resto,
+            userId,
+            contaId:     transacao.contaId     ? (contasMap.get(transacao.contaId)           ?? transacao.contaId)     : null,
+            cartaoId:    transacao.cartaoId     ? (cartoesIdMap.get(Number(transacao.cartaoId)) ?? transacao.cartaoId)  : null,
+            categoriaId: transacao.categoriaId  ? (categoriasMap.get(transacao.categoriaId)   ?? transacao.categoriaId) : null,
+          });
+          const [inserido] = await tx.insert(transacoes).values(registro).returning({ id: transacoes.id });
+          if (idAntigo != null) transacoesIdMap.set(Number(idAntigo), Number(inserido.id));
+        }
+        resultados.push({ modulo: "transacoes", importados: data.transacoes.length });
       }
 
+      // ── Faturas (id serial — gerado pelo banco) ───────────────────────────
+      const faturasIdMap = new Map<number, number>(); // id_antigo → id_novo
       if (data.faturas?.length) {
-        // ✅ Remove os campos calculados que não existem na tabela real
-        const registros = data.faturas.map((f: any) => {
-          const { mesReferencia, anoReferencia, ...resto } = f;
-          return { ...resto, userId };
-        });
-        await tx.insert(faturas).values(registros);
-        resultados.push({ modulo: "faturas", importados: registros.length });
+        for (const fatura of data.faturas) {
+          const { id: idAntigo, mesReferencia, anoReferencia, ...resto } = fatura;
+          const registro = normalizarDatas({
+            ...resto,
+            userId,
+            cartaoId:         fatura.cartaoId         ? (cartoesIdMap.get(Number(fatura.cartaoId)) ?? fatura.cartaoId)  : null,
+            contaPagamentoId: fatura.contaPagamentoId  ? (contasMap.get(fatura.contaPagamentoId)   ?? fatura.contaPagamentoId) : null,
+          });
+          const [inserido] = await tx.insert(faturas).values(registro).returning({ id: faturas.id });
+          if (idAntigo != null) faturasIdMap.set(Number(idAntigo), Number(inserido.id));
+        }
+        resultados.push({ modulo: "faturas", importados: data.faturas.length });
       }
 
+      // ── Adiantamentos (id serial) ─────────────────────────────────────────
       if (data.adiantamentos?.length) {
-        const registros = data.adiantamentos.map((r: any) => ({ ...r, userId }));
-        await tx.insert(adiantamentosFatura).values(registros);
-        resultados.push({ modulo: "adiantamentos", importados: registros.length });
+        for (const adiantamento of data.adiantamentos) {
+          const { id: _, ...resto } = adiantamento;
+          const registro = normalizarDatas({
+            ...resto,
+            userId,
+            faturaId: adiantamento.faturaId ? (faturasIdMap.get(Number(adiantamento.faturaId)) ?? adiantamento.faturaId) : null,
+            contaId:  adiantamento.contaId  ? (contasMap.get(adiantamento.contaId) ?? adiantamento.contaId) : null,
+          });
+          await tx.insert(adiantamentosFatura).values(registro);
+        }
+        resultados.push({ modulo: "adiantamentos", importados: data.adiantamentos.length });
       }
 
+      // ── Transferências ────────────────────────────────────────────────────
       if (data.transferencias?.length) {
-        const registros = data.transferencias.map((r: any) => ({ ...r, userId }));
+        const registros = normalizarDatas(
+          data.transferencias.map((r: any) => ({
+            ...r,
+            id:             crypto.randomUUID(),
+            userId,
+            contaOrigemId:  r.contaOrigemId  ? (contasMap.get(r.contaOrigemId)  ?? r.contaOrigemId)  : null,
+            contaDestinoId: r.contaDestinoId ? (contasMap.get(r.contaDestinoId) ?? r.contaDestinoId) : null,
+          }))
+        );
         await tx.insert(transferencias).values(registros);
         resultados.push({ modulo: "transferencias", importados: registros.length });
       }
 
+      // ── Extrato (id serial) ───────────────────────────────────────────────
       if (data.extrato?.length) {
-        const registros = data.extrato.map((r: any) => ({ ...r, userId }));
-        await tx.insert(extratoConta).values(registros);
-        resultados.push({ modulo: "extrato", importados: registros.length });
+        for (const entry of data.extrato) {
+          const { id: _, ...resto } = entry;
+          const registro = normalizarDatas({
+            ...resto,
+            userId,
+            contaId: entry.contaId ? (contasMap.get(entry.contaId) ?? entry.contaId) : null,
+          });
+          await tx.insert(extratoConta).values(registro);
+        }
+        resultados.push({ modulo: "extrato", importados: data.extrato.length });
       }
 
+      // ── Notas ─────────────────────────────────────────────────────────────
       if (data.notas?.length) {
-        const registros = data.notas.map((r: any) => ({ ...r, userId }));
+        const registros = normalizarDatas(
+          data.notas.map((r: any) => ({ ...r, id: crypto.randomUUID(), userId }))
+        );
         await tx.insert(notas).values(registros);
         resultados.push({ modulo: "notas", importados: registros.length });
       }
 
+      // ── Notificações ──────────────────────────────────────────────────────
       if (data.notificacoes?.length) {
-        const registros = data.notificacoes.map((r: any) => ({ ...r, userId }));
+        const registros = normalizarDatas(
+          data.notificacoes.map((r: any) => ({ ...r, id: crypto.randomUUID(), userId }))
+        );
         await tx.insert(notificacoes).values(registros);
         resultados.push({ modulo: "notificacoes", importados: registros.length });
       }
 
-      // ✅ CORRIGIDO: "preferencias" (array) vai para preferenciasNotificacao,
-      // que é a tabela correta — não para "preferences" (singular, outra
-      // tabela), que era o bug do código anterior.
+      // ── Preferências de notificação ───────────────────────────────────────
       if (data.preferencias?.length) {
-        const registros = data.preferencias.map((r: any) => ({ ...r, userId }));
+        const registros = normalizarDatas(
+          data.preferencias.map((r: any) => ({ ...r, id: crypto.randomUUID(), userId }))
+        );
         await tx.insert(preferenciasNotificacao).values(registros);
         resultados.push({ modulo: "preferencias_notificacao", importados: registros.length });
       }
 
-      // ✅ CORRIGIDO: "preferences" (objeto singular) agora é processado
-      // separadamente — no código anterior, essa chave nunca era lida.
+      // ── Preferências gerais ───────────────────────────────────────────────
       if (data.preferences) {
-        await tx.insert(preferences).values({ ...data.preferences, userId });
+        const registro = normalizarDatas({ ...data.preferences, id: crypto.randomUUID(), userId });
+        await tx.insert(preferences).values(registro);
         resultados.push({ modulo: "preferences", importados: 1 });
       }
     });
