@@ -34,10 +34,11 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   console.warn("⚠️ Google OAuth não está configurado.");
 }
 
-// ✅ CORRIGIDO: prazos ajustados para 1h (sem lembrar) / 7 dias (com lembrar)
-// O session.maxAge era 30 dias para todos — cookie nunca expirava na prática.
-const REMEMBER_ME_MAX_AGE = 7 * 24 * 60 * 60; // 7 dias
-const SESSION_MAX_AGE     =      60 * 60;        // 1 hora
+// ✅ Prazos de sessão:
+// - Sem lembrar: 1h — cookie expira em 1h
+// - Com lembrar: 7 dias — cookie persistente
+const REMEMBER_ME_MAX_AGE = 7 * 24 * 60 * 60; // 7 dias em segundos
+const SESSION_MAX_AGE     =      60 * 60;       // 1 hora em segundos
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(),
@@ -100,11 +101,7 @@ export const authOptions: NextAuthOptions = {
 
   session: {
     strategy: "jwt",
-    // ✅ CORRIGIDO: maxAge do cookie alinhado com o prazo máximo real (7 dias).
-    // Antes era 30 dias para todos — o token expirava em 1h mas o cookie
-    // continuava válido, fazendo o NextAuth emitir um novo token automaticamente
-    // e mantendo a sessão indefinidamente mesmo sem "lembrar de mim".
-    maxAge: REMEMBER_ME_MAX_AGE,
+    maxAge:   REMEMBER_ME_MAX_AGE,
   },
 
   pages: {
@@ -113,33 +110,42 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, user, account }) {
+      // ── Primeiro login ────────────────────────────────────────────────────
       if (account && user) {
         token.id = user.id;
 
-        // Login com Google sempre "lembra" (não há como definir rememberMe)
+        // Login com Google sempre usa rememberMe = true (sessão longa)
         const rememberMe = (user as any).rememberMe;
-        token.rememberMe = rememberMe === false ? false : true;
+        token.rememberMe = typeof rememberMe === "boolean" ? rememberMe : true;
+
+        // Define exp baseado em rememberMe
+        const now = Math.floor(Date.now() / 1000);
+        token.exp    = now + (token.rememberMe ? REMEMBER_ME_MAX_AGE : SESSION_MAX_AGE);
+        token.maxAge = token.rememberMe ? REMEMBER_ME_MAX_AGE : SESSION_MAX_AGE;
+
+        return token;
       }
 
-      // ✅ CORRIGIDO: define token.exp em TODOS os casos, não só quando
-      // !account — antes o token sem rememberMe só atualizava exp em
-      // requests subsequentes, permitindo renovação infinita do token.
+      // ── Requests subsequentes ─────────────────────────────────────────────
       const now = Math.floor(Date.now() / 1000);
-      if (token.rememberMe === false) {
-        // Sem lembrar: expira em 1h a partir do login; não renova
-        // Se exp já foi definido, mantém (não renova a cada request)
-        if (!token.exp || (token.exp as number) > now + SESSION_MAX_AGE) {
-          token.exp = now + SESSION_MAX_AGE;
-        }
-      } else {
-        // Com lembrar: renova deslizante de 7 dias
-        token.exp = now + REMEMBER_ME_MAX_AGE;
+
+      // Token expirado — retorna null para forçar novo login
+      if (token.exp && (token.exp as number) < now) {
+        return null as any;
       }
+
+      // Com rememberMe: renova expiração deslizante de 7 dias
+      if (token.rememberMe) {
+        token.exp    = now + REMEMBER_ME_MAX_AGE;
+        token.maxAge = REMEMBER_ME_MAX_AGE;
+      }
+      // Sem rememberMe: mantém exp fixo (não renova — expira em 1h do login)
 
       return token;
     },
 
     async session({ session, token }) {
+      if (!token) return session;
       if (session.user) {
         session.user.id = token.id as string;
       }
