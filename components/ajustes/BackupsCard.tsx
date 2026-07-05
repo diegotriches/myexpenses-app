@@ -2,33 +2,25 @@
 
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Button }   from "@/components/ui/button";
+import { Badge }    from "@/components/ui/badge";
+import { Switch }   from "@/components/ui/switch";
+import { Label }    from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  DatabaseBackup,
-  Download,
-  RotateCcw,
-  Trash2,
-  Loader2,
-  CheckCircle2,
-  AlertTriangle,
-  Calendar,
-  HardDrive,
+  DatabaseBackup, Download, RotateCcw, Trash2, Loader2,
+  CheckCircle2, AlertTriangle, Calendar, HardDrive, Settings2,
 } from "lucide-react";
 import { useBackups, useDownloadBackup, useRestaurarBackup, useExcluirBackup } from "@/hooks/useBackups";
 import { usePreferences, useAtualizarPreferences } from "@/hooks/usePreferences";
 import type { BackupListItem } from "@/types/backup";
+import type { BackupFrequencia } from "@/types/preferences";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -40,16 +32,36 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
+const DIAS_SEMANA = [
+  { value: "0", label: "Domingo"   },
+  { value: "1", label: "Segunda"   },
+  { value: "2", label: "Terça"     },
+  { value: "3", label: "Quarta"    },
+  { value: "4", label: "Quinta"    },
+  { value: "5", label: "Sexta"     },
+  { value: "6", label: "Sábado"    },
+];
+
+const FREQUENCIA_LABEL: Record<BackupFrequencia, string> = {
+  diario:     "Diário (ao fazer alterações)",
+  semanal:    "Semanal",
+  mensal:     "Mensal",
+  desativado: "Desativado",
+};
+
 export default function BackupsCard() {
   const { data: backups = [], isLoading } = useBackups();
-  const downloadBackup    = useDownloadBackup();
-  const restaurarBackup   = useRestaurarBackup();
-  const excluirBackup     = useExcluirBackup();
+  const downloadBackup  = useDownloadBackup();
+  const restaurarBackup = useRestaurarBackup();
+  const excluirBackup   = useExcluirBackup();
 
-  // ✅ Toggle de backup automático
   const { data: prefs }   = usePreferences();
   const updatePrefs       = useAtualizarPreferences();
-  const backupAtivo       = prefs?.backupAutomatico ?? true;
+
+  const backupAtivo    = prefs?.backupAutomatico  ?? true;
+  const frequencia     = (prefs?.backupFrequencia ?? "semanal") as BackupFrequencia;
+  const diaSemana      = prefs?.backupDiaSemana   ?? 0;
+  const diaMes         = prefs?.backupDiaMes      ?? 1;
 
   const [backupRestaurar, setBackupRestaurar] = useState<BackupListItem | null>(null);
   const [backupExcluir,   setBackupExcluir]   = useState<BackupListItem | null>(null);
@@ -83,8 +95,10 @@ export default function BackupsCard() {
   return (
     <>
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-3 mb-4">
+        <CardContent className="pt-6 space-y-5">
+
+          {/* ── Status e toggle ─────────────────────────────────────────── */}
+          <div className="flex items-start gap-3">
             <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30 flex-shrink-0">
               <DatabaseBackup className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
@@ -94,14 +108,13 @@ export default function BackupsCard() {
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">
                     Backup automático
                   </p>
-                  {backupAtivo
+                  {backupAtivo && frequencia !== "desativado"
                     ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                    : <span className="text-xs text-gray-400 dark:text-gray-500">(desativado)</span>
+                    : <span className="text-xs text-gray-400">(desativado)</span>
                   }
                 </div>
-                {/* ✅ Toggle para ativar/desativar backup automático */}
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="backup-toggle" className="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                  <Label htmlFor="backup-toggle" className="text-xs text-gray-500 cursor-pointer">
                     {backupAtivo ? "Ativado" : "Desativado"}
                   </Label>
                   <Switch
@@ -115,22 +128,130 @@ export default function BackupsCard() {
                 </div>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {backupAtivo
-                  ? "Seus dados são salvos automaticamente toda semana. As últimas 8 versões ficam disponíveis aqui para download ou restauração."
-                  : "O backup automático está desativado. Você pode ainda exportar seus dados manualmente a qualquer momento."
-                }
+                {backupAtivo && frequencia !== "desativado"
+                  ? `Backup ${FREQUENCIA_LABEL[frequencia].toLowerCase()} ativo. As últimas ${8} versões ficam disponíveis abaixo.`
+                  : "O backup automático está desativado. Exporte seus dados manualmente quando quiser."}
               </p>
             </div>
           </div>
 
+          {/* ── Configuração de frequência ───────────────────────────────── */}
+          {backupAtivo && (
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Settings2 className="h-4 w-4 text-gray-500" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Frequência do backup
+                </span>
+              </div>
+
+              {/* Seletor de frequência */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1.5">
+                    Frequência
+                  </label>
+                  <Select
+                    value={frequencia}
+                    onValueChange={(v) =>
+                      updatePrefs.mutate({ backupFrequencia: v as BackupFrequencia })
+                    }
+                    disabled={updatePrefs.isPending}
+                  >
+                    <SelectTrigger className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="diario">
+                        Diário (ao fazer alterações)
+                      </SelectItem>
+                      <SelectItem value="semanal">Semanal</SelectItem>
+                      <SelectItem value="mensal">Mensal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Dia da semana — visível apenas para semanal */}
+                {frequencia === "semanal" && (
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1.5">
+                      Dia da semana
+                    </label>
+                    <Select
+                      value={String(diaSemana)}
+                      onValueChange={(v) =>
+                        updatePrefs.mutate({ backupDiaSemana: Number(v) })
+                      }
+                      disabled={updatePrefs.isPending}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DIAS_SEMANA.map((d) => (
+                          <SelectItem key={d.value} value={d.value}>
+                            {d.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Dia do mês — visível apenas para mensal */}
+                {frequencia === "mensal" && (
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1.5">
+                      Dia do mês
+                    </label>
+                    <Select
+                      value={String(diaMes)}
+                      onValueChange={(v) =>
+                        updatePrefs.mutate({ backupDiaMes: Number(v) })
+                      }
+                      disabled={updatePrefs.isPending}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-48">
+                        {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                          <SelectItem key={d} value={String(d)}>
+                            Dia {d}{d === 1 ? " (padrão)" : ""}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="29">Dia 29</SelectItem>
+                        <SelectItem value="30">Dia 30</SelectItem>
+                        <SelectItem value="31">Dia 31 (último dia do mês)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {diaMes > 28 && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        Meses com menos dias usarão o último dia disponível.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Info — diário */}
+                {frequencia === "diario" && (
+                  <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800 col-span-full">
+                    <AlertDescription className="text-blue-800 dark:text-blue-300 text-xs">
+                      O backup diário é gerado automaticamente uma vez por dia quando você fizer alguma alteração no app.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Histórico de backups ─────────────────────────────────────── */}
           {backups.length === 0 ? (
-            <div className="text-center py-8">
+            <div className="text-center py-6">
               <DatabaseBackup className="mx-auto mb-3 text-gray-300 dark:text-gray-700" size={36} />
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Nenhum backup gerado ainda
-              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum backup gerado ainda</p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                O primeiro backup será criado automaticamente em até 7 dias
+                O primeiro backup será criado automaticamente conforme a frequência configurada
               </p>
             </div>
           ) : (
@@ -202,7 +323,7 @@ export default function BackupsCard() {
         </CardContent>
       </Card>
 
-      {/* Modal de confirmação de restauração */}
+      {/* Modal restaurar */}
       <Dialog open={!!backupRestaurar} onOpenChange={(v) => { if (!v) { setBackupRestaurar(null); setConfirmText(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -211,12 +332,9 @@ export default function BackupsCard() {
               Restaurar backup
             </DialogTitle>
             <DialogDescription>
-              Esta ação é <strong>irreversível</strong>. Todos os seus dados atuais
-              (transações, contas, cartões, faturas, etc.) serão substituídos pelos
-              dados do backup selecionado.
+              Esta ação é <strong>irreversível</strong>. Todos os seus dados atuais serão substituídos pelos dados do backup selecionado.
             </DialogDescription>
           </DialogHeader>
-
           {backupRestaurar && (
             <div className="py-2 space-y-3">
               <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-sm">
@@ -231,16 +349,12 @@ export default function BackupsCard() {
                   <span>{formatBytes(backupRestaurar.tamanhoBytes)}</span>
                 </div>
               </div>
-
               <Alert variant="destructive" className="py-2">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription className="text-xs">
-                  Todos os dados criados após esta data de backup serão perdidos
-                  permanentemente. Considere baixar um backup dos dados atuais antes
-                  de continuar, caso queira preservá-los.
+                  Todos os dados criados após esta data serão perdidos permanentemente.
                 </AlertDescription>
               </Alert>
-
               <div>
                 <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1.5">
                   Digite <strong>RESTAURAR</strong> para confirmar
@@ -255,7 +369,6 @@ export default function BackupsCard() {
               </div>
             </div>
           )}
-
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => { setBackupRestaurar(null); setConfirmText(""); }}>
               Cancelar
@@ -265,17 +378,15 @@ export default function BackupsCard() {
               onClick={handleConfirmarRestauracao}
               disabled={confirmText !== "RESTAURAR" || restaurarBackup.isPending}
             >
-              {restaurarBackup.isPending ? (
-                <><Loader2 size={14} className="mr-2 animate-spin" />Restaurando...</>
-              ) : (
-                <><RotateCcw size={14} className="mr-2" />Restaurar backup</>
-              )}
+              {restaurarBackup.isPending
+                ? <><Loader2 size={14} className="mr-2 animate-spin" />Restaurando...</>
+                : <><RotateCcw size={14} className="mr-2" />Restaurar backup</>}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Modal de confirmação de exclusão */}
+      {/* Modal excluir */}
       <Dialog open={!!backupExcluir} onOpenChange={(v) => { if (!v) setBackupExcluir(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -288,19 +399,15 @@ export default function BackupsCard() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setBackupExcluir(null)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setBackupExcluir(null)}>Cancelar</Button>
             <Button
               variant="destructive"
               onClick={handleConfirmarExclusao}
               disabled={excluirBackup.isPending}
             >
-              {excluirBackup.isPending ? (
-                <><Loader2 size={14} className="mr-2 animate-spin" />Excluindo...</>
-              ) : (
-                <><Trash2 size={14} className="mr-2" />Excluir</>
-              )}
+              {excluirBackup.isPending
+                ? <><Loader2 size={14} className="mr-2 animate-spin" />Excluindo...</>
+                : <><Trash2 size={14} className="mr-2" />Excluir</>}
             </Button>
           </DialogFooter>
         </DialogContent>

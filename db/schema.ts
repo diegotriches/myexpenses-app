@@ -64,7 +64,13 @@ export const preferences = pgTable(
       .$type<"domingo" | "segunda">()
       .default("domingo"),
     notificacoes: boolean("notificacoes").default(true),
-    backupAutomatico: boolean("backup_automatico").default(true),  // ← ADICIONAR ESTA LINHA
+    backupAutomatico: boolean("backup_automatico").default(true),
+    backupFrequencia: text("backup_frequencia")
+      .$type<"diario" | "semanal" | "mensal" | "desativado">()
+      .default("semanal"),
+    backupDiaSemana: integer("backup_dia_semana").default(0), // 0=dom … 6=sáb
+    backupDiaMes: integer("backup_dia_mes").default(1), // 1-31
+    ultimoBackupEm: timestamp("ultimo_backup_em", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -88,26 +94,28 @@ export type NewPreference = typeof preferences.$inferInsert;
 export const accounts = pgTable(
   "accounts",
   {
-    userId:            uuid("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-    type:              text("type").notNull(),
-    provider:          text("provider").notNull(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    provider: text("provider").notNull(),
     providerAccountId: text("providerAccountId").notNull(),
-    refresh_token:     text("refresh_token"),
-    access_token:      text("access_token"),
-    expires_at:        integer("expires_at"),
-    token_type:        text("token_type"),
-    scope:             text("scope"),
-    id_token:          text("id_token"),
-    session_state:     text("session_state"),
+    refresh_token: text("refresh_token"),
+    access_token: text("access_token"),
+    expires_at: integer("expires_at"),
+    token_type: text("token_type"),
+    scope: text("scope"),
+    id_token: text("id_token"),
+    session_state: text("session_state"),
   },
   (table) => ({
     // index simples — uniqueIndex impedia recriar conta após exclusão
-    userIdIdx:          index("accounts_user_id_idx").on(table.userId),
+    userIdIdx: index("accounts_user_id_idx").on(table.userId),
     providerAccountIdx: uniqueIndex("accounts_provider_account_idx").on(
       table.provider,
-      table.providerAccountId
+      table.providerAccountId,
     ),
-  })
+  }),
 );
 
 export const sessions = pgTable("sessions", {
@@ -323,25 +331,33 @@ export const faturas = pgTable(
 // Registra pagamentos parciais ou totais antecipados de faturas abertas.
 // Diferente do pagamento normal: a fatura NÃO é marcada como paga —
 // apenas o total é reduzido e o limite do cartão é restaurado.
- 
+
 export const adiantamentosFatura = pgTable(
   "adiantamentos_fatura",
   {
-    id:        uuid("id").defaultRandom().primaryKey(),
-    userId:    uuid("user_id").notNull().references(() => users.id,   { onDelete: "cascade"  }),
-    faturaId:  integer("fatura_id").notNull().references(() => faturas.id, { onDelete: "cascade" }),
-    contaId:   uuid("conta_id").notNull().references(() => contas.id, { onDelete: "restrict" }),
-    valor:     numeric("valor", { precision: 14, scale: 2 }).notNull(),
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    faturaId: integer("fatura_id")
+      .notNull()
+      .references(() => faturas.id, { onDelete: "cascade" }),
+    contaId: uuid("conta_id")
+      .notNull()
+      .references(() => contas.id, { onDelete: "restrict" }),
+    valor: numeric("valor", { precision: 14, scale: 2 }).notNull(),
     descricao: text("descricao"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (table) => ({
-    userIdIdx:   index("adiantamentos_fatura_user_id_idx").on(table.userId),
+    userIdIdx: index("adiantamentos_fatura_user_id_idx").on(table.userId),
     faturaIdIdx: index("adiantamentos_fatura_fatura_id_idx").on(table.faturaId),
-  })
+  }),
 );
- 
-export type AdiantamentoFatura    = typeof adiantamentosFatura.$inferSelect;
+
+export type AdiantamentoFatura = typeof adiantamentosFatura.$inferSelect;
 export type NovoAdiantamentoFatura = typeof adiantamentosFatura.$inferInsert;
 
 // EXTRATO (Isolado por usuário)
@@ -490,49 +506,65 @@ export type NovoContato = typeof contatos.$inferInsert;
 
 // ─── NOTAS ────────────────────────────────────────────────────────────────────
 // Notas pessoais do usuário — acessíveis pelo painel flutuante em qualquer página.
- 
+
 export const notas = pgTable(
   "notas",
   {
-    id:        uuid("id").defaultRandom().primaryKey(),
-    userId:    uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    titulo:    varchar("titulo",   { length: 100 }).notNull().default(""),
-    conteudo:  text("conteudo").notNull().default(""),
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    titulo: varchar("titulo", { length: 100 }).notNull().default(""),
+    conteudo: text("conteudo").notNull().default(""),
     // Cor identificadora — valores: yellow | blue | green | red | purple | gray
-    cor:       varchar("cor", { length: 20 }).notNull().default("yellow"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    cor: varchar("cor", { length: 20 }).notNull().default("yellow"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (table) => ({
-    userIdIdx:    index("notas_user_id_idx").on(table.userId),
-    updatedAtIdx: index("notas_updated_at_idx").on(table.userId, table.updatedAt),
-  })
+    userIdIdx: index("notas_user_id_idx").on(table.userId),
+    updatedAtIdx: index("notas_updated_at_idx").on(
+      table.userId,
+      table.updatedAt,
+    ),
+  }),
 );
- 
-export type Nota    = typeof notas.$inferSelect;
+
+export type Nota = typeof notas.$inferSelect;
 export type NovaNota = typeof notas.$inferInsert;
 
 // ─── BACKUPS DE USUÁRIO ───────────────────────────────────────────────────────
 // Snapshot completo dos dados do usuário, gerado automaticamente uma vez por
 // semana pelo cron job. Mantém histórico das últimas semanas para restauração.
- 
+
 export const backupsUsuario = pgTable(
   "backups_usuario",
   {
-    id:            uuid("id").defaultRandom().primaryKey(),
-    userId:        uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     // Snapshot completo de todas as tabelas do usuário, serializado como JSON
-    dados:         jsonb("dados").notNull(),
-    tamanhoBytes:  integer("tamanho_bytes").notNull().default(0),
+    dados: jsonb("dados").notNull(),
+    tamanhoBytes: integer("tamanho_bytes").notNull().default(0),
     // Estatísticas resumidas (contagens por tabela) para exibição rápida na UI
-    estatisticas:  jsonb("estatisticas"),
-    createdAt:     timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    estatisticas: jsonb("estatisticas"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (table) => ({
-    userIdIdx:    index("backups_usuario_user_id_idx").on(table.userId),
-    createdAtIdx: index("backups_usuario_created_at_idx").on(table.userId, table.createdAt),
-  })
+    userIdIdx: index("backups_usuario_user_id_idx").on(table.userId),
+    createdAtIdx: index("backups_usuario_created_at_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+  }),
 );
- 
-export type BackupUsuario    = typeof backupsUsuario.$inferSelect;
+
+export type BackupUsuario = typeof backupsUsuario.$inferSelect;
 export type NovoBackupUsuario = typeof backupsUsuario.$inferInsert;

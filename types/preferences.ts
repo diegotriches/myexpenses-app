@@ -1,5 +1,7 @@
 // src/types/preferences.ts
 
+export type BackupFrequencia = "diario" | "semanal" | "mensal" | "desativado";
+
 export interface Preferencias {
   id?: string;
   userId?: string;
@@ -10,6 +12,10 @@ export interface Preferencias {
   formatoData?: "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD";
   inicioSemana?: "domingo" | "segunda";
   backupAutomatico?: boolean;
+  backupFrequencia?: BackupFrequencia;
+  backupDiaSemana?: number;  // 0=domingo … 6=sábado (usado quando semanal)
+  backupDiaMes?: number;     // 1-31 (usado quando mensal)
+  ultimoBackupEm?: string | Date | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }
@@ -22,6 +28,9 @@ export interface AtualizarPreferenciasDTO {
   formatoData?: "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD";
   inicioSemana?: "domingo" | "segunda";
   backupAutomatico?: boolean;
+  backupFrequencia?: BackupFrequencia;
+  backupDiaSemana?: number;
+  backupDiaMes?: number;
 }
 
 export type TemaType = "light" | "dark" | "system";

@@ -5,6 +5,9 @@ import { preferences } from "@/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import type { BackupFrequencia } from "@/types/preferences";
+
+const FREQUENCIAS_VALIDAS: BackupFrequencia[] = ["diario", "semanal", "mensal"];
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,13 +27,16 @@ export async function GET(req: NextRequest) {
         .insert(preferences)
         .values({
           userId,
-          tema: "system",
-          idioma: "pt-BR",
-          moeda: "BRL",
-          notificacoes: true,
-          formatoData: "DD/MM/YYYY",
-          inicioSemana: "domingo",
-          backupAutomatico: true,
+          tema:              "system",
+          idioma:            "pt-BR",
+          moeda:             "BRL",
+          notificacoes:      true,
+          formatoData:       "DD/MM/YYYY",
+          inicioSemana:      "domingo",
+          backupAutomatico:  true,
+          backupFrequencia:  "semanal",
+          backupDiaSemana:   0,
+          backupDiaMes:      1,
         })
         .returning();
 
@@ -60,11 +66,10 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
     }
 
+    // ── Validações ────────────────────────────────────────────────────────────
+
     if (body.tema && !["light", "dark", "system"].includes(body.tema)) {
-      return NextResponse.json(
-        { message: "Tema inválido. Use: light, dark ou system" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Tema inválido. Use: light, dark ou system" }, { status: 400 });
     }
 
     if (body.formatoData && !["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"].includes(body.formatoData)) {
@@ -72,22 +77,41 @@ export async function PUT(req: NextRequest) {
     }
 
     if (body.inicioSemana && !["domingo", "segunda"].includes(body.inicioSemana)) {
-      return NextResponse.json(
-        { message: "Início de semana inválido. Use: domingo ou segunda" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Início de semana inválido. Use: domingo ou segunda" }, { status: 400 });
     }
 
-    // ✅ NOVO: valida backupAutomatico
     if (body.backupAutomatico !== undefined && typeof body.backupAutomatico !== "boolean") {
+      return NextResponse.json({ message: "backupAutomatico deve ser um booleano" }, { status: 400 });
+    }
+
+    if (body.backupFrequencia !== undefined && !FREQUENCIAS_VALIDAS.includes(body.backupFrequencia)) {
       return NextResponse.json(
-        { message: "backupAutomatico deve ser um valor booleano (true/false)" },
+        { message: `backupFrequencia inválida. Use: ${FREQUENCIAS_VALIDAS.join(", ")}` },
         { status: 400 }
       );
     }
 
-    // Remove campo removido do schema caso venha no body
-    delete body.notificacoesEmail;
+    if (body.backupDiaSemana !== undefined) {
+      const dia = Number(body.backupDiaSemana);
+      if (!Number.isInteger(dia) || dia < 0 || dia > 6) {
+        return NextResponse.json({ message: "backupDiaSemana deve ser um número entre 0 (domingo) e 6 (sábado)" }, { status: 400 });
+      }
+    }
+
+    if (body.backupDiaMes !== undefined) {
+      const dia = Number(body.backupDiaMes);
+      if (!Number.isInteger(dia) || dia < 1 || dia > 31) {
+        return NextResponse.json({ message: "backupDiaMes deve ser um número entre 1 e 31" }, { status: 400 });
+      }
+    }
+
+    // Remove campos que não devem ser atualizados diretamente
+    delete body.id;
+    delete body.userId;
+    delete body.createdAt;
+    delete body.ultimoBackupEm; // atualizado apenas pelo cron
+
+    const dados = { ...body, updatedAt: new Date() };
 
     const [existing] = await db
       .select()
@@ -95,26 +119,39 @@ export async function PUT(req: NextRequest) {
       .where(eq(preferences.userId, userId))
       .limit(1);
 
-    let atualizado;
+    let resultado;
 
     if (!existing) {
-      [atualizado] = await db
+      [resultado] = await db
         .insert(preferences)
-        .values({ userId, ...body })
+        .values({
+          userId,
+          tema:             "system",
+          idioma:           "pt-BR",
+          moeda:            "BRL",
+          notificacoes:     true,
+          formatoData:      "DD/MM/YYYY",
+          inicioSemana:     "domingo",
+          backupAutomatico: true,
+          backupFrequencia: "semanal",
+          backupDiaSemana:  0,
+          backupDiaMes:     1,
+          ...dados,
+        })
         .returning();
     } else {
-      [atualizado] = await db
+      [resultado] = await db
         .update(preferences)
-        .set({ ...body, updatedAt: new Date() })
+        .set(dados)
         .where(eq(preferences.userId, userId))
         .returning();
     }
 
-    if (!atualizado) {
+    if (!resultado) {
       return NextResponse.json({ message: "Erro ao atualizar preferências" }, { status: 500 });
     }
 
-    return NextResponse.json(atualizado);
+    return NextResponse.json(resultado);
   } catch (err: any) {
     console.error("❌ Erro ao atualizar preferências:", err);
     return NextResponse.json(
@@ -137,18 +174,21 @@ export async function DELETE(req: NextRequest) {
       .insert(preferences)
       .values({
         userId,
-        tema: "system",
-        idioma: "pt-BR",
-        moeda: "BRL",
-        notificacoes: true,
-        formatoData: "DD/MM/YYYY",
-        inicioSemana: "domingo",
+        tema:             "system",
+        idioma:           "pt-BR",
+        moeda:            "BRL",
+        notificacoes:     true,
+        formatoData:      "DD/MM/YYYY",
+        inicioSemana:     "domingo",
         backupAutomatico: true,
+        backupFrequencia: "semanal",
+        backupDiaSemana:  0,
+        backupDiaMes:     1,
       })
       .returning();
 
     return NextResponse.json({
-      message: "Preferências restauradas ao padrão",
+      message:     "Preferências restauradas ao padrão",
       preferences: novaPreferencia,
     });
   } catch (err: any) {
