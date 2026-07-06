@@ -4,8 +4,12 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { getServerSession } from "next-auth";
 import bcrypt from "bcryptjs";
-import { getUserId } from "@/lib/auth";
+import { getUserId, authOptions } from "@/lib/auth";
+
+// Janela de reautenticação OAuth aceita (5 minutos)
+const OAUTH_REAUTH_WINDOW_SEGUNDOS = 5 * 60;
 
 // PUT - Atualizar perfil (nome/email)
 export async function PUT(
@@ -108,91 +112,92 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ 1. Verificar autenticação
+    // 1. Verificar autenticação
     const userId = await getUserId();
-    
     if (!userId) {
-      return NextResponse.json(
-        { message: "Não autenticado" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Não autenticado" }, { status: 401 });
     }
-
-    // ✅ 2. Obter ID da URL
-    const params = await context.params;
+ 
+    // 2. Obter ID da URL
+    const params   = await context.params;
     const targetId = params.id;
-
-    // ✅ 3. Verificar ownership
+ 
+    // 3. Verificar ownership
     if (userId !== targetId) {
       return NextResponse.json(
         { message: "Você não tem permissão para deletar outro usuário" },
         { status: 403 }
       );
     }
-
-    // ✅ 4. Pedir confirmação de senha (padronizado como "senha")
-    const body = await req.json();
-    const { senha } = body;
-
-    if (!senha) {
-      return NextResponse.json(
-        { message: "Senha é obrigatória para confirmar exclusão da conta" },
-        { status: 400 }
-      );
-    }
-
-    // ✅ 5. Buscar usuário
+ 
+    // 4. Buscar usuário
     const [usuario] = await db
       .select()
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
-
+ 
     if (!usuario) {
-      return NextResponse.json(
-        { message: "Usuário não encontrado" },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: "Usuário não encontrado" }, { status: 404 });
     }
-
-    // ✅ 6. Verificar senha antes de deletar
+ 
+    // 5. Verificação de identidade baseada no tipo de conta
     if (usuario.password) {
+      // ── Usuário com senha (Credentials) ──────────────────────────────────
+      const body = await req.json().catch(() => ({}));
+      const { senha } = body;
+ 
+      if (!senha) {
+        return NextResponse.json(
+          { message: "Senha é obrigatória para confirmar exclusão da conta" },
+          { status: 400 }
+        );
+      }
+ 
       const senhaValida = await bcrypt.compare(senha, usuario.password);
       if (!senhaValida) {
+        return NextResponse.json({ message: "Senha incorreta" }, { status: 401 });
+      }
+    } else {
+      // ── Usuário OAuth (Google) ────────────────────────────────────────────
+      // Verifica se o usuário reautenticou recentemente (últimos 5 minutos).
+      // O token JWT contém `iat` (issued at) — se for recente, significa que
+      // o usuário acabou de passar pelo fluxo de login do Google.
+      const session = await getServerSession(authOptions);
+      const token   = (session as any)?.token;
+      const iat     = token?.iat as number | undefined;
+      const now     = Math.floor(Date.now() / 1000);
+ 
+      // ✅ CORRIGIDO: verifica iat do token — se o login foi nos últimos
+      // OAUTH_REAUTH_WINDOW_SEGUNDOS (5min), considera reautenticação válida.
+      // O frontend deve chamar signIn("google") antes de deletar e só
+      // disparar a exclusão após o callback de retorno.
+      if (!iat || now - iat > OAUTH_REAUTH_WINDOW_SEGUNDOS) {
         return NextResponse.json(
-          { message: "Senha incorreta" },
+          {
+            message:       "Reautenticação necessária",
+            code:          "OAUTH_REAUTH_REQUIRED",
+            // Informa ao frontend que deve redirecionar para reautenticar
+            requiresReauth: true,
+          },
           { status: 401 }
         );
       }
-    } else {
-      // Usuário OAuth - não pode deletar sem reautenticação
-      return NextResponse.json(
-        { message: "Usuários OAuth devem reautenticar antes de deletar a conta" },
-        { status: 400 }
-      );
     }
-
-    // ✅ 7. Deletar usuário (CASCADE deleta dados relacionados no schema)
+ 
+    // 6. Deletar usuário (CASCADE deleta dados relacionados no schema)
     const [deletado] = await db
       .delete(users)
       .where(eq(users.id, userId))
       .returning();
-
+ 
     if (!deletado) {
-      return NextResponse.json(
-        { message: "Erro ao deletar usuário" },
-        { status: 500 }
-      );
+      return NextResponse.json({ message: "Erro ao deletar usuário" }, { status: 500 });
     }
-
-    return NextResponse.json({ 
-      message: "Conta deletada com sucesso" 
-    });
+ 
+    return NextResponse.json({ message: "Conta deletada com sucesso" });
   } catch (err: any) {
     console.error("❌ Erro ao deletar usuário:", err);
-    return NextResponse.json(
-      { message: "Erro ao deletar usuário" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Erro ao deletar usuário" }, { status: 500 });
   }
 }

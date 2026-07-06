@@ -6,12 +6,10 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { getUserId } from "@/lib/auth";
 
-// GET - Buscar dados do usuário logado
 export async function GET(req: NextRequest) {
   try {
-    // ✅ Verificar autenticação
     const userId = await getUserId();
-    
+
     if (!userId) {
       return NextResponse.json(
         { message: "Não autenticado. Faça login para acessar esta rota." },
@@ -19,15 +17,17 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // ✅ Buscar usuário
     const [usuario] = await db
       .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        image: users.image,
+        id:            users.id,
+        name:          users.name,
+        email:         users.email,
+        image:         users.image,
         emailVerified: users.emailVerified,
-        createdAt: users.createdAt,
+        createdAt:     users.createdAt,
+        // ✅ NOVO: inclui password apenas para derivar hasPassword —
+        // não é exposto diretamente na resposta
+        password:      users.password,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -40,11 +40,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(usuario);
+    // ✅ Remove password do objeto e expõe hasPassword no lugar
+    const { password, ...resto } = usuario;
 
+    return NextResponse.json({
+      ...resto,
+      hasPassword: !!password,
+    });
   } catch (error) {
     console.error("❌ Erro ao buscar usuário:", error);
-
     return NextResponse.json(
       { message: "Erro ao buscar usuário" },
       { status: 500 }

@@ -10,6 +10,8 @@ export interface Usuario {
   image?: string | null;
   emailVerified?: string | Date | null;
   createdAt: string | Date;
+  // ✅ NOVO: indica se o usuário tem senha cadastrada (false = conta OAuth)
+  hasPassword: boolean;
 }
 
 /**

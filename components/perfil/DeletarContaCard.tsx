@@ -1,31 +1,23 @@
 // src/components/perfil/DeletarContaCard.tsx
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { Button }   from "@/components/ui/button";
+import { Input }    from "@/components/ui/input";
+import { Label }    from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogDescription,
+  DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  Trash2, 
-  AlertTriangle, 
-  Loader2,
-  ShieldAlert,
-  Database,
-  CreditCard,
-  FileText,
-  TrendingDown
+import {
+  Trash2, AlertTriangle, Loader2, ShieldAlert,
+  Database, CreditCard, FileText, TrendingDown,
 } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 import { useDeletarConta } from "@/hooks/useProfile";
 import type { Usuario } from "@/types/profile";
 
@@ -33,20 +25,63 @@ interface Props {
   usuario: Usuario;
 }
 
-export default function DeletarContaCard({ usuario }: Props) {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [senha, setSenha] = useState("");
-  const [confirmacao, setConfirmacao] = useState("");
-  const [aceitaTermos, setAceitaTermos] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
+// ── Componente interno que usa useSearchParams ─────────────────────────────
+// Isolado em Suspense para evitar prerender-error no build.
+function DeletarContaInner({ usuario }: Props) {
+  const router       = useRouter();
+  const searchParams = useSearchParams();
 
-  // React Query Mutation
+  const [dialogOpen,   setDialogOpen]   = useState(false);
+  const [senha,        setSenha]        = useState("");
+  const [confirmacao,  setConfirmacao]  = useState("");
+  const [aceitaTermos, setAceitaTermos] = useState(false);
+  const [erro,         setErro]         = useState<string | null>(null);
+  const [aguardandoOAuth, setAguardandoOAuth] = useState(false);
+
   const deletarConta = useDeletarConta();
 
-  const validarFormulario = (): boolean => {
+  // ✅ Detecta retorno do fluxo OAuth de reautenticação.
+  // Após signIn("google", { callbackUrl: "/perfil?confirmar_exclusao=true" }),
+  // o NextAuth redireciona de volta com esse parâmetro — abrimos o modal
+  // automaticamente para o usuário confirmar e finalizar a exclusão.
+  useEffect(() => {
+    if (searchParams.get("confirmar_exclusao") === "true") {
+      setDialogOpen(true);
+      // Remove o parâmetro da URL sem recarregar a página
+      router.replace("/perfil", { scroll: false });
+    }
+  }, [searchParams, router]);
+
+  // Usuário OAuth = não tem senha cadastrada
+  const isOAuth = !usuario.hasPassword;
+
+  function resetarFormulario() {
+    setSenha("");
+    setConfirmacao("");
+    setAceitaTermos(false);
+    setErro(null);
+  }
+
+  function handleDialogChange(open: boolean) {
+    setDialogOpen(open);
+    if (!open) resetarFormulario();
+  }
+
+  // ── Fluxo OAuth: redireciona para reautenticar com Google ──────────────────
+  async function handleReautenticarGoogle() {
+    setAguardandoOAuth(true);
+    await signIn("google", {
+      callbackUrl: `${window.location.origin}/perfil?confirmar_exclusao=true`,
+    });
+    // signIn redireciona — setAguardandoOAuth nunca será false aqui,
+    // mas mantemos para feedback visual enquanto o redirect acontece
+  }
+
+  // ── Validação (apenas para fluxo Credentials) ─────────────────────────────
+  function validarFormulario(): boolean {
     setErro(null);
 
-    if (!senha || senha.trim() === "") {
+    if (!isOAuth && (!senha || senha.trim() === "")) {
       setErro("Digite sua senha para confirmar");
       return false;
     }
@@ -62,66 +97,55 @@ export default function DeletarContaCard({ usuario }: Props) {
     }
 
     return true;
-  };
+  }
 
-  const handleDeletarConta = async () => {
+  // ── Executa a exclusão ─────────────────────────────────────────────────────
+  async function handleDeletarConta() {
     if (!validarFormulario() || !usuario.id) return;
 
     try {
       setErro(null);
-      
       await deletarConta.mutateAsync({
         userId: usuario.id,
-        senha,
+        // Usuários OAuth não enviam senha — a rota verifica o iat do token
+        senha: isOAuth ? undefined : senha,
       });
-
       // Hook já redireciona para /login após sucesso
     } catch (err: any) {
       console.error("Erro ao deletar conta:", err);
-      
+
+      // Se a rota retornar OAUTH_REAUTH_REQUIRED, pede para reautenticar
+      if (err.code === "OAUTH_REAUTH_REQUIRED" || err.message?.includes("Reautenticação")) {
+        setErro("Sua sessão expirou. Clique em 'Confirmar com Google' para reautenticar.");
+        return;
+      }
+
       let mensagem = "Erro ao deletar conta. Tente novamente.";
-      
       if (err.message?.includes("incorreta") || err.message?.includes("Senha")) {
         mensagem = "Senha incorreta. Tente novamente.";
       } else if (err.message) {
         mensagem = err.message;
       }
-      
       setErro(mensagem);
     }
-  };
+  }
 
-  const resetarFormulario = () => {
-    setSenha("");
-    setConfirmacao("");
-    setAceitaTermos(false);
-    setErro(null);
-  };
-
-  const handleDialogChange = (open: boolean) => {
-    setDialogOpen(open);
-    if (!open) {
-      resetarFormulario();
-    }
-  };
-
-  // Lista de itens que serão deletados
   const itensADeletar = [
-    { icon: Database, label: "Todos os seus dados pessoais", color: "text-red-600" },
-    { icon: CreditCard, label: "Todas as suas contas e cartões cadastrados", color: "text-red-600" },
-    { icon: TrendingDown, label: "Histórico completo de movimentações", color: "text-red-600" },
-    { icon: FileText, label: "Categorias e configurações personalizadas", color: "text-red-600" },
+    { icon: Database,     label: "Todos os seus dados pessoais"                       },
+    { icon: CreditCard,   label: "Todas as suas contas e cartões cadastrados"          },
+    { icon: TrendingDown, label: "Histórico completo de movimentações"                 },
+    { icon: FileText,     label: "Categorias e configurações personalizadas"           },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Avisos */}
+      {/* Aviso principal */}
       <Alert variant="destructive" className="border-red-300 bg-red-50 dark:bg-red-950">
         <AlertTriangle className="h-5 w-5" />
         <AlertDescription className="text-red-800 dark:text-red-200">
           <strong className="font-semibold">Atenção: Esta ação é permanente e irreversível!</strong>
           <p className="mt-1">
-            Ao deletar sua conta, todos os seus dados serão permanentemente removidos de nossos servidores.
+            Ao deletar sua conta, todos os seus dados serão permanentemente removidos.
             Não será possível recuperar essas informações.
           </p>
         </AlertDescription>
@@ -135,36 +159,30 @@ export default function DeletarContaCard({ usuario }: Props) {
         </h3>
         <div className="grid gap-3">
           {itensADeletar.map((item, index) => (
-            <div 
+            <div
               key={index}
               className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg"
             >
-              <item.icon size={18} className={item.color} />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                {item.label}
-              </span>
+              <item.icon size={18} className="text-red-600" />
+              <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Informação adicional */}
+      {/* Alternativa */}
       <Alert>
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription className="text-sm">
-          <strong>Alternativa:</strong> Se você deseja apenas pausar temporariamente o uso da conta,
-          considere desativar suas notificações ou fazer logout. Você sempre pode voltar depois.
+          <strong>Alternativa:</strong> Se quiser apenas pausar o uso, considere fazer logout.
+          Você sempre pode voltar depois.
         </AlertDescription>
       </Alert>
 
-      {/* Botão de deletar */}
+      {/* Botão de abrir modal */}
       <Dialog open={dialogOpen} onOpenChange={handleDialogChange}>
         <DialogTrigger asChild>
-          <Button 
-            variant="destructive" 
-            className="cursor-pointer"
-            size="lg"
-          >
+          <Button variant="destructive" size="lg" className="cursor-pointer">
             <Trash2 size={18} className="mr-2" />
             Deletar Minha Conta Permanentemente
           </Button>
@@ -182,24 +200,39 @@ export default function DeletarContaCard({ usuario }: Props) {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* Senha */}
-            <div className="space-y-2">
-              <Label htmlFor="senha" className="flex items-center gap-1">
-                Confirme sua senha
-                <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="senha"
-                type="password"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                placeholder="Digite sua senha atual"
-                disabled={deletarConta.isPending}
-                className="border-red-200 focus:border-red-500"
-              />
-            </div>
 
-            {/* Confirmação de texto */}
+            {/* ── Fluxo OAuth ── */}
+            {isOAuth ? (
+              <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+                <AlertDescription className="text-blue-800 dark:text-blue-300 text-sm">
+                  <p className="font-medium mb-1">Confirmação via Google necessária</p>
+                  <p className="text-xs">
+                    Sua conta foi criada com o Google. Para confirmar a exclusão,
+                    você será redirecionado para autenticar com o Google e voltará
+                    automaticamente para finalizar.
+                  </p>
+                </AlertDescription>
+              </Alert>
+            ) : (
+              /* ── Fluxo Credentials: campo de senha ── */
+              <div className="space-y-2">
+                <Label htmlFor="senha" className="flex items-center gap-1">
+                  Confirme sua senha
+                  <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="senha"
+                  type="password"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  placeholder="Digite sua senha atual"
+                  disabled={deletarConta.isPending}
+                  className="border-red-200 focus:border-red-500"
+                />
+              </div>
+            )}
+
+            {/* Confirmação de texto — igual para os dois fluxos */}
             <div className="space-y-2">
               <Label htmlFor="confirmacao" className="flex items-center gap-1">
                 Digite "DELETE" para confirmar
@@ -211,7 +244,7 @@ export default function DeletarContaCard({ usuario }: Props) {
                 value={confirmacao}
                 onChange={(e) => setConfirmacao(e.target.value)}
                 placeholder="DELETE"
-                disabled={deletarConta.isPending}
+                disabled={deletarConta.isPending || aguardandoOAuth}
                 className="border-red-200 focus:border-red-500 font-mono"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -219,25 +252,21 @@ export default function DeletarContaCard({ usuario }: Props) {
               </p>
             </div>
 
-            {/* Checkbox de confirmação */}
+            {/* Checkbox — igual para os dois fluxos */}
             <div className="flex items-start space-x-3 p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-900">
               <Checkbox
                 id="termos"
                 checked={aceitaTermos}
                 onCheckedChange={(checked) => setAceitaTermos(checked as boolean)}
-                disabled={deletarConta.isPending}
+                disabled={deletarConta.isPending || aguardandoOAuth}
                 className="mt-0.5"
               />
-              <label
-                htmlFor="termos"
-                className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer leading-tight"
-              >
+              <label htmlFor="termos" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer leading-tight">
                 Eu entendo que esta ação é permanente e que todos os meus dados,
                 incluindo contas, transações e configurações, serão deletados para sempre.
               </label>
             </div>
 
-            {/* Mensagem de erro */}
             {erro && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -250,32 +279,55 @@ export default function DeletarContaCard({ usuario }: Props) {
             <Button
               variant="outline"
               onClick={() => handleDialogChange(false)}
-              disabled={deletarConta.isPending}
+              disabled={deletarConta.isPending || aguardandoOAuth}
             >
               Cancelar
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeletarConta}
-              disabled={deletarConta.isPending || !senha || confirmacao !== "DELETE" || !aceitaTermos}
-            >
-              {deletarConta.isPending ? (
-                <>
-                  <Loader2 size={16} className="mr-2 animate-spin" />
-                  Deletando...
-                </>
-              ) : (
-                <>
-                  <Trash2 size={16} className="mr-2" />
-                  Deletar Permanentemente
-                </>
-              )}
-            </Button>
+
+            {/* ── Botão OAuth: redireciona para reautenticar ── */}
+            {isOAuth ? (
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  if (!validarFormulario()) return;
+                  await handleReautenticarGoogle();
+                }}
+                disabled={
+                  aguardandoOAuth ||
+                  confirmacao !== "DELETE" ||
+                  !aceitaTermos
+                }
+              >
+                {aguardandoOAuth ? (
+                  <><Loader2 size={16} className="mr-2 animate-spin" />Redirecionando...</>
+                ) : (
+                  <><FcGoogle size={16} className="mr-2" />Confirmar com Google</>
+                )}
+              </Button>
+            ) : (
+              /* ── Botão Credentials: deleta direto ── */
+              <Button
+                variant="destructive"
+                onClick={handleDeletarConta}
+                disabled={
+                  deletarConta.isPending ||
+                  !senha ||
+                  confirmacao !== "DELETE" ||
+                  !aceitaTermos
+                }
+              >
+                {deletarConta.isPending ? (
+                  <><Loader2 size={16} className="mr-2 animate-spin" />Deletando...</>
+                ) : (
+                  <><Trash2 size={16} className="mr-2" />Deletar Permanentemente</>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Aviso final */}
+      {/* Dica final */}
       <Alert className="bg-gray-50 dark:bg-gray-900">
         <AlertDescription className="text-xs text-gray-600 dark:text-gray-400">
           <strong>Dica:</strong> Antes de deletar, você pode exportar seus dados para backup.
@@ -283,5 +335,14 @@ export default function DeletarContaCard({ usuario }: Props) {
         </AlertDescription>
       </Alert>
     </div>
+  );
+}
+
+// ── Export padrão com Suspense ──────────────────────────────────────────────
+export default function DeletarContaCard({ usuario }: Props) {
+  return (
+    <Suspense fallback={null}>
+      <DeletarContaInner usuario={usuario} />
+    </Suspense>
   );
 }

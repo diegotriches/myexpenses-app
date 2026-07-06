@@ -1,4 +1,5 @@
 // src/services/profileService.ts
+// Substitua o arquivo completo
 
 import type {
   Usuario,
@@ -29,9 +30,9 @@ export const profileService = {
    */
   async atualizarPerfil(userId: string, dados: AtualizarUsuarioDTO): Promise<Usuario> {
     const res = await fetch(`${API_URL}/${userId}`, {
-      method: "PUT",
+      method:  "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dados),
+      body:    JSON.stringify(dados),
     });
     if (!res.ok) {
       const error = await res.json();
@@ -46,9 +47,9 @@ export const profileService = {
    */
   async alterarSenha(userId: string, dados: AlterarSenhaDTO): Promise<MessageResponse> {
     const res = await fetch(`${API_URL}/${userId}/password`, {
-      method: "PUT",
+      method:  "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dados),
+      body:    JSON.stringify(dados),
     });
     if (!res.ok) {
       const error = await res.json();
@@ -64,10 +65,9 @@ export const profileService = {
   async uploadFoto(userId: string, file: File): Promise<Usuario> {
     const formData = new FormData();
     formData.append("file", file);
-
     const res = await fetch(`${API_URL}/${userId}/foto`, {
       method: "POST",
-      body: formData,
+      body:   formData,
     });
     if (!res.ok) {
       const error = await res.json();
@@ -94,16 +94,21 @@ export const profileService = {
   /**
    * Deleta conta do usuário
    * DELETE /api/users/[id]
+   * ✅ CORRIGIDO: senha é opcional — usuários OAuth não enviam senha
    */
-  async deletarConta(userId: string, senha: string): Promise<MessageResponse> {
+  async deletarConta(userId: string, senha?: string): Promise<MessageResponse> {
     const res = await fetch(`${API_URL}/${userId}`, {
-      method: "DELETE",
+      method:  "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ senha }),
+      // Só envia senha se for fornecida (usuários Credentials)
+      body: JSON.stringify(senha ? { senha } : {}),
     });
     if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.message || "Erro ao deletar conta");
+      const error = await res.json().catch(() => ({}));
+      throw Object.assign(
+        new Error(error.message || "Erro ao deletar conta"),
+        { code: error.code }
+      );
     }
     return res.json();
   },
