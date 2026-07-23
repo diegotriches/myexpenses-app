@@ -38,32 +38,19 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
             flex-1 flex flex-col min-h-screen w-full max-w-full
             transition-all duration-300 ease-in-out
             bg-gray-50 dark:bg-gray-950
-            ${!esconderNavbar
-              ? isCollapsed
-                ? "md:ml-20"
-                : "md:ml-64"
-              : ""
-            }
+            ${!esconderNavbar ? (isCollapsed ? "md:ml-20" : "md:ml-64") : ""}
           `}
         >
-          {!esconderNavbar && (
-            <TopMenu
-              isCollapsed={isCollapsed}
-              toggleSidebar={() => setIsCollapsed(!isCollapsed)}
-            />
+          {esconderNavbar ? (
+            <div className="flex-1 w-full max-w-full">{children}</div>
+          ) : (
+            <main
+              data-collapsed={isCollapsed ? "true" : "false"}
+              className="flex-1 w-full max-w-full p-4 md:p-6 pt-20 md:pt-24 transition-all duration-300"
+            >
+              {children}
+            </main>
           )}
-
-          <main
-            data-collapsed={isCollapsed ? "true" : "false"}
-            className={`
-              flex-1 w-full max-w-full
-              p-4 md:p-6
-              transition-all duration-300
-              ${!esconderNavbar ? "pt-20 md:pt-24" : "pt-0"}
-            `}
-          >
-            {children}
-          </main>
         </div>
       </div>
     </HideValuesProvider>
