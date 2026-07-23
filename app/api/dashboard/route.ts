@@ -9,9 +9,9 @@ import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 /**
  * GET /api/dashboard?mes=1&ano=2026
  * Retorna resumo completo do dashboard para o período
- * 
+ *
  * ✅ CORRIGIDO: Despesas de cartão só são contabilizadas se a fatura pertence ao mês atual
- * 
+ *
  * Response: {
  *   periodo: { mes, ano },
  *   resumo: { receitas, despesas, saldo, quantidadeReceitas, quantidadeDespesas },
@@ -23,10 +23,7 @@ export async function GET(req: NextRequest) {
     // 🔐 Autenticação (padrão do projeto)
     const userId = await getUserId();
     if (!userId) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     // Validar parâmetros
@@ -37,20 +34,23 @@ export async function GET(req: NextRequest) {
     if (!mes || !ano) {
       return NextResponse.json(
         { error: "Mês e ano são obrigatórios" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (mes < 1 || mes > 12) {
       return NextResponse.json(
         { error: "Mês deve estar entre 1 e 12" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Calcular período
+    // Calcular período — amplia o início para pegar o mês anterior inteiro,
+    // necessário porque compras de cartão no mês anterior podem pertencer
+    // à fatura do mês atual (depende do diaFechamento de cada cartão)
     const inicioMes = new Date(ano, mes - 1, 1);
     const fimMes = new Date(ano, mes, 1);
+    const inicioMesAnterior = new Date(ano, mes - 2, 1); // amplia a busca
 
     // 🔐 Buscar todas as transações do período do usuário
     const todas = await db
@@ -59,9 +59,9 @@ export async function GET(req: NextRequest) {
       .where(
         and(
           eq(transacoes.userId, userId),
-          gte(transacoes.data, inicioMes),
-          lt(transacoes.data, fimMes)
-        )
+          gte(transacoes.data, inicioMesAnterior),
+          lt(transacoes.data, fimMes),
+        ),
       );
 
     // 🔐 Buscar cartões do usuário (necessário para calcular ciclo de fechamento)
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
       .where(eq(cartoes.userId, userId));
 
     // Mapear cartões por ID para acesso rápido
-    const cartoesMap = new Map(cartoesDb.map(c => [c.id, c]));
+    const cartoesMap = new Map(cartoesDb.map((c) => [c.id, c]));
 
     let receitas = 0;
     let despesas = 0;
@@ -81,44 +81,40 @@ export async function GET(req: NextRequest) {
     // Agrupamento por cartão (apenas para info adicional)
     const faturasPorCartao: Record<number, number> = {};
 
-    // ✅ PROCESSAR TRANSAÇÕES COM LÓGICA CORRIGIDA
     for (const t of todas) {
       const valor = Number(t.valor);
+      const dataTransacao = new Date(t.data);
+      const dentroDoMesVisualizado =
+        dataTransacao >= inicioMes && dataTransacao < fimMes;
 
-      // ✅ RECEITAS: Somar direto
       if (t.tipo === "entrada") {
-        receitas += valor;
-        quantidadeReceitas++;
+        // ✅ Receitas: só contam se a transação em si for do mês visualizado
+        if (dentroDoMesVisualizado) {
+          receitas += valor;
+          quantidadeReceitas++;
+        }
       }
 
-      // ✅ DESPESAS: Verificar se é cartão ou não
       if (t.tipo === "saida") {
-        // ✅ DESPESA NÃO É CARTÃO: Somar direto (dinheiro, PIX, débito)
         if (t.formaPagamento !== "cartao" || !t.cartaoId) {
-          despesas += valor;
-          quantidadeDespesas++;
-        } 
-        // ✅ DESPESA É CARTÃO: Verificar ciclo de fechamento
-        else {
+          // ✅ Não-cartão: só conta se a transação for do mês visualizado
+          if (dentroDoMesVisualizado) {
+            despesas += valor;
+            quantidadeDespesas++;
+          }
+        } else {
+          // ✅ Cartão: usa a lógica de fatura, independente do mês da transação em si
           const cartao = cartoesMap.get(t.cartaoId);
-          
           if (cartao) {
             const diaFechamento = cartao.diaFechamento || 1;
-            
-            // Calcular qual fatura a transação pertence
-            const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(
-              new Date(t.data),
-              diaFechamento
-            );
-            
-            // ✅ SÓ CONTABILIZAR SE A FATURA FOR DO MÊS/ANO ATUAL
+            const { mes: mesFatura, ano: anoFatura } =
+              calcularFaturaDaTransacao(new Date(t.data), diaFechamento);
             if (mesFatura === mes && anoFatura === ano) {
               despesas += valor;
               quantidadeDespesas++;
-              faturasPorCartao[t.cartaoId] = (faturasPorCartao[t.cartaoId] || 0) + valor;
+              faturasPorCartao[t.cartaoId] =
+                (faturasPorCartao[t.cartaoId] || 0) + valor;
             }
-            // ❌ Se a fatura for de outro mês, NÃO contabilizar aqui
-            // (será contabilizada em "Despesas Futuras")
           }
         }
       }
@@ -136,13 +132,13 @@ export async function GET(req: NextRequest) {
         and(
           eq(cartoes.userId, userId),
           eq(faturas.mes, mes),
-          eq(faturas.ano, ano)
-        )
+          eq(faturas.ano, ano),
+        ),
       );
 
     // Mapear status de pagamento por cartão
     const statusPagamento = new Map<number, boolean>();
-    faturasDb.forEach(f => {
+    faturasDb.forEach((f) => {
       statusPagamento.set(f.cartaoId, f.paga);
     });
 
@@ -169,7 +165,7 @@ export async function GET(req: NextRequest) {
     console.error("Erro ao carregar dashboard:", error);
     return NextResponse.json(
       { error: error.message || "Erro ao carregar dashboard" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
