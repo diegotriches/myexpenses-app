@@ -35,12 +35,19 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
 
         <div
           className={`
-            flex-1 flex flex-col min-h-screen w-full max-w-full
-            transition-all duration-300 ease-in-out
-            bg-gray-50 dark:bg-gray-950
-            ${!esconderNavbar ? (isCollapsed ? "md:ml-20" : "md:ml-64") : ""}
-          `}
+    flex-1 flex flex-col min-h-screen w-full max-w-full
+    transition-all duration-300 ease-in-out
+    bg-gray-50 dark:bg-gray-950
+    ${!esconderNavbar ? (isCollapsed ? "md:ml-20" : "md:ml-64") : ""}
+  `}
         >
+          {!esconderNavbar && (
+            <TopMenu
+              isCollapsed={isCollapsed}
+              toggleSidebar={() => setIsCollapsed(!isCollapsed)}
+            />
+          )}
+
           {esconderNavbar ? (
             <div className="flex-1 w-full max-w-full">{children}</div>
           ) : (
