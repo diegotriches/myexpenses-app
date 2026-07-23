@@ -55,18 +55,31 @@ export default function PerfilPage() {
     );
   }
 
-  if (!usuario) {
-    return (
-      <div className="max-w-[1200px] mx-auto p-4 md:p-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Erro ao carregar dados do usuário. Tente recarregar a página.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+  if (queryError) {
+  return (
+    <div className="max-w-[1200px] mx-auto p-4 md:p-6">
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {queryError instanceof Error ? queryError.message : "Erro ao carregar perfil"}
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
+}
+
+if (!usuario) {
+  return (
+    <div className="max-w-[1200px] mx-auto p-4 md:p-6">
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Erro ao carregar dados do usuário. Tente recarregar a página.
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
+}
 
   return (
     <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-6">
@@ -90,16 +103,6 @@ export default function PerfilPage() {
         </p>
         <hr className="border-t border-gray-300 dark:border-gray-700" />
       </div>
-
-      {/* Error Alert */}
-      {queryError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {queryError instanceof Error ? queryError.message : "Erro ao carregar perfil"}
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* Tabs */}
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="space-y-6">
