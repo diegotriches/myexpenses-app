@@ -4,18 +4,29 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Button }   from "@/components/ui/button";
-import { Input }    from "@/components/ui/input";
-import { Label }    from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog, DialogContent, DialogDescription,
-  DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  Trash2, AlertTriangle, Loader2, ShieldAlert,
-  Database, CreditCard, FileText, TrendingDown,
+  Trash2,
+  AlertTriangle,
+  Loader2,
+  ShieldAlert,
+  Database,
+  CreditCard,
+  FileText,
+  TrendingDown,
 } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 import { useDeletarConta } from "@/hooks/useProfile";
@@ -28,15 +39,16 @@ interface Props {
 // ── Componente interno que usa useSearchParams ─────────────────────────────
 // Isolado em Suspense para evitar prerender-error no build.
 function DeletarContaInner({ usuario }: Props) {
-  const router       = useRouter();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [dialogOpen,   setDialogOpen]   = useState(false);
-  const [senha,        setSenha]        = useState("");
-  const [confirmacao,  setConfirmacao]  = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [senha, setSenha] = useState("");
+  const [confirmacao, setConfirmacao] = useState("");
   const [aceitaTermos, setAceitaTermos] = useState(false);
-  const [erro,         setErro]         = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
   const [aguardandoOAuth, setAguardandoOAuth] = useState(false);
+  const [oauthReautenticado, setOauthReautenticado] = useState(false);
 
   const deletarConta = useDeletarConta();
 
@@ -47,7 +59,7 @@ function DeletarContaInner({ usuario }: Props) {
   useEffect(() => {
     if (searchParams.get("confirmar_exclusao") === "true") {
       setDialogOpen(true);
-      // Remove o parâmetro da URL sem recarregar a página
+      setOauthReautenticado(true);
       router.replace("/perfil", { scroll: false });
     }
   }, [searchParams, router]);
@@ -70,11 +82,15 @@ function DeletarContaInner({ usuario }: Props) {
   // ── Fluxo OAuth: redireciona para reautenticar com Google ──────────────────
   async function handleReautenticarGoogle() {
     setAguardandoOAuth(true);
-    await signIn("google", {
-      callbackUrl: `${window.location.origin}/perfil?confirmar_exclusao=true`,
-    });
-    // signIn redireciona — setAguardandoOAuth nunca será false aqui,
-    // mas mantemos para feedback visual enquanto o redirect acontece
+    try {
+      await signIn("google", {
+        callbackUrl: `${window.location.origin}/perfil?confirmar_exclusao=true`,
+      });
+    } catch (err) {
+      console.error("Erro ao reautenticar com Google:", err);
+      setErro("Não foi possível reautenticar com o Google. Tente novamente.");
+      setAguardandoOAuth(false); // ✅ libera o botão em vez de travar pra sempre
+    }
   }
 
   // ── Validação (apenas para fluxo Credentials) ─────────────────────────────
@@ -115,13 +131,21 @@ function DeletarContaInner({ usuario }: Props) {
       console.error("Erro ao deletar conta:", err);
 
       // Se a rota retornar OAUTH_REAUTH_REQUIRED, pede para reautenticar
-      if (err.code === "OAUTH_REAUTH_REQUIRED" || err.message?.includes("Reautenticação")) {
-        setErro("Sua sessão expirou. Clique em 'Confirmar com Google' para reautenticar.");
+      if (
+        err.code === "OAUTH_REAUTH_REQUIRED" ||
+        err.message?.includes("Reautenticação")
+      ) {
+        setErro(
+          "Sua sessão expirou. Clique em 'Confirmar com Google' para reautenticar.",
+        );
         return;
       }
 
       let mensagem = "Erro ao deletar conta. Tente novamente.";
-      if (err.message?.includes("incorreta") || err.message?.includes("Senha")) {
+      if (
+        err.message?.includes("incorreta") ||
+        err.message?.includes("Senha")
+      ) {
         mensagem = "Senha incorreta. Tente novamente.";
       } else if (err.message) {
         mensagem = err.message;
@@ -131,22 +155,27 @@ function DeletarContaInner({ usuario }: Props) {
   }
 
   const itensADeletar = [
-    { icon: Database,     label: "Todos os seus dados pessoais"                       },
-    { icon: CreditCard,   label: "Todas as suas contas e cartões cadastrados"          },
-    { icon: TrendingDown, label: "Histórico completo de movimentações"                 },
-    { icon: FileText,     label: "Categorias e configurações personalizadas"           },
+    { icon: Database, label: "Todos os seus dados pessoais" },
+    { icon: CreditCard, label: "Todas as suas contas e cartões cadastrados" },
+    { icon: TrendingDown, label: "Histórico completo de movimentações" },
+    { icon: FileText, label: "Categorias e configurações personalizadas" },
   ];
 
   return (
     <div className="space-y-6">
       {/* Aviso principal */}
-      <Alert variant="destructive" className="border-red-300 bg-red-50 dark:bg-red-950">
+      <Alert
+        variant="destructive"
+        className="border-red-300 bg-red-50 dark:bg-red-950"
+      >
         <AlertTriangle className="h-5 w-5" />
         <AlertDescription className="text-red-800 dark:text-red-200">
-          <strong className="font-semibold">Atenção: Esta ação é permanente e irreversível!</strong>
+          <strong className="font-semibold">
+            Atenção: Esta ação é permanente e irreversível!
+          </strong>
           <p className="mt-1">
-            Ao deletar sua conta, todos os seus dados serão permanentemente removidos.
-            Não será possível recuperar essas informações.
+            Ao deletar sua conta, todos os seus dados serão permanentemente
+            removidos. Não será possível recuperar essas informações.
           </p>
         </AlertDescription>
       </Alert>
@@ -154,8 +183,7 @@ function DeletarContaInner({ usuario }: Props) {
       {/* O que será deletado */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-          <ShieldAlert size={16} className="text-red-600" />
-          O que será deletado:
+          <ShieldAlert size={16} className="text-red-600" />O que será deletado:
         </h3>
         <div className="grid gap-3">
           {itensADeletar.map((item, index) => (
@@ -164,7 +192,9 @@ function DeletarContaInner({ usuario }: Props) {
               className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg"
             >
               <item.icon size={18} className="text-red-600" />
-              <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                {item.label}
+              </span>
             </div>
           ))}
         </div>
@@ -174,8 +204,8 @@ function DeletarContaInner({ usuario }: Props) {
       <Alert>
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription className="text-sm">
-          <strong>Alternativa:</strong> Se quiser apenas pausar o uso, considere fazer logout.
-          Você sempre pode voltar depois.
+          <strong>Alternativa:</strong> Se quiser apenas pausar o uso, considere
+          fazer logout. Você sempre pode voltar depois.
         </AlertDescription>
       </Alert>
 
@@ -195,21 +225,23 @@ function DeletarContaInner({ usuario }: Props) {
               Confirmar Exclusão de Conta
             </DialogTitle>
             <DialogDescription>
-              Esta ação não pode ser desfeita. Por favor, confirme sua identidade.
+              Esta ação não pode ser desfeita. Por favor, confirme sua
+              identidade.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-
             {/* ── Fluxo OAuth ── */}
             {isOAuth ? (
               <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
                 <AlertDescription className="text-blue-800 dark:text-blue-300 text-sm">
-                  <p className="font-medium mb-1">Confirmação via Google necessária</p>
+                  <p className="font-medium mb-1">
+                    Confirmação via Google necessária
+                  </p>
                   <p className="text-xs">
-                    Sua conta foi criada com o Google. Para confirmar a exclusão,
-                    você será redirecionado para autenticar com o Google e voltará
-                    automaticamente para finalizar.
+                    Sua conta foi criada com o Google. Para confirmar a
+                    exclusão, você será redirecionado para autenticar com o
+                    Google e voltará automaticamente para finalizar.
                   </p>
                 </AlertDescription>
               </Alert>
@@ -257,13 +289,19 @@ function DeletarContaInner({ usuario }: Props) {
               <Checkbox
                 id="termos"
                 checked={aceitaTermos}
-                onCheckedChange={(checked) => setAceitaTermos(checked as boolean)}
+                onCheckedChange={(checked) =>
+                  setAceitaTermos(checked as boolean)
+                }
                 disabled={deletarConta.isPending || aguardandoOAuth}
                 className="mt-0.5"
               />
-              <label htmlFor="termos" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer leading-tight">
+              <label
+                htmlFor="termos"
+                className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer leading-tight"
+              >
                 Eu entendo que esta ação é permanente e que todos os meus dados,
-                incluindo contas, transações e configurações, serão deletados para sempre.
+                incluindo contas, transações e configurações, serão deletados
+                para sempre.
               </label>
             </div>
 
@@ -285,7 +323,7 @@ function DeletarContaInner({ usuario }: Props) {
             </Button>
 
             {/* ── Botão OAuth: redireciona para reautenticar ── */}
-            {isOAuth ? (
+            {isOAuth && !oauthReautenticado ? (
               <Button
                 variant="destructive"
                 onClick={async () => {
@@ -293,33 +331,41 @@ function DeletarContaInner({ usuario }: Props) {
                   await handleReautenticarGoogle();
                 }}
                 disabled={
-                  aguardandoOAuth ||
-                  confirmacao !== "DELETE" ||
-                  !aceitaTermos
+                  aguardandoOAuth || confirmacao !== "DELETE" || !aceitaTermos
                 }
               >
                 {aguardandoOAuth ? (
-                  <><Loader2 size={16} className="mr-2 animate-spin" />Redirecionando...</>
+                  <>
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                    Redirecionando...
+                  </>
                 ) : (
-                  <><FcGoogle size={16} className="mr-2" />Confirmar com Google</>
+                  <>
+                    <FcGoogle size={16} className="mr-2" />
+                    Confirmar com Google
+                  </>
                 )}
               </Button>
             ) : (
-              /* ── Botão Credentials: deleta direto ── */
               <Button
                 variant="destructive"
                 onClick={handleDeletarConta}
                 disabled={
                   deletarConta.isPending ||
-                  !senha ||
                   confirmacao !== "DELETE" ||
                   !aceitaTermos
                 }
               >
                 {deletarConta.isPending ? (
-                  <><Loader2 size={16} className="mr-2 animate-spin" />Deletando...</>
+                  <>
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                    Deletando...
+                  </>
                 ) : (
-                  <><Trash2 size={16} className="mr-2" />Deletar Permanentemente</>
+                  <>
+                    <Trash2 size={16} className="mr-2" />
+                    Deletar Permanentemente
+                  </>
                 )}
               </Button>
             )}
@@ -330,8 +376,8 @@ function DeletarContaInner({ usuario }: Props) {
       {/* Dica final */}
       <Alert className="bg-gray-50 dark:bg-gray-900">
         <AlertDescription className="text-xs text-gray-600 dark:text-gray-400">
-          <strong>Dica:</strong> Antes de deletar, você pode exportar seus dados para backup.
-          Entre em contato com o suporte se precisar de ajuda.
+          <strong>Dica:</strong> Antes de deletar, você pode exportar seus dados
+          para backup. Entre em contato com o suporte se precisar de ajuda.
         </AlertDescription>
       </Alert>
     </div>
