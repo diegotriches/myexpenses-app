@@ -25,8 +25,12 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
-export function CardCondicoesPagamento() {
-  const { data: dados, isLoading, error } = useCondicoesPagamento();
+interface CardCondicoesPagamentoProps {
+  periodoMeses: 3 | 6 | 12;
+}
+
+export function CardCondicoesPagamento({ periodoMeses }: CardCondicoesPagamentoProps) {
+  const { data: dados, isLoading, error } = useCondicoesPagamento(periodoMeses);
 
   if (isLoading) {
     return (

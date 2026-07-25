@@ -1,7 +1,7 @@
 // src/components/dashboard/CardGraficosMeses.tsx
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Loader2, AlertCircle } from 'lucide-react';
@@ -16,12 +16,6 @@ type DadosGrafico = {
   Balanço: number;
 };
 
-const PERIODOS = [
-  { label: "3m", value: "3" },
-  { label: "6m", value: "6" },
-  { label: "12m", value: "12" },
-] as const;
-
 function formatarMes(mes: string) {
   try {
     const [ano, mesNum] = mes.split('-');
@@ -32,8 +26,13 @@ function formatarMes(mes: string) {
   }
 }
 
-export function CardGraficoMeses() {
-  const [periodo, setPeriodo] = useState<"3" | "6" | "12">("6");
+// ✅ Agora recebe o período como prop — controlado pelo seletor global da aba
+interface CardGraficoMesesProps {
+  periodoMeses: 3 | 6 | 12;
+}
+
+export function CardGraficoMeses({ periodoMeses }: CardGraficoMesesProps) {
+  const periodo = String(periodoMeses) as "3" | "6" | "12";
   const { data: dados, isLoading, error } = useGraficoMeses(periodo);
   const { hidden, mask } = useHideValues();
 
@@ -70,7 +69,6 @@ export function CardGraficoMeses() {
 
   const colors = { receitas: '#16a34a', despesas: '#dc2626', balanco: '#2563eb' };
 
-  // Tooltip customizado que respeita hidden
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
@@ -85,30 +83,14 @@ export function CardGraficoMeses() {
     );
   };
 
+  // ✅ Removido o botão de período do header — agora é só o título,
+  // controlado pelo SeletorPeriodoMeses no topo da aba
   const cardTitle = (
-    <div className="flex items-center justify-between w-full">
-      <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-900 dark:text-white">
-        <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-        <span className="hidden sm:inline">Evolução Financeira - Últimos {periodo} Meses</span>
-        <span className="sm:hidden">Evolução ({periodo}m)</span>
-      </CardTitle>
-      <div className="flex items-center gap-1">
-        {PERIODOS.map((p) => (
-          <button
-            key={p.value}
-            type="button"
-            onClick={() => setPeriodo(p.value)}
-            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-              periodo === p.value
-                ? "bg-blue-600 text-white dark:bg-blue-500"
-                : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-900 dark:text-white">
+      <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+      <span className="hidden sm:inline">Evolução Financeira - Últimos {periodoMeses} Meses</span>
+      <span className="sm:hidden">Evolução ({periodoMeses}m)</span>
+    </CardTitle>
   );
 
   if (isLoading) {
@@ -147,12 +129,11 @@ export function CardGraficoMeses() {
             <TrendingUp className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum dado disponível</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              Dados dos últimos 6 meses aparecerão aqui
+              Dados dos últimos {periodoMeses} meses aparecerão aqui
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {/* KPIs */}
             <div className="grid grid-cols-3 gap-2">
               <div className="flex flex-col items-center p-2 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
                 <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400 mb-1" />
@@ -188,7 +169,6 @@ export function CardGraficoMeses() {
               </div>
             </div>
 
-            {/* Gráfico desktop */}
             <ResponsiveContainer width="100%" height={280} className="hidden sm:block">
               <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />
@@ -207,7 +187,6 @@ export function CardGraficoMeses() {
               </BarChart>
             </ResponsiveContainer>
 
-            {/* Gráfico mobile */}
             <ResponsiveContainer width="100%" height={220} className="sm:hidden">
               <BarChart data={dadosGrafico} margin={{ top: 10, right: 5, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />

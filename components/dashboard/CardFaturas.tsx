@@ -7,8 +7,12 @@ import { useFaturasResumo } from '@/hooks/useDashboard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useHideValues } from '@/contexts/HideValuesContext';
 
-export function CardFaturas() {
-  const { data: faturas, isLoading, error } = useFaturasResumo();
+interface CardFaturasProps {
+  periodoMeses: 3 | 6 | 12;
+}
+
+export function CardFaturas({ periodoMeses }: CardFaturasProps) {
+  const { data: faturas, isLoading, error } = useFaturasResumo(periodoMeses);
   const { mask } = useHideValues();
 
   const formatarMoeda = (valor: number) =>

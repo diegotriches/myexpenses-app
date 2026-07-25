@@ -1,21 +1,14 @@
-// src/app/api/dashboard/valores-periodo/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, cartoes } from "@/db/schema";
-import { and, gte, lt, eq } from "drizzle-orm";
+import { and, gte, lte, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 /**
- * GET /api/dashboard/valores-periodo?mes=1&ano=2026
- * Retorna receitas recebidas, a receber e despesas a pagar no período
- *
- * Response: {
- *   recebidos: number,   // receitas com data <= hoje
- *   aReceber: number,    // receitas com data > hoje
- *   aPagar: number,      // despesas com data > hoje
- *   projecao: number     // aReceber - aPagar
- * }
+ * GET /api/dashboard/valores-periodo?periodo=6
+ * Retorna receitas recebidas, a receber e despesas a pagar nos últimos
+ * N meses a partir de hoje.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -25,41 +18,51 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const mes = Number(searchParams.get("mes"));
-    const ano = Number(searchParams.get("ano"));
+    const periodoParam = searchParams.get("periodo") || "6";
+    const numMeses = parseInt(periodoParam);
 
-    if (!mes || !ano || mes < 1 || mes > 12) {
+    if (isNaN(numMeses) || numMeses < 1 || numMeses > 24) {
       return NextResponse.json(
-        { error: "Mês e ano são obrigatórios (mes: 1-12)" },
+        { error: "Período inválido (1-24 meses)" },
         { status: 400 }
       );
     }
 
-    const inicioMes = new Date(ano, mes - 1, 1);
-    const fimMes = new Date(ano, mes, 1);
-
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
 
-    // Buscar todas as transações do período
+    const dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 23, 59, 59, 999);
+    // Amplia um mês pra trás pra pegar compras de cartão do mês anterior
+    // que caem na fatura do primeiro mês da janela
+    const dataInicio = new Date(hoje.getFullYear(), hoje.getMonth() - numMeses, 1);
+
     const todas = await db
       .select()
       .from(transacoes)
       .where(
         and(
           eq(transacoes.userId, userId),
-          gte(transacoes.data, inicioMes),
-          lt(transacoes.data, fimMes)
+          gte(transacoes.data, dataInicio),
+          lte(transacoes.data, dataFim)
         )
       );
 
-    // Buscar cartões para calcular ciclo de fatura (igual ao route.ts principal)
     const cartoesDb = await db
       .select()
       .from(cartoes)
       .where(eq(cartoes.userId, userId));
 
     const cartoesMap = new Map(cartoesDb.map((c) => [c.id, c]));
+
+    // Janela "cheia" (sem o mês extra de segurança) pra checar fatura de cartão
+    const inicioJanela = new Date(hoje.getFullYear(), hoje.getMonth() - numMeses + 1, 1);
+    const inicioJanelaChave = inicioJanela.getFullYear() * 12 + (inicioJanela.getMonth() + 1);
+    const fimJanelaChave = hoje.getFullYear() * 12 + (hoje.getMonth() + 1);
+
+    const dentroDaJanela = (mesFatura: number, anoFatura: number) => {
+      const chave = anoFatura * 12 + mesFatura;
+      return chave >= inicioJanelaChave && chave <= fimJanelaChave;
+    };
 
     let recebidos = 0;
     let aReceber = 0;
@@ -80,7 +83,6 @@ export async function GET(req: NextRequest) {
       }
 
       if (t.tipo === "saida" && isFutura) {
-        // Despesas de cartão: verificar se a fatura pertence ao mês atual
         if (t.formaPagamento === "cartao" && t.cartaoId) {
           const cartao = cartoesMap.get(t.cartaoId);
           if (cartao) {
@@ -88,7 +90,7 @@ export async function GET(req: NextRequest) {
               dataTransacao,
               cartao.diaFechamento || 1
             );
-            if (mesFatura === mes && anoFatura === ano) {
+            if (dentroDaJanela(mesFatura, anoFatura)) {
               aPagar += valor;
             }
           }

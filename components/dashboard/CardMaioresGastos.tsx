@@ -1,35 +1,50 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { AlertTriangle, Calendar, Tag } from 'lucide-react';
-import { useMaioresGastos } from '@/hooks/useDashboard';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useHideValues } from '@/contexts/HideValuesContext';
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { AlertTriangle, Calendar, Tag } from "lucide-react";
+import { useMaioresGastos } from "@/hooks/useDashboard";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
-export function CardMaioresGastos() {
-  const { data, isLoading } = useMaioresGastos(5);
+interface CardMaioresGastosProps {
+  periodoMeses: 3 | 6 | 12;
+}
+
+export function CardMaioresGastos({ periodoMeses }: CardMaioresGastosProps) {
+  const { data, isLoading } = useMaioresGastos(periodoMeses, 5);
   const { mask } = useHideValues();
 
   const gastos = data?.gastos ?? [];
-  const total  = data?.total  ?? 0;
-  const media  = data?.media  ?? 0;
+  const total = data?.total ?? 0;
+  const media = data?.media ?? 0;
 
   const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+    new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(valor);
 
   const fmt = (valor: number) => mask(formatarMoeda(valor));
 
   const formatarData = (data: string | Date) => {
-    const date = typeof data === 'string' ? new Date(data) : data;
-    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+    const date = typeof data === "string" ? new Date(data) : data;
+    return date.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   };
 
   if (isLoading) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
-        <CardHeader><Skeleton className="h-4 w-[200px]" /></CardHeader>
+        <CardHeader>
+          <Skeleton className="h-4 w-[200px]" />
+        </CardHeader>
         <CardContent className="space-y-2.5">
-          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
         </CardContent>
       </Card>
     );
@@ -96,15 +111,23 @@ export function CardMaioresGastos() {
                       {t.data && (
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          <span className="hidden sm:inline">{formatarData(t.data)}</span>
-                          <span className="sm:hidden text-[10px]">{formatarData(t.data)}</span>
+                          <span className="hidden sm:inline">
+                            {formatarData(t.data)}
+                          </span>
+                          <span className="sm:hidden text-[10px]">
+                            {formatarData(t.data)}
+                          </span>
                         </div>
                       )}
                       {t.categoria && (
                         <div className="flex items-center gap-1 min-w-0">
                           <Tag className="w-3 h-3 flex-shrink-0" />
-                          <span className="truncate hidden sm:inline">{t.categoria}</span>
-                          <span className="truncate sm:hidden text-[10px]">{t.categoria}</span>
+                          <span className="truncate hidden sm:inline">
+                            {t.categoria}
+                          </span>
+                          <span className="truncate sm:hidden text-[10px]">
+                            {t.categoria}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -126,7 +149,9 @@ export function CardMaioresGastos() {
               {gastos.length > 0 && (
                 <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
                   <span>
-                    <span className="hidden sm:inline">Média dos maiores gastos:</span>
+                    <span className="hidden sm:inline">
+                      Média dos maiores gastos:
+                    </span>
                     <span className="sm:hidden">Média:</span>
                   </span>
                   <span className="font-semibold">{fmt(media)}</span>

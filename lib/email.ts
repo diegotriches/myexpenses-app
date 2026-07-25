@@ -46,7 +46,11 @@ if (process.env.NODE_ENV === "development") {
 
 const EMAIL_FROM = `MyExpenses <${process.env.GMAIL_USER}>`;
 const APP_NAME = "MyExpenses";
-const APP_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
+const APP_URL =
+  process.env.NEXTAUTH_URL ||
+  (process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000");
 
 // Rate limiting simples (em memória)
 const emailRateLimit = new Map<string, number>();

@@ -1,29 +1,38 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CheckCircle2, Clock, TrendingUp, CalendarDays } from 'lucide-react';
-import { useValoresPeriodo } from '@/hooks/useDashboard';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useHideValues } from '@/contexts/HideValuesContext';
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { CheckCircle2, Clock, TrendingUp, CalendarDays } from "lucide-react";
+import { useValoresPeriodo } from "@/hooks/useDashboard";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
-export function CardValores() {
-  const { data, isLoading } = useValoresPeriodo();
+interface CardValoresProps {
+  periodoMeses: 3 | 6 | 12;
+}
+
+export function CardValores({ periodoMeses }: CardValoresProps) {
+  const { data, isLoading } = useValoresPeriodo(periodoMeses);
   const { mask } = useHideValues();
 
   const recebidos = data?.recebidos ?? 0;
-  const aReceber  = data?.aReceber  ?? 0;
-  const aPagar    = data?.aPagar    ?? 0;
-  const projecao  = data?.projecao  ?? 0;
+  const aReceber = data?.aReceber ?? 0;
+  const aPagar = data?.aPagar ?? 0;
+  const projecao = data?.projecao ?? 0;
 
   const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+    new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(valor);
 
   const fmt = (valor: number) => mask(formatarMoeda(valor));
 
   if (isLoading) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
-        <CardHeader><Skeleton className="h-4 w-[180px]" /></CardHeader>
+        <CardHeader>
+          <Skeleton className="h-4 w-[180px]" />
+        </CardHeader>
         <CardContent className="space-y-3">
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-16 w-full" />
@@ -50,7 +59,9 @@ export function CardValores() {
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-0.5">Já Recebido</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-0.5">
+                  Já Recebido
+                </p>
                 <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
                   {fmt(recebidos)}
                 </p>
@@ -66,7 +77,9 @@ export function CardValores() {
                   <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-0.5">A Receber</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-0.5">
+                    A Receber
+                  </p>
                   <p className="text-lg font-bold text-blue-700 dark:text-blue-400">
                     {fmt(aReceber)}
                   </p>
@@ -83,7 +96,9 @@ export function CardValores() {
                   <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-0.5">A Pagar</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mb-0.5">
+                    A Pagar
+                  </p>
                   <p className="text-lg font-bold text-amber-700 dark:text-amber-400">
                     {fmt(aPagar)}
                   </p>
@@ -97,16 +112,24 @@ export function CardValores() {
             <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className={`w-4 h-4 ${
-                    projecao >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                  }`} />
+                  <TrendingUp
+                    className={`w-4 h-4 ${
+                      projecao >= 0
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-red-600 dark:text-red-400"
+                    }`}
+                  />
                   <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
                     Projeção (a receber - a pagar):
                   </span>
                 </div>
-                <span className={`text-base font-bold ${
-                  projecao >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                }`}>
+                <span
+                  className={`text-base font-bold ${
+                    projecao >= 0
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}
+                >
                   {fmt(projecao)}
                 </span>
               </div>

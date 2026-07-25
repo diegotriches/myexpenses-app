@@ -15,11 +15,27 @@ const CORES_DESPESA = [
   '#a855f7', '#ec4899',
 ];
 
-export function CardCategoriasDespesa() {
+interface CardCategoriasDespesaProps {
+  periodoMeses: 3 | 6 | 12;
+}
+
+export function CardCategoriasDespesa({ periodoMeses }: CardCategoriasDespesaProps) {
   const { data: transacoes = [], isLoading } = useTransacoes();
   const { hidden, mask } = useHideValues();
 
-  const categorias = useMemo(() => categoriasDespesa(transacoes), [transacoes]);
+  const dataCorte = useMemo(() => {
+    const hoje = new Date();
+    return new Date(hoje.getFullYear(), hoje.getMonth() - periodoMeses + 1, 1);
+  }, [periodoMeses]);
+
+  const transacoesNoPeriodo = useMemo(() => {
+    return transacoes.filter((t) => {
+      const dataT = typeof t.data === 'string' ? new Date(t.data) : t.data;
+      return dataT >= dataCorte;
+    });
+  }, [transacoes, dataCorte]);
+
+  const categorias = useMemo(() => categoriasDespesa(transacoesNoPeriodo), [transacoesNoPeriodo]);
 
   const totalDespesas = useMemo(
     () => categorias.reduce((acc, c) => acc + c.total, 0),

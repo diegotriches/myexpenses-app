@@ -17,7 +17,7 @@ import type {
 
 /**
  * Service para operações do Dashboard
- * ✅ Migrado para React Query (usado via hooks)
+ * Migrado para React Query (usado via hooks)
  */
 class DashboardService {
   private baseURL = "/api/dashboard";
@@ -39,7 +39,9 @@ class DashboardService {
    * Mais rápido que buscarResumo() quando não precisa de detalhes
    */
   async buscarResumoRapido(mes: number, ano: number): Promise<DashboardResumo> {
-    const res = await fetch(`${this.baseURL}/resumo-rapido?mes=${mes}&ano=${ano}`);
+    const res = await fetch(
+      `${this.baseURL}/resumo-rapido?mes=${mes}&ano=${ano}`,
+    );
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || "Erro ao buscar resumo rápido");
@@ -52,7 +54,9 @@ class DashboardService {
    *
    * @param periodo - Número de meses como string (padrão: "6")
    */
-  async buscarGraficoMeses(periodo: string = "6"): Promise<DadosGraficoMeses[]> {
+  async buscarGraficoMeses(
+    periodo: string = "6",
+  ): Promise<DadosGraficoMeses[]> {
     const res = await fetch(`${this.baseURL}/grafico-meses?periodo=${periodo}`);
     if (!res.ok) {
       const error = await res.json();
@@ -87,10 +91,14 @@ class DashboardService {
   }
 
   /**
-   * Busca condições de pagamento (Dinheiro/PIX/Cartão)
+   * Busca condições de pagamento (Dinheiro/PIX/Cartão) — últimos N meses
    */
-  async buscarCondicoesPagamento(mes: number, ano: number): Promise<CondicoesPagamento> {
-    const res = await fetch(`${this.baseURL}/condicoes-pagamento?mes=${mes}&ano=${ano}`);
+  async buscarCondicoesPagamento(
+    periodoMeses: number,
+  ): Promise<CondicoesPagamento> {
+    const res = await fetch(
+      `${this.baseURL}/condicoes-pagamento?periodo=${periodoMeses}`,
+    );
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || "Erro ao buscar condições de pagamento");
@@ -101,8 +109,10 @@ class DashboardService {
   /**
    * Busca formas de pagamento (À Vista/Parcelado/Recorrente)
    */
-  async buscarFormasPagamento(mes: number, ano: number): Promise<FormasPagamento> {
-    const res = await fetch(`${this.baseURL}/formas-pagamento?mes=${mes}&ano=${ano}`);
+  async buscarFormasPagamento(periodoMeses: number): Promise<FormasPagamento> {
+    const res = await fetch(
+      `${this.baseURL}/formas-pagamento?periodo=${periodoMeses}`,
+    );
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || "Erro ao buscar formas de pagamento");
@@ -113,8 +123,10 @@ class DashboardService {
   /**
    * Busca resumo de faturas (total/pago/aberto)
    */
-  async buscarFaturasResumo(mes: number, ano: number): Promise<FaturasResumo> {
-    const res = await fetch(`${this.baseURL}/faturas-resumo?mes=${mes}&ano=${ano}`);
+  async buscarFaturasResumo(periodoMeses: number): Promise<FaturasResumo> {
+    const res = await fetch(
+      `${this.baseURL}/faturas-resumo?periodo=${periodoMeses}`,
+    );
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || "Erro ao buscar resumo de faturas");
@@ -125,8 +137,10 @@ class DashboardService {
   /**
    * Busca transações recorrentes
    */
-  async buscarRecorrentes(mes: number, ano: number): Promise<Recorrente[]> {
-    const res = await fetch(`${this.baseURL}/recorrentes?mes=${mes}&ano=${ano}`);
+  async buscarRecorrentes(periodoMeses: number): Promise<Recorrente[]> {
+    const res = await fetch(
+      `${this.baseURL}/recorrentes?periodo=${periodoMeses}`,
+    );
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || "Erro ao buscar recorrentes");
@@ -140,8 +154,13 @@ class DashboardService {
    * @param mes - Mês de referência (1-12)
    * @param ano - Ano de referência
    */
-  async buscarDespesasFuturas(mes: number, ano: number): Promise<DespesasFuturas> {
-    const res = await fetch(`${this.baseURL}/despesas-futuras?mes=${mes}&ano=${ano}`);
+  async buscarDespesasFuturas(
+    mes: number,
+    ano: number,
+  ): Promise<DespesasFuturas> {
+    const res = await fetch(
+      `${this.baseURL}/despesas-futuras?mes=${mes}&ano=${ano}`,
+    );
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || "Erro ao buscar despesas futuras");
@@ -150,11 +169,15 @@ class DashboardService {
   }
 
   /**
-   * ✅ NOVO: Busca valores do período (recebidos, a receber, a pagar)
+   * Busca valores do período (recebidos, a receber, a pagar)
    * Alimenta o CardValores
    */
-  async buscarValoresPeriodo(mes: number, ano: number): Promise<ValoresPeriodoResponse> {
-    const res = await fetch(`${this.baseURL}/valores-periodo?mes=${mes}&ano=${ano}`);
+  async buscarValoresPeriodo(
+    periodoMeses: number,
+  ): Promise<ValoresPeriodoResponse> {
+    const res = await fetch(
+      `${this.baseURL}/valores-periodo?periodo=${periodoMeses}`,
+    );
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || "Erro ao buscar valores do período");
@@ -163,13 +186,18 @@ class DashboardService {
   }
 
   /**
-   * ✅ NOVO: Busca os maiores gastos do período
+   * Busca os maiores gastos do período
    * Alimenta o CardMaioresGastos
    *
    * @param limit - Número de gastos a retornar (padrão: 5, máximo: 20)
    */
-  async buscarMaioresGastos(mes: number, ano: number, limit = 5): Promise<MaioresGastosResponse> {
-    const res = await fetch(`${this.baseURL}/maiores-gastos?mes=${mes}&ano=${ano}&limit=${limit}`);
+  async buscarMaioresGastos(
+    periodoMeses: number,
+    limit = 5,
+  ): Promise<MaioresGastosResponse> {
+    const res = await fetch(
+      `${this.baseURL}/maiores-gastos?periodo=${periodoMeses}&limit=${limit}`,
+    );
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || "Erro ao buscar maiores gastos");
@@ -178,13 +206,17 @@ class DashboardService {
   }
 
   /**
-   * ✅ NOVO: Busca as transações mais recentes
+   * Busca as transações mais recentes
    * Alimenta o CardTransacoesRecentes
    *
    * @param limit - Número de transações a retornar (padrão: 5, máximo: 50)
    */
-  async buscarTransacoesRecentes(limit = 5): Promise<TransacoesRecentesResponse> {
-    const res = await fetch(`${this.baseURL}/transacoes-recentes?limit=${limit}`);
+  async buscarTransacoesRecentes(
+    limit = 5,
+  ): Promise<TransacoesRecentesResponse> {
+    const res = await fetch(
+      `${this.baseURL}/transacoes-recentes?limit=${limit}`,
+    );
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || "Erro ao buscar transações recentes");

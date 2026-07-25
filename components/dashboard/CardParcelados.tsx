@@ -9,7 +9,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Transacao } from '@/types/transacao';
 import { useHideValues } from '@/contexts/HideValuesContext';
 
-export function CardParcelados() {
+interface CardParceladosProps {
+  periodoMeses: 3 | 6 | 12;
+}
+
+export function CardParcelados({ periodoMeses }: CardParceladosProps) {
   const { data: transacoes = [], isLoading } = useTransacoes();
   const { mask } = useHideValues();
 
@@ -23,22 +27,27 @@ export function CardParcelados() {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  const parceladas = useMemo(() => filtrarParceladas(transacoes), [transacoes]);
+  const dataCorte = useMemo(() => {
+    const hoje = new Date();
+    return new Date(hoje.getFullYear(), hoje.getMonth() - periodoMeses + 1, 1);
+  }, [periodoMeses]);
 
-  // ✅ CORRIGIDO: para cada parcelamento, calcula progresso real com base
-  // na maior parcelaAtual encontrada entre todas as parcelas do grupo.
+  // ✅ Sem filtro de período aqui — precisa de TODAS as parcelas de cada
+  // grupo para calcular o progresso real (parcelasPagas/totalParcelas)
+  const parceladasTodas = useMemo(() => filtrarParceladas(transacoes), [transacoes]);
+
   const comprasParceladas = useMemo(() => {
-    // Agrupa todas as parcelas por parcelamentoId
     const grupos = new Map<string, Transacao[]>();
 
-    parceladas.forEach((t) => {
+    parceladasTodas.forEach((t) => {
       const chave = t.parcelamentoId || t.id;
       if (!grupos.has(chave)) grupos.set(chave, []);
       grupos.get(chave)!.push(t);
     });
 
     return Array.from(grupos.entries()).map(([chave, parcelas]) => {
-      // Representante: primeira parcela (menor parcelaAtual)
+      // Representante: primeira parcela (menor parcelaAtual) — sua data
+      // é a data da compra original, usada para o filtro de período
       const representante = parcelas.reduce((min, t) =>
         (t.parcelaAtual ?? 0) < (min.parcelaAtual ?? 0) ? t : min
       );
@@ -47,11 +56,9 @@ export function CardParcelados() {
       const totalParcelas = representante.parcelas ?? parcelas.length;
       const totalCompra   = valorParcela * totalParcelas;
 
-      // ✅ Parcela paga = maior parcelaAtual registrada no período atual
-      // (o mês selecionado pode não ter todas — usamos o máximo visível)
+      // ✅ Progresso calculado sobre TODAS as parcelas do grupo, não só
+      // as que caem dentro da janela do filtro de período
       const maiorParcelaAtual = Math.max(...parcelas.map((t) => t.parcelaAtual ?? 0));
-
-      // ✅ Progresso: quantas parcelas já foram pagas / total de parcelas
       const parcelasPagas  = maiorParcelaAtual;
       const porcentagem    = totalParcelas > 0 ? (parcelasPagas / totalParcelas) * 100 : 0;
 
@@ -64,11 +71,20 @@ export function CardParcelados() {
         porcentagem,
       };
     });
-  }, [parceladas]);
+  }, [parceladasTodas]);
+
+  // ✅ NOVO: filtro de período aplicado só aqui — decide quais compras
+  // aparecem na lista, com base na data da compra original (representante)
+  const comprasNoPeriodo = useMemo(() => {
+    return comprasParceladas.filter((c) => {
+      const dataCompra = typeof c.data === 'string' ? new Date(c.data) : c.data;
+      return dataCompra >= dataCorte;
+    });
+  }, [comprasParceladas, dataCorte]);
 
   const totalParcelado = useMemo(
-    () => comprasParceladas.reduce((acc, t) => acc + t.totalCompra, 0),
-    [comprasParceladas]
+    () => comprasNoPeriodo.reduce((acc, t) => acc + t.totalCompra, 0),
+    [comprasNoPeriodo]
   );
 
   if (isLoading) {
@@ -91,7 +107,7 @@ export function CardParcelados() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {comprasParceladas.length === 0 ? (
+        {comprasNoPeriodo.length === 0 ? (
           <div className="text-center py-8">
             <Layers className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -103,7 +119,7 @@ export function CardParcelados() {
           </div>
         ) : (
           <div className="space-y-2.5">
-            {comprasParceladas.slice(0, 5).map((t) => (
+            {comprasNoPeriodo.slice(0, 5).map((t) => (
               <div
                 key={t.chave}
                 className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
@@ -122,7 +138,6 @@ export function CardParcelados() {
                     </span>
                   </div>
 
-                  {/* ✅ Barra de progresso: parcelas pagas / total de parcelas */}
                   <div className="flex items-center gap-2 mb-1">
                     <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                       <div
@@ -153,10 +168,10 @@ export function CardParcelados() {
               </div>
             ))}
 
-            {comprasParceladas.length > 5 && (
+            {comprasNoPeriodo.length > 5 && (
               <div className="text-center pt-1">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  + {comprasParceladas.length - 5} compra{comprasParceladas.length - 5 !== 1 ? 's' : ''} parcelada{comprasParceladas.length - 5 !== 1 ? 's' : ''}
+                  + {comprasNoPeriodo.length - 5} compra{comprasNoPeriodo.length - 5 !== 1 ? 's' : ''} parcelada{comprasNoPeriodo.length - 5 !== 1 ? 's' : ''}
                 </p>
               </div>
             )}
@@ -173,13 +188,13 @@ export function CardParcelados() {
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-500 dark:text-gray-400">Número de compras:</span>
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {comprasParceladas.length}
+                  {comprasNoPeriodo.length}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-500 dark:text-gray-400">Total de parcelas:</span>
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {parceladas.length}
+                  {comprasNoPeriodo.reduce((acc, c) => acc + c.totalParcelas, 0)}
                 </span>
               </div>
             </div>

@@ -1,22 +1,14 @@
-// src/app/api/dashboard/maiores-gastos/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, cartoes } from "@/db/schema";
-import { and, gte, lt, eq } from "drizzle-orm";
+import { and, gte, lte, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 /**
- * GET /api/dashboard/maiores-gastos?mes=1&ano=2026&limit=5
- * Retorna os maiores gastos do período, ordenados por valor decrescente
- *
- * Response: {
- *   gastos: [{
- *     id, descricao, valor, data, categoria
- *   }],
- *   total: number,     // soma dos gastos retornados
- *   media: number      // média dos gastos retornados
- * }
+ * GET /api/dashboard/maiores-gastos?periodo=6&limit=5
+ * Retorna os maiores gastos dos últimos N meses (a partir de hoje),
+ * ordenados por valor decrescente.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -26,21 +18,23 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const mes = Number(searchParams.get("mes"));
-    const ano = Number(searchParams.get("ano"));
+    const periodoParam = searchParams.get("periodo") || "6";
+    const numMeses = parseInt(periodoParam);
     const limit = Math.min(Number(searchParams.get("limit") || "5"), 20);
 
-    if (!mes || !ano || mes < 1 || mes > 12) {
+    if (isNaN(numMeses) || numMeses < 1 || numMeses > 24) {
       return NextResponse.json(
-        { error: "Mês e ano são obrigatórios (mes: 1-12)" },
+        { error: "Período inválido (1-24 meses)" },
         { status: 400 }
       );
     }
 
-    const inicioMes = new Date(ano, mes - 1, 1);
-    const fimMes = new Date(ano, mes, 1);
+    const hoje = new Date();
+    const dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 23, 59, 59, 999);
+    // ✅ Amplia um mês pra trás do início da janela — compras de cartão feitas
+    // pouco antes do início do período podem pertencer a uma fatura dentro dele
+    const dataInicio = new Date(hoje.getFullYear(), hoje.getMonth() - numMeses, 1);
 
-    // Buscar despesas do período
     const despesas = await db
       .select({
         id: transacoes.id,
@@ -56,12 +50,11 @@ export async function GET(req: NextRequest) {
         and(
           eq(transacoes.userId, userId),
           eq(transacoes.tipo, "saida"),
-          gte(transacoes.data, inicioMes),
-          lt(transacoes.data, fimMes)
+          gte(transacoes.data, dataInicio),
+          lte(transacoes.data, dataFim)
         )
       );
 
-    // Buscar cartões para calcular ciclo de fatura
     const cartoesDb = await db
       .select()
       .from(cartoes)
@@ -69,7 +62,20 @@ export async function GET(req: NextRequest) {
 
     const cartoesMap = new Map(cartoesDb.map((c) => [c.id, c]));
 
-    // Filtrar despesas de cartão pelo ciclo de fatura (mesmo critério do route principal)
+    // Limites da janela de N meses "cheios", pra comparar mesFatura/anoFatura
+    const limiteAno = hoje.getFullYear();
+    const limiteMes = hoje.getMonth() + 1; // mês atual (1-12)
+    const inicioJanela = new Date(hoje.getFullYear(), hoje.getMonth() - numMeses + 1, 1);
+    const inicioJanelaAno = inicioJanela.getFullYear();
+    const inicioJanelaMes = inicioJanela.getMonth() + 1;
+
+    const dentroDaJanela = (mesFatura: number, anoFatura: number) => {
+      const chave = anoFatura * 12 + mesFatura;
+      const chaveInicio = inicioJanelaAno * 12 + inicioJanelaMes;
+      const chaveFim = limiteAno * 12 + limiteMes;
+      return chave >= chaveInicio && chave <= chaveFim;
+    };
+
     const despesasFiltradas = despesas.filter((t) => {
       if (t.formaPagamento === "cartao" && t.cartaoId) {
         const cartao = cartoesMap.get(t.cartaoId);
@@ -78,12 +84,12 @@ export async function GET(req: NextRequest) {
           new Date(t.data),
           cartao.diaFechamento || 1
         );
-        return mesFatura === mes && anoFatura === ano;
+        return dentroDaJanela(mesFatura, anoFatura);
       }
+      // Não-cartão: já veio dentro do range de data direto na query
       return true;
     });
 
-    // Ordenar por valor decrescente e pegar o top N
     const topGastos = despesasFiltradas
       .sort((a, b) => Number(b.valor) - Number(a.valor))
       .slice(0, limit)

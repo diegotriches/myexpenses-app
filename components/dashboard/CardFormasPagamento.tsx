@@ -1,32 +1,41 @@
 // src/components/dashboard/CardFormasPagamento.tsx
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { DollarSign, Layers, Repeat, Loader2, LayoutList } from 'lucide-react';
-import { useFormasPagamento } from '@/hooks/useDashboard';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { DollarSign, Layers, Repeat, Loader2, LayoutList } from "lucide-react";
+import { useFormasPagamento } from "@/hooks/useDashboard";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
 const CORES = {
-  aVista:     '#3b82f6',
-  parcelado:  '#f97316',
-  recorrente: '#a855f7',
+  aVista: "#3b82f6",
+  parcelado: "#f97316",
+  recorrente: "#a855f7",
 };
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shadow-lg text-xs">
-      <p className="font-semibold text-gray-800 dark:text-gray-200">{payload[0].name}</p>
+      <p className="font-semibold text-gray-800 dark:text-gray-200">
+        {payload[0].name}
+      </p>
       <p className="text-gray-600 dark:text-gray-400">
-        {payload[0].value} transações ({payload[0].payload.porcentagem.toFixed(0)}%)
+        {payload[0].value} transações (
+        {payload[0].payload.porcentagem.toFixed(0)}%)
       </p>
     </div>
   );
 };
 
-export function CardFormasPagamento() {
-  const { data: dados, isLoading, error } = useFormasPagamento();
+interface CardFormasPagamentoProps {
+  periodoMeses: 3 | 6 | 12;
+}
+
+export function CardFormasPagamento({
+  periodoMeses,
+}: CardFormasPagamentoProps) {
+  const { data: dados, isLoading, error } = useFormasPagamento(periodoMeses);
 
   if (isLoading) {
     return (
@@ -55,7 +64,9 @@ export function CardFormasPagamento() {
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
-            <AlertDescription>Erro ao carregar dados: {error.message}</AlertDescription>
+            <AlertDescription>
+              Erro ao carregar dados: {error.message}
+            </AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -72,7 +83,9 @@ export function CardFormasPagamento() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Nenhum dado disponível</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+            Nenhum dado disponível
+          </p>
         </CardContent>
       </Card>
     );
@@ -81,18 +94,36 @@ export function CardFormasPagamento() {
   const total = dados.aVista + dados.parcelado + dados.recorrente;
 
   const formas = [
-    { key: 'aVista',     label: 'À Vista',    valor: dados.aVista,     icon: DollarSign, cor: CORES.aVista     },
-    { key: 'parcelado',  label: 'Parcelado',  valor: dados.parcelado,  icon: Layers,     cor: CORES.parcelado  },
-    { key: 'recorrente', label: 'Recorrente', valor: dados.recorrente, icon: Repeat,     cor: CORES.recorrente },
+    {
+      key: "aVista",
+      label: "À Vista",
+      valor: dados.aVista,
+      icon: DollarSign,
+      cor: CORES.aVista,
+    },
+    {
+      key: "parcelado",
+      label: "Parcelado",
+      valor: dados.parcelado,
+      icon: Layers,
+      cor: CORES.parcelado,
+    },
+    {
+      key: "recorrente",
+      label: "Recorrente",
+      valor: dados.recorrente,
+      icon: Repeat,
+      cor: CORES.recorrente,
+    },
   ];
 
   const chartData = formas
-    .filter(f => f.valor > 0)
-    .map(f => ({
-      name:        f.label,
-      value:       f.valor,
+    .filter((f) => f.valor > 0)
+    .map((f) => ({
+      name: f.label,
+      value: f.valor,
       porcentagem: total > 0 ? (f.valor / total) * 100 : 0,
-      cor:         f.cor,
+      cor: f.cor,
     }));
 
   return (
@@ -107,14 +138,15 @@ export function CardFormasPagamento() {
         {total === 0 ? (
           <div className="text-center py-8">
             <DollarSign className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma transação encontrada</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Nenhuma transação encontrada
+            </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               Suas transações por tipo aparecerão aqui
             </p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4">
-
             {/* Donut — sempre centralizado */}
             <div className="relative w-[140px] h-[140px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -145,20 +177,32 @@ export function CardFormasPagamento() {
                 const porcentagem = total > 0 ? (forma.valor / total) * 100 : 0;
                 return (
                   <div key={forma.key} className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: forma.cor }} />
+                    <div
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: forma.cor }}
+                    />
                     <Icon className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">{forma.label}</span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 w-9 text-right flex-shrink-0">{porcentagem.toFixed(0)}%</span>
-                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 w-5 text-right flex-shrink-0">{forma.valor}</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">
+                      {forma.label}
+                    </span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 w-9 text-right flex-shrink-0">
+                      {porcentagem.toFixed(0)}%
+                    </span>
+                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 w-5 text-right flex-shrink-0">
+                      {forma.valor}
+                    </span>
                   </div>
                 );
               })}
               <div className="pt-2 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Total</span>
-                <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{total}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Total
+                </span>
+                <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                  {total}
+                </span>
               </div>
             </div>
-
           </div>
         )}
       </CardContent>

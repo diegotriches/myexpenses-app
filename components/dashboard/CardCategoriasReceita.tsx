@@ -15,11 +15,27 @@ const CORES_RECEITA = [
   '#14b8a6', '#06b6d4',
 ];
 
-export function CardCategoriasReceita() {
+interface CardCategoriasReceitaProps {
+  periodoMeses: 3 | 6 | 12;
+}
+
+export function CardCategoriasReceita({ periodoMeses }: CardCategoriasReceitaProps) {
   const { data: transacoes = [], isLoading } = useTransacoes();
   const { hidden, mask } = useHideValues();
 
-  const categorias = useMemo(() => categoriasReceita(transacoes), [transacoes]);
+  const dataCorte = useMemo(() => {
+    const hoje = new Date();
+    return new Date(hoje.getFullYear(), hoje.getMonth() - periodoMeses + 1, 1);
+  }, [periodoMeses]);
+
+  const transacoesNoPeriodo = useMemo(() => {
+    return transacoes.filter((t) => {
+      const dataT = typeof t.data === 'string' ? new Date(t.data) : t.data;
+      return dataT >= dataCorte;
+    });
+  }, [transacoes, dataCorte]);
+
+  const categorias = useMemo(() => categoriasReceita(transacoesNoPeriodo), [transacoesNoPeriodo]);
 
   const totalReceitas = useMemo(
     () => categorias.reduce((acc, c) => acc + c.total, 0),

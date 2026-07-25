@@ -1,4 +1,3 @@
-// src/components/dashboard/CardCategoriasLancamentos.tsx
 "use client";
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -10,16 +9,29 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useHideValues } from '@/contexts/HideValuesContext';
 
-const CORES_LANCAMENTOS = [
-  '#3b82f6', '#6366f1', '#8b5cf6',
-  '#0ea5e9', '#06b6d4',
-];
+const CORES_LANCAMENTOS = ['#3b82f6', '#6366f1', '#8b5cf6', '#0ea5e9', '#06b6d4'];
 
-export function CardCategoriasLancamentos() {
+interface CardCategoriasLancamentosProps {
+  periodoMeses: 3 | 6 | 12;
+}
+
+export function CardCategoriasLancamentos({ periodoMeses }: CardCategoriasLancamentosProps) {
   const { data: transacoes = [], isLoading } = useTransacoes();
   const { mask } = useHideValues();
 
-  const categorias = useMemo(() => agruparPorCategoria(transacoes), [transacoes]);
+  const dataCorte = useMemo(() => {
+    const hoje = new Date();
+    return new Date(hoje.getFullYear(), hoje.getMonth() - periodoMeses + 1, 1);
+  }, [periodoMeses]);
+
+  const transacoesNoPeriodo = useMemo(() => {
+    return transacoes.filter((t) => {
+      const dataT = typeof t.data === 'string' ? new Date(t.data) : t.data;
+      return dataT >= dataCorte;
+    });
+  }, [transacoes, dataCorte]);
+
+  const categorias = useMemo(() => agruparPorCategoria(transacoesNoPeriodo), [transacoesNoPeriodo]);
 
   const totalLancamentos = useMemo(
     () => categorias.reduce((acc, c) => acc + c.quantidade, 0),
@@ -46,7 +58,6 @@ export function CardCategoriasLancamentos() {
     [categorias, totalLancamentos]
   );
 
-  // Tooltip só exibe contagem — sem valor monetário, não precisa de mask
   const CustomTooltip = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
     return (
@@ -89,7 +100,6 @@ export function CardCategoriasLancamentos() {
           </div>
         ) : (
           <div className="space-y-4">
-
             <div className="flex justify-center">
               <div className="w-[140px] h-[140px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -171,7 +181,6 @@ export function CardCategoriasLancamentos() {
                 </div>
               </div>
             </div>
-
           </div>
         )}
       </CardContent>

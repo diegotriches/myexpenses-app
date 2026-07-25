@@ -22,6 +22,7 @@ import { CardCategoriasDespesa } from '@/components/dashboard/CardCategoriasDesp
 import { CardValores } from '@/components/dashboard/CardValores';
 import { CardFaturas } from '@/components/dashboard/CardFaturas';
 import { CardSaldoHistorico } from '@/components/dashboard/CardSaldoHistorico';
+import { SeletorPeriodoMeses } from '@/components/dashboard/SeletorPeriodoMeses';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -74,6 +75,10 @@ export default function Dashboard() {
     if (!nome) return "";
     return nome.split(" ")[0];
   }, [session]);
+
+  // ✅ NOVO: período (3/6/12 meses) — independente por aba
+  const [periodoVisaoGeral, setPeriodoVisaoGeral] = useState<3 | 6 | 12>(6);
+  const [periodoAnalises,   setPeriodoAnalises]   = useState<3 | 6 | 12>(6);
 
   // ── Tabs com transição automática ──────────────────────────────────────
   const TABS = ['overview', 'analytics'] as const;
@@ -275,16 +280,21 @@ export default function Dashboard() {
               transition:    'opacity 0.5s ease',
             }}
           >
+            {/* ✅ NOVO: seletor de período da aba Visão Geral */}
+            <div className="flex justify-end">
+              <SeletorPeriodoMeses value={periodoVisaoGeral} onChange={setPeriodoVisaoGeral} />
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <CardGraficoMeses />
+              <CardGraficoMeses periodoMeses={periodoVisaoGeral} />
               <CardTransacoesRecentes />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <CardCondicoesPagamento />
-              <CardFormasPagamento />
-              <CardFaturas />
+              <CardCondicoesPagamento periodoMeses={periodoVisaoGeral} />
+              <CardFormasPagamento periodoMeses={periodoVisaoGeral} />
+              <CardFaturas periodoMeses={periodoVisaoGeral} />
             </div>
-            <CardParcelados />
+            <CardParcelados periodoMeses={periodoVisaoGeral} />
           </div>
 
           {/* Análises */}
@@ -298,15 +308,20 @@ export default function Dashboard() {
               transition:    'opacity 0.5s ease',
             }}
           >
+            {/* ✅ NOVO: seletor de período da aba Análises */}
+            <div className="flex justify-end">
+              <SeletorPeriodoMeses value={periodoAnalises} onChange={setPeriodoAnalises} />
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <CardCategoriasLancamentos />
-              <CardCategoriasReceita />
-              <CardCategoriasDespesa />
+              <CardCategoriasLancamentos periodoMeses={periodoAnalises} />
+              <CardCategoriasReceita periodoMeses={periodoAnalises} />
+              <CardCategoriasDespesa periodoMeses={periodoAnalises} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <CardMaioresGastos />
-              <CardValores />
-              <CardRecorrentes />
+              <CardMaioresGastos periodoMeses={periodoAnalises} />
+              <CardValores periodoMeses={periodoAnalises} />
+              <CardRecorrentes periodoMeses={periodoAnalises} />
             </div>
           </div>
         </div>
