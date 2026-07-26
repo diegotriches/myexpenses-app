@@ -4,17 +4,13 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { filtrarParceladas } from '@/utils/dashboardUtils';
 import { Calendar, CreditCard, Layers } from 'lucide-react';
 import { useMemo } from 'react';
-import { useTransacoes } from '@/hooks/useTransacoes';
+import { useTransacoesTodas } from '@/hooks/useTransacoes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Transacao } from '@/types/transacao';
 import { useHideValues } from '@/contexts/HideValuesContext';
 
-interface CardParceladosProps {
-  periodoMeses: 3 | 6 | 12;
-}
-
-export function CardParcelados({ periodoMeses }: CardParceladosProps) {
-  const { data: transacoes = [], isLoading } = useTransacoes();
+export function CardParcelados() {
+  const { data: transacoes = [], isLoading } = useTransacoesTodas();
   const { mask } = useHideValues();
 
   const formatarMoeda = (valor: number) =>
@@ -27,27 +23,27 @@ export function CardParcelados({ periodoMeses }: CardParceladosProps) {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  const dataCorte = useMemo(() => {
-    const hoje = new Date();
-    return new Date(hoje.getFullYear(), hoje.getMonth() - periodoMeses + 1, 1);
-  }, [periodoMeses]);
+  const parceladas = useMemo(() => filtrarParceladas(transacoes), [transacoes]);
 
-  // ✅ Sem filtro de período aqui — precisa de TODAS as parcelas de cada
-  // grupo para calcular o progresso real (parcelasPagas/totalParcelas)
-  const parceladasTodas = useMemo(() => filtrarParceladas(transacoes), [transacoes]);
+  // Data/hora atual — usada tanto para calcular quantas parcelas já
+  // "venceram" quanto para decidir se uma compra quitada ainda deve
+  // aparecer (até o fim do mês da quitação)
+  const hoje = useMemo(() => new Date(), []);
+
+  const inicioMesAtual = useMemo(() => {
+    return new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  }, [hoje]);
 
   const comprasParceladas = useMemo(() => {
     const grupos = new Map<string, Transacao[]>();
 
-    parceladasTodas.forEach((t) => {
+    parceladas.forEach((t) => {
       const chave = t.parcelamentoId || t.id;
       if (!grupos.has(chave)) grupos.set(chave, []);
       grupos.get(chave)!.push(t);
     });
 
-    return Array.from(grupos.entries()).map(([chave, parcelas]) => {
-      // Representante: primeira parcela (menor parcelaAtual) — sua data
-      // é a data da compra original, usada para o filtro de período
+    const todas = Array.from(grupos.entries()).map(([chave, parcelas]) => {
       const representante = parcelas.reduce((min, t) =>
         (t.parcelaAtual ?? 0) < (min.parcelaAtual ?? 0) ? t : min
       );
@@ -56,11 +52,20 @@ export function CardParcelados({ periodoMeses }: CardParceladosProps) {
       const totalParcelas = representante.parcelas ?? parcelas.length;
       const totalCompra   = valorParcela * totalParcelas;
 
-      // ✅ Progresso calculado sobre TODAS as parcelas do grupo, não só
-      // as que caem dentro da janela do filtro de período
-      const maiorParcelaAtual = Math.max(...parcelas.map((t) => t.parcelaAtual ?? 0));
-      const parcelasPagas  = maiorParcelaAtual;
-      const porcentagem    = totalParcelas > 0 ? (parcelasPagas / totalParcelas) * 100 : 0;
+      // ✅ CORRIGIDO: todas as parcelas (passadas e futuras) já existem no
+      // banco desde a criação da compra — por isso "parcelas pagas" não
+      // pode ser calculado contando registros (Math.max(parcelaAtual) ou
+      // .length), já que isso sempre resultaria no total. O correto é
+      // comparar a DATA de cada parcela com hoje.
+      const parcelasPagas = parcelas.filter((p) => {
+        const dataParcela = typeof p.data === 'string' ? new Date(p.data) : p.data;
+        return dataParcela <= hoje;
+      }).length;
+
+      const porcentagem = totalParcelas > 0 ? (parcelasPagas / totalParcelas) * 100 : 0;
+
+      // Transação correspondente à última parcela (a que completa o grupo)
+      const parcelaFinal = parcelas.find((t) => (t.parcelaAtual ?? 0) === totalParcelas);
 
       return {
         ...representante,
@@ -69,22 +74,30 @@ export function CardParcelados({ periodoMeses }: CardParceladosProps) {
         parcelasPagas,
         totalParcelas,
         porcentagem,
+        parcelaFinal,
       };
     });
-  }, [parceladasTodas]);
 
-  // ✅ NOVO: filtro de período aplicado só aqui — decide quais compras
-  // aparecem na lista, com base na data da compra original (representante)
-  const comprasNoPeriodo = useMemo(() => {
-    return comprasParceladas.filter((c) => {
-      const dataCompra = typeof c.data === 'string' ? new Date(c.data) : c.data;
-      return dataCompra >= dataCorte;
+    // Esconde compras 100% quitadas cuja última parcela venceu em um mês
+    // anterior ao atual — mantém visível até o fim do mês da quitação,
+    // pra dar a confirmação visual de que foi concluída
+    return todas.filter((c) => {
+      const quitada = c.porcentagem >= 100;
+      if (!quitada) return true;
+
+      if (!c.parcelaFinal?.data) return true; // sem data da parcela final, mantém por segurança
+
+      const dataFinal = typeof c.parcelaFinal.data === 'string'
+        ? new Date(c.parcelaFinal.data)
+        : c.parcelaFinal.data;
+
+      return dataFinal >= inicioMesAtual;
     });
-  }, [comprasParceladas, dataCorte]);
+  }, [parceladas, inicioMesAtual, hoje]);
 
   const totalParcelado = useMemo(
-    () => comprasNoPeriodo.reduce((acc, t) => acc + t.totalCompra, 0),
-    [comprasNoPeriodo]
+    () => comprasParceladas.reduce((acc, t) => acc + t.totalCompra, 0),
+    [comprasParceladas]
   );
 
   if (isLoading) {
@@ -107,7 +120,7 @@ export function CardParcelados({ periodoMeses }: CardParceladosProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {comprasNoPeriodo.length === 0 ? (
+        {comprasParceladas.length === 0 ? (
           <div className="text-center py-8">
             <Layers className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -119,7 +132,7 @@ export function CardParcelados({ periodoMeses }: CardParceladosProps) {
           </div>
         ) : (
           <div className="space-y-2.5">
-            {comprasNoPeriodo.slice(0, 5).map((t) => (
+            {comprasParceladas.slice(0, 5).map((t) => (
               <div
                 key={t.chave}
                 className="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
@@ -168,10 +181,10 @@ export function CardParcelados({ periodoMeses }: CardParceladosProps) {
               </div>
             ))}
 
-            {comprasNoPeriodo.length > 5 && (
+            {comprasParceladas.length > 5 && (
               <div className="text-center pt-1">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  + {comprasNoPeriodo.length - 5} compra{comprasNoPeriodo.length - 5 !== 1 ? 's' : ''} parcelada{comprasNoPeriodo.length - 5 !== 1 ? 's' : ''}
+                  + {comprasParceladas.length - 5} compra{comprasParceladas.length - 5 !== 1 ? 's' : ''} parcelada{comprasParceladas.length - 5 !== 1 ? 's' : ''}
                 </p>
               </div>
             )}
@@ -188,13 +201,13 @@ export function CardParcelados({ periodoMeses }: CardParceladosProps) {
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-500 dark:text-gray-400">Número de compras:</span>
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {comprasNoPeriodo.length}
+                  {comprasParceladas.length}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-500 dark:text-gray-400">Total de parcelas:</span>
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {comprasNoPeriodo.reduce((acc, c) => acc + c.totalParcelas, 0)}
+                  {parceladas.length}
                 </span>
               </div>
             </div>

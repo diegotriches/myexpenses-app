@@ -280,7 +280,7 @@ export default function Dashboard() {
               transition:    'opacity 0.5s ease',
             }}
           >
-            {/* ✅ NOVO: seletor de período da aba Visão Geral */}
+            {/* Seletor de período da aba Visão Geral */}
             <div className="flex justify-end">
               <SeletorPeriodoMeses value={periodoVisaoGeral} onChange={setPeriodoVisaoGeral} />
             </div>
@@ -294,7 +294,7 @@ export default function Dashboard() {
               <CardFormasPagamento periodoMeses={periodoVisaoGeral} />
               <CardFaturas periodoMeses={periodoVisaoGeral} />
             </div>
-            <CardParcelados periodoMeses={periodoVisaoGeral} />
+            <CardParcelados />
           </div>
 
           {/* Análises */}
@@ -308,7 +308,7 @@ export default function Dashboard() {
               transition:    'opacity 0.5s ease',
             }}
           >
-            {/* ✅ NOVO: seletor de período da aba Análises */}
+            {/* Seletor de período da aba Análises */}
             <div className="flex justify-end">
               <SeletorPeriodoMeses value={periodoAnalises} onChange={setPeriodoAnalises} />
             </div>

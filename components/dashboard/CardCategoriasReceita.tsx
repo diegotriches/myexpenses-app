@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { categoriasReceita } from '@/utils/dashboardUtils';
 import { TrendingUp } from 'lucide-react';
 import { useMemo } from 'react';
-import { useTransacoes } from '@/hooks/useTransacoes';
+import { useTransacoesPeriodo } from '@/hooks/useTransacoes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useHideValues } from '@/contexts/HideValuesContext';
@@ -20,22 +20,10 @@ interface CardCategoriasReceitaProps {
 }
 
 export function CardCategoriasReceita({ periodoMeses }: CardCategoriasReceitaProps) {
-  const { data: transacoes = [], isLoading } = useTransacoes();
+  const { data: transacoes = [], isLoading } = useTransacoesPeriodo(periodoMeses);
   const { hidden, mask } = useHideValues();
 
-  const dataCorte = useMemo(() => {
-    const hoje = new Date();
-    return new Date(hoje.getFullYear(), hoje.getMonth() - periodoMeses + 1, 1);
-  }, [periodoMeses]);
-
-  const transacoesNoPeriodo = useMemo(() => {
-    return transacoes.filter((t) => {
-      const dataT = typeof t.data === 'string' ? new Date(t.data) : t.data;
-      return dataT >= dataCorte;
-    });
-  }, [transacoes, dataCorte]);
-
-  const categorias = useMemo(() => categoriasReceita(transacoesNoPeriodo), [transacoesNoPeriodo]);
+  const categorias = useMemo(() => categoriasReceita(transacoes), [transacoes]);
 
   const totalReceitas = useMemo(
     () => categorias.reduce((acc, c) => acc + c.total, 0),

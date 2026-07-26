@@ -19,7 +19,25 @@ export const transacoesKeys = {
   all:      (ano: number, mes: number)    => ["transacoes", ano, mes]  as const,
   byId:     (id: string)                  => ["transacoes", id]        as const,
   filtered: (filters: FiltrosTransacao)   => ["transacoes", filters]   as const,
+  periodo:  (periodoMeses: number)        => ["transacoes", "periodo", periodoMeses] as const,
+  todas:    ()                            => ["transacoes", "todas"] as const,
 };
+
+export function useTransacoesTodas() {
+  return useQuery({
+    queryKey: transacoesKeys.todas(),
+    queryFn:  () => transacaoService.listarTodas(),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useTransacoesPeriodo(periodoMeses: 3 | 6 | 12) {
+  return useQuery({
+    queryKey: transacoesKeys.periodo(periodoMeses),
+    queryFn:  () => transacaoService.listarPorPeriodo(periodoMeses),
+    staleTime: 2 * 60 * 1000,
+  });
+}
 
 // ── Invalida todos os caches relacionados a uma mutação de transação ──────────
 // Centralizado para não esquecer nenhuma query em nenhum dos três hooks.

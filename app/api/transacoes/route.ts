@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const ano = searchParams.get("ano");
     const mes = searchParams.get("mes");
+    const periodoMeses = searchParams.get("periodoMeses");
 
     const filtros = [eq(transacoes.userId, userId)];
 
@@ -23,6 +24,15 @@ export async function GET(req: NextRequest) {
       const inicioMes = new Date(anoNum, mesNum - 1, 1);
       const fimMes    = new Date(anoNum, mesNum, 1);
       filtros.push(sql`${transacoes.data} >= ${inicioMes} AND ${transacoes.data} < ${fimMes}`);
+    } else if (periodoMeses) {
+      // Mesma âncora usada nos cards do dashboard: últimos N meses a partir de hoje
+      const numMeses = parseInt(periodoMeses);
+      if (!isNaN(numMeses) && numMeses > 0 && numMeses <= 24) {
+        const hoje = new Date();
+        const inicioPeriodo = new Date(hoje.getFullYear(), hoje.getMonth() - numMeses + 1, 1);
+        const fimPeriodo = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 23, 59, 59, 999);
+        filtros.push(sql`${transacoes.data} >= ${inicioPeriodo} AND ${transacoes.data} <= ${fimPeriodo}`);
+      }
     }
 
     const result = await db

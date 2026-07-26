@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { agruparPorCategoria } from '@/utils/dashboardUtils';
 import { BarChart3 } from 'lucide-react';
 import { useMemo } from 'react';
-import { useTransacoes } from '@/hooks/useTransacoes';
+import { useTransacoesPeriodo } from '@/hooks/useTransacoes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useHideValues } from '@/contexts/HideValuesContext';
@@ -16,22 +16,10 @@ interface CardCategoriasLancamentosProps {
 }
 
 export function CardCategoriasLancamentos({ periodoMeses }: CardCategoriasLancamentosProps) {
-  const { data: transacoes = [], isLoading } = useTransacoes();
+  const { data: transacoes = [], isLoading } = useTransacoesPeriodo(periodoMeses);
   const { mask } = useHideValues();
 
-  const dataCorte = useMemo(() => {
-    const hoje = new Date();
-    return new Date(hoje.getFullYear(), hoje.getMonth() - periodoMeses + 1, 1);
-  }, [periodoMeses]);
-
-  const transacoesNoPeriodo = useMemo(() => {
-    return transacoes.filter((t) => {
-      const dataT = typeof t.data === 'string' ? new Date(t.data) : t.data;
-      return dataT >= dataCorte;
-    });
-  }, [transacoes, dataCorte]);
-
-  const categorias = useMemo(() => agruparPorCategoria(transacoesNoPeriodo), [transacoesNoPeriodo]);
+  const categorias = useMemo(() => agruparPorCategoria(transacoes), [transacoes]);
 
   const totalLancamentos = useMemo(
     () => categorias.reduce((acc, c) => acc + c.quantidade, 0),
