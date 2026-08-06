@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signIn, useSession } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import { FiUserPlus, FiMail, FiLock, FiUser, FiArrowLeft, FiEye, FiEyeOff, FiCheck, FiX } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { BsCashCoin } from "react-icons/bs";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import {
@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { AutoRedirectIfAuthenticated } from "@/components/auth/AutoRedirectIfAuthenticated";
 
 const registerSchema = z.object({
   name:     z.string().min(2, "O nome deve ter ao menos 2 caracteres"),
@@ -42,43 +43,6 @@ type PasswordRequirement = {
   label:     string;
   validator: (password: string) => boolean;
 };
-
-// ─── AutoLoginWrapper ─────────────────────────────────────────────────────────
-// ✅ NOVO: redireciona usuários já autenticados para o dashboard,
-// evitando que o register seja acessado por quem já está logado.
-
-function AutoLoginWrapper({ children }: { children: React.ReactNode }) {
-  const router             = useRouter();
-  const { data: session, status } = useSession();
-
-  useEffect(() => {
-    if (status === "authenticated" && session?.user) {
-      router.replace("/dashboard");
-    }
-  }, [status, session, router]);
-
-  if (status === "loading" || status === "authenticated") {
-    return (
-      <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4">
-        <Card className="bg-white dark:bg-gray-800 shadow-2xl border-0 w-full max-w-md">
-          <CardContent className="p-12 text-center">
-            <div className="flex flex-col items-center gap-4">
-              <Loader2 className="h-12 w-12 text-blue-600 dark:text-blue-400 animate-spin" />
-              <div className="space-y-2">
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {status === "authenticated" ? "Redirecionando..." : "Verificando autenticação..."}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Aguarde um momento</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </main>
-    );
-  }
-
-  return <>{children}</>;
-}
 
 // ─── Página de registro ───────────────────────────────────────────────────────
 
@@ -382,8 +346,33 @@ function RegisterForm() {
 }
 
 export default function RegisterPage() {
+  const loadingOverlay = (
+    <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4">
+      <Card className="bg-white dark:bg-gray-800 shadow-2xl border-0 w-full max-w-md">
+        <CardContent className="p-12 text-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-12 w-12 text-blue-600 dark:text-blue-400 animate-spin" />
+            <div className="space-y-2">
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                Redirecionando...
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Aguarde um momento</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </main>
+  );
+
   return (
-    <AutoLoginWrapper>
+    // ✅ CORRIGIDO: usa o componente compartilhado em vez do AutoLoginWrapper
+    // duplicado que existia só neste arquivo. Mesmo comportamento de antes —
+    // spinner de feedback enquanto verifica/redireciona.
+    <AutoRedirectIfAuthenticated
+      redirectTo="/dashboard"
+      showLoadingOverlay
+      loadingOverlay={loadingOverlay}
+    >
       <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950 flex items-center justify-center p-4 relative overflow-hidden">
         {/* Decorativos */}
         <div className="absolute inset-0 overflow-hidden">
@@ -460,6 +449,6 @@ export default function RegisterPage() {
           </div>
         </div>
       </main>
-    </AutoLoginWrapper>
+    </AutoRedirectIfAuthenticated>
   );
 }
