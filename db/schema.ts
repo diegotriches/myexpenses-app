@@ -68,6 +68,7 @@ export const preferences = pgTable(
     backupFrequencia: text("backup_frequencia")
       .$type<"diario" | "semanal" | "mensal" | "desativado">()
       .default("semanal"),
+    backupQuantidadeMaxima: integer("backup_quantidade_maxima").default(8),
     backupDiaSemana: integer("backup_dia_semana").default(0), // 0=dom … 6=sáb
     backupDiaMes: integer("backup_dia_mes").default(1), // 1-31
     ultimoBackupEm: timestamp("ultimo_backup_em", { withTimezone: true }),

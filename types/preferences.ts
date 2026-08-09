@@ -13,6 +13,7 @@ export interface Preferencias {
   inicioSemana?: "domingo" | "segunda";
   backupAutomatico?: boolean;
   backupFrequencia?: BackupFrequencia;
+  backupQuantidadeMaxima?: number; // 1-12, quantidade de backups automáticos mantidos
   backupDiaSemana?: number;  // 0=domingo … 6=sábado (usado quando semanal)
   backupDiaMes?: number;     // 1-31 (usado quando mensal)
   ultimoBackupEm?: string | Date | null;
@@ -29,6 +30,7 @@ export interface AtualizarPreferenciasDTO {
   inicioSemana?: "domingo" | "segunda";
   backupAutomatico?: boolean;
   backupFrequencia?: BackupFrequencia;
+  backupQuantidadeMaxima?: number;
   backupDiaSemana?: number;
   backupDiaMes?: number;
 }
