@@ -23,6 +23,9 @@ const HEIGHT_MAX = 720;
 const DEFAULT_WIDTH  = 320;
 const DEFAULT_HEIGHT = 460;
 const STORAGE_KEY = "notas-panel-layout";
+// Margem mínima entre o topo do painel e o topo da tela no mobile,
+// pra nunca deixar o painel esticar até tampar a barra de status/notch
+const MOBILE_TOP_MARGIN = 120;
 
 interface PanelLayout {
   x: number | null;       // null = posição padrão (canto inferior direito)
@@ -153,11 +156,13 @@ function EditarNota({ nota, onVoltar }: { nota: Nota; onVoltar: () => void }) {
           maxLength={100}
           className="border-0 bg-transparent text-sm font-semibold focus-visible:ring-0 px-0 h-7 text-gray-900 dark:text-white placeholder:text-gray-400"
         />
+        {/* ✅ NOVO: overscroll-contain — impede que rolar até o fim do texto
+            "vaze" o gesto de touch e role a página por trás junto */}
         <Textarea
           value={conteudo}
           onChange={(e) => handleConteudo(e.target.value)}
           placeholder="Escreva sua nota..."
-          className="flex-1 resize-none border-0 bg-transparent text-sm focus-visible:ring-0 px-0 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 min-h-0"
+          className="flex-1 resize-none border-0 bg-transparent text-sm focus-visible:ring-0 px-0 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 min-h-0 overscroll-contain"
         />
       </div>
     </div>
@@ -208,7 +213,7 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
     // salto no primeiro drag (que usa left/top, não bottom/right)
     if (saved.x === null && saved.y === null && window.innerWidth < 768) {
       const largura = Math.min(360, window.innerWidth - 32);
-      const altura  = 440;
+      const altura  = Math.min(saved.height || DEFAULT_HEIGHT, window.innerHeight - MOBILE_TOP_MARGIN);
       saved.x = Math.max(0, window.innerWidth  - largura - 16);
       saved.y = Math.max(0, window.innerHeight - altura  - 80);
     }
@@ -325,6 +330,42 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
     document.addEventListener("mouseup", onUp);
   }
 
+  // ── Redimensionar verticalmente (mobile, apenas altura) ───────────────────
+  // ✅ CORRIGIDO: trocado de Touch Events para Pointer Events. A API de
+  // Pointer Events unifica mouse/touch/caneta e oferece setPointerCapture(),
+  // que garante — de forma nativa no navegador — que o elemento continue
+  // recebendo os eventos de movimento e soltar até o fim do gesto, não
+  // importa pra onde o dedo se mova. Isso evita por completo os problemas
+  // de listener passivo / touchcancel prematuro que tínhamos com Touch
+  // Events, e funciona de forma consistente tanto em touch real quanto na
+  // emulação de mouse do DevTools.
+  const mobileResizeStateRef = useRef<{ startY: number; origH: number } | null>(null);
+
+  function handleMobileResizePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (!isMobile || layout.isFullscreen) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    mobileResizeStateRef.current = { startY: e.clientY, origH: layout.height };
+  }
+
+  function handleMobileResizePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!mobileResizeStateRef.current) return;
+    e.preventDefault();
+    const { startY, origH } = mobileResizeStateRef.current;
+    const deltaY = e.clientY - startY;
+    const alturaMax = Math.min(HEIGHT_MAX, window.innerHeight - MOBILE_TOP_MARGIN);
+    const novaAltura = Math.max(HEIGHT_MIN, Math.min(alturaMax, origH + deltaY));
+    setLayout((prev) => ({ ...prev, height: novaAltura }));
+  }
+
+  function handleMobileResizePointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    if (!mobileResizeStateRef.current) return;
+    mobileResizeStateRef.current = null;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    setLayout((current) => { saveLayout(current); return current; });
+  }
+
   // ── Toggle fullscreen (mobile) ────────────────────────────────────────────
   function toggleFullscreen() {
     persistLayout({ ...layout, isFullscreen: !layout.isFullscreen });
@@ -381,7 +422,11 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
       if (layout.isFullscreen) {
         return { top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", borderRadius: 0 };
       }
-      const altura  = minimizado ? HEADER_HEIGHT : 440;
+      // ✅ CORRIGIDO: antes usava um valor fixo (440), ignorando layout.height —
+      // por isso o resize não tinha efeito nenhum no mobile. Agora usa o
+      // mesmo estado que a alça de redimensionar vertical atualiza.
+      const alturaMax = Math.min(HEIGHT_MAX, window.innerHeight - MOBILE_TOP_MARGIN);
+      const altura  = minimizado ? HEADER_HEIGHT : Math.max(HEIGHT_MIN, Math.min(layout.height, alturaMax));
       const largura = Math.min(360, window.innerWidth - 32);
 
       if (layout.x !== null && layout.y !== null) {
@@ -494,7 +539,9 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
 
             {/* Corpo — oculto quando minimizado */}
             {!minimizado && (
-              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              // ✅ NOVO: overscroll-contain — impede que rolar até o fim da
+              // lista de notas "vaze" o gesto de touch pra página por trás
+              <div className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2">
                 {isLoading ? (
                   <div className="flex items-center justify-center h-full">
                     <Loader2 size={24} className="animate-spin text-gray-300" />
@@ -517,7 +564,7 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
           </div>
         )}
 
-        {/* Handle de resize — desktop apenas, canto inferior direito */}
+        {/* Handle de resize — desktop, ambos os eixos, canto inferior direito */}
         {!isMobile && (
           <div
             onMouseDown={handleResizeStart}
@@ -527,15 +574,34 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
             <div className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 border-b-2 border-r-2 border-gray-300 dark:border-gray-600 group-hover:border-amber-400 transition-colors rounded-br-sm" />
           </div>
         )}
+
+        {/* Handle de resize — mobile, só eixo vertical, borda inferior inteira.
+            Usa Pointer Events + setPointerCapture, não Touch Events. */}
+        {isMobile && !layout.isFullscreen && !minimizado && (
+          <div
+            onPointerDown={handleMobileResizePointerDown}
+            onPointerMove={handleMobileResizePointerMove}
+            onPointerUp={handleMobileResizePointerUp}
+            onPointerCancel={handleMobileResizePointerUp}
+            style={{ touchAction: "none" }}
+            className="absolute bottom-0 left-0 right-0 h-4 flex items-center justify-center cursor-ns-resize"
+            title="Arraste para redimensionar a altura"
+          >
+            <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+          </div>
+        )}
       </div>
 
-      {/* Backdrop — fecha ao clicar fora (não captura cliques durante drag/resize) */}
+      {/* Backdrop — fecha ao clicar fora (não captura cliques durante drag/resize).
+          ✅ CORRIGIDO: sem touchAction:none — permite que a página por trás
+          continue rolando normalmente quando o toque acontece fora do painel.
+          O bloqueio de scroll vale só dentro do painel (overscroll-contain
+          na lista/textarea + preventDefault nos gestos de drag/resize). */}
       {open && (
         <div
           className="fixed inset-0 z-30"
-          style={{ touchAction: "none" }}
           onClick={() => {
-            if (dragStateRef.current || resizeStateRef.current || touchDragOffset.current) return;
+            if (dragStateRef.current || resizeStateRef.current || touchDragOffset.current || mobileResizeStateRef.current) return;
             if (notaEditando) setNotaEditando(null);
             else onOpenChange(false);
           }}
