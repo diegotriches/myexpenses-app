@@ -3,9 +3,10 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MdAdd } from "react-icons/md";
 import { BsArrowLeftRight, BsBank } from "react-icons/bs";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Repeat, List } from "lucide-react";
 
 import FormMovimentacaoModal from "@/components/transacao/FormMovimentacaoModal";
 import MovimentacaoTabela from "@/components/transacao/MovimentacaoTabela";
@@ -13,6 +14,8 @@ import ConfirmarEdicaoModal from "@/components/transacao/ConfirmarEdicaoModal";
 import ConfirmarExclusaoModal from "@/components/transacao/ConfirmarExclusaoModal";
 import FaturaFechadaModal from "@/components/transacao/FaturaFechadaModal";
 import FiltrosMovimentacoes, { FiltrosState } from "@/components/transacao/FiltrosMovimentacoes";
+// ✅ NOVO
+import RecorrenciasTab from "@/components/transacao/RecorrenciasTab";
 
 import {
   useTransacoes,
@@ -20,6 +23,8 @@ import {
   useAtualizarTransacao,
   useExcluirTransacao,
 } from "@/hooks/useTransacoes";
+// ✅ NOVO
+import { useCriarRecorrencia } from "@/hooks/useRecorrencias";
 import { useCartoes } from "@/hooks/useCartoes";
 import { useContas } from "@/hooks/useContas";
 import { Transacao, ModoEdicao } from "@/types/transacao";
@@ -37,6 +42,8 @@ export default function TransacoesPage() {
   const criarTransacao     = useCriarTransacao();
   const atualizarTransacao = useAtualizarTransacao();
   const excluirTransacao   = useExcluirTransacao();
+  // ✅ NOVO
+  const criarRecorrencia   = useCriarRecorrencia();
 
   const [openModal,          setOpenModal]          = useState(false);
   const [editando,           setEditando]           = useState<Transacao | null>(null);
@@ -117,6 +124,12 @@ export default function TransacoesPage() {
   async function editarItem(mov: Transacao) {
     if (await faturaParcelaEstaBloqueada(mov)) { setModalFaturaFechada(true); return; }
     const isParcelada  = !!mov.parcelamentoId;
+    // Nota: transações geradas pelo NOVO modelo de recorrência (via
+    // origemRecorrenciaId) não têm o campo legado recorrenciaId preenchido,
+    // então isRecorrente aqui só é true para o modelo antigo — o que já é
+    // o comportamento certo: editar uma ocorrência do modelo novo edita só
+    // aquela transação, já que o template (repetição futura) vive em
+    // /api/recorrencias, não nesta linha.
     const isRecorrente = !!mov.recorrenciaId;
     setEditando(mov);
     if (isParcelada) { setTipoEdicao("todas_parcelas"); setOpenModal(true); }
@@ -161,6 +174,20 @@ export default function TransacoesPage() {
       setTipoEdicao("unica");
     } catch (error) {
       console.error("Erro ao salvar transação:", error);
+      throw error;
+    }
+  }
+
+  // ✅ NOVO: caminho de criação de recorrência, separado do handleSalvar
+  // acima (que só lida com transações regulares/parceladas)
+  async function handleSalvarRecorrencia(dados: any) {
+    try {
+      await criarRecorrencia.mutateAsync(dados);
+      setOpenModal(false);
+      setEditando(null);
+      setTipoEdicao("unica");
+    } catch (error) {
+      console.error("Erro ao salvar recorrência:", error);
       throw error;
     }
   }
@@ -228,34 +255,51 @@ export default function TransacoesPage() {
       {!temContasAtivas ? (
         <EmptyStateNoConta />
       ) : (
-        <>
-          <div className="space-y-4">
-            <FiltrosMovimentacoes
-              filtros={filtros}
-              onFiltrosChange={setFiltros}
-              categorias={categoriasUnicas}
-              formasPagamento={formasPagamentoUnicas}
-            />
-            <div className="hidden md:flex justify-end">
-              <Button
-                onClick={abrirNovo}
-                disabled={criarTransacao.isPending}
-                className="flex items-center gap-2 bg-blue-700 hover:bg-blue-900 text-white disabled:opacity-50"
-              >
-                <MdAdd className="text-xl" />
-                {criarTransacao.isPending ? "Criando..." : "Nova Movimentação"}
-              </Button>
-            </div>
-          </div>
+        <Tabs defaultValue="movimentacoes" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="movimentacoes" className="flex items-center gap-2">
+              <List className="w-4 h-4" />
+              Movimentações
+            </TabsTrigger>
+            <TabsTrigger value="recorrencias" className="flex items-center gap-2">
+              <Repeat className="w-4 h-4" />
+              Recorrências
+            </TabsTrigger>
+          </TabsList>
 
-          <MovimentacaoTabela
-            movimentacoes={movimentacoesFiltradas}
-            loading={loading}
-            cartoes={cartoes}
-            onEditar={editarItem}
-            onExcluir={confirmarExclusao}
-          />
-        </>
+          <TabsContent value="movimentacoes" className="space-y-4">
+            <div className="space-y-4">
+              <FiltrosMovimentacoes
+                filtros={filtros}
+                onFiltrosChange={setFiltros}
+                categorias={categoriasUnicas}
+                formasPagamento={formasPagamentoUnicas}
+              />
+              <div className="hidden md:flex justify-end">
+                <Button
+                  onClick={abrirNovo}
+                  disabled={criarTransacao.isPending}
+                  className="flex items-center gap-2 bg-blue-700 hover:bg-blue-900 text-white disabled:opacity-50"
+                >
+                  <MdAdd className="text-xl" />
+                  {criarTransacao.isPending ? "Criando..." : "Nova Movimentação"}
+                </Button>
+              </div>
+            </div>
+
+            <MovimentacaoTabela
+              movimentacoes={movimentacoesFiltradas}
+              loading={loading}
+              cartoes={cartoes}
+              onEditar={editarItem}
+              onExcluir={confirmarExclusao}
+            />
+          </TabsContent>
+
+          <TabsContent value="recorrencias">
+            <RecorrenciasTab contas={contas} cartoes={cartoes} />
+          </TabsContent>
+        </Tabs>
       )}
 
       {/* Modais */}
@@ -268,7 +312,8 @@ export default function TransacoesPage() {
         transacaoEdicao={editando}
         modoEdicao={tipoEdicao}
         salvar={handleSalvar}
-        loading={criarTransacao.isPending || atualizarTransacao.isPending}
+        salvarRecorrencia={handleSalvarRecorrencia}
+        loading={criarTransacao.isPending || atualizarTransacao.isPending || criarRecorrencia.isPending}
       />
 
       <ConfirmarExclusaoModal

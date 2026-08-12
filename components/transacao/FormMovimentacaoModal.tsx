@@ -7,7 +7,7 @@ import MovCampoCategoria from "@/components/transacao/MovCampoCategoria";
 import MovCampoFormaPagamento from "@/components/transacao/MovCampoFormaPagamento";
 import MovCampoConta from "@/components/transacao/MovCampoConta";
 import MovCampoCartao from "./MovCampoCartao";
-import MovCampoEstabelecimento from "./MovCampoEstabelecimento"; // ✅ NOVO
+import MovCampoEstabelecimento from "./MovCampoEstabelecimento";
 
 import {
   Dialog,
@@ -17,15 +17,19 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 
 import {
   Transacao,
   CreateTransacaoDTO,
   UpdateTransacaoDTO,
 } from "@/types/transacao";
+import type { CreateRecorrenciaDTO } from "@/types/recorrencia";
 
 import { formatarDataParaInput } from "@/utils/dateUtils";
 import { buildTransacoesFromForm } from "@/lib/buildTransacoesFromForm";
+// ✅ NOVO: builder separado para o payload de recorrência
+import { buildCreateRecorrenciaFromForm } from "@/lib/buildCreateRecorrenciaFromForm";
 
 import {
   Select,
@@ -51,6 +55,11 @@ interface Props {
   transacaoEdicao: Transacao | null;
   modoEdicao?: "unica" | "todas_parcelas" | "toda_recorrencia";
   salvar: (dados: any) => Promise<void>;
+  // ✅ NOVO: caminho separado para criar recorrências (POST /api/recorrencias
+  // em vez de POST /api/transacoes). Opcional — se não for passado e o
+  // usuário tentar criar uma recorrência, o submit lança um erro claro
+  // em vez de cair silenciosamente no fluxo antigo.
+  salvarRecorrencia?: (dados: CreateRecorrenciaDTO) => Promise<void>;
   loading?: boolean;
 }
 
@@ -67,7 +76,10 @@ const initialForm = {
   parcelas:          1,
   recorrente:        false,
   repeticoes:        1,
-  estabelecimentoId: "", // ✅ NOVO
+  // ✅ NOVO: quando true, a recorrência não tem número fixo de repetições —
+  // gera todo mês até o usuário pausar/cancelar
+  repeticoesIndefinidas: false,
+  estabelecimentoId: "",
 };
 
 type FormState = typeof initialForm;
@@ -90,6 +102,7 @@ export default function FormMovimentacaoModal({
   transacaoEdicao,
   modoEdicao,
   salvar,
+  salvarRecorrencia,
   loading = false,
 }: Props) {
   const isEdit = Boolean(transacaoEdicao);
@@ -156,9 +169,11 @@ export default function FormMovimentacaoModal({
   const valorTotal = useMemo(() => {
     const valor = parseFloat(form.valor) || 0;
     if (form.parcelado  && form.parcelas   > 1) return valor;
-    if (form.recorrente && form.repeticoes > 1) return valor * form.repeticoes;
+    // ✅ NOVO: sem total quando indefinida — não há como somar um número
+    // desconhecido de repetições
+    if (form.recorrente && !form.repeticoesIndefinidas && form.repeticoes > 1) return valor * form.repeticoes;
     return valor;
-  }, [form.valor, form.parcelado, form.parcelas, form.recorrente, form.repeticoes]);
+  }, [form.valor, form.parcelado, form.parcelas, form.recorrente, form.repeticoes, form.repeticoesIndefinidas]);
 
   const valorOriginalEdicao = useMemo(() => {
     if (!isEdit || !transacaoEdicao) return undefined;
@@ -193,11 +208,16 @@ export default function FormMovimentacaoModal({
         ? (transacaoEdicao.formaPagamento as "dinheiro" | "pix" | "cartao")
         : "dinheiro",
       cartaoId:   transacaoEdicao.cartaoId ? String(transacaoEdicao.cartaoId) : "",
+      // ✅ Edição sempre trata como transação única — recorrências novas
+      // não são mais editáveis "em bloco" por aqui (o template vive em
+      // /api/recorrencias). Isso é resolvido naturalmente: transações
+      // geradas pelo novo modelo não têm recorrenciaId (campo legado),
+      // então a tela de edição sempre abre no modo "única" para elas.
       parcelado:  modoEdicao === "unica" && transacaoEdicao.recorrente ? false : (transacaoEdicao.parcelado  ?? false),
       parcelas:   transacaoEdicao.parcelas   ?? 1,
       recorrente: modoEdicao === "unica" && transacaoEdicao.recorrente ? false : (transacaoEdicao.recorrente ?? false),
       repeticoes: transacaoEdicao.repeticoes ?? 1,
-      // ✅ NOVO: carrega estabelecimento existente na edição
+      repeticoesIndefinidas: false,
       estabelecimentoId: transacaoEdicao.estabelecimentoId ?? "",
     });
     setErrors({});
@@ -211,7 +231,10 @@ export default function FormMovimentacaoModal({
     if (mostrarCampoConta  && !form.contaId)      erros.conta      = "Selecione uma conta";
     if (mostrarCampoCartao && !form.cartaoId)     erros.cartao     = "Selecione um cartão";
     if (form.parcelado  && form.parcelas   < 2)   erros.parcelas   = "Mínimo de 2 parcelas";
-    if (form.recorrente && form.repeticoes < 2)   erros.repeticoes = "Mínimo de 2 repetições";
+    // ✅ NOVO: só exige mínimo de repetições se não for indefinida
+    if (form.recorrente && !form.repeticoesIndefinidas && form.repeticoes < 2) {
+      erros.repeticoes = "Mínimo de 2 repetições";
+    }
     return erros;
   };
 
@@ -234,7 +257,6 @@ export default function FormMovimentacaoModal({
           contaId:           form.contaId   || undefined,
           formaPagamento:    form.formaPagamento,
           cartaoId:          form.cartaoId ? Number(form.cartaoId) : null,
-          // ✅ NOVO
           estabelecimentoId: form.estabelecimentoId || null,
           parcelado:         form.parcelado,
           parcelas:          form.parcelado  ? form.parcelas   : null,
@@ -244,6 +266,37 @@ export default function FormMovimentacaoModal({
           recorrenciaId:     transacaoEdicao.recorrenciaId  ?? null,
         };
         await salvar(dadosAtualizacao);
+      } else if (form.recorrente) {
+        // ✅ NOVO: caminho separado para recorrências — não passa mais por
+        // buildTransacoesFromForm/POST /api/transacoes. Cria só o template;
+        // a rota gera a primeira ocorrência na hora se a data for hoje, e o
+        // cron cuida dos meses seguintes, aplicando o impacto financeiro
+        // só na data real de cada ocorrência.
+        if (!salvarRecorrencia) {
+          throw new Error("Criação de recorrência não está disponível nesta tela.");
+        }
+
+        const payloadRecorrencia = buildCreateRecorrenciaFromForm({
+          form: {
+            contaId:        form.contaId,
+            tipo:           form.tipo,
+            categoria:      form.categoria,
+            valor:          form.valor,
+            data:           form.data,
+            descricao:      form.descricao,
+            formaPagamento: form.formaPagamento,
+            cartaoId:       form.cartaoId,
+            parcelas:       form.parcelas,
+            repeticoes:     form.repeticoes,
+            parcelado:      form.parcelado,
+            recorrente:     form.recorrente,
+          },
+          contaId:          form.contaId,
+          repeticoesTotal:  form.repeticoesIndefinidas ? undefined : form.repeticoes,
+          estabelecimentoId: form.estabelecimentoId,
+        });
+
+        await salvarRecorrencia(payloadRecorrencia);
       } else {
         const transacoesParaCriar = buildTransacoesFromForm({
           form: {
@@ -264,7 +317,6 @@ export default function FormMovimentacaoModal({
           transacaoEdicao: null,
         });
 
-        // ✅ NOVO: injeta estabelecimentoId em cada transação gerada
         const comEstabelecimento = transacoesParaCriar.map((t: any) => ({
           ...t,
           estabelecimentoId: form.estabelecimentoId || undefined,
@@ -400,7 +452,28 @@ export default function FormMovimentacaoModal({
                 </div>
               )}
 
-              {(form.parcelado || form.recorrente) && (
+              {/* ✅ NOVO: toggle de recorrência indefinida — só aparece pra
+                  recorrente, e só na criação (não faz sentido editar isso
+                  depois, já que o template vive em /api/recorrencias) */}
+              {form.recorrente && !isEdit && (
+                <div className="flex items-center justify-between bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Repetir indefinidamente
+                    </span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Gera todo mês até você pausar ou cancelar
+                    </p>
+                  </div>
+                  <Switch
+                    checked={form.repeticoesIndefinidas}
+                    onCheckedChange={(checked) => update("repeticoesIndefinidas", checked)}
+                  />
+                </div>
+              )}
+
+              {/* Stepper de parcelas/meses — some quando recorrência é indefinida */}
+              {(form.parcelado || (form.recorrente && !form.repeticoesIndefinidas)) && (
                 <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {form.parcelado ? "Parcelas" : "Meses"}
@@ -446,7 +519,9 @@ export default function FormMovimentacaoModal({
                 </div>
               )}
 
-              {form.recorrente && form.repeticoes > 1 && parseFloat(form.valor) > 0 && (
+              {/* ✅ Preview do total — só quando não é indefinida (senão o
+                  total é desconhecido) */}
+              {form.recorrente && !form.repeticoesIndefinidas && form.repeticoes > 1 && parseFloat(form.valor) > 0 && (
                 <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-2.5">
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-purple-700 dark:text-purple-300">Total ({form.repeticoes} meses):</span>
@@ -456,9 +531,21 @@ export default function FormMovimentacaoModal({
                   </div>
                 </div>
               )}
+
+              {/* ✅ NOVO: preview do valor mensal quando indefinida */}
+              {form.recorrente && form.repeticoesIndefinidas && parseFloat(form.valor) > 0 && (
+                <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-2.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-purple-700 dark:text-purple-300">Valor mensal, sem data pra terminar:</span>
+                    <span className="text-sm font-bold text-purple-900 dark:text-purple-200">
+                      R$ {parseFloat(form.valor).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* 6. ESTABELECIMENTO ✅ NOVO */}
+            {/* 6. ESTABELECIMENTO */}
             <MovCampoEstabelecimento
               estabelecimentoId={form.estabelecimentoId}
               onChange={(id) => update("estabelecimentoId", id)}

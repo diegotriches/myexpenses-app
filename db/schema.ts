@@ -287,6 +287,10 @@ export const transacoes = pgTable("transacoes", {
   ),
   recorrente: boolean("recorrente").default(false),
   recorrenciaId: varchar("recorrenciaId", { length: 36 }),
+  origemRecorrenciaId: uuid("origem_recorrencia_id").references(
+    () => recorrencias.id,
+    { onDelete: "set null" },
+  ),
   repeticoes: integer("repeticoes"),
   parcelado: boolean("parcelado").default(false),
   parcelamentoId: varchar("parcelamentoId", { length: 36 }),
@@ -360,6 +364,58 @@ export const adiantamentosFatura = pgTable(
 
 export type AdiantamentoFatura = typeof adiantamentosFatura.$inferSelect;
 export type NovoAdiantamentoFatura = typeof adiantamentosFatura.$inferInsert;
+
+// ─── RECORRENCIA ──────────────────────────────────────────────────────────────────
+// Registra
+
+export const recorrencias = pgTable(
+  "recorrencias",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    descricao: text("descricao"),
+    categoria: text("categoria"),
+    valor: numeric("valor", { precision: 14, scale: 2 }).notNull(),
+    tipo: text("tipo").notNull(), // "entrada" | "saida"
+    formaPagamento: text("forma_pagamento").notNull(), // "dinheiro" | "pix" | "cartao"
+    contaId: uuid("conta_id").references(() => contas.id, {
+      onDelete: "set null",
+    }),
+    cartaoId: integer("cartao_id").references(() => cartoes.id, {
+      onDelete: "set null",
+    }),
+    estabelecimentoId: uuid("estabelecimento_id").references(
+      () => estabelecimentos.id,
+      { onDelete: "set null" },
+    ),
+    // Dia do mês em que a transação é gerada (1-31, com clamp pro último dia
+    // do mês em meses mais curtos — mesmo padrão já usado em calcularDataVencimento)
+    diaDoMes: integer("dia_do_mes").notNull(),
+    dataInicio: timestamp("data_inicio", { withTimezone: true }).notNull(),
+    // null = indefinida (repete até o usuário cancelar)
+    repeticoesTotal: integer("repeticoes_total"),
+    repeticoesGeradas: integer("repeticoes_geradas").notNull().default(0),
+    ativa: boolean("ativa").notNull().default(true),
+    // Evita gerar duas vezes no mesmo mês se o cron rodar mais de uma vez
+    ultimaGeracaoMes: integer("ultima_geracao_mes"),
+    ultimaGeracaoAno: integer("ultima_geracao_ano"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("recorrencias_user_id_idx").on(table.userId),
+    ativaIdx: index("recorrencias_ativa_idx").on(table.userId, table.ativa),
+  }),
+);
+
+export type Recorrencia = typeof recorrencias.$inferSelect;
+export type NovaRecorrencia = typeof recorrencias.$inferInsert;
 
 // EXTRATO (Isolado por usuário)
 
