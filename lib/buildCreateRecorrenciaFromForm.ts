@@ -10,6 +10,9 @@ interface Params {
   // undefined = indefinida (repete até o usuário cancelar)
   repeticoesTotal: number | undefined;
   estabelecimentoId?: string;
+  // ✅ NOVO: presente quando uma transação "à vista" existente está sendo
+  // convertida em recorrência (edição, não criação do zero)
+  origemTransacaoId?: string;
 }
 
 export function buildCreateRecorrenciaFromForm({
@@ -17,6 +20,7 @@ export function buildCreateRecorrenciaFromForm({
   contaId,
   repeticoesTotal,
   estabelecimentoId,
+  origemTransacaoId,
 }: Params): CreateRecorrenciaDTO {
   const isCartao = form.formaPagamento === "cartao";
 
@@ -40,5 +44,6 @@ export function buildCreateRecorrenciaFromForm({
     cartaoId: isCartao && form.cartaoId ? Number(form.cartaoId) : undefined,
     estabelecimentoId: estabelecimentoId || undefined,
     repeticoesTotal,
+    origemTransacaoId,
   };
 }

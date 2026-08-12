@@ -33,6 +33,10 @@ export interface CreateRecorrenciaDTO {
   cartaoId?: number;
   estabelecimentoId?: string;
   repeticoesTotal?: number; // omitido/undefined = indefinida
+  // ✅ NOVO: quando uma transação "à vista" existente é convertida em
+  // recorrência (editar → mudar tipo de pagamento), a rota reverte o
+  // impacto financeiro dela e a substitui pelo template novo
+  origemTransacaoId?: string;
 }
 
 // ✅ EXPANDIDO: agora também permite editar valor, dia do mês, forma de

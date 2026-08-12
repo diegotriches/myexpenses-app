@@ -166,6 +166,16 @@ export default function FormMovimentacaoModal({
     };
   }, [transacaoEdicao, modoEdicao]);
 
+  // ✅ NOVO: identifica a conversão "à vista → recorrente" durante a edição
+  // — esse caso não usa mais PUT /api/transacoes/[id] (que gerava N linhas
+  // de uma vez, o mesmo bug que já corrigimos na criação). Em vez disso,
+  // reaproveita o caminho de criação de recorrência, passando a transação
+  // original como origemTransacaoId pra ser revertida/substituída.
+  const convertendoParaRecorrente = useMemo(() => {
+    if (!isEdit || !transacaoEdicao) return false;
+    return form.recorrente && !transacaoEdicao.recorrente && !transacaoEdicao.parcelado;
+  }, [isEdit, transacaoEdicao, form.recorrente]);
+
   const valorTotal = useMemo(() => {
     const valor = parseFloat(form.valor) || 0;
     if (form.parcelado  && form.parcelas   > 1) return valor;
@@ -246,7 +256,40 @@ export default function FormMovimentacaoModal({
     setErrors({});
 
     try {
-      if (isEdit && transacaoEdicao) {
+      if (isEdit && transacaoEdicao && convertendoParaRecorrente) {
+        // ✅ NOVO: conversão à vista → recorrente durante edição. Não usa
+        // mais PUT /api/transacoes/[id] — reaproveita o caminho de criação
+        // de recorrência, passando a transação original como
+        // origemTransacaoId pra a rota reverter/substituir corretamente.
+        if (!salvarRecorrencia) {
+          throw new Error("Conversão para recorrência não está disponível nesta tela.");
+        }
+
+        const payloadRecorrencia: CreateRecorrenciaDTO = {
+          ...buildCreateRecorrenciaFromForm({
+            form: {
+              contaId:        form.contaId,
+              tipo:           form.tipo,
+              categoria:      form.categoria,
+              valor:          form.valor,
+              data:           form.data,
+              descricao:      form.descricao,
+              formaPagamento: form.formaPagamento,
+              cartaoId:       form.cartaoId,
+              parcelas:       form.parcelas,
+              repeticoes:     form.repeticoes,
+              parcelado:      form.parcelado,
+              recorrente:     form.recorrente,
+            },
+            contaId:          form.contaId,
+            repeticoesTotal:  form.repeticoesIndefinidas ? undefined : form.repeticoes,
+            estabelecimentoId: form.estabelecimentoId,
+          }),
+          origemTransacaoId: transacaoEdicao.id,
+        };
+
+        await salvarRecorrencia(payloadRecorrencia);
+      } else if (isEdit && transacaoEdicao) {
         const dadosAtualizacao: UpdateTransacaoDTO = {
           modoEdicao:        modoEdicao || "unica",
           tipo:              form.tipo,
@@ -452,10 +495,11 @@ export default function FormMovimentacaoModal({
                 </div>
               )}
 
-              {/* ✅ NOVO: toggle de recorrência indefinida — só aparece pra
-                  recorrente, e só na criação (não faz sentido editar isso
-                  depois, já que o template vive em /api/recorrencias) */}
-              {form.recorrente && !isEdit && (
+              {/* ✅ NOVO: toggle de recorrência indefinida — aparece na criação
+                  do zero E ao converter uma transação à vista existente em
+                  recorrente (mas não ao editar uma ocorrência já recorrente,
+                  onde repetições são geridas na aba Recorrências) */}
+              {form.recorrente && (!isEdit || convertendoParaRecorrente) && (
                 <div className="flex items-center justify-between bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
                   <div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
