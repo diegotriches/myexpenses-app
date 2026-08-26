@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MdAdd } from "react-icons/md";
 import { BsArrowLeftRight, BsBank } from "react-icons/bs";
-import { AlertCircle, Repeat, List } from "lucide-react";
+import { AlertCircle, Repeat, List, Layers } from "lucide-react";
 
 import FormMovimentacaoModal from "@/components/transacao/FormMovimentacaoModal";
 import MovimentacaoTabela from "@/components/transacao/MovimentacaoTabela";
@@ -16,6 +16,7 @@ import FaturaFechadaModal from "@/components/transacao/FaturaFechadaModal";
 import FiltrosMovimentacoes, { FiltrosState } from "@/components/transacao/FiltrosMovimentacoes";
 // ✅ NOVO
 import RecorrenciasTab from "@/components/transacao/RecorrenciasTab";
+import ParcelasTab from "@/components/transacao/ParcelasTab";
 
 import {
   useTransacoes,
@@ -256,10 +257,14 @@ export default function TransacoesPage() {
         <EmptyStateNoConta />
       ) : (
         <Tabs defaultValue="movimentacoes" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsList className="grid w-full grid-cols-3 max-w-xl">
             <TabsTrigger value="movimentacoes" className="flex items-center gap-2">
               <List className="w-4 h-4" />
               Movimentações
+            </TabsTrigger>
+            <TabsTrigger value="parcelas" className="flex items-center gap-2">
+              <Layers className="w-4 h-4" />
+              Parcelas
             </TabsTrigger>
             <TabsTrigger value="recorrencias" className="flex items-center gap-2">
               <Repeat className="w-4 h-4" />
@@ -294,6 +299,10 @@ export default function TransacoesPage() {
               onEditar={editarItem}
               onExcluir={confirmarExclusao}
             />
+          </TabsContent>
+
+          <TabsContent value="parcelas">
+            <ParcelasTab onEditar={editarItem} onExcluir={confirmarExclusao} />
           </TabsContent>
 
           <TabsContent value="recorrencias">

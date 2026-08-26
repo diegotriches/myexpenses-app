@@ -152,6 +152,26 @@ export default function FormMovimentacaoModal({
     [form.tipo, form.formaPagamento]
   );
 
+  // ✅ NOVO: "Parcelado" só faz sentido no cartão — em dinheiro/PIX, uma
+  // compra recorrente é o modelo certo (parcelado nesses casos tinha o
+  // mesmo bug de debitar tudo de uma vez que já corrigimos nas recorrências,
+  // mas em vez de corrigir a mecânica, a opção deixa de existir aqui)
+  const opcoesTipoPagamento = useMemo<TipoPagamento[]>(() => {
+    const todas: TipoPagamento[] = ["avista", "parcelado", "recorrente"];
+    if (form.formaPagamento !== "cartao") {
+      return todas.filter((t) => t !== "parcelado");
+    }
+    return todas;
+  }, [form.formaPagamento]);
+
+  // Se o usuário tinha escolhido "Parcelado" e muda a forma de pagamento
+  // pra algo diferente de cartão, reverte automaticamente pra "à vista"
+  useEffect(() => {
+    if (form.parcelado && form.formaPagamento !== "cartao") {
+      update("parcelado", false);
+    }
+  }, [form.formaPagamento, form.parcelado]);
+
   const bloqueiaCampos = useMemo(() => {
     if (!transacaoEdicao || !modoEdicao) return {};
     const editarTodos      = modoEdicao === "todas_parcelas" || modoEdicao === "toda_recorrencia";
@@ -472,7 +492,7 @@ export default function FormMovimentacaoModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-                  {(Object.keys(tipoPagamentoIcons) as TipoPagamento[]).map((tipo) => {
+                  {opcoesTipoPagamento.map((tipo) => {
                     const Icon = tipoPagamentoIcons[tipo];
                     return (
                       <SelectItem key={tipo} value={tipo} className="dark:hover:bg-gray-700 h-12">

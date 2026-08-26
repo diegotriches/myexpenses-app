@@ -7,14 +7,6 @@ interface Params {
   contaId: string; // Pode ser vazio para cartão
 }
 
-// ✅ CORRIGIDO: o caminho de "recorrente" foi removido daqui. Antes, uma
-// recorrência de N meses gerava N linhas de transação de uma vez, e o
-// impacto financeiro de TODAS elas (inclusive as de meses futuros) era
-// aplicado imediatamente na criação — descontando o valor total de uma
-// vez em vez de mês a mês. Recorrências agora são criadas via
-// buildCreateRecorrenciaFromForm + POST /api/recorrencias, que só gera
-// a transação real (e só aplica o impacto financeiro) no mês em que ela
-// de fato ocorre, via cron.
 export function buildCreateTransacoesFromForm({
   form,
   contaId,
@@ -23,17 +15,14 @@ export function buildCreateTransacoesFromForm({
   const baseData = normalizeDate(form.data);
   const isCartao = form.formaPagamento === "cartao";
 
-  // ✅ Validação: PIX/Dinheiro PRECISA de contaId
   if (!isCartao && !contaId) {
     throw new Error("contaId é obrigatório para transações com dinheiro ou PIX");
   }
 
-  // ✅ Validação: Cartão PRECISA de cartaoId
   if (isCartao && !form.cartaoId) {
     throw new Error("cartaoId é obrigatório para transações com cartão");
   }
 
-  // ✅ Define contaId: usa o passado OU deixa vazio para cartão
   const contaIdFinal = !isCartao ? contaId : "";
 
   // PARCELADO
@@ -46,9 +35,9 @@ export function buildCreateTransacoesFromForm({
 
       return {
         tipo: form.tipo,
-        valor: valorParcela, // ✅ NUMBER (não string)
-        data: data.toISOString().split('T')[0], // ✅ YYYY-MM-DD
-        descricao: `${form.descricao} (${i + 1}/${form.parcelas})`,
+        valor: valorParcela,
+        data: data.toISOString().split('T')[0],
+        descricao: form.descricao,
         categoria: form.categoria,
         formaPagamento: form.formaPagamento,
         contaId: contaIdFinal,
@@ -64,8 +53,8 @@ export function buildCreateTransacoesFromForm({
   return [
     {
       tipo: form.tipo,
-      valor: valorTotal, // ✅ NUMBER (não string)
-      data: new Date(baseData).toISOString().split('T')[0], // ✅ YYYY-MM-DD
+      valor: valorTotal,
+      data: new Date(baseData).toISOString().split('T')[0],
       descricao: form.descricao,
       categoria: form.categoria,
       formaPagamento: form.formaPagamento,
