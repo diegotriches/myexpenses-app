@@ -317,6 +317,9 @@ export const faturas = pgTable(
     mes: integer("mes").notNull(),
     ano: integer("ano").notNull(),
     total: numeric("total", { precision: 12, scale: 2 }).notNull(),
+    limiteExtraAoPagar: numeric("limite_extra_ao_pagar", { precision: 12, scale: 2 })
+      .notNull()
+      .default("0"),
     paga: boolean("paga").notNull().default(false),
     dataPagamento: date("data_pagamento"),
     contaPagamentoId: uuid("conta_pagamento_id").references(() => contas.id),
@@ -416,6 +419,41 @@ export const recorrencias = pgTable(
 
 export type Recorrencia = typeof recorrencias.$inferSelect;
 export type NovaRecorrencia = typeof recorrencias.$inferInsert;
+
+// ─── ANTECIPACOES ──────────────────────────────────────────────────────────────────
+
+export const antecipacoesParcela = pgTable(
+  "antecipacoes_parcela",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    parcelamentoId: varchar("parcelamento_id", { length: 36 }).notNull(),
+    cartaoId: integer("cartao_id")
+      .notNull()
+      .references(() => cartoes.id, { onDelete: "cascade" }),
+    faturaAtualId: integer("fatura_atual_id")
+      .notNull()
+      .references(() => faturas.id, { onDelete: "cascade" }),
+    transacaoSinteticaId: uuid("transacao_sintetica_id").notNull(),
+    quantidadeAntecipada: integer("quantidade_antecipada").notNull(),
+    valorFaceAntecipado: numeric("valor_face_antecipado", { precision: 14, scale: 2 }).notNull(),
+    desconto: numeric("desconto", { precision: 14, scale: 2 }).notNull().default("0"),
+    valorComDesconto: numeric("valor_com_desconto", { precision: 14, scale: 2 }).notNull(),
+    totalParcelasOriginal: integer("total_parcelas_original").notNull(),
+    valorOriginalTransacaoMesclada: numeric("valor_original_transacao_mesclada", { precision: 14, scale: 2 }),
+    parcelasRemovidas: jsonb("parcelas_removidas").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("antecipacoes_parcela_user_id_idx").on(table.userId),
+    parcelamentoIdx: index("antecipacoes_parcela_parcelamento_idx").on(table.parcelamentoId),
+  }),
+);
+
+export type AntecipacaoParcela = typeof antecipacoesParcela.$inferSelect;
+export type NovaAntecipacaoParcela = typeof antecipacoesParcela.$inferInsert;
 
 // EXTRATO (Isolado por usuário)
 

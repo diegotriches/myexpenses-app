@@ -190,9 +190,12 @@ export async function POST(
     if (!fatura) return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 });
     if (fatura.paga) return NextResponse.json({ error: "Fatura já foi paga" }, { status: 400 });
 
-    // ✅ CORRIGIDO: o valor a pagar é o total atual da fatura (já descontados
-    // os adiantamentos anteriores) — não o total bruto das transações.
-    const valorAPagar = Number(fatura.total);
+    // ✅ valorAPagar continua sendo o total da fatura (já com eventuais
+    // antecipações somadas); valorLiberado inclui também o limiteExtraAoPagar
+    // guardado pelas antecipações (a diferença do desconto)
+    const valorAPagar    = Number(fatura.total);
+    const limiteExtra    = Number(fatura.limiteExtraAoPagar ?? 0);
+    const valorLiberado  = valorAPagar + limiteExtra;
 
     if (valorAPagar <= 0)
       return NextResponse.json({ error: "Fatura sem saldo a pagar (já coberta por adiantamentos)" }, { status: 400 });
@@ -233,10 +236,9 @@ export async function POST(
       .set({ saldoAtual: saldoDepois.toFixed(2), updatedAt: new Date() })
       .where(and(eq(contas.id, contaId), eq(contas.userId, userId)));
 
-    // 6. Liberar limite do cartão pelo valor pago agora
-    // (o restante já foi liberado pelos adiantamentos)
+    // 6. Liberar limite do cartão — valor pago + limite extra de antecipações
     await db.update(cartoes)
-      .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valorAPagar}` })
+      .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valorLiberado}` })
       .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
     // 7. Marcar fatura como paga
@@ -292,7 +294,9 @@ export async function POST(
       cartao: {
         id: cartao.id, nome: cartao.nome,
         limite:           Number(cartao.limite),
-        limiteDisponivel: Number(cartao.limiteDisponivel) + valorAPagar,
+        // ✅ CORRIGIDO: era "+ valorAPagar" — não refletia o limite extra
+        // liberado por antecipações com desconto embutidas nesta fatura
+        limiteDisponivel: Number(cartao.limiteDisponivel) + valorLiberado,
         diaFechamento:    cartao.diaFechamento,
         diaVencimento:    cartao.diaVencimento,
       },
@@ -337,7 +341,9 @@ export async function DELETE(
     if (!fatura.paga)  return NextResponse.json({ error: "Fatura não está paga" }, { status: 400 });
     if (!fatura.contaPagamentoId) return NextResponse.json({ error: "Conta de pagamento não identificada" }, { status: 400 });
 
-    const totalFatura = Number(fatura.total);
+    const totalFatura    = Number(fatura.total);
+    const limiteExtra    = Number(fatura.limiteExtraAoPagar ?? 0);
+    const valorAReverter = totalFatura + limiteExtra;
 
     const [conta] = await db.select().from(contas)
       .where(and(eq(contas.id, fatura.contaPagamentoId), eq(contas.userId, userId)));
@@ -369,8 +375,10 @@ export async function DELETE(
       .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
       .where(and(eq(contas.id, fatura.contaPagamentoId), eq(contas.userId, userId)));
 
+    // ✅ Reverte o limite pelo valor TOTAL liberado no pagamento
+    // (totalFatura + limiteExtra), não só totalFatura
     await db.update(cartoes)
-      .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${totalFatura}` })
+      .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${valorAReverter}` })
       .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
     await db.update(faturas)
@@ -415,7 +423,9 @@ export async function DELETE(
       cartao: {
         id: cartao.id, nome: cartao.nome,
         limite:           Number(cartao.limite),
-        limiteDisponivel: Number(cartao.limiteDisponivel) - totalFatura,
+        // ✅ CORRIGIDO: era "- totalFatura" — precisa reverter também o
+        // limite extra liberado pelas antecipações embutidas nesta fatura
+        limiteDisponivel: Number(cartao.limiteDisponivel) - valorAReverter,
         diaFechamento:    cartao.diaFechamento,
         diaVencimento:    cartao.diaVencimento,
       },

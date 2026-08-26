@@ -1,7 +1,7 @@
 // app/api/transacoes/[id]/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { transacoes, contas, extratoConta, cartoes, faturas } from "@/db/schema";
+import { transacoes, contas, extratoConta, cartoes, faturas, antecipacoesParcela } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
@@ -88,7 +88,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const json         = await req.json();
     const { modoEdicao } = json;
 
-    // ✅ Extrai estabelecimentoId do payload (null se omitido)
     const estabelecimentoId = json.estabelecimentoId ?? null;
 
     // ── ÚNICA ────────────────────────────────────────────────────────────────
@@ -105,9 +104,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
       // à vista → parcelado
       if (isParcelado && !eraParcelado) {
-        // ✅ CORRIGIDO: reverte extrato e saldo da transação original antes de
-        // criar as parcelas — sem isso, o efeito financeiro anterior (débito em
-        // conta/PIX) permanece e gera cobrança dupla junto com o novo cartão.
         await reverterExtratoESaldo(transacaoExistente, userId);
 
         const totalParcelas  = json.parcelas as number;
@@ -125,7 +121,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
       // à vista → recorrente
       if (isRecorrente && !eraRecorrente) {
-        // ✅ CORRIGIDO: mesmo problema — reverte antes de criar as repetições
         await reverterExtratoESaldo(transacaoExistente, userId);
 
         const totalRepeticoes = json.repeticoes as number;
@@ -160,38 +155,84 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     // ── TODAS AS PARCELAS ────────────────────────────────────────────────────
     if (modoEdicao === "todas_parcelas") {
       if (!json.parcelamentoId) return NextResponse.json({ error: "parcelamentoId é obrigatório" }, { status: 400 });
-      const transacoesParceladas = await db.select().from(transacoes).where(and(eq(transacoes.parcelamentoId, json.parcelamentoId), eq(transacoes.userId, userId))).orderBy(transacoes.parcelaAtual);
+
+      const transacoesParceladas = await db.select().from(transacoes)
+        .where(and(eq(transacoes.parcelamentoId, json.parcelamentoId), eq(transacoes.userId, userId)))
+        .orderBy(transacoes.parcelaAtual);
       if (!transacoesParceladas.length) return NextResponse.json({ error: "Parcelamento não encontrado" }, { status: 404 });
+
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      const parcelasPassadas = transacoesParceladas.filter((t) => new Date(t.data) <= hoje);
+      const parcelasFuturasAtuais = transacoesParceladas.filter((t) => new Date(t.data) > hoje);
+
       const totalParcelasAtuais = transacoesParceladas.length;
       const totalParcelasNovo   = json.parcelas ? Number(json.parcelas) : totalParcelasAtuais;
-      const valorParcela        = Number(json.valor) / totalParcelasNovo;
-      const quantidadeManter    = Math.min(totalParcelasAtuais, totalParcelasNovo);
-      const atualizadas         = [];
-      for (let i = 0; i < quantidadeManter; i++) {
-        const t = transacoesParceladas[i];
-        const [updated] = await db.update(transacoes).set({ tipo: json.tipo, descricao: json.descricao, valor: valorParcela.toFixed(2), categoria: json.categoria, contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null), formaPagamento: json.formaPagamento, cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null, estabelecimentoId, parcelado: true, parcelas: totalParcelasNovo, parcelaAtual: t.parcelaAtual, parcelamentoId: json.parcelamentoId, updatedAt: new Date() }).where(and(eq(transacoes.id, t.id), eq(transacoes.userId, userId))).returning();
+
+      if (totalParcelasNovo < parcelasPassadas.length) {
+        return NextResponse.json(
+          { error: `Não é possível reduzir para menos de ${parcelasPassadas.length} parcelas — esse é o número de parcelas já vencidas` },
+          { status: 400 }
+        );
+      }
+
+      // Quantas parcelas futuras devem existir depois da edição
+      const totalFuturasNovo = totalParcelasNovo - parcelasPassadas.length;
+      const valorParcela     = Number(json.valor) / totalParcelasNovo;
+      const quantidadeManterFuturas = Math.min(parcelasFuturasAtuais.length, totalFuturasNovo);
+
+      const atualizadas = [];
+      for (let i = 0; i < quantidadeManterFuturas; i++) {
+        const t = parcelasFuturasAtuais[i];
+        const [updated] = await db.update(transacoes).set({
+          tipo: json.tipo, descricao: json.descricao, valor: valorParcela.toFixed(2),
+          categoria: json.categoria,
+          contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null),
+          formaPagamento: json.formaPagamento,
+          cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
+          estabelecimentoId, parcelado: true, parcelas: totalParcelasNovo,
+          parcelaAtual: t.parcelaAtual, parcelamentoId: json.parcelamentoId,
+          updatedAt: new Date(),
+        }).where(and(eq(transacoes.id, t.id), eq(transacoes.userId, userId))).returning();
         if (updated) { atualizadas.push(updated); await atualizarExtratoESaldo(t, updated, userId); }
       }
+
       let deletadas = 0;
-      if (totalParcelasNovo < totalParcelasAtuais) {
-        const excedentes = transacoesParceladas.slice(totalParcelasNovo);
+      if (totalFuturasNovo < parcelasFuturasAtuais.length) {
+        const excedentes = parcelasFuturasAtuais.slice(totalFuturasNovo);
         for (const t of excedentes) await reverterExtratoESaldo(t, userId);
         await db.delete(transacoes).where(and(inArray(transacoes.id, excedentes.map(t => t.id)), eq(transacoes.userId, userId)));
         deletadas = excedentes.length;
       }
+
       let criadas: (typeof transacoes.$inferSelect)[] = [];
-      if (totalParcelasNovo > totalParcelasAtuais) {
+      if (totalFuturasNovo > parcelasFuturasAtuais.length) {
         const ultimaParcela = transacoesParceladas[transacoesParceladas.length - 1];
         const dataBase = new Date(ultimaParcela.data);
         const novasData = [];
         for (let i = totalParcelasAtuais + 1; i <= totalParcelasNovo; i++) {
           const dataNova = new Date(dataBase); dataNova.setMonth(dataBase.getMonth() + (i - totalParcelasAtuais));
-          novasData.push({ userId, tipo: json.tipo as string, descricao: json.descricao as string | null, valor: valorParcela.toFixed(2), data: dataNova, categoria: json.categoria as string | null, contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null), formaPagamento: json.formaPagamento as string, cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null, estabelecimentoId, parcelado: true, parcelas: totalParcelasNovo, parcelaAtual: i, parcelamentoId: json.parcelamentoId });
+          novasData.push({
+            userId, tipo: json.tipo as string, descricao: json.descricao as string | null,
+            valor: valorParcela.toFixed(2), data: dataNova, categoria: json.categoria as string | null,
+            contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null),
+            formaPagamento: json.formaPagamento as string,
+            cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null,
+            estabelecimentoId, parcelado: true, parcelas: totalParcelasNovo, parcelaAtual: i,
+            parcelamentoId: json.parcelamentoId,
+          });
         }
         criadas = await db.insert(transacoes).values(novasData).returning();
         for (const nova of criadas) await processarExtratoESaldo(nova, userId);
       }
-      return NextResponse.json({ atualizadas, deletadas, criadas });
+
+      if (parcelasPassadas.length > 0 && totalParcelasNovo !== totalParcelasAtuais) {
+        await db.update(transacoes)
+          .set({ parcelas: totalParcelasNovo, updatedAt: new Date() })
+          .where(and(inArray(transacoes.id, parcelasPassadas.map(t => t.id)), eq(transacoes.userId, userId)));
+      }
+
+      return NextResponse.json({ atualizadas, deletadas, criadas, parcelasPassadasPreservadas: parcelasPassadas.length });
     }
 
     // ── TODA A RECORRÊNCIA ───────────────────────────────────────────────────
@@ -236,7 +277,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
-// ── DELETE (inalterado) ───────────────────────────────────────────────────────
+// ── DELETE ─────────────────────────────────────────────────────────────────
+//
+// ⚠️ Lembrete: import de "@/db/schema" precisa incluir `antecipacoesParcela`
+// junto com transacoes, contas, extratoConta, cartoes, faturas.
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -255,10 +299,26 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (!mov) return NextResponse.json({ error: "Transação não encontrada" }, { status: 404 });
     if (mov.transferenciaId) return NextResponse.json({ error: "Esta transação faz parte de uma transferência." }, { status: 400 });
 
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
     let transacoesParaDeletar: typeof mov[] = [];
-    if (!tipo || tipo === "unica") transacoesParaDeletar = [mov];
-    else if (tipo === "todas_parcelas"   && mov.parcelamentoId) transacoesParaDeletar = await db.select().from(transacoes).where(and(eq(transacoes.parcelamentoId, mov.parcelamentoId), eq(transacoes.userId, userId)));
-    else if (tipo === "toda_recorrencia" && mov.recorrenciaId)  transacoesParaDeletar = await db.select().from(transacoes).where(and(eq(transacoes.recorrenciaId,  mov.recorrenciaId),  eq(transacoes.userId, userId)));
+    if (!tipo || tipo === "unica") {
+      transacoesParaDeletar = [mov];
+    } else if (tipo === "todas_parcelas" && mov.parcelamentoId) {
+      const todasDoGrupo = await db.select().from(transacoes)
+        .where(and(eq(transacoes.parcelamentoId, mov.parcelamentoId), eq(transacoes.userId, userId)));
+      transacoesParaDeletar = todasDoGrupo.filter((t) => new Date(t.data) > hoje);
+    } else if (tipo === "toda_recorrencia" && mov.recorrenciaId) {
+      const todasDoGrupo = await db.select().from(transacoes)
+        .where(and(eq(transacoes.recorrenciaId, mov.recorrenciaId), eq(transacoes.userId, userId)));
+      transacoesParaDeletar = todasDoGrupo.filter((t) => new Date(t.data) > hoje);
+    }
+
+    // ✅ Ids das transações que vão ser deletadas pelo fluxo normal abaixo —
+    // usado depois pra saber se uma antecipação mesclada já vai ser
+    // resolvida por esse delete "normal" ou se precisa de tratamento à parte
+    const idsSeraoDeletados = new Set(transacoesParaDeletar.map((t) => t.id));
 
     for (const transacao of transacoesParaDeletar) {
       const valor = Number(transacao.valor);
@@ -280,6 +340,61 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
             await db.update(cartoes).set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valor}` }).where(and(eq(cartoes.id, transacao.cartaoId), eq(cartoes.userId, userId)));
           }
         }
+      }
+    }
+
+    // ✅ Limpeza de antecipações vinculadas ao parcelamento excluído — cada
+    // uma tratada de acordo com se foi mesclada numa parcela ou não
+    if (tipo === "todas_parcelas" && mov.parcelamentoId) {
+      const antecipacoesDoGrupo = await db.select().from(antecipacoesParcela)
+        .where(and(eq(antecipacoesParcela.parcelamentoId, mov.parcelamentoId), eq(antecipacoesParcela.userId, userId)));
+
+      for (const antecipacao of antecipacoesDoGrupo) {
+        const foiMesclada = antecipacao.valorOriginalTransacaoMesclada !== null;
+        // Se foi mesclada E a linha mesclada está entre as que já serão
+        // deletadas pelo loop normal acima, o valor de face inteiro dela
+        // (que já inclui a parte antecipada) já foi revertido da fatura
+        // pelo loop de cima — não precisa reverter de novo, só limpar o
+        // limiteExtraAoPagar (o desconto), que não é rastreado por transação.
+        const linhaJaTratada = foiMesclada && idsSeraoDeletados.has(antecipacao.transacaoSinteticaId);
+
+        if (!linhaJaTratada) {
+          // Não mesclada (linha própria) — ou mesclada mas a linha
+          // sobreviveu à exclusão (já ocorreu, é histórico protegido):
+          // reverte o valor antecipado da fatura atual manualmente.
+          if (!foiMesclada) {
+            await db.delete(transacoes)
+              .where(and(eq(transacoes.id, antecipacao.transacaoSinteticaId), eq(transacoes.userId, userId)));
+          }
+          const [faturaAtual] = await db.select().from(faturas)
+            .where(and(eq(faturas.id, antecipacao.faturaAtualId), eq(faturas.userId, userId)))
+            .limit(1);
+          if (faturaAtual) {
+            const novoTotal = Number(faturaAtual.total) - Number(antecipacao.valorComDesconto);
+            if (novoTotal <= 0) {
+              await db.delete(faturas).where(eq(faturas.id, faturaAtual.id));
+            } else {
+              await db.update(faturas).set({
+                total: novoTotal.toFixed(2),
+                limiteExtraAoPagar: Math.max(0, Number(faturaAtual.limiteExtraAoPagar ?? 0) - Number(antecipacao.desconto)).toFixed(2),
+                updatedAt: new Date(),
+              }).where(eq(faturas.id, faturaAtual.id));
+            }
+          }
+        } else {
+          // Já tratada pelo loop normal — só falta zerar o limiteExtraAoPagar
+          const [faturaAtual] = await db.select().from(faturas)
+            .where(and(eq(faturas.id, antecipacao.faturaAtualId), eq(faturas.userId, userId)))
+            .limit(1);
+          if (faturaAtual) {
+            await db.update(faturas).set({
+              limiteExtraAoPagar: Math.max(0, Number(faturaAtual.limiteExtraAoPagar ?? 0) - Number(antecipacao.desconto)).toFixed(2),
+              updatedAt: new Date(),
+            }).where(eq(faturas.id, faturaAtual.id));
+          }
+        }
+
+        await db.delete(antecipacoesParcela).where(eq(antecipacoesParcela.id, antecipacao.id));
       }
     }
 
