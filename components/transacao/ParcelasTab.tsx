@@ -35,6 +35,10 @@ interface GrupoParcelamento {
   porcentagem: number;
   parcelasRestantes: number;
   valorRestante: number;
+  // ✅ NOVO: true quando já existe uma antecipação pendente pra esse
+  // parcelamento — desabilita Editar/Excluir/Antecipar até o usuário
+  // desfazer a antecipação existente primeiro
+  bloqueado: boolean;
 }
 
 // Card "órfão" — parcelamento totalmente antecipado, sem nenhuma
@@ -160,6 +164,7 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
         porcentagem,
         parcelasRestantes: parcelasFuturas.length,
         valorRestante: parcelasFuturas.length * valorParcela,
+        bloqueado: false, // placeholder — valor real definido logo abaixo
       };
     });
 
@@ -173,7 +178,9 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
 
     return todos
       .filter((g) => g.parcelasRestantes > 0 || parcelamentosComAntecipacaoPendente.has(g.chave))
-      .sort((a, b) => b.porcentagem - a.porcentagem);
+      .sort((a, b) => b.porcentagem - a.porcentagem)
+      // ✅ NOVO: marca cada grupo se está bloqueado por antecipação pendente
+      .map((g) => ({ ...g, bloqueado: parcelamentosComAntecipacaoPendente.has(g.chave) }));
   }, [transacoes, hoje, todasAntecipacoes]);
 
   // Antecipações "órfãs" — parcelamentos totalmente antecipados (todas as
@@ -316,12 +323,20 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
 
               <AntecipacoesDoParcelamento parcelamentoId={g.chave} />
 
+              {g.bloqueado && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                  Desfaça a antecipação pendente pra editar, antecipar de novo ou excluir
+                </p>
+              )}
+
               <div className="flex items-center gap-2 pt-1">
                 <Button
                   variant="outline"
                   size="sm"
                   className="flex-1 h-8 text-xs"
                   onClick={() => onEditar(g.representante)}
+                  disabled={g.bloqueado}
                 >
                   <Pencil className="w-3 h-3 mr-1.5" />
                   Editar
@@ -331,6 +346,7 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
                   size="sm"
                   className="flex-1 h-8 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
                   onClick={() => abrirAntecipar(g)}
+                  disabled={g.bloqueado}
                 >
                   <FastForward className="w-3 h-3 mr-1.5" />
                   Antecipar
@@ -340,6 +356,7 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
                   size="sm"
                   className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                   onClick={() => onExcluir(g.representante)}
+                  disabled={g.bloqueado}
                 >
                   <Trash2 className="w-3 h-3" />
                 </Button>

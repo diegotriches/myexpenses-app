@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, contas, extratoConta, cartoes, faturas, antecipacoesParcela } from "@/db/schema";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { or, eq, and, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
@@ -75,6 +75,29 @@ async function atualizarExtratoESaldo(transacaoAntiga: typeof transacoes.$inferS
   }
 }
 
+async function buscarAntecipacaoBloqueante(
+  userId: string,
+  transacao: { id: string; parcelamentoId: string | null }
+) {
+  const condicoesOr = [eq(antecipacoesParcela.transacaoSinteticaId, transacao.id)];
+  if (transacao.parcelamentoId) {
+    condicoesOr.push(eq(antecipacoesParcela.parcelamentoId, transacao.parcelamentoId));
+  }
+
+  const candidatas = await db.select().from(antecipacoesParcela)
+    .where(and(eq(antecipacoesParcela.userId, userId), or(...condicoesOr)));
+
+  for (const a of candidatas) {
+    const [fatura] = await db.select({ paga: faturas.paga }).from(faturas)
+      .where(eq(faturas.id, a.faturaAtualId)).limit(1);
+    if (fatura && !fatura.paga) return a; // bloqueado
+  }
+  return null;
+}
+
+const MSG_BLOQUEIO_EDITAR  = "Esta transação faz parte de uma antecipação pendente. Desfaça a antecipação na aba Parcelas antes de editar.";
+const MSG_BLOQUEIO_EXCLUIR = "Esta transação faz parte de uma antecipação pendente. Desfaça a antecipação na aba Parcelas antes de excluir.";
+
 // ── PUT ───────────────────────────────────────────────────────────────────────
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -96,13 +119,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId))).limit(1);
       if (!transacaoExistente) return NextResponse.json({ error: "Transação não encontrada" }, { status: 404 });
 
+      // ✅ NOVO: bloqueia edição se houver antecipação pendente
+      const bloqueio = await buscarAntecipacaoBloqueante(userId, transacaoExistente);
+      if (bloqueio) return NextResponse.json({ error: MSG_BLOQUEIO_EDITAR }, { status: 400 });
+
       const dataParaAtualizar = json.data ? new Date(json.data) : new Date(transacaoExistente.data);
       const isParcelado   = json.parcelado  === true;
       const isRecorrente  = json.recorrente === true;
       const eraParcelado  = transacaoExistente.parcelado  === true;
       const eraRecorrente = transacaoExistente.recorrente === true;
 
-      // à vista → parcelado
       if (isParcelado && !eraParcelado) {
         await reverterExtratoESaldo(transacaoExistente, userId);
 
@@ -119,7 +145,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         return NextResponse.json({ parcela1, novasParcelas, parcelamentoId, totalParcelas });
       }
 
-      // à vista → recorrente
       if (isRecorrente && !eraRecorrente) {
         await reverterExtratoESaldo(transacaoExistente, userId);
 
@@ -135,7 +160,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         return NextResponse.json({ repeticao1, novasRepeticoes, recorrenciaId, totalRepeticoes });
       }
 
-      // única ocorrência de recorrência → à vista
       if (eraRecorrente && !isRecorrente) {
         await reverterExtratoESaldo(transacaoExistente, userId);
         await db.delete(transacoes).where(and(eq(transacoes.id, id), eq(transacoes.userId, userId)));
@@ -144,7 +168,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         return NextResponse.json({ novaTransacao, ocorrenciaOriginalId: id });
       }
 
-      // edição simples
       const parcelamentoId = isParcelado  ? (transacaoExistente.parcelamentoId || crypto.randomUUID()) : null;
       const recorrenciaId  = isRecorrente ? (transacaoExistente.recorrenciaId  || crypto.randomUUID()) : null;
       const [updated] = await db.update(transacoes).set({ tipo: json.tipo, descricao: json.descricao, valor: String(json.valor), data: dataParaAtualizar, categoria: json.categoria, contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null), formaPagamento: json.formaPagamento, cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null, estabelecimentoId, parcelado: isParcelado, parcelas: isParcelado ? (json.parcelas ?? null) : null, parcelaAtual: isParcelado ? (transacaoExistente.parcelaAtual ?? 1) : null, parcelamentoId, recorrente: isRecorrente, repeticoes: isRecorrente ? (json.repeticoes ?? null) : null, recorrenciaId, updatedAt: new Date() }).where(and(eq(transacoes.id, id), eq(transacoes.userId, userId))).returning();
@@ -155,6 +178,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     // ── TODAS AS PARCELAS ────────────────────────────────────────────────────
     if (modoEdicao === "todas_parcelas") {
       if (!json.parcelamentoId) return NextResponse.json({ error: "parcelamentoId é obrigatório" }, { status: 400 });
+
+      // ✅ NOVO: bloqueia edição do grupo inteiro se houver antecipação pendente
+      const bloqueioGrupo = await buscarAntecipacaoBloqueante(userId, { id: "", parcelamentoId: json.parcelamentoId });
+      if (bloqueioGrupo) return NextResponse.json({ error: MSG_BLOQUEIO_EDITAR }, { status: 400 });
 
       const transacoesParceladas = await db.select().from(transacoes)
         .where(and(eq(transacoes.parcelamentoId, json.parcelamentoId), eq(transacoes.userId, userId)))
@@ -176,7 +203,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         );
       }
 
-      // Quantas parcelas futuras devem existir depois da edição
       const totalFuturasNovo = totalParcelasNovo - parcelasPassadas.length;
       const valorParcela     = Number(json.valor) / totalParcelasNovo;
       const quantidadeManterFuturas = Math.min(parcelasFuturasAtuais.length, totalFuturasNovo);
@@ -278,9 +304,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 // ── DELETE ─────────────────────────────────────────────────────────────────
-//
-// ⚠️ Lembrete: import de "@/db/schema" precisa incluir `antecipacoesParcela`
-// junto com transacoes, contas, extratoConta, cartoes, faturas.
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -299,6 +322,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (!mov) return NextResponse.json({ error: "Transação não encontrada" }, { status: 404 });
     if (mov.transferenciaId) return NextResponse.json({ error: "Esta transação faz parte de uma transferência." }, { status: 400 });
 
+    // ✅ NOVO: bloqueia exclusão (única ou do grupo inteiro) se houver
+    // antecipação pendente vinculada a esta transação ou ao parcelamento
+    const bloqueio = await buscarAntecipacaoBloqueante(userId, mov);
+    if (bloqueio) return NextResponse.json({ error: MSG_BLOQUEIO_EXCLUIR }, { status: 400 });
+
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
 
@@ -314,11 +342,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         .where(and(eq(transacoes.recorrenciaId, mov.recorrenciaId), eq(transacoes.userId, userId)));
       transacoesParaDeletar = todasDoGrupo.filter((t) => new Date(t.data) > hoje);
     }
-
-    // ✅ Ids das transações que vão ser deletadas pelo fluxo normal abaixo —
-    // usado depois pra saber se uma antecipação mesclada já vai ser
-    // resolvida por esse delete "normal" ou se precisa de tratamento à parte
-    const idsSeraoDeletados = new Set(transacoesParaDeletar.map((t) => t.id));
 
     for (const transacao of transacoesParaDeletar) {
       const valor = Number(transacao.valor);
@@ -343,25 +366,23 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       }
     }
 
-    // ✅ Limpeza de antecipações vinculadas ao parcelamento excluído — cada
-    // uma tratada de acordo com se foi mesclada numa parcela ou não
+    // Nota: como agora a exclusão de um parcelamento inteiro é bloqueada
+    // enquanto existir antecipação pendente (o usuário precisa desfazer
+    // primeiro), este bloco de limpeza de antecipações órfãs deixa de ser
+    // alcançável no fluxo normal — mantido como rede de segurança pra
+    // qualquer antecipação que já esteja com a fatura paga (não bloqueada
+    // pela checagem acima) mas ainda vinculada ao grupo sendo excluído.
     if (tipo === "todas_parcelas" && mov.parcelamentoId) {
       const antecipacoesDoGrupo = await db.select().from(antecipacoesParcela)
         .where(and(eq(antecipacoesParcela.parcelamentoId, mov.parcelamentoId), eq(antecipacoesParcela.userId, userId)));
 
+      const idsSeraoDeletados = new Set(transacoesParaDeletar.map((t) => t.id));
+
       for (const antecipacao of antecipacoesDoGrupo) {
         const foiMesclada = antecipacao.valorOriginalTransacaoMesclada !== null;
-        // Se foi mesclada E a linha mesclada está entre as que já serão
-        // deletadas pelo loop normal acima, o valor de face inteiro dela
-        // (que já inclui a parte antecipada) já foi revertido da fatura
-        // pelo loop de cima — não precisa reverter de novo, só limpar o
-        // limiteExtraAoPagar (o desconto), que não é rastreado por transação.
         const linhaJaTratada = foiMesclada && idsSeraoDeletados.has(antecipacao.transacaoSinteticaId);
 
         if (!linhaJaTratada) {
-          // Não mesclada (linha própria) — ou mesclada mas a linha
-          // sobreviveu à exclusão (já ocorreu, é histórico protegido):
-          // reverte o valor antecipado da fatura atual manualmente.
           if (!foiMesclada) {
             await db.delete(transacoes)
               .where(and(eq(transacoes.id, antecipacao.transacaoSinteticaId), eq(transacoes.userId, userId)));
@@ -382,7 +403,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
             }
           }
         } else {
-          // Já tratada pelo loop normal — só falta zerar o limiteExtraAoPagar
           const [faturaAtual] = await db.select().from(faturas)
             .where(and(eq(faturas.id, antecipacao.faturaAtualId), eq(faturas.userId, userId)))
             .limit(1);

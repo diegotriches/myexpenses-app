@@ -35,16 +35,20 @@ import {
   ArrowLeftRight,
   Building2,
   Store,
-  MapPin,
+  Lock,
 } from "lucide-react";
 
 interface Props {
   mov: Transacao;
   cartao: Cartao | null;
-  estabelecimento?: Estabelecimento | null; // ✅ NOVO
+  estabelecimento?: Estabelecimento | null;
   onEditar: () => void;
   onExcluir: () => void;
   viewMode?: "table" | "card";
+  // ✅ NOVO: true quando a transação faz parte de uma antecipação
+  // pendente (fatura ainda não paga) — bloqueia editar/excluir até o
+  // usuário desfazer a antecipação na aba Parcelas
+  bloqueada?: boolean;
 }
 
 const formaPagamentoConfig = {
@@ -54,6 +58,8 @@ const formaPagamentoConfig = {
   transferencia: { icon: ArrowLeftRight, label: "Transferência", color: "text-blue-600 dark:text-blue-400"   },
 };
 
+const MOTIVO_BLOQUEIO = "Faz parte de uma antecipação pendente — desfaça na aba Parcelas primeiro";
+
 export default function MovimentacaoLinha({
   mov,
   cartao,
@@ -61,6 +67,7 @@ export default function MovimentacaoLinha({
   onEditar,
   onExcluir,
   viewMode = "table",
+  bloqueada = false,
 }: Props) {
   const { data: categorias = [] } = useCategorias();
   const { data: contas = [] }     = useContas();
@@ -85,7 +92,6 @@ export default function MovimentacaoLinha({
     ? iconOptions.find((i) => i.name === categoriaObj.icone)?.component
     : null;
 
-  // ✅ NOVO: ícone do estabelecimento
   const EstabIconComp = estabelecimento
     ? iconOptions.find((i) => i.name === estabelecimento.icone)?.component
     : null;
@@ -158,6 +164,45 @@ export default function MovimentacaoLinha({
     return null;
   };
 
+  // ✅ NOVO: menu de ações — os dois itens ficam desabilitados quando
+  // `bloqueada`, com um aviso explicando o motivo em vez do menu normal
+  const AcoesMenu = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost" size="sm"
+          className={`h-8 w-8 p-0 dark:hover:bg-gray-700 ${viewMode === "card" ? "ml-2" : ""} flex-shrink-0`}
+          title={bloqueada ? MOTIVO_BLOQUEIO : undefined}
+        >
+          {bloqueada ? <Lock className="h-4 w-4 text-amber-500" /> : <MoreVertical className="h-4 w-4" />}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="dark:bg-gray-800 dark:border-gray-700">
+        {bloqueada && (
+          <div className="px-2 py-1.5 text-xs text-amber-700 dark:text-amber-400 max-w-[220px] leading-snug">
+            {MOTIVO_BLOQUEIO}
+          </div>
+        )}
+        {!isTransferencia && (
+          <DropdownMenuItem
+            onClick={onEditar}
+            disabled={bloqueada}
+            className="cursor-pointer dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Edit className="w-4 h-4 mr-2" />Editar
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem
+          onClick={onExcluir}
+          disabled={bloqueada}
+          className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Trash2 className="w-4 h-4 mr-2" />{isTransferencia ? "Excluir transferência" : "Excluir"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   // ── MOBILE: card ──────────────────────────────────────────────────────────
   if (viewMode === "card") {
     return (
@@ -181,28 +226,17 @@ export default function MovimentacaoLinha({
                     <ArrowDownCircle className="w-3 h-3 mr-1" />Despesa
                   </Badge>
                 )}
+                {bloqueada && (
+                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+                    <Lock className="w-3 h-3 mr-1" />Antecipada
+                  </Badge>
+                )}
               </div>
               <h3 className="font-semibold text-gray-900 dark:text-white text-base line-clamp-2">
                 {isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}
               </h3>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 dark:hover:bg-gray-700 ml-2 flex-shrink-0">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="dark:bg-gray-800 dark:border-gray-700">
-                {!isTransferencia && (
-                  <DropdownMenuItem onClick={onEditar} className="cursor-pointer dark:hover:bg-gray-700">
-                    <Edit className="w-4 h-4 mr-2" />Editar
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={onExcluir} className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 dark:hover:bg-gray-700">
-                  <Trash2 className="w-4 h-4 mr-2" />{isTransferencia ? "Excluir transferência" : "Excluir"}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <AcoesMenu />
           </div>
 
           <div className={`text-2xl font-bold mb-3 ${mov.tipo === "entrada" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
@@ -244,7 +278,6 @@ export default function MovimentacaoLinha({
             )}
             <ContaOuCartaoBlock />
 
-            {/* ✅ NOVO: estabelecimento no mobile */}
             {estabelecimento && (
               <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-700">
                 <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
@@ -277,8 +310,15 @@ export default function MovimentacaoLinha({
         {formatarDataParaExibicao(mov.data)}
       </td>
       <td className="px-3 py-3 text-sm text-gray-900 dark:text-gray-100 w-0 min-w-0" style={{ maxWidth: 0 }}>
-        <div className="truncate" title={isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}>
-          {isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}
+        <div className="flex items-center gap-1.5">
+          <div className="truncate" title={isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}>
+            {isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}
+          </div>
+          {bloqueada && (
+            <span title={MOTIVO_BLOQUEIO} className="flex-shrink-0">
+              <Lock className="w-3 h-3 text-amber-500" />
+            </span>
+          )}
         </div>
       </td>
       <td className="px-2 py-3 text-center">
@@ -336,7 +376,6 @@ export default function MovimentacaoLinha({
         <ContaOuCartaoCell />
       </td>
 
-      {/* ✅ NOVO: coluna Estabelecimento */}
       <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
         {estabelecimento ? (
           <div className="flex items-center gap-1.5 max-w-[110px]">
@@ -352,23 +391,7 @@ export default function MovimentacaoLinha({
       </td>
 
       <td className="px-3 py-3 text-center">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 dark:hover:bg-gray-700">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="dark:bg-gray-800 dark:border-gray-700">
-            {!isTransferencia && (
-              <DropdownMenuItem onClick={onEditar} className="cursor-pointer dark:hover:bg-gray-700">
-                <Edit className="w-4 h-4 mr-2" />Editar
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onClick={onExcluir} className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 dark:hover:bg-gray-700">
-              <Trash2 className="w-4 h-4 mr-2" />{isTransferencia ? "Excluir transferência" : "Excluir"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <AcoesMenu />
       </td>
     </tr>
   );

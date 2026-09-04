@@ -14,10 +14,15 @@ export interface AntecipacaoResultado {
 export interface AntecipacaoRegistro {
   id: string;
   parcelamentoId: string;
+  cartaoId: number;
+  faturaAtualId: number;
+  transacaoSinteticaId: string;
+  valorOriginalTransacaoMesclada: string | null;
   quantidadeAntecipada: number;
   valorFaceAntecipado: string;
   desconto: string;
   valorComDesconto: string;
+  totalParcelasOriginal: number;
   createdAt: string;
   podeDesfazer: boolean;
   parcelasRemovidas: Array<{

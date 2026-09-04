@@ -13,6 +13,10 @@ interface Props {
   cartoes: Cartao[];
   onEditar: (mov: Transacao) => void;
   onExcluir: (mov: Transacao) => void;
+  // ✅ NOVO: função opcional que decide se uma transação está bloqueada
+  // (faz parte de uma antecipação pendente) — repassada pra cada
+  // MovimentacaoLinha pra desabilitar editar/excluir
+  isBloqueada?: (mov: Transacao) => boolean;
 }
 
 export default function MovimentacaoTabela({
@@ -21,8 +25,8 @@ export default function MovimentacaoTabela({
   cartoes,
   onEditar,
   onExcluir,
+  isBloqueada,
 }: Props) {
-  // ✅ NOVO: carrega estabelecimentos para lookup por ID
   const { data: estabelecimentos = [] } = useEstabelecimentos();
 
   if (loading) {
@@ -77,6 +81,7 @@ export default function MovimentacaoTabela({
               onEditar={() => onEditar(mov)}
               onExcluir={() => onExcluir(mov)}
               viewMode="card"
+              bloqueada={isBloqueada ? isBloqueada(mov) : false}
             />
           );
         })}
@@ -140,6 +145,7 @@ export default function MovimentacaoTabela({
                       onEditar={() => onEditar(mov)}
                       onExcluir={() => onExcluir(mov)}
                       viewMode="table"
+                      bloqueada={isBloqueada ? isBloqueada(mov) : false}
                     />
                   );
                 })}

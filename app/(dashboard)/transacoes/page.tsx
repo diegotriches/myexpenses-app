@@ -14,7 +14,6 @@ import ConfirmarEdicaoModal from "@/components/transacao/ConfirmarEdicaoModal";
 import ConfirmarExclusaoModal from "@/components/transacao/ConfirmarExclusaoModal";
 import FaturaFechadaModal from "@/components/transacao/FaturaFechadaModal";
 import FiltrosMovimentacoes, { FiltrosState } from "@/components/transacao/FiltrosMovimentacoes";
-// ✅ NOVO
 import RecorrenciasTab from "@/components/transacao/RecorrenciasTab";
 import ParcelasTab from "@/components/transacao/ParcelasTab";
 
@@ -24,8 +23,10 @@ import {
   useAtualizarTransacao,
   useExcluirTransacao,
 } from "@/hooks/useTransacoes";
-// ✅ NOVO
 import { useCriarRecorrencia } from "@/hooks/useRecorrencias";
+// ✅ NOVO
+import { useTodasAntecipacoes } from "@/hooks/useParcelamentos";
+import { useToast } from "@/hooks/use-toast";
 import { useCartoes } from "@/hooks/useCartoes";
 import { useContas } from "@/hooks/useContas";
 import { Transacao, ModoEdicao } from "@/types/transacao";
@@ -34,6 +35,7 @@ import { useFaturas } from "@/hooks/useFaturas";
 
 export default function TransacoesPage() {
   const router = useRouter();
+  const { toast } = useToast();
 
   const { data: transacoes = [], isLoading: loadingTransacoes } = useTransacoes();
   const { data: cartoes    = [], isLoading: loadingCartoes    } = useCartoes();
@@ -43,8 +45,11 @@ export default function TransacoesPage() {
   const criarTransacao     = useCriarTransacao();
   const atualizarTransacao = useAtualizarTransacao();
   const excluirTransacao   = useExcluirTransacao();
-  // ✅ NOVO
   const criarRecorrencia   = useCriarRecorrencia();
+
+  // ✅ NOVO: usado pra calcular quais transações estão bloqueadas (fazem
+  // parte de uma antecipação pendente — fatura ainda não paga)
+  const { data: todasAntecipacoes = [] } = useTodasAntecipacoes();
 
   const [openModal,          setOpenModal]          = useState(false);
   const [editando,           setEditando]           = useState<Transacao | null>(null);
@@ -65,6 +70,26 @@ export default function TransacoesPage() {
   });
 
   const temContasAtivas = useMemo(() => contas.some((c) => c.ativo), [contas]);
+
+  // ✅ NOVO: conjuntos de parcelamentoId e transacaoSinteticaId bloqueados
+  // por antecipação pendente — mesma lógica já usada na aba Parcelas, só
+  // que aqui aplicada à tabela de Movimentações. Como os dois lugares
+  // consultam a mesma query (useTodasAntecipacoes), ficam sempre
+  // sincronizados automaticamente via cache do React Query.
+  const parcelamentosBloqueados = useMemo(
+    () => new Set(todasAntecipacoes.filter((a) => a.podeDesfazer).map((a) => a.parcelamentoId)),
+    [todasAntecipacoes]
+  );
+  const transacoesSinteticasBloqueadas = useMemo(
+    () => new Set(todasAntecipacoes.filter((a) => a.podeDesfazer).map((a) => a.transacaoSinteticaId)),
+    [todasAntecipacoes]
+  );
+
+  function isBloqueada(mov: Transacao): boolean {
+    if (mov.parcelamentoId && parcelamentosBloqueados.has(mov.parcelamentoId)) return true;
+    if (transacoesSinteticasBloqueadas.has(mov.id)) return true;
+    return false;
+  }
 
   const movimentacoesFiltradas = useMemo(() => {
     return transacoes.filter((mov) => {
@@ -123,14 +148,19 @@ export default function TransacoesPage() {
   }
 
   async function editarItem(mov: Transacao) {
+    // ✅ NOVO: trava extra além da UI desabilitada — se por algum motivo o
+    // clique chegar aqui mesmo assim, barra e explica o motivo
+    if (isBloqueada(mov)) {
+      toast({
+        title: "Não é possível editar",
+        description: "Esta transação faz parte de uma antecipação pendente. Desfaça a antecipação na aba Parcelas primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (await faturaParcelaEstaBloqueada(mov)) { setModalFaturaFechada(true); return; }
     const isParcelada  = !!mov.parcelamentoId;
-    // Nota: transações geradas pelo NOVO modelo de recorrência (via
-    // origemRecorrenciaId) não têm o campo legado recorrenciaId preenchido,
-    // então isRecorrente aqui só é true para o modelo antigo — o que já é
-    // o comportamento certo: editar uma ocorrência do modelo novo edita só
-    // aquela transação, já que o template (repetição futura) vive em
-    // /api/recorrencias, não nesta linha.
     const isRecorrente = !!mov.recorrenciaId;
     setEditando(mov);
     if (isParcelada) { setTipoEdicao("todas_parcelas"); setOpenModal(true); }
@@ -139,6 +169,15 @@ export default function TransacoesPage() {
   }
 
   function confirmarExclusao(mov: Transacao) {
+    // ✅ NOVO: mesma trava, aplicada à exclusão
+    if (isBloqueada(mov)) {
+      toast({
+        title: "Não é possível excluir",
+        description: "Esta transação faz parte de uma antecipação pendente. Desfaça a antecipação na aba Parcelas primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
     setItemExcluir(mov);
     setModalExcluir(true);
   }
@@ -179,8 +218,6 @@ export default function TransacoesPage() {
     }
   }
 
-  // ✅ NOVO: caminho de criação de recorrência, separado do handleSalvar
-  // acima (que só lida com transações regulares/parceladas)
   async function handleSalvarRecorrencia(dados: any) {
     try {
       await criarRecorrencia.mutateAsync(dados);
@@ -298,6 +335,7 @@ export default function TransacoesPage() {
               cartoes={cartoes}
               onEditar={editarItem}
               onExcluir={confirmarExclusao}
+              isBloqueada={isBloqueada}
             />
           </TabsContent>
 
