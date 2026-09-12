@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { calcularFaturaDaTransacao, proximaFaturaAberta } from "@/utils/faturaUtils";
+import { calcularFaturaDaTransacao, proximaFaturaAberta, faturaEstaFechada } from "@/utils/faturaUtils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,7 +25,6 @@ export async function GET(req: NextRequest) {
       const fimMes    = new Date(anoNum, mesNum, 1);
       filtros.push(sql`${transacoes.data} >= ${inicioMes} AND ${transacoes.data} < ${fimMes}`);
     } else if (periodoMeses) {
-      // Mesma âncora usada nos cards do dashboard: últimos N meses a partir de hoje
       const numMeses = parseInt(periodoMeses);
       if (!isNaN(numMeses) && numMeses > 0 && numMeses <= 24) {
         const hoje = new Date();
@@ -48,6 +47,32 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// ✅ NOVO: verifica se uma despesa no cartão de crédito pode ser lançada
+// na data informada — bloqueia se a fatura correspondente já estiver
+// fechada (passou do dia de fechamento) OU já estiver paga.
+async function verificarFaturaAberta(
+  userId: string,
+  cartaoId: number,
+  diaFechamento: number,
+  dataTransacao: string | Date
+): Promise<{ bloqueado: boolean; motivo?: string; mes: number; ano: number }> {
+  const { mes, ano } = calcularFaturaDaTransacao(dataTransacao as string, diaFechamento);
+
+  if (faturaEstaFechada(mes, ano, diaFechamento)) {
+    return { bloqueado: true, motivo: `A fatura de ${String(mes).padStart(2, "0")}/${ano} já está fechada`, mes, ano };
+  }
+
+  const [faturaExistente] = await db.select({ paga: faturas.paga }).from(faturas)
+    .where(and(eq(faturas.cartaoId, cartaoId), eq(faturas.userId, userId), eq(faturas.mes, mes), eq(faturas.ano, ano)))
+    .limit(1);
+
+  if (faturaExistente?.paga) {
+    return { bloqueado: true, motivo: `A fatura de ${String(mes).padStart(2, "0")}/${ano} já está paga`, mes, ano };
+  }
+
+  return { bloqueado: false, mes, ano };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const userId = await getUserId();
@@ -56,11 +81,9 @@ export async function POST(req: NextRequest) {
     const json            = await req.json();
     const transacoesArray = Array.isArray(json) ? json : [json];
 
-    const isParcelas   = transacoesArray.length > 1 && transacoesArray[0].parcelado  === true;
-    const isRecorrencia = transacoesArray.length > 1 && transacoesArray[0].recorrente === true;
+    const isParcelas    = transacoesArray.length > 1 && transacoesArray[0].parcelado  === true;
 
-    const parcelamentoId = isParcelas    ? crypto.randomUUID() : null;
-    const recorrenciaId  = isRecorrencia ? crypto.randomUUID() : null;
+    const parcelamentoId = isParcelas ? crypto.randomUUID() : null;
 
     const transacoesCriadas = [];
 
@@ -123,8 +146,20 @@ export async function POST(req: NextRequest) {
           contaParaDebito = conta;
         }
 
-        if (cartao.tipo === "credito" && trans.tipo === "saida" && Number(cartao.limiteDisponivel) < valorNum)
-          return NextResponse.json({ error: "Limite insuficiente no cartão de crédito" }, { status: 400 });
+        if (cartao.tipo === "credito" && trans.tipo === "saida") {
+          if (Number(cartao.limiteDisponivel) < valorNum)
+            return NextResponse.json({ error: "Limite insuficiente no cartão de crédito" }, { status: 400 });
+
+          // ✅ NOVO: bloqueia lançamento numa fatura já fechada ou já paga
+          const diaFechamento = cartao.diaFechamento || 1;
+          const verificacao = await verificarFaturaAberta(userId, cartao.id, diaFechamento, trans.data);
+          if (verificacao.bloqueado) {
+            return NextResponse.json(
+              { error: `${verificacao.motivo}. Escolha uma data cuja fatura ainda esteja aberta.` },
+              { status: 400 }
+            );
+          }
+        }
       }
 
       // ── Criar transação ───────────────────────────────────────────────────
@@ -142,13 +177,13 @@ export async function POST(req: NextRequest) {
         estabelecimentoId: trans.estabelecimentoId || null,
 
         parcelado:      isParcelas,
-        parcelamentoId: isParcelas    ? parcelamentoId : null,
-        parcelas:       isParcelas    ? transacoesArray.length : null,
-        parcelaAtual:   isParcelas    ? index + 1 : null,
+        parcelamentoId: isParcelas ? parcelamentoId : null,
+        parcelas:       isParcelas ? transacoesArray.length : null,
+        parcelaAtual:   isParcelas ? index + 1 : null,
 
-        recorrente:     isRecorrencia,
-        recorrenciaId:  isRecorrencia ? recorrenciaId : null,
-        repeticoes:     isRecorrencia ? transacoesArray.length : null,
+        recorrente:     false,
+        recorrenciaId:  null,
+        repeticoes:     null,
       }).returning();
 
       transacoesCriadas.push(novaTransacao);

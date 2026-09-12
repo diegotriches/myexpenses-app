@@ -4,9 +4,9 @@ import { db } from "@/db";
 import { transacoes, contas, extratoConta, cartoes, faturas, antecipacoesParcela } from "@/db/schema";
 import { or, eq, and, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
+import { calcularFaturaDaTransacao, faturaEstaFechada } from "@/utils/faturaUtils";
 
-// ── helpers financeiros (inalterados) ────────────────────────────────────────
+// ── helpers financeiros ────────────────────────────────────────
 
 async function processarExtratoESaldo(transacao: typeof transacoes.$inferSelect, userId: string) {
   const valorNum = Number(transacao.valor);
@@ -98,6 +98,35 @@ async function buscarAntecipacaoBloqueante(
 const MSG_BLOQUEIO_EDITAR  = "Esta transação faz parte de uma antecipação pendente. Desfaça a antecipação na aba Parcelas antes de editar.";
 const MSG_BLOQUEIO_EXCLUIR = "Esta transação faz parte de uma antecipação pendente. Desfaça a antecipação na aba Parcelas antes de excluir.";
 
+// ── Adicionar ao import de "@/utils/faturaUtils": faturaEstaFechada
+// (junto com calcularFaturaDaTransacao)
+//
+// ── Adicionar este helper no arquivo (mesmo formato do usado em
+// app/api/transacoes/route.ts):
+
+async function verificarFaturaAberta(
+  userId: string,
+  cartaoId: number,
+  diaFechamento: number,
+  dataTransacao: string | Date
+): Promise<{ bloqueado: boolean; motivo?: string }> {
+  const { mes, ano } = calcularFaturaDaTransacao(dataTransacao as string, diaFechamento);
+
+  if (faturaEstaFechada(mes, ano, diaFechamento)) {
+    return { bloqueado: true, motivo: `A fatura de ${String(mes).padStart(2, "0")}/${ano} já está fechada` };
+  }
+
+  const [faturaExistente] = await db.select({ paga: faturas.paga }).from(faturas)
+    .where(and(eq(faturas.cartaoId, cartaoId), eq(faturas.userId, userId), eq(faturas.mes, mes), eq(faturas.ano, ano)))
+    .limit(1);
+
+  if (faturaExistente?.paga) {
+    return { bloqueado: true, motivo: `A fatura de ${String(mes).padStart(2, "0")}/${ano} já está paga` };
+  }
+
+  return { bloqueado: false };
+}
+
 // ── PUT ───────────────────────────────────────────────────────────────────────
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -119,15 +148,34 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId))).limit(1);
       if (!transacaoExistente) return NextResponse.json({ error: "Transação não encontrada" }, { status: 404 });
 
-      // ✅ NOVO: bloqueia edição se houver antecipação pendente
-      const bloqueio = await buscarAntecipacaoBloqueante(userId, transacaoExistente);
-      if (bloqueio) return NextResponse.json({ error: MSG_BLOQUEIO_EDITAR }, { status: 400 });
+      const bloqueioAntecipacao = await buscarAntecipacaoBloqueante(userId, transacaoExistente);
+      if (bloqueioAntecipacao) return NextResponse.json({ error: MSG_BLOQUEIO_EDITAR }, { status: 400 });
 
       const dataParaAtualizar = json.data ? new Date(json.data) : new Date(transacaoExistente.data);
       const isParcelado   = json.parcelado  === true;
       const isRecorrente  = json.recorrente === true;
       const eraParcelado  = transacaoExistente.parcelado  === true;
       const eraRecorrente = transacaoExistente.recorrente === true;
+
+      // ✅ NOVO: bloqueia se o resultado da edição é uma despesa no cartão
+      // de crédito numa data cuja fatura já está fechada ou paga. Vale
+      // pra edição simples e pra conversão à vista → parcelado (a primeira
+      // parcela usa a mesma data escolhida no formulário).
+      const vaiParaCartaoCredito = json.formaPagamento === "cartao" && json.tipo === "saida" && json.cartaoId;
+      if (vaiParaCartaoCredito) {
+        const [cartaoDestino] = await db.select().from(cartoes)
+          .where(and(eq(cartoes.id, Number(json.cartaoId)), eq(cartoes.userId, userId))).limit(1);
+        if (cartaoDestino && cartaoDestino.tipo === "credito") {
+          const diaFechamento = cartaoDestino.diaFechamento || 1;
+          const verificacao = await verificarFaturaAberta(userId, cartaoDestino.id, diaFechamento, dataParaAtualizar);
+          if (verificacao.bloqueado) {
+            return NextResponse.json(
+              { error: `${verificacao.motivo}. Escolha uma data cuja fatura ainda esteja aberta.` },
+              { status: 400 }
+            );
+          }
+        }
+      }
 
       if (isParcelado && !eraParcelado) {
         await reverterExtratoESaldo(transacaoExistente, userId);
@@ -168,6 +216,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         return NextResponse.json({ novaTransacao, ocorrenciaOriginalId: id });
       }
 
+      // edição simples
       const parcelamentoId = isParcelado  ? (transacaoExistente.parcelamentoId || crypto.randomUUID()) : null;
       const recorrenciaId  = isRecorrente ? (transacaoExistente.recorrenciaId  || crypto.randomUUID()) : null;
       const [updated] = await db.update(transacoes).set({ tipo: json.tipo, descricao: json.descricao, valor: String(json.valor), data: dataParaAtualizar, categoria: json.categoria, contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null), formaPagamento: json.formaPagamento, cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null, estabelecimentoId, parcelado: isParcelado, parcelas: isParcelado ? (json.parcelas ?? null) : null, parcelaAtual: isParcelado ? (transacaoExistente.parcelaAtual ?? 1) : null, parcelamentoId, recorrente: isRecorrente, repeticoes: isRecorrente ? (json.repeticoes ?? null) : null, recorrenciaId, updatedAt: new Date() }).where(and(eq(transacoes.id, id), eq(transacoes.userId, userId))).returning();
@@ -179,7 +228,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (modoEdicao === "todas_parcelas") {
       if (!json.parcelamentoId) return NextResponse.json({ error: "parcelamentoId é obrigatório" }, { status: 400 });
 
-      // ✅ NOVO: bloqueia edição do grupo inteiro se houver antecipação pendente
       const bloqueioGrupo = await buscarAntecipacaoBloqueante(userId, { id: "", parcelamentoId: json.parcelamentoId });
       if (bloqueioGrupo) return NextResponse.json({ error: MSG_BLOQUEIO_EDITAR }, { status: 400 });
 
