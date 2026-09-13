@@ -9,7 +9,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Edit, Trash2, MapPin, Receipt, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  MoreVertical,
+  Edit,
+  Trash2,
+  MapPin,
+  Receipt,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { iconOptions } from "@/utils/iconOptions";
 import { Estabelecimento } from "@/types/estabelecimento";
 import { useHideValues } from "@/contexts/HideValuesContext";
@@ -21,19 +29,27 @@ type Props = {
 };
 
 const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    valor,
+  );
 
-export default function EstabelecimentoCard({ estabelecimento, onEditar, onExcluir }: Props) {
+export default function EstabelecimentoCard({
+  estabelecimento,
+  onEditar,
+  onExcluir,
+}: Props) {
   const { mask } = useHideValues();
-  const IconComp = iconOptions.find((i) => i.name === estabelecimento.icone)?.component || null;
+  const IconComp =
+    iconOptions.find((i) => i.name === estabelecimento.icone)?.component ||
+    null;
 
-  const totalEntrada    = estabelecimento.totalEntrada    ?? 0;
-  const totalSaida      = estabelecimento.totalSaida      ?? 0;
+  const totalEntrada = estabelecimento.totalEntrada ?? 0;
+  const totalSaida = estabelecimento.totalSaida ?? 0;
   const temMovimentacao = (estabelecimento.totalTransacoes ?? 0) > 0;
 
   const soPossuiEntrada = totalEntrada > 0 && totalSaida === 0;
-  const soPossuiSaida   = totalSaida   > 0 && totalEntrada === 0;
-  const possuiAmbos     = totalEntrada > 0 && totalSaida   > 0;
+  const soPossuiSaida = totalSaida > 0 && totalEntrada === 0;
+  const possuiAmbos = totalEntrada > 0 && totalSaida > 0;
 
   return (
     <Card
@@ -76,7 +92,7 @@ export default function EstabelecimentoCard({ estabelecimento, onEditar, onExclu
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="h-8 w-8 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0 hover:bg-gray-100 dark:hover:bg-gray-800"
                 aria-label={`Opções para ${estabelecimento.nome}`}
               >
                 <MoreVertical size={16} />
@@ -112,14 +128,18 @@ export default function EstabelecimentoCard({ estabelecimento, onEditar, onExclu
                 <Receipt size={12} />
                 <span>
                   {estabelecimento.totalTransacoes}{" "}
-                  {estabelecimento.totalTransacoes === 1 ? "transação" : "transações"}
+                  {estabelecimento.totalTransacoes === 1
+                    ? "transação"
+                    : "transações"}
                 </span>
               </div>
 
               {/* Só entradas */}
               {soPossuiEntrada && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-green-600 dark:text-green-400">Receitas</span>
+                  <span className="text-xs text-green-600 dark:text-green-400">
+                    Receitas
+                  </span>
                   <div className="flex items-center gap-1 text-xs font-semibold tabular-nums text-green-600 dark:text-green-400">
                     <TrendingUp size={12} />
                     <span>{mask(formatarMoeda(totalEntrada))}</span>
@@ -130,7 +150,9 @@ export default function EstabelecimentoCard({ estabelecimento, onEditar, onExclu
               {/* Só saídas */}
               {soPossuiSaida && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-red-600 dark:text-red-400">Despesas</span>
+                  <span className="text-xs text-red-600 dark:text-red-400">
+                    Despesas
+                  </span>
                   <div className="flex items-center gap-1 text-xs font-semibold tabular-nums text-red-600 dark:text-red-400">
                     <TrendingDown size={12} />
                     <span>{mask(formatarMoeda(totalSaida))}</span>
@@ -142,14 +164,18 @@ export default function EstabelecimentoCard({ estabelecimento, onEditar, onExclu
               {possuiAmbos && (
                 <>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-green-600 dark:text-green-400">Receitas</span>
+                    <span className="text-xs text-green-600 dark:text-green-400">
+                      Receitas
+                    </span>
                     <div className="flex items-center gap-1 text-xs font-semibold tabular-nums text-green-600 dark:text-green-400">
                       <TrendingUp size={12} />
                       <span>{mask(formatarMoeda(totalEntrada))}</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-red-600 dark:text-red-400">Despesas</span>
+                    <span className="text-xs text-red-600 dark:text-red-400">
+                      Despesas
+                    </span>
                     <div className="flex items-center gap-1 text-xs font-semibold tabular-nums text-red-600 dark:text-red-400">
                       <TrendingDown size={12} />
                       <span>{mask(formatarMoeda(totalSaida))}</span>
