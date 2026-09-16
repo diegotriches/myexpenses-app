@@ -8,6 +8,28 @@ import { calcularFaturaDaTransacao, faturaEstaFechada } from "@/utils/faturaUtil
 
 // ── helpers financeiros ────────────────────────────────────────
 
+async function transacaoEstaEmFaturaPaga(
+  userId: string,
+  transacao: { formaPagamento: string | null; cartaoId: number | null; data: string | Date }
+): Promise<boolean> {
+  if (transacao.formaPagamento !== "cartao" || !transacao.cartaoId) return false;
+
+  const [cartao] = await db.select().from(cartoes)
+    .where(and(eq(cartoes.id, transacao.cartaoId), eq(cartoes.userId, userId))).limit(1);
+  if (!cartao || cartao.tipo !== "credito") return false;
+
+  const diaFechamento = cartao.diaFechamento || 1;
+  const { mes, ano } = calcularFaturaDaTransacao(new Date(transacao.data), diaFechamento);
+
+  const [fatura] = await db.select({ paga: faturas.paga }).from(faturas)
+    .where(and(eq(faturas.cartaoId, transacao.cartaoId), eq(faturas.userId, userId), eq(faturas.mes, mes), eq(faturas.ano, ano)))
+    .limit(1);
+
+  return fatura?.paga === true;
+}
+
+const MSG_BLOQUEIO_FATURA_PAGA = "Esta transação faz parte de uma fatura já paga. Não é possível excluí-la, para preservar o histórico.";
+
 async function processarExtratoESaldo(transacao: typeof transacoes.$inferSelect, userId: string) {
   const valorNum = Number(transacao.valor);
   if (transacao.cartaoId && transacao.formaPagamento === "cartao") {
@@ -370,10 +392,16 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (!mov) return NextResponse.json({ error: "Transação não encontrada" }, { status: 404 });
     if (mov.transferenciaId) return NextResponse.json({ error: "Esta transação faz parte de uma transferência." }, { status: 400 });
 
-    // ✅ NOVO: bloqueia exclusão (única ou do grupo inteiro) se houver
-    // antecipação pendente vinculada a esta transação ou ao parcelamento
     const bloqueio = await buscarAntecipacaoBloqueante(userId, mov);
     if (bloqueio) return NextResponse.json({ error: MSG_BLOQUEIO_EXCLUIR }, { status: 400 });
+
+    // ✅ NOVO: exclusão única — bloqueia se a transação (à vista, ou uma
+    // ocorrência isolada de parcelada/recorrente) pertence a uma fatura
+    // já paga
+    if (!tipo || tipo === "unica") {
+      const emFaturaPaga = await transacaoEstaEmFaturaPaga(userId, mov);
+      if (emFaturaPaga) return NextResponse.json({ error: MSG_BLOQUEIO_FATURA_PAGA }, { status: 400 });
+    }
 
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -384,11 +412,24 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     } else if (tipo === "todas_parcelas" && mov.parcelamentoId) {
       const todasDoGrupo = await db.select().from(transacoes)
         .where(and(eq(transacoes.parcelamentoId, mov.parcelamentoId), eq(transacoes.userId, userId)));
-      transacoesParaDeletar = todasDoGrupo.filter((t) => new Date(t.data) > hoje);
+      const futuras = todasDoGrupo.filter((t) => new Date(t.data) > hoje);
+      // ✅ NOVO: também exclui do lote qualquer item cuja fatura já esteja
+      // paga (cobre o caso de uma parcela futura cuja fatura foi
+      // adiantada e já quitada por completo)
+      transacoesParaDeletar = [];
+      for (const t of futuras) {
+        const emFaturaPaga = await transacaoEstaEmFaturaPaga(userId, t);
+        if (!emFaturaPaga) transacoesParaDeletar.push(t);
+      }
     } else if (tipo === "toda_recorrencia" && mov.recorrenciaId) {
       const todasDoGrupo = await db.select().from(transacoes)
         .where(and(eq(transacoes.recorrenciaId, mov.recorrenciaId), eq(transacoes.userId, userId)));
-      transacoesParaDeletar = todasDoGrupo.filter((t) => new Date(t.data) > hoje);
+      const futuras = todasDoGrupo.filter((t) => new Date(t.data) > hoje);
+      transacoesParaDeletar = [];
+      for (const t of futuras) {
+        const emFaturaPaga = await transacaoEstaEmFaturaPaga(userId, t);
+        if (!emFaturaPaga) transacoesParaDeletar.push(t);
+      }
     }
 
     for (const transacao of transacoesParaDeletar) {
@@ -414,12 +455,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       }
     }
 
-    // Nota: como agora a exclusão de um parcelamento inteiro é bloqueada
-    // enquanto existir antecipação pendente (o usuário precisa desfazer
-    // primeiro), este bloco de limpeza de antecipações órfãs deixa de ser
-    // alcançável no fluxo normal — mantido como rede de segurança pra
-    // qualquer antecipação que já esteja com a fatura paga (não bloqueada
-    // pela checagem acima) mas ainda vinculada ao grupo sendo excluído.
     if (tipo === "todas_parcelas" && mov.parcelamentoId) {
       const antecipacoesDoGrupo = await db.select().from(antecipacoesParcela)
         .where(and(eq(antecipacoesParcela.parcelamentoId, mov.parcelamentoId), eq(antecipacoesParcela.userId, userId)));
