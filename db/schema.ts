@@ -207,6 +207,72 @@ export const contas = pgTable(
   }),
 );
 
+// INVESTIMENTOS
+
+export const aplicacoes = pgTable(
+  "aplicacoes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    contaId: uuid("conta_id").notNull().references(() => contas.id, { onDelete: "cascade" }),
+    descricao: text("descricao"),
+    valorPrincipal: numeric("valor_principal", { precision: 14, scale: 2 }).notNull(),
+    valorAtual: numeric("valor_atual", { precision: 18, scale: 8 }).notNull(),
+    indexador: text("indexador").notNull(), // "cdi" | "selic"
+    percentualIndexador: numeric("percentual_indexador", { precision: 6, scale: 2 }).notNull(),
+    tributacao: text("tributacao", { enum: ["isento", "tributavel"] }).notNull().default("tributavel"),
+    dataAplicacao: timestamp("data_aplicacao", { withTimezone: true }).notNull(),
+    dataVencimento: timestamp("data_vencimento", { withTimezone: true }),
+    resgatada: boolean("resgatada").notNull().default(false),
+    dataResgate: timestamp("data_resgate", { withTimezone: true }),
+    valorResgatado: numeric("valor_resgatado", { precision: 14, scale: 2 }),
+    impostoRetido: numeric("imposto_retido", { precision: 14, scale: 2 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("aplicacoes_user_id_idx").on(table.userId),
+    contaIdIdx: index("aplicacoes_conta_id_idx").on(table.contaId),
+    ativasIdx: index("aplicacoes_ativas_idx").on(table.indexador, table.resgatada, table.dataVencimento),
+  }),
+);
+ 
+export const taxasDiarias = pgTable(
+  "taxas_diarias",
+  {
+    id: serial("id").primaryKey(),
+    indexador: text("indexador").notNull(),
+    data: date("data").notNull(),
+    taxaPercentual: numeric("taxa_percentual", { precision: 10, scale: 6 }).notNull(),
+    fonte: text("fonte").notNull().default("bcb"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    indexadorDataUnq: uniqueIndex("taxas_diarias_indexador_data_idx").on(table.indexador, table.data),
+  }),
+);
+ 
+export const rendimentosAplicacao = pgTable(
+  "rendimentos_aplicacao",
+  {
+    id: serial("id").primaryKey(),
+    aplicacaoId: uuid("aplicacao_id").notNull().references(() => aplicacoes.id, { onDelete: "cascade" }),
+    data: date("data").notNull(),
+    valorRendimento: numeric("valor_rendimento", { precision: 18, scale: 8 }).notNull(),
+    taxaAplicada: numeric("taxa_aplicada", { precision: 10, scale: 6 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    aplicacaoIdIdx: index("rendimentos_aplicacao_id_idx").on(table.aplicacaoId),
+    aplicacaoDataUnq: uniqueIndex("rendimentos_aplicacao_data_idx").on(table.aplicacaoId, table.data),
+  }),
+);
+ 
+export type Aplicacao = typeof aplicacoes.$inferSelect;
+export type NovaAplicacao = typeof aplicacoes.$inferInsert;
+export type TaxaDiaria = typeof taxasDiarias.$inferSelect;
+export type RendimentoAplicacao = typeof rendimentosAplicacao.$inferSelect;
+
 // CARTÕES (Isolados por usuário)
 
 export const cartaoTipoEnum = pgEnum("cartao_tipo", ["credito", "debito"]);
@@ -465,6 +531,8 @@ export const extratoOrigemEnum = pgEnum("extrato_origem", [
   "TRANSFERENCIA",
   "AJUSTE",
   "ESTORNO",
+  "APLICACAO",
+  "RESGATE_APLICACAO"
 ]);
 
 export const extratoConta = pgTable(
