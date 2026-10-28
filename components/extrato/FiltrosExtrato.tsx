@@ -9,7 +9,16 @@ import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export type TipoFiltro   = "TODOS"  | "entrada" | "saida";
-export type OrigemFiltro = "TODAS"  | "TRANSACAO_MANUAL" | "TRANSFERENCIA" | "AJUSTE" | "ESTORNO" | "PAGAMENTO_FATURA";
+// ✅ NOVO: APLICACAO e RESGATE_APLICACAO adicionados
+export type OrigemFiltro =
+  | "TODAS"
+  | "TRANSACAO_MANUAL"
+  | "TRANSFERENCIA"
+  | "AJUSTE"
+  | "ESTORNO"
+  | "PAGAMENTO_FATURA"
+  | "APLICACAO"
+  | "RESGATE_APLICACAO";
 
 export interface FiltrosExtratoState {
   inicio:   string;
@@ -54,11 +63,13 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
 
   const formatarOrigem = (origem: string): string => {
     const nomes: Record<string, string> = {
-      TRANSACAO_MANUAL: "Transações",
-      TRANSFERENCIA:    "Transferências",
-      AJUSTE:           "Ajustes",
-      ESTORNO:          "Estornos",
-      PAGAMENTO_FATURA: "Pag. Fatura",
+      TRANSACAO_MANUAL:  "Transações",
+      TRANSFERENCIA:     "Transferências",
+      AJUSTE:            "Ajustes",
+      ESTORNO:           "Estornos",
+      PAGAMENTO_FATURA:  "Pag. Fatura",
+      APLICACAO:         "Aplicações",  // ✅ NOVO
+      RESGATE_APLICACAO: "Resgates",    // ✅ NOVO
     };
     return nomes[origem] || origem.replace("_", " ");
   };
@@ -161,6 +172,9 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
                   <SelectItem value="AJUSTE">Ajustes</SelectItem>
                   <SelectItem value="ESTORNO">Estornos</SelectItem>
                   <SelectItem value="PAGAMENTO_FATURA">Pagamento Fatura</SelectItem>
+                  {/* ✅ NOVO */}
+                  <SelectItem value="APLICACAO">Aplicações</SelectItem>
+                  <SelectItem value="RESGATE_APLICACAO">Resgates</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -18,6 +18,14 @@ interface Props {
   error?: string;
 }
 
+// ✅ NOVO: formatador pt-BR — vírgula nos centavos e ponto nos milhares
+// (ex: 1.234.567,89). Declarado fora do componente pra não recriar a
+// cada render.
+const formatadorMoeda = new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 export default function MovCamposBasicos({ form, update, campo, disabled, error }: Props) {
   const [valorDigitos, setValorDigitos] = useState("");
 
@@ -32,7 +40,7 @@ export default function MovCamposBasicos({ form, update, campo, disabled, error 
     if (!digitos) return "0,00";
     const valorEmCentavos = parseInt(digitos, 10);
     const valorEmReais = valorEmCentavos / 100;
-    return valorEmReais.toFixed(2).replace(".", ",");
+    return formatadorMoeda.format(valorEmReais);
   };
 
   const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {

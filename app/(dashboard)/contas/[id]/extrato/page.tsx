@@ -60,6 +60,17 @@ const ORIGEM_INFO: Record<string, { label: string; variant: "default" | "seconda
     variant: "outline",
     dica:    "Ajuste manual de saldo. Entre em contato com o suporte se necessário.",
   },
+  // ✅ NOVO
+  APLICACAO: {
+    label:   "Aplicação",
+    variant: "secondary",
+    dica:    "Para desfazer, resgate a aplicação na página de Aplicações.",
+  },
+  RESGATE_APLICACAO: {
+    label:   "Resgate",
+    variant: "secondary",
+    dica:    "Gerado automaticamente ao resgatar uma aplicação (manual ou no vencimento). Não pode ser revertido.",
+  },
 };
 
 function IconeOrdenacao({ coluna, estado }: { coluna: ColunaOrdenacao; estado: EstadoOrdenacao }) {

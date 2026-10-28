@@ -21,7 +21,8 @@ import {
   BsTags,
   BsCreditCard,
   BsFillGearFill,
-  BsShop, // ✅ NOVO: ícone para Estabelecimentos
+  BsShop, // Ícone para Estabelecimentos
+  BsPiggyBank, // ✅ NOVO: ícone para Aplicações
 } from "react-icons/bs";
 import { MdOutlineAutoGraph } from "react-icons/md";
 import { Menu, ChevronRight } from "lucide-react";
@@ -72,10 +73,13 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     {
       title: "Financeiro",
       links: [
-        { href: "/contas",             icon: BsBank,       label: "Contas"             },
-        { href: "/cartoes",            icon: BsCreditCard, label: "Cartões"            },
-        { href: "/categorias",         icon: BsTags,       label: "Categorias"         },
-        { href: "/estabelecimentos",   icon: BsShop,       label: "Estabelecimentos"   }, // ✅ NOVO
+        { href: "/contas",           icon: BsBank,       label: "Contas"             },
+        // ✅ ATUALIZADO: Aplicações agora é página independente, não mais
+        // uma aba dentro de Contas
+        { href: "/aplicacoes",       icon: BsPiggyBank,  label: "Aplicações"         },
+        { href: "/cartoes",          icon: BsCreditCard, label: "Cartões"            },
+        { href: "/categorias",       icon: BsTags,       label: "Categorias"         },
+        { href: "/estabelecimentos", icon: BsShop,       label: "Estabelecimentos"   },
       ],
     },
   ];

@@ -17,14 +17,14 @@ import ContaCard from "@/components/contas/ContaCard";
 import ConfirmDeleteModal from "@/components/contas/ConfirmDeleteModal";
 import { ModalTransferencia } from "@/components/transferencias/ModalTransferencia";
 import ModalAjustarSaldo from "@/components/contas/ModalAjustarSaldo";
-import PatrimonioCard from "@/components/contas/PatrimonioCard"; // ✅ NOVO
+import PatrimonioCard from "@/components/contas/PatrimonioCard";
 import { Conta, CreateContaDTO, UpdateContaDTO } from "@/types/conta";
 
-import { 
-  useContas, 
-  useCriarConta, 
-  useAtualizarConta, 
-  useRemoverConta 
+import {
+  useContas,
+  useCriarConta,
+  useAtualizarConta,
+  useRemoverConta
 } from "@/hooks/useContas";
 
 import { BsBank } from "react-icons/bs";
@@ -46,10 +46,10 @@ export default function ContasPage() {
   const [contaParaExcluir, setContaParaExcluir] = useState<Conta | null>(null);
   const [modalTransferenciaOpen, setModalTransferenciaOpen] = useState(false);
   const [contaOrigemSelecionada, setContaOrigemSelecionada] = useState<string | null>(null);
-  
+
   const [modalAjusteOpen, setModalAjusteOpen] = useState(false);
   const [contaParaAjustar, setContaParaAjustar] = useState<Conta | null>(null);
-  
+
   // Busca e ordenação
   const [busca, setBusca] = useState("");
   const [ordenacao, setOrdenacao] = useState<OrdenacaoType>("nome");
@@ -202,7 +202,6 @@ export default function ContasPage() {
         <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
       </div>
 
-      {/* ✅ NOVO: Card de Patrimônio — exibido apenas quando há contas */}
       {!loading && contas.length > 0 && (
         <PatrimonioCard />
       )}
@@ -235,8 +234,8 @@ export default function ContasPage() {
           </Select>
 
           {/* Botão adicionar - desktop */}
-          <Button 
-            onClick={abrirNovaConta} 
+          <Button
+            onClick={abrirNovaConta}
             className="hidden md:flex items-center gap-2 bg-blue-700 hover:bg-blue-900"
           >
             <MdAdd className="text-xl" />
@@ -246,8 +245,8 @@ export default function ContasPage() {
       )}
 
       {/* Botão adicionar - mobile fixo */}
-      <Button 
-        onClick={abrirNovaConta} 
+      <Button
+        onClick={abrirNovaConta}
         className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 hover:bg-blue-900 z-50"
         size="icon"
       >
