@@ -129,7 +129,7 @@ export interface ExtratoConta {
   valor: string | number;
   descricao: string;
   saldoApos: string | number;
-  origem: "TRANSACAO_MANUAL" | "PAGAMENTO_FATURA" | "TRANSFERENCIA" | "AJUSTE" | "ESTORNO";
+  origem: "TRANSACAO_MANUAL" | "PAGAMENTO_FATURA" | "TRANSFERENCIA" | "AJUSTE" | "ESTORNO" | "APLICACAO" | "RESGATE_APLICACAO";
   referenciaId?: string | null;
   createdAt: Date | string;
 }

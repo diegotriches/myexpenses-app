@@ -50,7 +50,7 @@ export interface MovimentacaoExtrato {
   valor: number;
   descricao: string;
   saldoApos: number;
-  origem: "TRANSACAO_MANUAL" | "PAGAMENTO_FATURA" | "TRANSFERENCIA" | "AJUSTE" | "ESTORNO";
+  origem: "TRANSACAO_MANUAL" | "PAGAMENTO_FATURA" | "TRANSFERENCIA" | "AJUSTE" | "ESTORNO" | "APLICACAO" | "RESGATE_APLICACAO";
   referenciaId?: string | null;
   createdAt: string | Date;
 }
