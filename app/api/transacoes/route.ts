@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { calcularFaturaDaTransacao, proximaFaturaAberta, faturaEstaFechada } from "@/utils/faturaUtils";
+import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -47,30 +47,26 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ✅ NOVO: verifica se uma despesa no cartão de crédito pode ser lançada
-// na data informada — bloqueia se a fatura correspondente já estiver
-// fechada (passou do dia de fechamento) OU já estiver paga.
-async function verificarFaturaAberta(
+// ✅ ALTERADO: só fatura PAGA bloqueia o lançamento. Fatura fechada mas ainda
+// não paga aceita novos lançamentos (ex: um gasto que ficou sem registro) —
+// ele entra no total daquela fatura e consome o limite do cartão.
+async function verificarFaturaPaga(
   userId: string,
   cartaoId: number,
   diaFechamento: number,
   dataTransacao: string | Date
-): Promise<{ bloqueado: boolean; motivo?: string; mes: number; ano: number }> {
+): Promise<{ bloqueado: boolean; motivo?: string }> {
   const { mes, ano } = calcularFaturaDaTransacao(dataTransacao as string, diaFechamento);
-
-  if (faturaEstaFechada(mes, ano, diaFechamento)) {
-    return { bloqueado: true, motivo: `A fatura de ${String(mes).padStart(2, "0")}/${ano} já está fechada`, mes, ano };
-  }
 
   const [faturaExistente] = await db.select({ paga: faturas.paga }).from(faturas)
     .where(and(eq(faturas.cartaoId, cartaoId), eq(faturas.userId, userId), eq(faturas.mes, mes), eq(faturas.ano, ano)))
     .limit(1);
 
   if (faturaExistente?.paga) {
-    return { bloqueado: true, motivo: `A fatura de ${String(mes).padStart(2, "0")}/${ano} já está paga`, mes, ano };
+    return { bloqueado: true, motivo: `A fatura de ${String(mes).padStart(2, "0")}/${ano} já está paga` };
   }
 
-  return { bloqueado: false, mes, ano };
+  return { bloqueado: false };
 }
 
 export async function POST(req: NextRequest) {
@@ -150,12 +146,12 @@ export async function POST(req: NextRequest) {
           if (Number(cartao.limiteDisponivel) < valorNum)
             return NextResponse.json({ error: "Limite insuficiente no cartão de crédito" }, { status: 400 });
 
-          // ✅ NOVO: bloqueia lançamento numa fatura já fechada ou já paga
+          // Bloqueia só se a fatura daquela data já estiver PAGA
           const diaFechamento = cartao.diaFechamento || 1;
-          const verificacao = await verificarFaturaAberta(userId, cartao.id, diaFechamento, trans.data);
+          const verificacao = await verificarFaturaPaga(userId, cartao.id, diaFechamento, trans.data);
           if (verificacao.bloqueado) {
             return NextResponse.json(
-              { error: `${verificacao.motivo}. Escolha uma data cuja fatura ainda esteja aberta.` },
+              { error: `${verificacao.motivo}. Estorne o pagamento da fatura ou escolha outra data.` },
               { status: 400 }
             );
           }
@@ -206,8 +202,10 @@ export async function POST(req: NextRequest) {
           });
         } else if (cartao.tipo === "credito") {
           const diaFechamento = cartao.diaFechamento || 1;
-          const { mes: mesFaturaCalc, ano: anoFaturaCalc } = calcularFaturaDaTransacao(trans.data as string, diaFechamento);
-          const { mes: mesFatura,     ano: anoFatura }     = proximaFaturaAberta(mesFaturaCalc, anoFaturaCalc, diaFechamento);
+          // ✅ ALTERADO: a compra entra na fatura da SUA data, mesmo que
+          // fechada (antes era empurrada pra próxima aberta, o que deixava o
+          // total da fatura diferente do que a exclusão/edição calcula)
+          const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(trans.data as string, diaFechamento);
 
           const [faturaExistente] = await db.select().from(faturas)
             .where(and(eq(faturas.cartaoId, Number(trans.cartaoId)), eq(faturas.userId, userId), eq(faturas.mes, mesFatura), eq(faturas.ano, anoFatura)))

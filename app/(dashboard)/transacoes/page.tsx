@@ -30,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCartoes } from "@/hooks/useCartoes";
 import { useContas } from "@/hooks/useContas";
 import { Transacao, ModoEdicao } from "@/types/transacao";
-import { calcularFaturaDaTransacao, faturaEstaFechada } from "@/utils/faturaUtils";
+import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import { useFaturas } from "@/hooks/useFaturas";
 
 export default function TransacoesPage() {
@@ -133,7 +133,7 @@ export default function TransacoesPage() {
     if (!cartao || cartao.tipo !== "credito") return false;
     const diaFechamento = cartao.diaFechamento || 1;
     const { mes, ano }  = calcularFaturaDaTransacao(new Date(mov.data), diaFechamento);
-    if (faturaEstaFechada(mes, ano, diaFechamento)) return true;
+    // Só fatura PAGA bloqueia; fechada e não paga pode ser ajustada
     try {
       const faturaData = await buscarFatura(mov.cartaoId, ano, mes);
       return faturaData?.fatura?.paga === true;

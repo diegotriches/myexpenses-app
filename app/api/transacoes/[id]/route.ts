@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { transacoes, contas, extratoConta, cartoes, faturas, antecipacoesParcela } from "@/db/schema";
 import { or, eq, and, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { calcularFaturaDaTransacao, faturaEstaFechada } from "@/utils/faturaUtils";
+import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 // ── helpers financeiros ────────────────────────────────────────
 
@@ -120,23 +120,16 @@ async function buscarAntecipacaoBloqueante(
 const MSG_BLOQUEIO_EDITAR  = "Esta transação faz parte de uma antecipação pendente. Desfaça a antecipação na aba Parcelas antes de editar.";
 const MSG_BLOQUEIO_EXCLUIR = "Esta transação faz parte de uma antecipação pendente. Desfaça a antecipação na aba Parcelas antes de excluir.";
 
-// ── Adicionar ao import de "@/utils/faturaUtils": faturaEstaFechada
-// (junto com calcularFaturaDaTransacao)
-//
-// ── Adicionar este helper no arquivo (mesmo formato do usado em
-// app/api/transacoes/route.ts):
-
-async function verificarFaturaAberta(
+// ✅ ALTERADO: só fatura PAGA bloqueia lançamento/edição. Fatura fechada
+// mas ainda não paga aceita ajustes (ex: um gasto que ficou sem registro) —
+// o total da fatura e o limite do cartão são atualizados normalmente.
+async function verificarFaturaPaga(
   userId: string,
   cartaoId: number,
   diaFechamento: number,
   dataTransacao: string | Date
 ): Promise<{ bloqueado: boolean; motivo?: string }> {
   const { mes, ano } = calcularFaturaDaTransacao(dataTransacao as string, diaFechamento);
-
-  if (faturaEstaFechada(mes, ano, diaFechamento)) {
-    return { bloqueado: true, motivo: `A fatura de ${String(mes).padStart(2, "0")}/${ano} já está fechada` };
-  }
 
   const [faturaExistente] = await db.select({ paga: faturas.paga }).from(faturas)
     .where(and(eq(faturas.cartaoId, cartaoId), eq(faturas.userId, userId), eq(faturas.mes, mes), eq(faturas.ano, ano)))
@@ -179,20 +172,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       const eraParcelado  = transacaoExistente.parcelado  === true;
       const eraRecorrente = transacaoExistente.recorrente === true;
 
-      // ✅ NOVO: bloqueia se o resultado da edição é uma despesa no cartão
-      // de crédito numa data cuja fatura já está fechada ou paga. Vale
-      // pra edição simples e pra conversão à vista → parcelado (a primeira
-      // parcela usa a mesma data escolhida no formulário).
+      // Bloqueia se o resultado da edição é uma despesa no cartão de crédito
+      // numa data cuja fatura já está PAGA (fechada e não paga é permitido).
+      // Vale pra edição simples e pra conversão à vista → parcelado.
       const vaiParaCartaoCredito = json.formaPagamento === "cartao" && json.tipo === "saida" && json.cartaoId;
       if (vaiParaCartaoCredito) {
         const [cartaoDestino] = await db.select().from(cartoes)
           .where(and(eq(cartoes.id, Number(json.cartaoId)), eq(cartoes.userId, userId))).limit(1);
         if (cartaoDestino && cartaoDestino.tipo === "credito") {
           const diaFechamento = cartaoDestino.diaFechamento || 1;
-          const verificacao = await verificarFaturaAberta(userId, cartaoDestino.id, diaFechamento, dataParaAtualizar);
+          const verificacao = await verificarFaturaPaga(userId, cartaoDestino.id, diaFechamento, dataParaAtualizar);
           if (verificacao.bloqueado) {
             return NextResponse.json(
-              { error: `${verificacao.motivo}. Escolha uma data cuja fatura ainda esteja aberta.` },
+              { error: `${verificacao.motivo}. Estorne o pagamento da fatura ou escolha outra data.` },
               { status: 400 }
             );
           }
