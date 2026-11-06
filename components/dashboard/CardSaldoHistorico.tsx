@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ResponsiveContainer,
@@ -14,13 +14,27 @@ import {
 import { Wallet, Loader2, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSaldoHistorico } from "@/hooks/useDashboard";
+import { useAplicacoes } from "@/hooks/useAplicacoes";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import type { Aplicacao } from "@/services/aplicacaoService";
+import {
+  hojeBrt,
+  somarDias,
+  simularAplicacao,
+  projetarLotes,
+  estimarLiquidoTotal,
+  type LoteEstado,
+  type TaxaDia,
+} from "@/utils/aplicacaoSimulacao";
 
 const PERIODOS = [
   { label: "3m", value: "3" },
   { label: "6m", value: "6" },
   { label: "12m", value: "12" },
 ] as const;
+
+const COR_CONTAS = "#2563eb";
+const COR_INVESTIDO = "#059669";
 
 function formatarMes(mes: string) {
   try {
@@ -41,15 +55,93 @@ function formatarMoedaCurta(valor: number) {
   return formatarMoeda(valor);
 }
 
+/** Último dia do mês ("YYYY-MM" -> "YYYY-MM-DD") */
+function fimDoMes(mes: string): string {
+  const [ano, m] = mes.split("-").map(Number);
+  const ultimoDia = new Date(ano, m, 0).getDate();
+  return `${mes}-${String(ultimoDia).padStart(2, "0")}`;
+}
+
+/**
+ * Valor LÍQUIDO estimado (após IR, como se tudo fosse resgatado na data) de
+ * uma aplicação no fim de um mês PASSADO.
+ *
+ * Não guardamos o valor mês a mês, então a história é reconstruída: aportes e
+ * resgates reais + taxa diária constante (a última taxa publicada) nos dias
+ * úteis. Por isso é uma estimativa — o mês atual usa o valor real do app.
+ */
+function liquidoNoFimDoMes(a: Aplicacao, fimMes: string): number {
+  const ultima = a.ultimaTaxa;
+  if (!ultima) return 0;
+
+  const aportes = (a.aportes ?? []).filter((x) => x.data <= fimMes);
+  if (aportes.length === 0) return 0;
+
+  const inicio = aportes.reduce((min, x) => (x.data < min ? x.data : min), aportes[0].data);
+  const taxas: TaxaDia[] = [];
+  for (let d = somarDias(inicio, 1); d <= fimMes; d = somarDias(d, 1)) {
+    const dia = new Date(`${d}T00:00:00Z`).getUTCDay();
+    if (dia === 0 || dia === 6) continue;
+    taxas.push({ data: d, taxa: ultima.taxa });
+  }
+
+  const sim = simularAplicacao({
+    percentual: Number(a.percentualIndexador),
+    tributacao: a.tributacao,
+    aportes: aportes.map((x) => ({ id: x.id, data: x.data, valor: Number(x.valor) })),
+    resgates: (a.resgates ?? []).map((r) => ({
+      id: r.id,
+      data: r.data,
+      valorBruto: Number(r.valorBruto),
+      total: r.tipo === "total",
+    })),
+    taxas,
+    ate: fimMes,
+  });
+
+  return estimarLiquidoTotal(sim.lotes, fimMes, a.tributacao).valorLiquido;
+}
+
+/** Valor líquido estimado AGORA — mesmo cálculo da página Contas */
+function liquidoAtual(a: Aplicacao, hoje: string): number {
+  const lotes: LoteEstado[] = (a.aportes ?? []).map((x) => ({
+    id: x.id,
+    data: x.data,
+    aportado: Number(x.valor),
+    principal: Number(x.principalRestante),
+    valorAtual: Number(x.valorAtual),
+  }));
+  const proj = projetarLotes(lotes, Number(a.percentualIndexador), a.ultimaTaxa, hoje);
+  return estimarLiquidoTotal(proj.lotes, hoje, a.tributacao).valorLiquido;
+}
+
 function CustomTooltip({ active, payload, label, hidden }: any) {
   if (!active || !payload?.length) return null;
-  const valor = payload[0]?.value ?? 0;
+  const p = payload[0]?.payload ?? {};
+  const contas = p.Contas ?? 0;
+  const investido = p.Investido ?? 0;
+  const total = contas + investido;
+  const m = (v: number) => (hidden ? "••••••" : formatarMoeda(v));
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-lg text-xs">
-      <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</p>
-      <p className={`font-bold text-sm ${valor >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}`}>
-        {hidden ? "••••••" : formatarMoeda(valor)}
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-lg text-xs space-y-1">
+      <p className="font-medium text-gray-700 dark:text-gray-300">{label}</p>
+      <p className={`font-bold text-sm ${total >= 0 ? "text-gray-900 dark:text-white" : "text-red-600 dark:text-red-400"}`}>
+        {m(total)}
       </p>
+      <div className="flex items-center justify-between gap-4">
+        <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ background: COR_CONTAS }} />
+          Em contas
+        </span>
+        <span className="text-gray-700 dark:text-gray-300">{m(contas)}</span>
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ background: COR_INVESTIDO }} />
+          Investido (líq.)
+        </span>
+        <span className="text-gray-700 dark:text-gray-300">{m(investido)}</span>
+      </div>
     </div>
   );
 }
@@ -57,23 +149,60 @@ function CustomTooltip({ active, payload, label, hidden }: any) {
 export function CardSaldoHistorico() {
   const [periodo, setPeriodo] = useState<"3" | "6" | "12">("6");
   const { data: historico, isLoading: loadingHistorico, error } = useSaldoHistorico(periodo);
+  const aplicacoesQuery = useAplicacoes();
   const { hidden, mask } = useHideValues();
 
-  const fmt  = (v: number) => mask(formatarMoeda(v));
-  const fmtC = (v: number) => mask(formatarMoedaCurta(v));
+  const fmt = (v: number) => mask(formatarMoeda(v));
+  const erroAplicacoes = aplicacoesQuery.isError;
+  const carregando = loadingHistorico || aplicacoesQuery.isLoading;
 
-  const variacao = historico && historico.length >= 2
-    ? historico[historico.length - 1].saldoTotal - historico[0].saldoTotal
-    : null;
+  // Série mensal: contas (API) + investido líquido estimado (cliente)
+  const dadosGrafico = useMemo(() => {
+    const hoje = hojeBrt();
+    const mesAtual = hoje.slice(0, 7);
+    const aplicacoes = aplicacoesQuery.data ?? [];
 
-  const dadosGrafico = historico?.map((item) => ({
-    mes: formatarMes(item.mes),
-    Saldo: item.saldoTotal,
-  })) ?? [];
+    // Sem contas ativas a API devolve [] — gera os meses aqui para
+    // os investimentos continuarem aparecendo.
+    let base = historico ?? [];
+    if (base.length === 0 && aplicacoes.length > 0) {
+      const n = parseInt(periodo);
+      const [ano, mes] = mesAtual.split("-").map(Number);
+      base = Array.from({ length: n }, (_, k) => {
+        const d = new Date(ano, mes - 1 - (n - 1 - k), 1);
+        return {
+          mes: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+          saldoTotal: 0,
+        };
+      });
+    }
 
-  const corGrafico = variacao !== null && variacao >= 0
-    ? { stroke: "#2563eb", fill: "#2563eb" }
-    : { stroke: "#dc2626", fill: "#dc2626" };
+    return base.map((item) => {
+      let investido = 0;
+      if (!erroAplicacoes) {
+        if (item.mes >= mesAtual) {
+          // Mês corrente: valor real, igual à página Contas
+          investido = aplicacoes
+            .filter((a) => !a.resgatada)
+            .reduce((s, a) => s + liquidoAtual(a, hoje), 0);
+        } else {
+          const fim = fimDoMes(item.mes);
+          investido = aplicacoes.reduce((s, a) => s + liquidoNoFimDoMes(a, fim), 0);
+        }
+      }
+      const contas = item.saldoTotal;
+      return {
+        mes: formatarMes(item.mes),
+        Contas: contas,
+        Investido: Math.round(investido * 100) / 100,
+        Total: Math.round((contas + investido) * 100) / 100,
+      };
+    });
+  }, [historico, aplicacoesQuery.data, erroAplicacoes, periodo]);
+
+  const ultimo = dadosGrafico[dadosGrafico.length - 1];
+  const variacao = dadosGrafico.length >= 2 ? ultimo.Total - dadosGrafico[0].Total : null;
+  const temInvestimento = dadosGrafico.some((d) => d.Investido > 0);
 
   const cardTitle = (
     <div className="flex items-center justify-between w-full">
@@ -101,7 +230,7 @@ export function CardSaldoHistorico() {
     </div>
   );
 
-  if (loadingHistorico) {
+  if (carregando) {
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
         <CardHeader>{cardTitle}</CardHeader>
@@ -131,16 +260,16 @@ export function CardSaldoHistorico() {
       <CardHeader>{cardTitle}</CardHeader>
       <CardContent className="space-y-4">
 
-        {historico && historico.length > 0 && (
+        {ultimo && (
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Saldo total atual</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Patrimônio total atual</p>
               <p className={`text-xl font-bold ${
-                historico[historico.length - 1].saldoTotal >= 0
+                ultimo.Total >= 0
                   ? "text-gray-900 dark:text-white"
                   : "text-red-600 dark:text-red-400"
               }`}>
-                {fmt(historico[historico.length - 1].saldoTotal)}
+                {fmt(ultimo.Total)}
               </p>
             </div>
             {variacao !== null && (
@@ -161,38 +290,80 @@ export function CardSaldoHistorico() {
         )}
 
         {dadosGrafico.length > 0 ? (
-          <ResponsiveContainer width="100%" height={160}>
-            <AreaChart data={dadosGrafico} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gradientSaldo" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={corGrafico.fill} stopOpacity={0.2} />
-                  <stop offset="95%" stopColor={corGrafico.fill} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
-              <XAxis
-                dataKey="mes"
-                tick={{ fontSize: 10 }}
-                className="fill-gray-500 dark:fill-gray-400"
-              />
-              <YAxis
-                tick={{ fontSize: 10 }}
-                className="fill-gray-500 dark:fill-gray-400"
-                tickFormatter={(v) => hidden ? "••••" : formatarMoedaCurta(v)}
-                width={55}
-              />
-              <Tooltip content={<CustomTooltip hidden={hidden} />} />
-              <Area
-                type="monotone"
-                dataKey="Saldo"
-                stroke={corGrafico.stroke}
-                strokeWidth={2}
-                fill="url(#gradientSaldo)"
-                dot={{ fill: corGrafico.stroke, strokeWidth: 0, r: 3 }}
-                activeDot={{ r: 5 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <>
+            <ResponsiveContainer width="100%" height={160}>
+              <AreaChart data={dadosGrafico} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradientContas" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={COR_CONTAS} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={COR_CONTAS} stopOpacity={0.03} />
+                  </linearGradient>
+                  <linearGradient id="gradientInvestido" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={COR_INVESTIDO} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={COR_INVESTIDO} stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+                <XAxis
+                  dataKey="mes"
+                  tick={{ fontSize: 10 }}
+                  className="fill-gray-500 dark:fill-gray-400"
+                />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  className="fill-gray-500 dark:fill-gray-400"
+                  tickFormatter={(v) => hidden ? "••••" : formatarMoedaCurta(v)}
+                  width={55}
+                />
+                <Tooltip content={<CustomTooltip hidden={hidden} />} />
+                <Area
+                  type="monotone"
+                  dataKey="Contas"
+                  stackId="patrimonio"
+                  stroke={COR_CONTAS}
+                  strokeWidth={2}
+                  fill="url(#gradientContas)"
+                  dot={{ fill: COR_CONTAS, strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+                {temInvestimento && (
+                  <Area
+                    type="monotone"
+                    dataKey="Investido"
+                    stackId="patrimonio"
+                    stroke={COR_INVESTIDO}
+                    strokeWidth={2}
+                    fill="url(#gradientInvestido)"
+                    dot={{ fill: COR_INVESTIDO, strokeWidth: 0, r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                )}
+              </AreaChart>
+            </ResponsiveContainer>
+
+            <div className="flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: COR_CONTAS }} />
+                Em contas
+              </span>
+              {temInvestimento && (
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: COR_INVESTIDO }} />
+                  Investido (líquido)
+                </span>
+              )}
+            </div>
+
+            {erroAplicacoes ? (
+              <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+                Investimentos indisponíveis — exibindo apenas as contas.
+              </p>
+            ) : temInvestimento ? (
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center">
+                Investimentos dos meses anteriores são estimados (após IR); o mês atual usa o valor real.
+              </p>
+            ) : null}
+          </>
         ) : (
           <div className="text-center py-6">
             <Wallet className="w-10 h-10 text-gray-300 dark:text-gray-700 mx-auto mb-2" />

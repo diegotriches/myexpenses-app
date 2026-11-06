@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { categoriasDespesa } from '@/utils/dashboardUtils';
 import { TrendingDown } from 'lucide-react';
 import { useMemo } from 'react';
-import { useTransacoesPeriodo } from '@/hooks/useTransacoes';
+import { useTransacoesAno } from '@/hooks/useTransacoes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useHideValues } from '@/contexts/HideValuesContext';
@@ -16,11 +16,11 @@ const CORES_DESPESA = [
 ];
 
 interface CardCategoriasDespesaProps {
-  periodoMeses: 3 | 6 | 12;
+  ano: number;
 }
 
-export function CardCategoriasDespesa({ periodoMeses }: CardCategoriasDespesaProps) {
-  const { data: transacoes = [], isLoading } = useTransacoesPeriodo(periodoMeses);
+export function CardCategoriasDespesa({ ano }: CardCategoriasDespesaProps) {
+  const { data: transacoes = [], isLoading } = useTransacoesAno(ano);
   const { hidden, mask } = useHideValues();
 
   const categorias = useMemo(() => categoriasDespesa(transacoes), [transacoes]);

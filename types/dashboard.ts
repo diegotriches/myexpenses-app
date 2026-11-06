@@ -218,11 +218,6 @@ export interface TransacoesRecentesResponse {
 export type GraficoMesesResponse = DadosGraficoMeses[];
 
 /**
- * Tipo de resposta do resumo de faturas
- */
-export type FaturasResumo = DashboardFaturas;
-
-/**
  * Tipo de resposta de transações recorrentes
  */
 export interface Recorrente {

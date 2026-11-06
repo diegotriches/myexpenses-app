@@ -7,7 +7,6 @@ import type {
   FiltrosExtrato,
   CondicoesPagamento,
   FormasPagamento,
-  FaturasResumo,
   Recorrente,
   DespesasFuturas,
   ValoresPeriodoResponse,
@@ -50,14 +49,12 @@ class DashboardService {
   }
 
   /**
-   * Busca dados do gráfico de meses (receitas/despesas ao longo do tempo)
+   * Busca dados do gráfico de meses (receitas/despesas ao longo do ano)
    *
-   * @param periodo - Número de meses como string (padrão: "6")
+   * @param ano - Ano do gráfico (janeiro até o mês atual no ano vigente)
    */
-  async buscarGraficoMeses(
-    periodo: string = "6",
-  ): Promise<DadosGraficoMeses[]> {
-    const res = await fetch(`${this.baseURL}/grafico-meses?periodo=${periodo}`);
+  async buscarGraficoMeses(ano: number): Promise<DadosGraficoMeses[]> {
+    const res = await fetch(`${this.baseURL}/grafico-meses?ano=${ano}`);
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || "Erro ao buscar gráfico");
@@ -91,13 +88,13 @@ class DashboardService {
   }
 
   /**
-   * Busca condições de pagamento (Dinheiro/PIX/Cartão) — últimos N meses
+   * Busca condições de pagamento (Dinheiro/PIX/Cartão) — no ano
    */
   async buscarCondicoesPagamento(
-    periodoMeses: number,
+    ano: number,
   ): Promise<CondicoesPagamento> {
     const res = await fetch(
-      `${this.baseURL}/condicoes-pagamento?periodo=${periodoMeses}`,
+      `${this.baseURL}/condicoes-pagamento?ano=${ano}`,
     );
     if (!res.ok) {
       const error = await res.json();
@@ -109,9 +106,9 @@ class DashboardService {
   /**
    * Busca formas de pagamento (À Vista/Parcelado/Recorrente)
    */
-  async buscarFormasPagamento(periodoMeses: number): Promise<FormasPagamento> {
+  async buscarFormasPagamento(ano: number): Promise<FormasPagamento> {
     const res = await fetch(
-      `${this.baseURL}/formas-pagamento?periodo=${periodoMeses}`,
+      `${this.baseURL}/formas-pagamento?ano=${ano}`,
     );
     if (!res.ok) {
       const error = await res.json();
@@ -121,25 +118,11 @@ class DashboardService {
   }
 
   /**
-   * Busca resumo de faturas (total/pago/aberto)
-   */
-  async buscarFaturasResumo(periodoMeses: number): Promise<FaturasResumo> {
-    const res = await fetch(
-      `${this.baseURL}/faturas-resumo?periodo=${periodoMeses}`,
-    );
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao buscar resumo de faturas");
-    }
-    return res.json();
-  }
-
-  /**
    * Busca transações recorrentes
    */
-  async buscarRecorrentes(periodoMeses: number): Promise<Recorrente[]> {
+  async buscarRecorrentes(ano: number): Promise<Recorrente[]> {
     const res = await fetch(
-      `${this.baseURL}/recorrentes?periodo=${periodoMeses}`,
+      `${this.baseURL}/recorrentes?ano=${ano}`,
     );
     if (!res.ok) {
       const error = await res.json();
@@ -173,10 +156,10 @@ class DashboardService {
    * Alimenta o CardValores
    */
   async buscarValoresPeriodo(
-    periodoMeses: number,
+    ano: number,
   ): Promise<ValoresPeriodoResponse> {
     const res = await fetch(
-      `${this.baseURL}/valores-periodo?periodo=${periodoMeses}`,
+      `${this.baseURL}/valores-periodo?ano=${ano}`,
     );
     if (!res.ok) {
       const error = await res.json();
@@ -192,11 +175,11 @@ class DashboardService {
    * @param limit - Número de gastos a retornar (padrão: 5, máximo: 20)
    */
   async buscarMaioresGastos(
-    periodoMeses: number,
+    ano: number,
     limit = 5,
   ): Promise<MaioresGastosResponse> {
     const res = await fetch(
-      `${this.baseURL}/maiores-gastos?periodo=${periodoMeses}&limit=${limit}`,
+      `${this.baseURL}/maiores-gastos?ano=${ano}&limit=${limit}`,
     );
     if (!res.ok) {
       const error = await res.json();

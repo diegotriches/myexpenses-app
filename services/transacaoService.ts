@@ -227,6 +227,26 @@ export const transacaoService = {
   },
 
   /**
+   * Lista as transações de um ano inteiro: de janeiro até o mês atual no ano
+   * vigente, de janeiro a dezembro nos anos passados.
+   * Usado pelos cards de categorias do dashboard (seletor de ano).
+   */
+  async listarPorAno(ano: number): Promise<Transacao[]> {
+    const res = await fetch(`/api/transacoes?anoCompleto=${ano}`);
+
+    if (!res.ok) {
+      const error = await res
+        .json()
+        .catch(() => ({ error: "Erro ao listar transações" }));
+      throw new Error(
+        error.error || error.message || "Erro ao listar transações",
+      );
+    }
+
+    return res.json();
+  },
+
+  /**
    * Lista TODAS as transações do usuário, sem filtro de período.
    * Usado pelo CardParcelados, que precisa do histórico completo de cada
    * parcelamento (incluindo parcelas fora da janela de qualquer filtro)

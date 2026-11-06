@@ -12,24 +12,21 @@ export const dashboardKeys = {
     ["dashboard", "resumo", ano, mes] as const,
   resumoRapido: (mes: number, ano: number) =>
     ["dashboard", "resumo-rapido", ano, mes] as const,
-  grafico: (periodo?: string) =>
-    ["dashboard", "grafico", periodo || "6"] as const,
+  grafico: (ano: number) => ["dashboard", "grafico", ano] as const,
   extrato: (filters: FiltrosExtrato) =>
     ["dashboard", "extrato", filters] as const,
-  condicoesPagamento: (periodoMeses: number) =>
-    ["dashboard", "condicoes", periodoMeses] as const,
-  formasPagamento: (periodoMeses: number) =>
-    ["dashboard", "formas", periodoMeses] as const,
-  faturas: (periodoMeses: number) =>
-    ["dashboard", "faturas", periodoMeses] as const,
-  recorrentes: (periodoMeses: number) =>
-    ["dashboard", "recorrentes", periodoMeses] as const,
+  condicoesPagamento: (ano: number) =>
+    ["dashboard", "condicoes", ano] as const,
+  formasPagamento: (ano: number) =>
+    ["dashboard", "formas", ano] as const,
+  recorrentes: (ano: number) =>
+    ["dashboard", "recorrentes", ano] as const,
   despesasFuturas: (mes: number, ano: number) =>
     ["dashboard", "despesas-futuras", ano, mes] as const,
-  valoresPeriodo: (periodoMeses: number) =>
-    ["dashboard", "valores-periodo", periodoMeses] as const,
-  maioresGastos: (periodoMeses: number, limit: number) =>
-    ["dashboard", "maiores-gastos", periodoMeses, limit] as const,
+  valoresPeriodo: (ano: number) =>
+    ["dashboard", "valores-periodo", ano] as const,
+  maioresGastos: (ano: number, limit: number) =>
+    ["dashboard", "maiores-gastos", ano, limit] as const,
   transacoesRecentes: (limit: number) =>
     ["dashboard", "transacoes-recentes", limit] as const,
   saldoHistorico: (periodo: string) =>
@@ -47,10 +44,10 @@ export function useDashboard() {
   });
 }
 
-export function useGraficoMeses(periodo?: string) {
+export function useGraficoMeses(ano: number) {
   return useQuery<DadosGraficoMeses[], Error>({
-    queryKey: dashboardKeys.grafico(periodo),
-    queryFn: () => dashboardService.buscarGraficoMeses(periodo || "6"),
+    queryKey: dashboardKeys.grafico(ano),
+    queryFn: () => dashboardService.buscarGraficoMeses(ano),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -74,37 +71,28 @@ export function useDashboardResumoRapido() {
   });
 }
 
-export function useCondicoesPagamento(periodoMeses: 3 | 6 | 12) {
+export function useCondicoesPagamento(ano: number) {
   return useQuery({
-    queryKey: dashboardKeys.condicoesPagamento(periodoMeses),
-    queryFn: () => dashboardService.buscarCondicoesPagamento(periodoMeses),
+    queryKey: dashboardKeys.condicoesPagamento(ano),
+    queryFn: () => dashboardService.buscarCondicoesPagamento(ano),
     staleTime: 3 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
 }
 
-export function useFormasPagamento(periodoMeses: 3 | 6 | 12) {
+export function useFormasPagamento(ano: number) {
   return useQuery({
-    queryKey: dashboardKeys.formasPagamento(periodoMeses),
-    queryFn: () => dashboardService.buscarFormasPagamento(periodoMeses),
+    queryKey: dashboardKeys.formasPagamento(ano),
+    queryFn: () => dashboardService.buscarFormasPagamento(ano),
     staleTime: 3 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
 }
 
-export function useFaturasResumo(periodoMeses: 3 | 6 | 12) {
+export function useRecorrentes(ano: number) {
   return useQuery({
-    queryKey: dashboardKeys.faturas(periodoMeses),
-    queryFn: () => dashboardService.buscarFaturasResumo(periodoMeses),
-    staleTime: 3 * 60 * 1000,
-    refetchOnWindowFocus: true,
-  });
-}
-
-export function useRecorrentes(periodoMeses: 3 | 6 | 12) {
-  return useQuery({
-    queryKey: dashboardKeys.recorrentes(periodoMeses),
-    queryFn: () => dashboardService.buscarRecorrentes(periodoMeses),
+    queryKey: dashboardKeys.recorrentes(ano),
+    queryFn: () => dashboardService.buscarRecorrentes(ano),
     staleTime: 3 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
@@ -124,19 +112,19 @@ export function useDespesasFuturas() {
   });
 }
 
-export function useValoresPeriodo(periodoMeses: 3 | 6 | 12) {
+export function useValoresPeriodo(ano: number) {
   return useQuery({
-    queryKey: dashboardKeys.valoresPeriodo(periodoMeses),
-    queryFn: () => dashboardService.buscarValoresPeriodo(periodoMeses),
+    queryKey: dashboardKeys.valoresPeriodo(ano),
+    queryFn: () => dashboardService.buscarValoresPeriodo(ano),
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
 }
 
-export function useMaioresGastos(periodoMeses: 3 | 6 | 12, limit = 5) {
+export function useMaioresGastos(ano: number, limit = 5) {
   return useQuery({
-    queryKey: dashboardKeys.maioresGastos(periodoMeses, limit),
-    queryFn: () => dashboardService.buscarMaioresGastos(periodoMeses, limit),
+    queryKey: dashboardKeys.maioresGastos(ano, limit),
+    queryFn: () => dashboardService.buscarMaioresGastos(ano, limit),
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: true,
   });

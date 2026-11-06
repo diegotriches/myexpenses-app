@@ -1,12 +1,15 @@
+// src/app/api/dashboard/recorrentes/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 import { db } from "@/db";
 import { transacoes } from "@/db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
+import { calcularIntervaloAno, lerAnoDaRequisicao } from "@/utils/periodoAno";
 
 /**
- * GET /api/dashboard/recorrentes?periodo=6
- * Retorna transações recorrentes dos últimos N meses a partir de hoje.
+ * GET /api/dashboard/recorrentes?ano=2026
+ * Retorna transações recorrentes do ano informado
+ * (até o mês atual, se for o ano vigente).
  */
 export async function GET(req: NextRequest) {
   try {
@@ -15,20 +18,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const periodoParam = searchParams.get("periodo") || "6";
-    const numMeses = parseInt(periodoParam);
-
-    if (isNaN(numMeses) || numMeses < 1 || numMeses > 24) {
-      return NextResponse.json(
-        { error: "Período inválido (1-24 meses)" },
-        { status: 400 }
-      );
+    const ano = lerAnoDaRequisicao(req.nextUrl.searchParams.get("ano"));
+    if (ano === null) {
+      return NextResponse.json({ error: "Ano inválido" }, { status: 400 });
     }
 
-    const hoje = new Date();
-    const dataInicio = new Date(hoje.getFullYear(), hoje.getMonth() - numMeses + 1, 1);
-    const dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 23, 59, 59, 999);
+    const { inicio, fim } = calcularIntervaloAno(ano);
 
     const transacoesRecorrentes = await db
       .select()
@@ -37,8 +32,8 @@ export async function GET(req: NextRequest) {
         and(
           eq(transacoes.userId, userId),
           eq(transacoes.recorrente, true),
-          gte(transacoes.data, dataInicio),
-          lte(transacoes.data, dataFim)
+          gte(transacoes.data, inicio),
+          lte(transacoes.data, fim)
         )
       );
 

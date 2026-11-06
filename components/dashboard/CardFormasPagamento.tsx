@@ -29,13 +29,13 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 interface CardFormasPagamentoProps {
-  periodoMeses: 3 | 6 | 12;
+  ano: number;
 }
 
 export function CardFormasPagamento({
-  periodoMeses,
+  ano,
 }: CardFormasPagamentoProps) {
-  const { data: dados, isLoading, error } = useFormasPagamento(periodoMeses);
+  const { data: dados, isLoading, error } = useFormasPagamento(ano);
 
   if (isLoading) {
     return (

@@ -20,6 +20,7 @@ export const transacoesKeys = {
   byId:     (id: string)                  => ["transacoes", id]        as const,
   filtered: (filters: FiltrosTransacao)   => ["transacoes", filters]   as const,
   periodo:  (periodoMeses: number)        => ["transacoes", "periodo", periodoMeses] as const,
+  ano:      (ano: number)                 => ["transacoes", "ano", ano] as const,
   todas:    ()                            => ["transacoes", "todas"] as const,
 };
 
@@ -35,6 +36,16 @@ export function useTransacoesPeriodo(periodoMeses: 3 | 6 | 12) {
   return useQuery({
     queryKey: transacoesKeys.periodo(periodoMeses),
     queryFn:  () => transacaoService.listarPorPeriodo(periodoMeses),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+// Transações do ano (janeiro até o mês atual no ano vigente; janeiro a dezembro
+// nos anos passados). Usado pelos cards de categorias do dashboard.
+export function useTransacoesAno(ano: number) {
+  return useQuery({
+    queryKey: transacoesKeys.ano(ano),
+    queryFn:  () => transacaoService.listarPorAno(ano),
     staleTime: 2 * 60 * 1000,
   });
 }

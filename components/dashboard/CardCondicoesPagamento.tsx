@@ -26,11 +26,11 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 interface CardCondicoesPagamentoProps {
-  periodoMeses: 3 | 6 | 12;
+  ano: number;
 }
 
-export function CardCondicoesPagamento({ periodoMeses }: CardCondicoesPagamentoProps) {
-  const { data: dados, isLoading, error } = useCondicoesPagamento(periodoMeses);
+export function CardCondicoesPagamento({ ano }: CardCondicoesPagamentoProps) {
+  const { data: dados, isLoading, error } = useCondicoesPagamento(ano);
 
   if (isLoading) {
     return (

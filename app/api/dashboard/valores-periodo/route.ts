@@ -1,14 +1,22 @@
+// src/app/api/dashboard/valores-periodo/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, cartoes } from "@/db/schema";
 import { and, gte, lte, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
+import {
+  calcularIntervaloAno,
+  lerAnoDaRequisicao,
+  hojeBrtDate,
+} from "@/utils/periodoAno";
 
 /**
- * GET /api/dashboard/valores-periodo?periodo=6
- * Retorna receitas recebidas, a receber e despesas a pagar nos últimos
- * N meses a partir de hoje.
+ * GET /api/dashboard/valores-periodo?ano=2026
+ *
+ * • recebidos: entradas do ano com data até hoje
+ * • aReceber / aPagar: lançamentos com data FUTURA, até 31/12 do ano
+ *   (é uma projeção do ano todo; em anos passados não há nada futuro)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -17,24 +25,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const periodoParam = searchParams.get("periodo") || "6";
-    const numMeses = parseInt(periodoParam);
-
-    if (isNaN(numMeses) || numMeses < 1 || numMeses > 24) {
-      return NextResponse.json(
-        { error: "Período inválido (1-24 meses)" },
-        { status: 400 }
-      );
+    const ano = lerAnoDaRequisicao(req.nextUrl.searchParams.get("ano"));
+    if (ano === null) {
+      return NextResponse.json({ error: "Ano inválido" }, { status: 400 });
     }
 
-    const hoje = new Date();
+    const intervalo = calcularIntervaloAno(ano);
+
+    const hoje = hojeBrtDate();
     hoje.setHours(0, 0, 0, 0);
 
-    const dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 23, 59, 59, 999);
-    // Amplia um mês pra trás pra pegar compras de cartão do mês anterior
-    // que caem na fatura do primeiro mês da janela
-    const dataInicio = new Date(hoje.getFullYear(), hoje.getMonth() - numMeses, 1);
+    // Amplia a busca para dezembro do ano anterior: compras de cartão feitas
+    // lá podem pertencer a uma fatura de janeiro
+    const dataInicioBusca = new Date(ano - 1, 11, 1);
+    const dataFimBusca = intervalo.fimAno;
 
     const todas = await db
       .select()
@@ -42,8 +46,8 @@ export async function GET(req: NextRequest) {
       .where(
         and(
           eq(transacoes.userId, userId),
-          gte(transacoes.data, dataInicio),
-          lte(transacoes.data, dataFim)
+          gte(transacoes.data, dataInicioBusca),
+          lte(transacoes.data, dataFimBusca)
         )
       );
 
@@ -54,14 +58,10 @@ export async function GET(req: NextRequest) {
 
     const cartoesMap = new Map(cartoesDb.map((c) => [c.id, c]));
 
-    // Janela "cheia" (sem o mês extra de segurança) pra checar fatura de cartão
-    const inicioJanela = new Date(hoje.getFullYear(), hoje.getMonth() - numMeses + 1, 1);
-    const inicioJanelaChave = inicioJanela.getFullYear() * 12 + (inicioJanela.getMonth() + 1);
-    const fimJanelaChave = hoje.getFullYear() * 12 + (hoje.getMonth() + 1);
-
-    const dentroDaJanela = (mesFatura: number, anoFatura: number) => {
+    // Fatura de cartão só conta se pertencer a um mês do ano (jan–dez)
+    const faturaDentroDoAno = (mesFatura: number, anoFatura: number) => {
       const chave = anoFatura * 12 + mesFatura;
-      return chave >= inicioJanelaChave && chave <= fimJanelaChave;
+      return chave >= intervalo.chaveInicio && chave <= intervalo.chaveFimAno;
     };
 
     let recebidos = 0;
@@ -75,11 +75,10 @@ export async function GET(req: NextRequest) {
       const isFutura = dataTransacao > hoje;
 
       if (t.tipo === "entrada") {
-        if (isFutura) {
-          aReceber += valor;
-        } else {
-          recebidos += valor;
-        }
+        // A busca ampliada traz dezembro do ano anterior: entradas de lá não contam
+        if (dataTransacao < intervalo.inicio) continue;
+        if (isFutura) aReceber += valor;
+        else recebidos += valor;
       }
 
       if (t.tipo === "saida" && isFutura) {
@@ -90,7 +89,7 @@ export async function GET(req: NextRequest) {
               dataTransacao,
               cartao.diaFechamento || 1
             );
-            if (dentroDaJanela(mesFatura, anoFatura)) {
+            if (faturaDentroDoAno(mesFatura, anoFatura)) {
               aPagar += valor;
             }
           }

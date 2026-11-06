@@ -15,11 +15,11 @@ import { useMemo } from "react";
 import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface CardRecorrentesProps {
-  periodoMeses: 3 | 6 | 12;
+  ano: number;
 }
 
-export function CardRecorrentes({ periodoMeses }: CardRecorrentesProps) {
-  const { data: transacoes, isLoading, error } = useRecorrentes(periodoMeses);
+export function CardRecorrentes({ ano }: CardRecorrentesProps) {
+  const { data: transacoes, isLoading, error } = useRecorrentes(ano);
   const { mask } = useHideValues();
 
   const formatarMoeda = (valor: number) =>

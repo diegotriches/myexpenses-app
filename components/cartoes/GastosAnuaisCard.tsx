@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ResponsiveContainer,
@@ -13,14 +12,6 @@ import {
   Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { CreditCard, Loader2, TrendingDown, CheckCircle2, Clock } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
 
@@ -50,7 +41,10 @@ interface GastosAnuaisData {
   porCartao: PorCartao[];
 }
 
-const ANO_ATUAL = new Date().getFullYear();
+interface Props {
+  /** Ano exibido — controlado pelo seletor de ano do Dashboard */
+  ano: number;
+}
 
 const formatarMoeda = (valor: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
@@ -81,122 +75,63 @@ function TooltipCustomizado({ active, payload, label }: any) {
   );
 }
 
-export default function GastosAnuaisCard() {
-  const [ano, setAno] = useState<number | null>(null);
+export default function GastosAnuaisCard({ ano }: Props) {
   const { mask } = useHideValues();
 
-  const { data: anosData, isLoading: loadingAnos } = useQuery<{ anos: number[] }>({
-    queryKey: ["cartoes-gastos-anos"],
-    queryFn: async () => {
-      const res = await fetch("/api/cartoes/gastos-anuais/anos");
-      if (!res.ok) throw new Error("Erro ao carregar anos disponíveis");
-      return res.json();
-    },
-    staleTime: 1000 * 60 * 10,
-  });
-
-  // ✅ CORRIGIDO: prioriza o ano vigente se ele tiver dados;
-  // só usa o mais recente como fallback se o ano atual não estiver na lista.
-  useEffect(() => {
-    if (ano === null && anosData?.anos && anosData.anos.length > 0) {
-      const temAnoAtual = anosData.anos.includes(ANO_ATUAL);
-      setAno(temAnoAtual ? ANO_ATUAL : anosData.anos[0]);
-    }
-  }, [anosData, ano]);
-
-  const anos            = anosData?.anos ?? [];
-  const anoSelecionado  = ano ?? ANO_ATUAL;
-  const usarSelect      = anos.length > 5;
-
+  // Mesma queryKey usada na página de Cartões — compartilha o cache
   const { data, isLoading, isError } = useQuery<GastosAnuaisData>({
-    queryKey: ["cartoes-gastos-anuais", anoSelecionado],
+    queryKey: ["cartoes-gastos-anuais", ano],
     queryFn: async () => {
-      const res = await fetch(`/api/cartoes/gastos-anuais?ano=${anoSelecionado}`);
+      const res = await fetch(`/api/cartoes/gastos-anuais?ano=${ano}`);
       if (!res.ok) throw new Error("Erro ao carregar gastos anuais");
       return res.json();
     },
     staleTime: 1000 * 60 * 5,
-    enabled: !loadingAnos,
   });
 
-  const semDados = !isLoading && !isError && data?.totalGasto === 0;
+  const semDados = !isLoading && !isError && (data?.totalGasto ?? 0) === 0;
 
-  const dadosGrafico = (data?.porMes ?? []).filter((m) => {
-    const mesAtual = new Date().getMonth() + 1;
-    return m.mes <= mesAtual || m.total > 0;
-  });
+  // Ano vigente: de janeiro até o mês atual (ou meses com valor).
+  // Anos passados: todos os meses.
+  const anoVigente = new Date().getFullYear();
+  const mesAtual = new Date().getMonth() + 1;
+  const dadosGrafico = (data?.porMes ?? []).filter((m) =>
+    ano < anoVigente ? true : m.mes <= mesAtual || m.total > 0
+  );
 
   return (
-    <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+    <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm h-full">
       <CardHeader className="pb-2">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-50 dark:bg-purple-950/40 flex items-center justify-center flex-shrink-0">
-              <CreditCard size={20} className="text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1">
-                Gastos Anuais — Cartões de Crédito
-              </p>
-              {isLoading ? (
-                <div className="h-7 w-44 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-              ) : isError ? (
-                <p className="text-sm text-red-500">Erro ao carregar</p>
-              ) : (
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {mask(formatarMoeda(data?.totalGasto ?? 0))}
-                  </span>
-                  <div className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                    <CheckCircle2 size={12} />
-                    <span>Pago: {mask(formatarCompacto(data?.totalPago ?? 0))}</span>
-                  </div>
-                  {(data?.totalPendente ?? 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-                      <Clock size={12} />
-                      <span>Pendente: {mask(formatarCompacto(data?.totalPendente ?? 0))}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-lg bg-purple-50 dark:bg-purple-950/40 flex items-center justify-center flex-shrink-0">
+            <CreditCard size={20} className="text-purple-600 dark:text-purple-400" />
           </div>
-
-          {loadingAnos ? (
-            <div className="h-9 w-32 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse self-start" />
-          ) : usarSelect ? (
-            <Select
-              value={String(anoSelecionado)}
-              onValueChange={(v) => setAno(Number(v))}
-            >
-              <SelectTrigger className="w-[110px] h-9 text-xs self-start">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {anos.map((a) => (
-                  <SelectItem key={a} value={String(a)} className="text-xs">{a}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-900 rounded-lg p-1 self-start">
-              {anos.map((a) => (
-                <Button
-                  key={a}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setAno(a)}
-                  className={`h-7 px-3 text-xs font-medium rounded-md transition-all ${
-                    anoSelecionado === a
-                      ? "bg-white dark:bg-gray-700 text-purple-700 dark:text-purple-400 shadow-sm"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                  }`}
-                >
-                  {a}
-                </Button>
-              ))}
-            </div>
-          )}
+          <div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1">
+              Gastos Anuais — Cartões de Crédito · {ano}
+            </p>
+            {isLoading ? (
+              <div className="h-7 w-44 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            ) : isError ? (
+              <p className="text-sm text-red-500">Erro ao carregar</p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {mask(formatarMoeda(data?.totalGasto ?? 0))}
+                </span>
+                <div className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  <CheckCircle2 size={12} />
+                  <span>Pago: {mask(formatarCompacto(data?.totalPago ?? 0))}</span>
+                </div>
+                {(data?.totalPendente ?? 0) > 0 && (
+                  <div className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                    <Clock size={12} />
+                    <span>Pendente: {mask(formatarCompacto(data?.totalPendente ?? 0))}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </CardHeader>
 
@@ -212,7 +147,7 @@ export default function GastosAnuaisCard() {
         ) : semDados ? (
           <div className="h-52 flex flex-col items-center justify-center gap-2">
             <TrendingDown size={32} className="text-gray-300 dark:text-gray-600" />
-            <p className="text-sm text-gray-400">Nenhuma fatura registrada em {anoSelecionado}.</p>
+            <p className="text-sm text-gray-400">Nenhuma fatura registrada em {ano}.</p>
           </div>
         ) : (
           <>

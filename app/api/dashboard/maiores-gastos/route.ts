@@ -1,14 +1,16 @@
+// src/app/api/dashboard/maiores-gastos/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, cartoes } from "@/db/schema";
 import { and, gte, lte, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
+import { calcularIntervaloAno, lerAnoDaRequisicao } from "@/utils/periodoAno";
 
 /**
- * GET /api/dashboard/maiores-gastos?periodo=6&limit=5
- * Retorna os maiores gastos dos últimos N meses (a partir de hoje),
- * ordenados por valor decrescente.
+ * GET /api/dashboard/maiores-gastos?ano=2026&limit=5
+ * Retorna os maiores gastos do ano informado (até o mês atual, se for o ano
+ * vigente), ordenados por valor decrescente.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -18,22 +20,18 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const periodoParam = searchParams.get("periodo") || "6";
-    const numMeses = parseInt(periodoParam);
+    const ano = lerAnoDaRequisicao(searchParams.get("ano"));
     const limit = Math.min(Number(searchParams.get("limit") || "5"), 20);
 
-    if (isNaN(numMeses) || numMeses < 1 || numMeses > 24) {
-      return NextResponse.json(
-        { error: "Período inválido (1-24 meses)" },
-        { status: 400 }
-      );
+    if (ano === null) {
+      return NextResponse.json({ error: "Ano inválido" }, { status: 400 });
     }
 
-    const hoje = new Date();
-    const dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0, 23, 59, 59, 999);
-    // ✅ Amplia um mês pra trás do início da janela — compras de cartão feitas
-    // pouco antes do início do período podem pertencer a uma fatura dentro dele
-    const dataInicio = new Date(hoje.getFullYear(), hoje.getMonth() - numMeses, 1);
+    const intervalo = calcularIntervaloAno(ano);
+
+    // Amplia a busca para dezembro do ano anterior: compras de cartão feitas
+    // pouco antes do início do ano podem pertencer a uma fatura dentro dele
+    const dataInicioBusca = new Date(ano - 1, 11, 1);
 
     const despesas = await db
       .select({
@@ -50,8 +48,8 @@ export async function GET(req: NextRequest) {
         and(
           eq(transacoes.userId, userId),
           eq(transacoes.tipo, "saida"),
-          gte(transacoes.data, dataInicio),
-          lte(transacoes.data, dataFim)
+          gte(transacoes.data, dataInicioBusca),
+          lte(transacoes.data, intervalo.fim)
         )
       );
 
@@ -62,18 +60,9 @@ export async function GET(req: NextRequest) {
 
     const cartoesMap = new Map(cartoesDb.map((c) => [c.id, c]));
 
-    // Limites da janela de N meses "cheios", pra comparar mesFatura/anoFatura
-    const limiteAno = hoje.getFullYear();
-    const limiteMes = hoje.getMonth() + 1; // mês atual (1-12)
-    const inicioJanela = new Date(hoje.getFullYear(), hoje.getMonth() - numMeses + 1, 1);
-    const inicioJanelaAno = inicioJanela.getFullYear();
-    const inicioJanelaMes = inicioJanela.getMonth() + 1;
-
     const dentroDaJanela = (mesFatura: number, anoFatura: number) => {
       const chave = anoFatura * 12 + mesFatura;
-      const chaveInicio = inicioJanelaAno * 12 + inicioJanelaMes;
-      const chaveFim = limiteAno * 12 + limiteMes;
-      return chave >= chaveInicio && chave <= chaveFim;
+      return chave >= intervalo.chaveInicio && chave <= intervalo.chaveFim;
     };
 
     const despesasFiltradas = despesas.filter((t) => {
@@ -86,8 +75,8 @@ export async function GET(req: NextRequest) {
         );
         return dentroDaJanela(mesFatura, anoFatura);
       }
-      // Não-cartão: já veio dentro do range de data direto na query
-      return true;
+      // Não-cartão: precisa estar dentro do ano (a busca ampliada traz dezembro anterior)
+      return new Date(t.data) >= intervalo.inicio;
     });
 
     const topGastos = despesasFiltradas

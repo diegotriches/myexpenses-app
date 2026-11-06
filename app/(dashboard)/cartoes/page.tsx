@@ -21,7 +21,7 @@ import CartaoFormModal from "@/components/cartoes/CartaoFormModal";
 import CartaoItem from "@/components/cartoes/CartaoItem";
 import CartaoItemInativo from "@/components/cartoes/CartaoItemInativo";
 import { CartaoExclusaoModal } from "@/components/cartoes/CartaoExclusaoModal";
-import GastosAnuaisCard from "@/components/cartoes/GastosAnuaisCard"; // ✅ NOVO
+import ResumoCartoes from "@/components/cartoes/ResumoCartoes";
 
 import { Cartao, CreateCartaoDTO, UpdateCartaoDTO } from "@/types/cartao";
 
@@ -54,7 +54,7 @@ export default function CartoesPage() {
 
   const router = useRouter();
 
-  // ✅ NOVO: só exibe o card de gastos se houver pelo menos um cartão de crédito
+  // Só exibe o resumo se houver pelo menos um cartão de crédito
   const temCartaoCredito = useMemo(
     () => cartoes.some((c) => c.tipo === "credito"),
     [cartoes]
@@ -217,8 +217,8 @@ export default function CartoesPage() {
         <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
       </header>
 
-      {/* ✅ NOVO: Card de gastos anuais — só para cartões de crédito */}
-      {!loading && temCartaoCredito && <GastosAnuaisCard />}
+      {/* Resumo: pago no ano, faturas em aberto, despesas futuras e limite utilizado */}
+      {!loading && temCartaoCredito && <ResumoCartoes cartoes={cartoes} />}
 
       {/* Alerta de bloqueio de exclusão */}
       {alertaBloqueio && (

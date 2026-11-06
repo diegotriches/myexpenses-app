@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { agruparPorCategoria } from '@/utils/dashboardUtils';
 import { BarChart3 } from 'lucide-react';
 import { useMemo } from 'react';
-import { useTransacoesPeriodo } from '@/hooks/useTransacoes';
+import { useTransacoesAno } from '@/hooks/useTransacoes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useHideValues } from '@/contexts/HideValuesContext';
@@ -12,11 +12,11 @@ import { useHideValues } from '@/contexts/HideValuesContext';
 const CORES_LANCAMENTOS = ['#3b82f6', '#6366f1', '#8b5cf6', '#0ea5e9', '#06b6d4'];
 
 interface CardCategoriasLancamentosProps {
-  periodoMeses: 3 | 6 | 12;
+  ano: number;
 }
 
-export function CardCategoriasLancamentos({ periodoMeses }: CardCategoriasLancamentosProps) {
-  const { data: transacoes = [], isLoading } = useTransacoesPeriodo(periodoMeses);
+export function CardCategoriasLancamentos({ ano }: CardCategoriasLancamentosProps) {
+  const { data: transacoes = [], isLoading } = useTransacoesAno(ano);
   const { mask } = useHideValues();
 
   const categorias = useMemo(() => agruparPorCategoria(transacoes), [transacoes]);

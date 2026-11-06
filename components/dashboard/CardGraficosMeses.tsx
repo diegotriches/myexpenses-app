@@ -26,14 +26,13 @@ function formatarMes(mes: string) {
   }
 }
 
-// ✅ Agora recebe o período como prop — controlado pelo seletor global da aba
+// Recebe o ano como prop — controlado pelo seletor de ano do dashboard
 interface CardGraficoMesesProps {
-  periodoMeses: 3 | 6 | 12;
+  ano: number;
 }
 
-export function CardGraficoMeses({ periodoMeses }: CardGraficoMesesProps) {
-  const periodo = String(periodoMeses) as "3" | "6" | "12";
-  const { data: dados, isLoading, error } = useGraficoMeses(periodo);
+export function CardGraficoMeses({ ano }: CardGraficoMesesProps) {
+  const { data: dados, isLoading, error } = useGraficoMeses(ano);
   const { hidden, mask } = useHideValues();
 
   const formatarMoeda = (value: number) =>
@@ -83,13 +82,12 @@ export function CardGraficoMeses({ periodoMeses }: CardGraficoMesesProps) {
     );
   };
 
-  // ✅ Removido o botão de período do header — agora é só o título,
-  // controlado pelo SeletorPeriodoMeses no topo da aba
+  // Só o título — o período é controlado pelo SeletorAno no topo das abas
   const cardTitle = (
     <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-900 dark:text-white">
       <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-      <span className="hidden sm:inline">Evolução Financeira - Últimos {periodoMeses} Meses</span>
-      <span className="sm:hidden">Evolução ({periodoMeses}m)</span>
+      <span className="hidden sm:inline">Evolução Financeira - {ano}</span>
+      <span className="sm:hidden">Evolução ({ano})</span>
     </CardTitle>
   );
 
@@ -129,7 +127,7 @@ export function CardGraficoMeses({ periodoMeses }: CardGraficoMesesProps) {
             <TrendingUp className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum dado disponível</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              Dados dos últimos {periodoMeses} meses aparecerão aqui
+              Dados de {ano} aparecerão aqui
             </p>
           </div>
         ) : (

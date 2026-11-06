@@ -5,6 +5,7 @@ import { transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema"
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
+import { calcularIntervaloAno, lerAnoDaRequisicao } from "@/utils/periodoAno";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,6 +16,7 @@ export async function GET(req: NextRequest) {
     const ano = searchParams.get("ano");
     const mes = searchParams.get("mes");
     const periodoMeses = searchParams.get("periodoMeses");
+    const anoCompleto  = searchParams.get("anoCompleto");
 
     const filtros = [eq(transacoes.userId, userId)];
 
@@ -24,6 +26,13 @@ export async function GET(req: NextRequest) {
       const inicioMes = new Date(anoNum, mesNum - 1, 1);
       const fimMes    = new Date(anoNum, mesNum, 1);
       filtros.push(sql`${transacoes.data} >= ${inicioMes} AND ${transacoes.data} < ${fimMes}`);
+    } else if (anoCompleto) {
+      // Ano inteiro (dashboard): de janeiro até o mês atual no ano vigente,
+      // de janeiro a dezembro nos anos passados
+      const anoNum = lerAnoDaRequisicao(anoCompleto);
+      if (anoNum === null) return NextResponse.json({ error: "Ano inválido" }, { status: 400 });
+      const { inicio, fim } = calcularIntervaloAno(anoNum);
+      filtros.push(sql`${transacoes.data} >= ${inicio} AND ${transacoes.data} <= ${fim}`);
     } else if (periodoMeses) {
       const numMeses = parseInt(periodoMeses);
       if (!isNaN(numMeses) && numMeses > 0 && numMeses <= 24) {

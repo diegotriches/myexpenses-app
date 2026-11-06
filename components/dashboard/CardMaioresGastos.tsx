@@ -7,11 +7,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface CardMaioresGastosProps {
-  periodoMeses: 3 | 6 | 12;
+  ano: number;
 }
 
-export function CardMaioresGastos({ periodoMeses }: CardMaioresGastosProps) {
-  const { data, isLoading } = useMaioresGastos(periodoMeses, 5);
+export function CardMaioresGastos({ ano }: CardMaioresGastosProps) {
+  const { data, isLoading } = useMaioresGastos(ano, 5);
   const { mask } = useHideValues();
 
   const gastos = data?.gastos ?? [];

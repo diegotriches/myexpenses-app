@@ -7,11 +7,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface CardValoresProps {
-  periodoMeses: 3 | 6 | 12;
+  ano: number;
 }
 
-export function CardValores({ periodoMeses }: CardValoresProps) {
-  const { data, isLoading } = useValoresPeriodo(periodoMeses);
+export function CardValores({ ano }: CardValoresProps) {
+  const { data, isLoading } = useValoresPeriodo(ano);
   const { mask } = useHideValues();
 
   const recebidos = data?.recebidos ?? 0;
@@ -47,7 +47,7 @@ export function CardValores({ periodoMeses }: CardValoresProps) {
       <CardHeader>
         <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-900 dark:text-white">
           <CalendarDays className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          Valores do Período
+          Valores de {ano}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -139,7 +139,7 @@ export function CardValores({ periodoMeses }: CardValoresProps) {
           {aReceber === 0 && aPagar === 0 && (
             <div className="text-center py-4">
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Sem receitas ou despesas futuras neste período
+                Sem receitas ou despesas futuras em {ano}
               </p>
             </div>
           )}

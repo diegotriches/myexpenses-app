@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { useDashboard, useDespesasFuturas } from '@/hooks/useDashboard';
 import { useContas } from '@/hooks/useContas';
 import { useCartoes } from '@/hooks/useCartoes';
+import { usePeriodo } from '@/contexts/PeriodoContext';
 
 import { CardResumo } from '@/components/dashboard/CardResumo';
 import { CardLimiteCredito } from '@/components/dashboard/CardLimiteCredito';
@@ -20,9 +21,9 @@ import { CardCategoriasLancamentos } from '@/components/dashboard/CardCategorias
 import { CardCategoriasReceita } from '@/components/dashboard/CardCategoriasReceita';
 import { CardCategoriasDespesa } from '@/components/dashboard/CardCategoriasDespesa';
 import { CardValores } from '@/components/dashboard/CardValores';
-import { CardFaturas } from '@/components/dashboard/CardFaturas';
+import GastosAnuaisCard from '@/components/cartoes/GastosAnuaisCard';
 import { CardSaldoHistorico } from '@/components/dashboard/CardSaldoHistorico';
-import { SeletorPeriodoMeses } from '@/components/dashboard/SeletorPeriodoMeses';
+import { SeletorAno } from '@/components/dashboard/SeletorAno';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -59,6 +60,20 @@ function useSaudacao() {
   return { saudacao, dataFormatada };
 }
 
+// Rótulo pequeno que deixa claro o escopo de tempo de cada bloco
+function RotuloSecao({ titulo, detalhe }: { titulo: string; detalhe?: string }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        {titulo}
+      </h2>
+      {detalhe && (
+        <span className="text-xs text-gray-400 dark:text-gray-500">· {detalhe}</span>
+      )}
+    </div>
+  );
+}
+
 // ── Dashboard ──────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -69,6 +84,13 @@ export default function Dashboard() {
   const { data: despesasFuturas, isLoading: loadingDespesasFuturas } = useDespesasFuturas();
   const { data: contas = [], isLoading: loadingContas } = useContas();
   const { data: cartoes = [], isLoading: loadingCartoes } = useCartoes();
+  const { mesSelecionado, anoSelecionado } = usePeriodo();
+
+  // Rótulo do escopo dos cards de resumo (mês do PeriodoContext)
+  const rotuloMes = useMemo(() => {
+    const nome = new Date(anoSelecionado, mesSelecionado, 1).toLocaleDateString('pt-BR', { month: 'long' });
+    return `${nome.charAt(0).toUpperCase()}${nome.slice(1)} de ${anoSelecionado}`;
+  }, [mesSelecionado, anoSelecionado]);
 
   const primeiroNome = useMemo(() => {
     const nome = session?.user?.name;
@@ -76,9 +98,8 @@ export default function Dashboard() {
     return nome.split(" ")[0];
   }, [session]);
 
-  // ✅ NOVO: período (3/6/12 meses) — independente por aba
-  const [periodoVisaoGeral, setPeriodoVisaoGeral] = useState<3 | 6 | 12>(6);
-  const [periodoAnalises,   setPeriodoAnalises]   = useState<3 | 6 | 12>(6);
+  // Ano exibido nas duas abas (padrão: ano vigente → de janeiro até o mês atual)
+  const [anoDashboard, setAnoDashboard] = useState<number>(() => new Date().getFullYear());
 
   // ── Tabs com transição automática ──────────────────────────────────────
   const TABS = ['overview', 'analytics'] as const;
@@ -133,6 +154,14 @@ export default function Dashboard() {
     setAutoPlay(false);
     clearBars();
   }
+
+  // Trocar de ano interrompe a troca automática de abas
+  function handleAnoChange(ano: number) {
+    cancelAnimationFrame(rafRef.current);
+    setAutoPlay(false);
+    clearBars();
+    setAnoDashboard(ano);
+  }
   // ────────────────────────────────────────────────────────────────────────
 
   const totais = useMemo(() => {
@@ -160,12 +189,16 @@ export default function Dashboard() {
 
   const isLoading = loadingDashboard || loadingContas || loadingCartoes || loadingDespesasFuturas;
 
-  const CardSkeleton = () => (
-    <Card className="dark:bg-gray-900 dark:border-gray-800">
-      <CardHeader><Skeleton className="h-4 w-[200px]" /></CardHeader>
-      <CardContent>
-        <Skeleton className="h-8 w-full mb-2" />
-        <Skeleton className="h-4 w-3/4" />
+  // Mesmo layout e altura do CardResumo (4 cards)
+  const ResumoSkeleton = () => (
+    <Card className="border-l-4 border-l-gray-200 dark:border-l-gray-700 dark:bg-gray-900 dark:border-gray-800 overflow-hidden !py-0 !gap-0">
+      <CardHeader className="flex flex-row items-center justify-between !px-3 !pt-3 !pb-1 md:!px-4 md:!pt-5 md:!pb-1.5">
+        <Skeleton className="h-2.5 w-14 md:h-3.5 md:w-24" />
+        <Skeleton className="h-3 w-3 md:h-4 md:w-4 rounded-full" />
+      </CardHeader>
+      <CardContent className="!px-3 !pt-0 !pb-3 md:!px-4 md:!pt-0 md:!pb-5">
+        <Skeleton className="h-4 w-20 md:h-6 md:w-32 mb-1.5" />
+        <Skeleton className="h-2 w-12 md:h-3 md:w-20" />
       </CardContent>
     </Card>
   );
@@ -204,28 +237,26 @@ export default function Dashboard() {
         <hr className="border-t border-gray-300 dark:border-gray-700" />
       </div>
 
-      {/* Cards de resumo principal */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {[...Array(5)].map((_, i) => <CardSkeleton key={i} />)}
-        </div>
-      ) : (
-        <CardResumo
-          resumo={dashboard?.resumo || { receitas: 0, despesas: 0, saldo: 0 }}
-          saldoContas={totais?.totalContas}
-          quantidadeContas={totais?.quantidadeContas}
-          despesasFuturas={despesasFuturas}
-        />
-      )}
-
-      {/* Limite de crédito + Evolução do Patrimônio */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <CardLimiteCredito />
-        <CardSaldoHistorico />
-      </div>
+      {/* Cards de resumo principal — escopo: mês selecionado */}
+      <section className="space-y-2">
+        <RotuloSecao titulo="Resumo do mês" detalhe={rotuloMes} />
+        {isLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
+            {[...Array(4)].map((_, i) => <ResumoSkeleton key={i} />)}
+          </div>
+        ) : (
+          <CardResumo
+            resumo={dashboard?.resumo || { receitas: 0, despesas: 0, saldo: 0 }}
+            saldoContas={totais?.totalContas}
+            quantidadeContas={totais?.quantidadeContas}
+            despesasFuturas={despesasFuturas}
+          />
+        )}
+      </section>
 
       {/* Tabs com transição automática */}
       <div className="space-y-4">
+        <div className="sticky top-0 z-20 -mx-6 px-6 py-2 bg-background/95 backdrop-blur md:static md:mx-0 md:px-0 md:py-0 md:bg-transparent md:backdrop-blur-none flex items-center justify-between gap-3">
         <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground dark:bg-gray-800">
           <button
             onClick={() => handleTabChange('overview')}
@@ -268,6 +299,14 @@ export default function Dashboard() {
           </button>
         </div>
 
+        <div className="flex items-center gap-2">
+          <span className="hidden sm:inline text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Ano
+          </span>
+          <SeletorAno value={anoDashboard} onChange={handleAnoChange} />
+        </div>
+        </div>
+
         <div className="relative">
           {/* Visão Geral */}
           <div
@@ -280,21 +319,29 @@ export default function Dashboard() {
               transition:    'opacity 0.5s ease',
             }}
           >
-            {/* Seletor de período da aba Visão Geral */}
-            <div className="flex justify-end">
-              <SeletorPeriodoMeses value={periodoVisaoGeral} onChange={setPeriodoVisaoGeral} />
+            {/* Posição atual — não depende do ano */}
+            <RotuloSecao titulo="Posição atual" />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              <div className="lg:col-span-8 [&>*]:h-full"><CardSaldoHistorico /></div>
+              <div className="lg:col-span-4 [&>*]:h-full"><CardLimiteCredito /></div>
             </div>
 
+            {/* Visão do ano selecionado */}
+            <div className="pt-2">
+              <RotuloSecao titulo="Ano" detalhe={String(anoDashboard)} />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              <div className="lg:col-span-8 [&>*]:h-full"><CardGraficoMeses ano={anoDashboard} /></div>
+              <div className="lg:col-span-4 [&>*]:h-full"><CardTransacoesRecentes /></div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              <div className="lg:col-span-8 [&>*]:h-full"><GastosAnuaisCard ano={anoDashboard} /></div>
+              <div className="lg:col-span-4 [&>*]:h-full"><CardParcelados /></div>
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <CardGraficoMeses periodoMeses={periodoVisaoGeral} />
-              <CardTransacoesRecentes />
+              <div className="[&>*]:h-full"><CardCondicoesPagamento ano={anoDashboard} /></div>
+              <div className="[&>*]:h-full"><CardFormasPagamento ano={anoDashboard} /></div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <CardCondicoesPagamento periodoMeses={periodoVisaoGeral} />
-              <CardFormasPagamento periodoMeses={periodoVisaoGeral} />
-              <CardFaturas periodoMeses={periodoVisaoGeral} />
-            </div>
-            <CardParcelados />
           </div>
 
           {/* Análises */}
@@ -308,20 +355,16 @@ export default function Dashboard() {
               transition:    'opacity 0.5s ease',
             }}
           >
-            {/* Seletor de período da aba Análises */}
-            <div className="flex justify-end">
-              <SeletorPeriodoMeses value={periodoAnalises} onChange={setPeriodoAnalises} />
+            <RotuloSecao titulo="Ano" detalhe={String(anoDashboard)} />
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="[&>*]:h-full"><CardCategoriasLancamentos ano={anoDashboard} /></div>
+              <div className="[&>*]:h-full"><CardCategoriasReceita ano={anoDashboard} /></div>
+              <div className="md:col-span-2 xl:col-span-1 [&>*]:h-full"><CardCategoriasDespesa ano={anoDashboard} /></div>
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <CardCategoriasLancamentos periodoMeses={periodoAnalises} />
-              <CardCategoriasReceita periodoMeses={periodoAnalises} />
-              <CardCategoriasDespesa periodoMeses={periodoAnalises} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <CardMaioresGastos periodoMeses={periodoAnalises} />
-              <CardValores periodoMeses={periodoAnalises} />
-              <CardRecorrentes periodoMeses={periodoAnalises} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="[&>*]:h-full"><CardMaioresGastos ano={anoDashboard} /></div>
+              <div className="[&>*]:h-full"><CardValores ano={anoDashboard} /></div>
+              <div className="md:col-span-2"><CardRecorrentes ano={anoDashboard} /></div>
             </div>
           </div>
         </div>
