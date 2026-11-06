@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft,
-  Calendar,
   DollarSign,
   CheckCircle,
   AlertCircle,
@@ -76,6 +74,16 @@ const mesesAbreviados = [
   "Out",
   "Nov",
   "Dez",
+];
+
+// Cores do resumo por categoria (barra + marcadores)
+const CORES_CATEGORIA = [
+  "bg-blue-500",
+  "bg-purple-500",
+  "bg-emerald-500",
+  "bg-orange-500",
+  "bg-pink-500",
+  "bg-gray-400",
 ];
 
 const hoje = new Date();
@@ -318,10 +326,15 @@ export default function FaturaPage() {
   const totalFatura = Number(dadosFatura?.total ?? 0);
   const faturaVazia = dadosTransacoes.length === 0;
   const categorias = Object.entries(dadosPorCategoria || {});
-  const categoriaComMaiorGasto =
-    categorias.length > 0
-      ? categorias.reduce((max, cat) => (cat[1] > max[1] ? cat : max))
-      : null;
+  // Top 5 categorias + "Outras" agrupando o restante
+  const baseCategorias = categorias.reduce((acc, [, v]) => acc + Number(v), 0) || 1;
+  const categoriasOrdenadas: [string, number][] = (() => {
+    const ordenadas = [...categorias].sort((a, b) => b[1] - a[1]) as [string, number][];
+    if (ordenadas.length <= 6) return ordenadas;
+    const top = ordenadas.slice(0, 5);
+    const resto = ordenadas.slice(5).reduce((acc, [, v]) => acc + Number(v), 0);
+    return [...top, ["Outras", resto]];
+  })();
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
@@ -412,7 +425,7 @@ export default function FaturaPage() {
         </Alert>
       )}
 
-      {/* Card principal — total + ações */}
+      {/* Card principal — total + ações (layout horizontal, mais baixo) */}
       <Card
         className={
           dadosFatura?.paga
@@ -420,107 +433,105 @@ export default function FaturaPage() {
             : "border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-900"
         }
       >
-        <CardContent className="p-4 md:p-6 space-y-4">
-          <Badge
-            className={
-              (dadosFatura?.paga
-                ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                : "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300") +
-              " text-xs md:text-sm"
-            }
-          >
-            {dadosFatura?.paga ? (
-              <>
-                <CheckCircle size={12} className="mr-1" /> Fatura Paga
-              </>
-            ) : (
-              <>
-                <AlertCircle size={12} className="mr-1" /> Em Aberto
-              </>
-            )}
-          </Badge>
-
-          <div>
-            <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-              Total da Fatura
-            </p>
-            <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white break-all">
-              {dadosFatura ? fmt(totalFatura) : "—"}
-            </p>
-            {/* Mostra resumo de adiantamentos se houver */}
-            {adiantamentos.length > 0 && !dadosFatura?.paga && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                {fmt(totalAdiantado)} adiantado • Saldo restante:{" "}
-                {fmt(saldoRestanteFatura)}
+        <CardContent className="px-4 py-3 md:px-6 md:py-3">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
+            {/* Total */}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <Badge
+                  className={
+                    (dadosFatura?.paga
+                      ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                      : "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300") +
+                    " text-xs"
+                  }
+                >
+                  {dadosFatura?.paga ? (
+                    <>
+                      <CheckCircle size={12} className="mr-1" /> Fatura Paga
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle size={12} className="mr-1" /> Em Aberto
+                    </>
+                  )}
+                </Badge>
+                {dadosTransacoes.length > 0 && (
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                    {dadosTransacoes.length}{" "}
+                    {dadosTransacoes.length === 1 ? "transacao" : "transacoes"}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-600 dark:text-gray-400">Total da Fatura</p>
+              <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white break-all leading-tight">
+                {dadosFatura ? fmt(totalFatura) : "—"}
               </p>
+              {/* Mostra resumo de adiantamentos se houver */}
+              {adiantamentos.length > 0 && !dadosFatura?.paga && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                  {fmt(totalAdiantado)} adiantado • Saldo restante:{" "}
+                  {fmt(saldoRestanteFatura)}
+                </p>
+              )}
+            </div>
+
+            {/* Ações */}
+            {!dadosFatura?.paga && dadosTransacoes.length > 0 && (
+              <div className="flex flex-col sm:flex-row gap-2 md:flex-shrink-0">
+                <Button
+                  onClick={() => setModalPagar(true)}
+                  disabled={pagarFaturaMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700 md:min-w-[150px]"
+                >
+                  {pagarFaturaMutation.isPending ? (
+                    <>
+                      <Loader2 size={16} className="mr-2 animate-spin" />{" "}
+                      Pagando...
+                    </>
+                  ) : (
+                    <>
+                      <DollarSign size={16} className="mr-2" /> Pagar Fatura
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => setModalAdiantamento(true)}
+                  disabled={
+                    registrarAdiantamento.isPending || saldoRestanteFatura <= 0
+                  }
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30 md:min-w-[130px]"
+                >
+                  {registrarAdiantamento.isPending ? (
+                    <>
+                      <Loader2 size={16} className="mr-2 animate-spin" />{" "}
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={16} className="mr-2" /> Adiantar
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {dadosFatura?.paga && (
+              <Button
+                variant="outline"
+                onClick={() => setModalCancelarPgto(true)}
+                className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30 md:flex-shrink-0"
+              >
+                <RotateCcw size={16} className="mr-2" />
+                Cancelar Pagamento
+              </Button>
             )}
           </div>
 
-          {!dadosFatura?.paga && dadosTransacoes.length > 0 && (
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              {dadosTransacoes.length}{" "}
-              {dadosTransacoes.length === 1 ? "transacao" : "transacoes"} neste
-              periodo
-            </p>
-          )}
-
-          {/* Botões de ação */}
-          {!dadosFatura?.paga && dadosTransacoes.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button
-                onClick={() => setModalPagar(true)}
-                disabled={pagarFaturaMutation.isPending}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
-              >
-                {pagarFaturaMutation.isPending ? (
-                  <>
-                    <Loader2 size={16} className="mr-2 animate-spin" />{" "}
-                    Pagando...
-                  </>
-                ) : (
-                  <>
-                    <DollarSign size={16} className="mr-2" /> Pagar Fatura
-                  </>
-                )}
-              </Button>
-
-              {/* ✅ NOVO: botão de adiantamento */}
-              <Button
-                variant="outline"
-                onClick={() => setModalAdiantamento(true)}
-                disabled={
-                  registrarAdiantamento.isPending || saldoRestanteFatura <= 0
-                }
-                className="flex-1 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
-              >
-                {registrarAdiantamento.isPending ? (
-                  <>
-                    <Loader2 size={16} className="mr-2 animate-spin" />{" "}
-                    Processando...
-                  </>
-                ) : (
-                  <>
-                    <Zap size={16} className="mr-2" /> Adiantar
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
-
-          {/* ✅ NOVO: botão cancelar pagamento */}
-          {dadosFatura?.paga && (
-            <Button
-              variant="outline"
-              onClick={() => setModalCancelarPgto(true)}
-              className="w-full border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
-            >
-              <RotateCcw size={16} className="mr-2" />
-              Cancelar Pagamento
-            </Button>
-          )}
-
           {!dadosFatura && !loading && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
               Nenhuma fatura encontrada para {meses[mesFinal]}/{anoFinal}.
             </p>
           )}
@@ -538,124 +549,59 @@ export default function FaturaPage() {
         cancelando={cancelarAdiantamentoMut.isPending}
       />
 
-      {/* Alerta maior gasto */}
-      {categoriaComMaiorGasto && !faturaVazia && (
-        <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-900">
-          <PieChart className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-          <AlertDescription className="text-xs md:text-sm text-blue-800 dark:text-blue-200">
-            <strong>Maior gasto:</strong> {categoriaComMaiorGasto[0]} com{" "}
-            {fmt(categoriaComMaiorGasto[1])} (
-            {((categoriaComMaiorGasto[1] / totalFatura) * 100).toFixed(1)}% do
-            total)
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Grid categorias + informações */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm md:text-base flex items-center gap-2">
-              <PieChart size={16} className="text-blue-600" />
-              Resumo por Categoria
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {categorias.length === 0 ? (
-              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                Sem categorias para exibir
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {categorias
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 5)
-                  .map(([categoria, valor]) => {
-                    const pct = (valor / totalFatura) * 100;
-                    return (
-                      <div key={categoria} className="space-y-1.5">
-                        <div className="flex justify-between text-xs md:text-sm gap-2">
-                          <span className="font-medium text-gray-700 dark:text-gray-300 truncate">
-                            {categoria}
-                          </span>
-                          <span className="text-gray-900 dark:text-white font-semibold flex-shrink-0">
-                            {fmt(valor)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Progress value={pct} className="h-1.5 flex-1" />
-                          <span className="text-xs text-gray-500 w-10 text-right flex-shrink-0">
-                            {pct.toFixed(0)}%
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm md:text-base flex items-center gap-2">
-              <Calendar size={16} className="text-blue-600" />
-              Informacoes
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 pt-0">
-            {[
-              {
-                icon: Receipt,
-                label: "Transacoes",
-                value: dadosTransacoes.length,
-              },
-              { icon: PieChart, label: "Categorias", value: categorias.length },
-              {
-                icon: Calendar,
-                label: "Periodo",
-                value: meses[mesFinal] + "/" + anoFinal,
-              },
-              ...(cartao?.diaFechamento
-                ? [
-                    {
-                      icon: Lock,
-                      label: "Fechamento",
-                      value: "Dia " + cartao.diaFechamento,
-                    },
-                  ]
-                : []),
-              ...(adiantamentos.length > 0
-                ? [
-                    {
-                      icon: Zap,
-                      label: "Adiantamentos",
-                      value: adiantamentos.length,
-                    },
-                  ]
-                : []),
-            ].map(({ icon: Icon, label, value }) => (
-              <div
-                key={label}
-                className="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-900 rounded-lg"
-              >
-                <div className="flex items-center gap-2">
-                  <Icon
-                    size={14}
-                    className="text-gray-600 dark:text-gray-400 flex-shrink-0"
+      {/* Resumo por categoria — largura total */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm md:text-base flex items-center gap-2">
+            <PieChart size={16} className="text-blue-600" />
+            Resumo por Categoria
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {categoriasOrdenadas.length === 0 ? (
+            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+              Sem categorias para exibir
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {/* Barra proporcional */}
+              <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                {categoriasOrdenadas.map(([categoria, valor], idx) => (
+                  <div
+                    key={categoria}
+                    className={CORES_CATEGORIA[idx % CORES_CATEGORIA.length]}
+                    style={{ width: `${(valor / baseCategorias) * 100}%` }}
+                    title={categoria}
                   />
-                  <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                    {label}
-                  </span>
-                </div>
-                <span className="font-semibold text-sm text-gray-900 dark:text-white">
-                  {value}
-                </span>
+                ))}
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+
+              {/* Lista em duas colunas no desktop */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5">
+                {categoriasOrdenadas.map(([categoria, valor], idx) => {
+                  const pct = (valor / baseCategorias) * 100;
+                  return (
+                    <div key={categoria} className="flex items-center gap-2.5 text-xs md:text-sm">
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${CORES_CATEGORIA[idx % CORES_CATEGORIA.length]}`}
+                      />
+                      <span className="font-medium text-gray-700 dark:text-gray-300 truncate flex-1">
+                        {categoria}
+                      </span>
+                      <span className="text-gray-500 dark:text-gray-400 w-10 text-right flex-shrink-0">
+                        {pct.toFixed(0)}%
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-semibold w-24 text-right flex-shrink-0">
+                        {fmt(valor)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Lista de transações */}
       <Card>

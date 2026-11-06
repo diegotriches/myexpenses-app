@@ -4,10 +4,9 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, Receipt, CalendarClock, Gauge } from "lucide-react";
+import { CheckCircle2, Receipt, Gauge, Wallet } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
-import { useFaturasAbertas, dashboardKeys } from "@/hooks/useDashboard";
-import { dashboardService } from "@/services/dashboardService";
+import { useFaturasAbertas } from "@/hooks/useDashboard";
 import type { Cartao } from "@/types/cartao";
 
 interface Props {
@@ -37,9 +36,7 @@ export default function ResumoCartoes({ cartoes }: Props) {
   const { mask } = useHideValues();
   const fmt = (v: number) => mask(formatarMoeda(v));
 
-  const hoje = new Date();
-  const anoAtual = hoje.getFullYear();
-  const mesAtual = hoje.getMonth() + 1;
+  const anoAtual = new Date().getFullYear();
 
   // 1) Pago no ano — mesma queryKey do card de gastos anuais da dashboard
   const gastos = useQuery<{ totalGasto: number; totalPago: number }>({
@@ -55,13 +52,6 @@ export default function ResumoCartoes({ cartoes }: Props) {
   // 2) Faturas em aberto (fatura mais urgente de cada cartão de crédito ativo)
   const faturas = useFaturasAbertas();
 
-  // 3) Despesas futuras (compras de cartão em faturas posteriores ao mês atual)
-  const futuras = useQuery({
-    queryKey: dashboardKeys.despesasFuturas(mesAtual, anoAtual),
-    queryFn: () => dashboardService.buscarDespesasFuturas(mesAtual, anoAtual),
-    staleTime: 2 * 60 * 1000,
-  });
-
   const emAberto = useMemo(() => {
     const lista = faturas.data ?? [];
     const total = lista.reduce((s, f) => s + Number(f.total), 0);
@@ -73,13 +63,17 @@ export default function ResumoCartoes({ cartoes }: Props) {
     return { total, quantidade: lista.length, atrasadas, proximoVenc };
   }, [faturas.data]);
 
-  // 4) Limite utilizado — cartões de crédito ativos
+  // 3) Limite utilizado e disponível — cartões de crédito ativos
   const limite = useMemo(() => {
     const ativos = cartoes.filter((c) => c.tipo === "credito" && c.ativo);
     const total = ativos.reduce((s, c) => s + (Number(c.limite) || 0), 0);
     const emUso = ativos.reduce((s, c) => s + (Number(c.emUso) || 0), 0);
+    const disponivel = Math.max(
+      0,
+      ativos.reduce((s, c) => s + (Number(c.limiteDisponivel) || 0), 0)
+    );
     const pct = total > 0 ? (emUso / total) * 100 : 0;
-    return { total, emUso, pct, quantidade: ativos.length };
+    return { total, emUso, disponivel, pct, quantidade: ativos.length };
   }, [cartoes]);
 
   const corLimite =
@@ -142,26 +136,6 @@ export default function ResumoCartoes({ cartoes }: Props) {
         </CardContent>
       </Card>
 
-      {/* Despesas futuras */}
-      <Card className={`${CARD} border-l-orange-500 dark:border-l-orange-600`}>
-        <CardHeader className={HEADER}>
-          <CardTitle className={TITLE}>Despesas futuras</CardTitle>
-          <CalendarClock className="h-3 w-3 md:h-4 md:w-4 text-orange-600 dark:text-orange-400 flex-shrink-0" />
-        </CardHeader>
-        <CardContent className={CONTENT}>
-          {futuras.isLoading ? <Carregando /> : futuras.isError ? <Erro /> : (
-            <>
-              <div className={`${VALOR} text-orange-600 dark:text-orange-400`}>
-                {fmt(futuras.data?.total ?? 0)}
-              </div>
-              <p className={SUB}>
-                {plural(futuras.data?.quantidade ?? 0, "despesa pendente", "despesas pendentes")}
-              </p>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Limite utilizado */}
       <Card className={`${CARD} ${corLimite.borda}`}>
         <CardHeader className={HEADER}>
@@ -173,6 +147,22 @@ export default function ResumoCartoes({ cartoes }: Props) {
           <p className={SUB}>
             {limite.total > 0
               ? `${limite.pct.toFixed(0)}% de ${fmt(limite.total)}`
+              : "Sem limite cadastrado"}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Limite disponível */}
+      <Card className={`${CARD} border-l-emerald-500 dark:border-l-emerald-600`}>
+        <CardHeader className={HEADER}>
+          <CardTitle className={TITLE}>Limite disponível</CardTitle>
+          <Wallet className="h-3 w-3 md:h-4 md:w-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+        </CardHeader>
+        <CardContent className={CONTENT}>
+          <div className={`${VALOR} text-emerald-600 dark:text-emerald-400`}>{fmt(limite.disponivel)}</div>
+          <p className={SUB}>
+            {limite.total > 0
+              ? `${plural(limite.quantidade, "cartão", "cartões")} · ${(100 - Math.min(100, limite.pct)).toFixed(0)}% livre`
               : "Sem limite cadastrado"}
           </p>
         </CardContent>

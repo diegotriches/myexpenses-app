@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BsCreditCard } from "react-icons/bs";
 import { MdAdd } from "react-icons/md";
@@ -217,7 +217,7 @@ export default function CartoesPage() {
         <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
       </header>
 
-      {/* Resumo: pago no ano, faturas em aberto, despesas futuras e limite utilizado */}
+      {/* Resumo: pago no ano, faturas em aberto, limite utilizado e limite disponível */}
       {!loading && temCartaoCredito && <ResumoCartoes cartoes={cartoes} />}
 
       {/* Alerta de bloqueio de exclusão */}
@@ -228,6 +228,45 @@ export default function CartoesPage() {
             {alertaBloqueio}
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* Abas: cartões ativos / inativos (mesmo estilo da página Contas) */}
+      {!loading && cartoes.length > 0 && (
+        <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700" role="tablist">
+          {([
+            { id: "ativos", label: "Ativos", qtd: contadores.ativos },
+            { id: "inativos", label: "Inativos", qtd: contadores.inativos },
+          ] as const).map((item) => {
+            const selecionada = abaAtiva === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={selecionada}
+                onClick={() => { setAbaAtiva(item.id); setAlertaBloqueio(null); }}
+                className={[
+                  "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  selecionada
+                    ? "border-blue-700 text-blue-700 dark:border-blue-500 dark:text-blue-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200",
+                ].join(" ")}
+              >
+                {item.label}
+                <span
+                  className={[
+                    "ml-2 rounded-full px-2 py-0.5 text-xs",
+                    selecionada
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+                  ].join(" ")}
+                >
+                  {item.qtd}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       )}
 
       {/* Barra de busca e ordenação */}
@@ -277,12 +316,7 @@ export default function CartoesPage() {
 
       {/* Tabs */}
       {!loading && cartoes.length > 0 && (
-        <Tabs value={abaAtiva} onValueChange={(v) => { setAbaAtiva(v); setAlertaBloqueio(null); }} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-xs">
-            <TabsTrigger value="ativos">Ativos ({contadores.ativos})</TabsTrigger>
-            <TabsTrigger value="inativos">Inativos ({contadores.inativos})</TabsTrigger>
-          </TabsList>
-
+        <Tabs value={abaAtiva} onValueChange={(v) => { setAbaAtiva(v); setAlertaBloqueio(null); }}>
           <TabsContent value="ativos" className="space-y-4">
             {cartoesAtivos.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-lg">
