@@ -95,6 +95,14 @@ export async function PUT(
       );
     }
 
+    // Categoria atual (precisamos do nome antigo: as transações guardam a
+    // categoria pelo NOME, então um rename precisa levá-las junto)
+    const [atual] = await db
+      .select()
+      .from(categorias)
+      .where(and(eq(categorias.id, id), eq(categorias.userId, userId)))
+      .limit(1);
+
     // 🔐 Atualizar APENAS se pertencer ao usuário
     const [updated] = await db
       .update(categorias)
@@ -116,6 +124,33 @@ export async function PUT(
         { error: "Categoria não encontrada ou acesso negado" },
         { status: 404 }
       );
+    }
+
+    // ✅ NOVO: se o nome mudou, acompanha as movimentações e os modelos de
+    // recorrência — senão o histórico "some" da categoria renomeada
+    if (atual && atual.nome !== nome) {
+      for (const tipoMov of tiposDeMovimentacao(atual)) {
+        // Outra categoria com o nome antigo continua cobrindo esse tipo
+        if (await outraCategoriaCobre(userId, atual, tipoMov)) continue;
+
+        await db
+          .update(transacoes)
+          .set({ categoria: nome, updatedAt: new Date() })
+          .where(and(
+            eq(transacoes.userId, userId),
+            eq(transacoes.categoria, atual.nome),
+            eq(transacoes.tipo, tipoMov),
+          ));
+
+        await db
+          .update(recorrencias)
+          .set({ categoria: nome, updatedAt: new Date() })
+          .where(and(
+            eq(recorrencias.userId, userId),
+            eq(recorrencias.categoria, atual.nome),
+            eq(recorrencias.tipo, tipoMov),
+          ));
+      }
     }
 
     return NextResponse.json(updated);

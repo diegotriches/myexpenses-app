@@ -17,6 +17,7 @@ import {
   TrendingDown,
   Tag,
   Receipt,
+  ListOrdered,
 } from "lucide-react";
 import { iconOptions } from "@/utils/iconOptions";
 import { Categoria } from "@/types/categoria";
@@ -32,6 +33,8 @@ type Props = {
   loadingTotais?: boolean;
   // Mobile: ao clicar no card em tela pequena, delega para o pai abrir o bottom sheet
   onMobileSelect?: () => void;
+  // Abre o extrato (página) da categoria
+  onVerExtrato?: () => void;
 };
 
 const formatarMoeda = (valor: number) =>
@@ -46,6 +49,7 @@ export default function CategoriaCard({
   quantidade = 0,
   loadingTotais = false,
   onMobileSelect,
+  onVerExtrato,
 }: Props) {
   const { mask } = useHideValues();
   const [virado, setVirado] = useState(false);
@@ -142,7 +146,16 @@ export default function CategoriaCard({
                   <MoreVertical size={16} />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuContent align="end" className="w-44">
+                {onVerExtrato && (
+                  <>
+                    <DropdownMenuItem onClick={onVerExtrato} className="cursor-pointer">
+                      <ListOrdered size={14} className="mr-2" />
+                      Ver extrato
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuItem onClick={onEditar} className="cursor-pointer">
                   <Edit size={14} className="mr-2" />
                   Editar
@@ -212,25 +225,37 @@ export default function CategoriaCard({
             )}
           </div>
 
-          {/* Rodapé: botões de ação */}
+          {/* Rodapé: extrato + ações */}
           <div className="flex gap-2 pt-1" onClick={stopFlip}>
+            {onVerExtrato && (
+              <Button
+                size="sm"
+                onClick={onVerExtrato}
+                className="flex-1 h-7 text-xs bg-blue-700 hover:bg-blue-800 text-white"
+              >
+                <ListOrdered size={12} className="mr-1" />
+                Extrato
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
               onClick={onEditar}
-              className="flex-1 h-7 text-xs border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+              aria-label="Editar"
+              className={`h-7 text-xs border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 ${onVerExtrato ? "w-8 px-0" : "flex-1"}`}
             >
-              <Edit size={12} className="mr-1" />
-              Editar
+              <Edit size={12} className={onVerExtrato ? "" : "mr-1"} />
+              {!onVerExtrato && "Editar"}
             </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={onExcluir}
-              className="flex-1 h-7 text-xs border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+              aria-label="Excluir"
+              className={`h-7 text-xs border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 ${onVerExtrato ? "w-8 px-0" : "flex-1"}`}
             >
-              <Trash2 size={12} className="mr-1" />
-              Excluir
+              <Trash2 size={12} className={onVerExtrato ? "" : "mr-1"} />
+              {!onVerExtrato && "Excluir"}
             </Button>
           </div>
         </div>

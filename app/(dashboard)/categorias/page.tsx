@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -32,6 +33,7 @@ import {
   Receipt,
   Edit,
   Trash2,
+  ListOrdered,
 } from "lucide-react";
 
 import CategoriaCard from "@/components/categorias/CategoriaCard";
@@ -72,6 +74,7 @@ function BottomSheetConteudo({
   loadingTotais,
   onEditar,
   onExcluir,
+  onVerExtrato,
   onClose,
 }: {
   categoria: Categoria;
@@ -79,6 +82,7 @@ function BottomSheetConteudo({
   loadingTotais: boolean;
   onEditar: () => void;
   onExcluir: () => void;
+  onVerExtrato: () => void;
   onClose: () => void;
 }) {
   const { mask } = useHideValues();
@@ -187,6 +191,15 @@ function BottomSheetConteudo({
       {/* Divisor */}
       <hr className="border-gray-200 dark:border-gray-700" />
 
+      {/* Extrato da categoria */}
+      <Button
+        className="w-full bg-blue-700 hover:bg-blue-800"
+        onClick={() => { onVerExtrato(); onClose(); }}
+      >
+        <ListOrdered size={15} className="mr-2" />
+        Ver extrato da categoria
+      </Button>
+
       {/* Botões */}
       <div className="flex gap-3">
         <Button
@@ -215,6 +228,7 @@ function BottomSheetConteudo({
 export default function CategoriasPage() {
   const { data: categorias = [], isLoading: loading, error, refetch, isRefetching } = useCategorias();
 
+  const router = useRouter();
   const [aba, setAba] = useState<"entrada" | "saida">("entrada");
   const [busca, setBusca] = useState("");
   const [anoSelecionado, setAnoSelecionado] = useState(ANO_ATUAL);
@@ -238,6 +252,14 @@ export default function CategoriasPage() {
     enabled: !loading && categorias.length > 0,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Extrato da categoria (página própria), já no ano selecionado nesta tela
+  const abrirExtrato = (categoria: Categoria) => {
+    const params = new URLSearchParams({ ano: String(anoSelecionado) });
+    // Ano vigente abre no mês atual; outros anos abrem com o ano inteiro
+    params.set("mes", anoSelecionado === ANO_ATUAL ? String(new Date().getMonth() + 1) : "todos");
+    router.push(`/categorias/${categoria.id}?${params.toString()}`);
+  };
 
   const abrirCriacao = () => { setCategoriaEditando(null); setFormModalAberto(true); };
 
@@ -281,10 +303,10 @@ export default function CategoriasPage() {
     <div className="col-span-full text-center py-12 md:py-16 bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
       <Tag className="mx-auto mb-4 text-gray-300 dark:text-gray-600" size={48} />
       <h3 className="text-lg md:text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-        Nenhuma categoria de {tipo === "entrada" ? "entrada" : "saída"}
+        Nenhuma categoria de {tipo === "entrada" ? "receita" : "despesa"}
       </h3>
       <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto px-4">
-        Crie sua primeira categoria de {tipo === "entrada" ? "entrada" : "saída"} para organizar suas transações
+        Crie sua primeira categoria de {tipo === "entrada" ? "receita" : "despesa"} para organizar suas transações
       </p>
       <Button onClick={abrirCriacao} size="lg" className="bg-blue-700 hover:bg-blue-800">
         <MdAdd className="mr-2 text-xl" />
@@ -322,6 +344,45 @@ export default function CategoriasPage() {
         </p>
         <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
       </header>
+
+      {/* Abas: receitas / despesas (mesmo estilo das páginas Contas e Cartões) */}
+      {!loading && !error && categorias.length > 0 && (
+        <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700" role="tablist">
+          {([
+            { id: "entrada", label: "Receitas", qtd: contadores.entradas },
+            { id: "saida", label: "Despesas", qtd: contadores.saidas },
+          ] as const).map((item) => {
+            const selecionada = aba === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={selecionada}
+                onClick={() => setAba(item.id)}
+                className={[
+                  "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  selecionada
+                    ? "border-blue-700 text-blue-700 dark:border-blue-500 dark:text-blue-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200",
+                ].join(" ")}
+              >
+                {item.label}
+                <span
+                  className={[
+                    "ml-2 rounded-full px-2 py-0.5 text-xs",
+                    selecionada
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+                  ].join(" ")}
+                >
+                  {item.qtd}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Barra de busca + seletor de ano */}
       {!loading && !error && categorias.length > 0 && (
@@ -368,16 +429,7 @@ export default function CategoriasPage() {
 
       {/* Tabs */}
       {!loading && !error && categorias.length > 0 && (
-        <Tabs value={aba} onValueChange={(v) => setAba(v as "entrada" | "saida")} className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2 bg-gray-100 dark:bg-gray-800">
-            <TabsTrigger value="entrada" className="data-[state=active]:bg-green-600 data-[state=active]:text-white dark:data-[state=active]:bg-green-700">
-              Entradas ({contadores.entradas})
-            </TabsTrigger>
-            <TabsTrigger value="saida" className="data-[state=active]:bg-red-600 data-[state=active]:text-white dark:data-[state=active]:bg-red-700">
-              Saídas ({contadores.saidas})
-            </TabsTrigger>
-          </TabsList>
-
+        <Tabs value={aba} onValueChange={(v) => setAba(v as "entrada" | "saida")}>
           <TabsContent value={aba} className="space-y-4">
             {categoriasFiltradas.length === 0 ? (
               busca ? (
@@ -409,6 +461,7 @@ export default function CategoriasPage() {
                       quantidade={totais?.quantidade ?? 0}
                       loadingTotais={loadingTotais}
                       onMobileSelect={() => setCategoriaSheet(cat)}
+                      onVerExtrato={() => abrirExtrato(cat)}
                     />
                   );
                 })}
@@ -446,6 +499,7 @@ export default function CategoriasPage() {
               loadingTotais={loadingTotais}
               onEditar={() => abrirEdicao(categoriaSheet)}
               onExcluir={() => abrirExclusao(categoriaSheet)}
+              onVerExtrato={() => abrirExtrato(categoriaSheet)}
               onClose={() => setCategoriaSheet(null)}
             />
           )}
