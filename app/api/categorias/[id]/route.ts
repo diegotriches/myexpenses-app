@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { categorias } from "@/db/schema";
+import { categorias, transacoes, recorrencias } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import {
+  ehCategoriaDestino,
+  tiposDeMovimentacao,
+  outraCategoriaCobre,
+  contarUso,
+  garantirCategoriaDestino,
+} from "@/utils/categoriaUtils";
 
 // GET - Buscar categoria específica
 export async function GET(
@@ -12,7 +19,7 @@ export async function GET(
   try {
     // 🔐 Autenticação
     const userId = await getUserId();
-    
+
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -60,7 +67,7 @@ export async function PUT(
   try {
     // 🔐 Autenticação
     const userId = await getUserId();
-    
+
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -123,6 +130,12 @@ export async function PUT(
 }
 
 // DELETE - Deletar categoria
+//
+// ✅ NOVO: antes de apagar, move as movimentações (e os modelos de
+// recorrência) que usam essa categoria para "Outras despesas" ou "Outras
+// receitas", conforme o tipo de cada movimentação. A categoria só é apagada
+// DEPOIS de tudo movido: se algo falhar no meio, a categoria continua
+// existindo e dá para tentar de novo (mover é idempotente).
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -130,7 +143,7 @@ export async function DELETE(
   try {
     // 🔐 Autenticação
     const userId = await getUserId();
-    
+
     if (!userId) {
       return NextResponse.json(
         { error: "Não autenticado" },
@@ -140,26 +153,91 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // 🔐 Deletar APENAS se pertencer ao usuário
-    const [deleted] = await db
-      .delete(categorias)
+    // 🔐 Buscar APENAS se pertencer ao usuário
+    const [categoria] = await db
+      .select()
+      .from(categorias)
       .where(
         and(
           eq(categorias.id, id),
           eq(categorias.userId, userId) // 🔐 Verificar ownership
         )
       )
-      .returning();
+      .limit(1);
 
-    if (!deleted) {
+    if (!categoria) {
       return NextResponse.json(
         { error: "Categoria não encontrada ou acesso negado" },
         { status: 404 }
       );
     }
 
+    // "Outras despesas"/"Outras receitas" são o destino das demais — não
+    // dá pra excluí-las, senão as movimentações ficariam sem pra onde ir
+    if (ehCategoriaDestino(categoria.nome)) {
+      return NextResponse.json(
+        {
+          error: `A categoria "${categoria.nome}" recebe as movimentações das categorias excluídas e não pode ser removida.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    let transacoesMovidas = 0;
+    let recorrenciasMovidas = 0;
+    const destinos: string[] = [];
+
+    for (const tipoMov of tiposDeMovimentacao(categoria)) {
+      // Outra categoria de mesmo nome ainda cobre esse tipo: nada a mover
+      if (await outraCategoriaCobre(userId, categoria, tipoMov)) continue;
+
+      // Só cria/usa a categoria de destino se houver algo pra mover
+      const uso = await contarUso(userId, categoria.nome, tipoMov);
+      if (uso.transacoes === 0 && uso.recorrencias === 0) continue;
+
+      const destino = await garantirCategoriaDestino(userId, tipoMov);
+      destinos.push(destino.nome);
+
+      const movidas = await db
+        .update(transacoes)
+        .set({ categoria: destino.nome, updatedAt: new Date() })
+        .where(and(
+          eq(transacoes.userId, userId),
+          eq(transacoes.categoria, categoria.nome),
+          eq(transacoes.tipo, tipoMov),
+        ))
+        .returning({ id: transacoes.id });
+      transacoesMovidas += movidas.length;
+
+      // Os modelos de recorrência também: senão as transações geradas daqui
+      // pra frente nasceriam com uma categoria que não existe mais
+      const recMovidas = await db
+        .update(recorrencias)
+        .set({ categoria: destino.nome, updatedAt: new Date() })
+        .where(and(
+          eq(recorrencias.userId, userId),
+          eq(recorrencias.categoria, categoria.nome),
+          eq(recorrencias.tipo, tipoMov),
+        ))
+        .returning({ id: recorrencias.id });
+      recorrenciasMovidas += recMovidas.length;
+    }
+
+    // 🔐 Só agora apaga a categoria
+    await db
+      .delete(categorias)
+      .where(
+        and(
+          eq(categorias.id, id),
+          eq(categorias.userId, userId) // 🔐 Verificar ownership
+        )
+      );
+
     return NextResponse.json({
-      message: "Categoria removida com sucesso"
+      message: "Categoria removida com sucesso",
+      transacoesMovidas,
+      recorrenciasMovidas,
+      destinos,
     });
   } catch (err: any) {
     console.error("Erro ao deletar categoria:", err);
