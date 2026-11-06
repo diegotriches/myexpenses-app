@@ -17,9 +17,12 @@ import {
   transferencias,
   notas,
   adiantamentosFatura,
+  aplicacoes,
+  aportesAplicacao,
+  resgatesAplicacao,
   backupsUsuario,
 } from "@/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, inArray } from "drizzle-orm";
 import type {
   ExportMetadata,
   ExportStatistics,
@@ -112,6 +115,7 @@ async function gerarSnapshot(
     transferenciasData,
     notasData,
     adiantamentosData,
+    aplicacoesData,
   ] = await Promise.all([
     db.select().from(contas).where(eq(contas.userId, userId)),
     db.select().from(cartoes).where(eq(cartoes.userId, userId)),
@@ -135,7 +139,24 @@ async function gerarSnapshot(
       .select()
       .from(adiantamentosFatura)
       .where(eq(adiantamentosFatura.userId, userId)),
+    db.select().from(aplicacoes).where(eq(aplicacoes.userId, userId)),
   ]);
+
+  // Aportes e resgates não têm userId — são buscados pelas aplicações do usuário
+  const idsAplicacoes = aplicacoesData.map((a) => a.id);
+  const [aportesData, resgatesAplicacaoData] =
+    idsAplicacoes.length > 0
+      ? await Promise.all([
+          db
+            .select()
+            .from(aportesAplicacao)
+            .where(inArray(aportesAplicacao.aplicacaoId, idsAplicacoes)),
+          db
+            .select()
+            .from(resgatesAplicacao)
+            .where(inArray(resgatesAplicacao.aplicacaoId, idsAplicacoes)),
+        ])
+      : [[], []];
 
   const data: ExportData & Record<string, any> = {
     categorias: categoriasData,
@@ -154,6 +175,9 @@ async function gerarSnapshot(
     transferencias: transferenciasData,
     notas: notasData,
     adiantamentos: adiantamentosData,
+    aplicacoes: aplicacoesData,
+    aportesAplicacao: aportesData,
+    resgatesAplicacao: resgatesAplicacaoData,
   };
 
   if (preferencesData.length > 0) data.preferences = preferencesData[0];
@@ -171,6 +195,9 @@ async function gerarSnapshot(
     transferencias: transferenciasData.length,
     notas: notasData.length,
     adiantamentos: adiantamentosData.length,
+    aplicacoes: aplicacoesData.length,
+    aportesAplicacao: aportesData.length,
+    resgatesAplicacao: resgatesAplicacaoData.length,
     tamanhoBytes: 0,
     tamanhoFormatado: "",
   };

@@ -268,10 +268,53 @@ export const rendimentosAplicacao = pgTable(
   }),
 );
  
+// Aportes: cada aporte é um "lote" com data própria — rende e paga IR
+// (tabela regressiva) separadamente. Um aporte retroativo é "histórico"
+// (não mexe no saldo da conta).
+export const aportesAplicacao = pgTable(
+  "aportes_aplicacao",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    aplicacaoId: uuid("aplicacao_id").notNull().references(() => aplicacoes.id, { onDelete: "cascade" }),
+    data: date("data").notNull(),
+    valor: numeric("valor", { precision: 18, scale: 2 }).notNull(),
+    principalRestante: numeric("principal_restante", { precision: 18, scale: 8 }).notNull(),
+    valorAtual: numeric("valor_atual", { precision: 18, scale: 8 }).notNull(),
+    contaId: uuid("conta_id").references(() => contas.id, { onDelete: "set null" }),
+    historico: boolean("historico").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    aplicacaoIdx: index("aportes_aplicacao_aplicacao_idx").on(table.aplicacaoId),
+  }),
+);
+
+// Resgates parciais ou totais (saem dos aportes mais antigos primeiro)
+export const resgatesAplicacao = pgTable(
+  "resgates_aplicacao",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    aplicacaoId: uuid("aplicacao_id").notNull().references(() => aplicacoes.id, { onDelete: "cascade" }),
+    data: date("data").notNull(),
+    valorBruto: numeric("valor_bruto", { precision: 18, scale: 2 }).notNull(),
+    tipo: text("tipo", { enum: ["parcial", "total"] }).notNull().default("parcial"),
+    impostoRetido: numeric("imposto_retido", { precision: 18, scale: 2 }),
+    valorLiquido: numeric("valor_liquido", { precision: 18, scale: 2 }),
+    contaId: uuid("conta_id").references(() => contas.id, { onDelete: "set null" }),
+    historico: boolean("historico").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    aplicacaoIdx: index("resgates_aplicacao_aplicacao_idx").on(table.aplicacaoId),
+  }),
+);
+
 export type Aplicacao = typeof aplicacoes.$inferSelect;
 export type NovaAplicacao = typeof aplicacoes.$inferInsert;
 export type TaxaDiaria = typeof taxasDiarias.$inferSelect;
 export type RendimentoAplicacao = typeof rendimentosAplicacao.$inferSelect;
+export type AporteAplicacao = typeof aportesAplicacao.$inferSelect;
+export type ResgateAplicacao = typeof resgatesAplicacao.$inferSelect;
 
 // CARTÕES (Isolados por usuário)
 

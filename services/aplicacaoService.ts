@@ -1,12 +1,36 @@
 // src/services/aplicacaoService.ts
 
+export interface AporteAplicacao {
+  id: string;
+  aplicacaoId: string;
+  data: string; // YYYY-MM-DD
+  valor: string;
+  principalRestante: string;
+  valorAtual: string;
+  contaId: string | null;
+  historico: boolean;
+  createdAt: string;
+}
+
+export interface ResgateAplicacao {
+  id: string;
+  aplicacaoId: string;
+  data: string;
+  valorBruto: string;
+  tipo: "parcial" | "total";
+  impostoRetido: string | null;
+  valorLiquido: string | null;
+  historico: boolean;
+  createdAt: string;
+}
+
 export interface Aplicacao {
   id: string;
   userId: string;
   contaId: string;
   descricao: string | null;
-  valorPrincipal: string;
-  valorAtual: string;
+  valorPrincipal: string; // principal ainda investido
+  valorAtual: string;     // bruto, confirmado pelo BCB
   indexador: "cdi" | "selic";
   percentualIndexador: string;
   tributacao: "isento" | "tributavel";
@@ -18,6 +42,9 @@ export interface Aplicacao {
   impostoRetido: string | null;
   createdAt: string;
   updatedAt: string;
+  aportes: AporteAplicacao[];
+  resgates: ResgateAplicacao[];
+  ultimaTaxa: { data: string; taxa: number } | null; // última taxa publicada do indexador
 }
 
 export interface CreateAplicacaoDTO {
@@ -28,38 +55,71 @@ export interface CreateAplicacaoDTO {
   percentualIndexador: number;
   tributacao: "isento" | "tributavel";
   dataVencimento?: string; // YYYY-MM-DD — omitido = liquidez diária
+  dataAplicacao?: string;  // YYYY-MM-DD — omitido = hoje; passado = histórico
+}
+
+export interface AportarDTO {
+  valor: number;
+  data?: string;
+  contaId?: string;
+}
+
+export interface ResgatarDTO {
+  total?: boolean;
+  valor?: number; // resgate parcial, valor BRUTO
+}
+
+async function tratar<T>(res: Response, fallback: string): Promise<T> {
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: fallback }));
+    throw new Error(error.error || fallback);
+  }
+  return res.json();
 }
 
 export const aplicacaoService = {
   async listar(contaId?: string): Promise<Aplicacao[]> {
     const url = contaId ? `/api/aplicacoes?contaId=${contaId}` : "/api/aplicacoes";
-    const res = await fetch(url);
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ error: "Erro ao listar aplicações" }));
-      throw new Error(error.error || "Erro ao listar aplicações");
-    }
-    return res.json();
+    return tratar(await fetch(url), "Erro ao listar aplicações");
   },
 
   async criar(dados: CreateAplicacaoDTO): Promise<Aplicacao> {
-    const res = await fetch("/api/aplicacoes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dados),
-    });
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ error: "Erro ao criar aplicação" }));
-      throw new Error(error.error || "Erro ao criar aplicação");
-    }
-    return res.json();
+    return tratar(
+      await fetch("/api/aplicacoes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados),
+      }),
+      "Erro ao criar aplicação"
+    );
   },
 
-  async resgatar(id: string): Promise<Aplicacao> {
-    const res = await fetch(`/api/aplicacoes/${id}/resgatar`, { method: "POST" });
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ error: "Erro ao resgatar aplicação" }));
-      throw new Error(error.error || "Erro ao resgatar aplicação");
-    }
-    return res.json();
+  async aportar(id: string, dados: AportarDTO): Promise<AporteAplicacao> {
+    return tratar(
+      await fetch(`/api/aplicacoes/${id}/aportes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados),
+      }),
+      "Erro ao registrar aporte"
+    );
+  },
+
+  async resgatar(id: string, dados: ResgatarDTO) {
+    return tratar<{ ok: boolean; detalhamento: { valorLiquido: number; impostoRetido: number; tipo: "parcial" | "total" } }>(
+      await fetch(`/api/aplicacoes/${id}/resgatar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados),
+      }),
+      "Erro ao resgatar aplicação"
+    );
+  },
+
+  async recalcular(id: string) {
+    return tratar<{ ok: boolean; statusBcb: string; valorAtual: number }>(
+      await fetch(`/api/aplicacoes/${id}/recalcular`, { method: "POST" }),
+      "Erro ao atualizar rendimentos"
+    );
   },
 };
