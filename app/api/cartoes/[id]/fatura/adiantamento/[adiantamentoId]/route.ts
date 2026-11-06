@@ -59,17 +59,24 @@ export async function DELETE(
       );
 
     // ── 3. Buscar conta ───────────────────────────────────────────────────────
-    const [conta] = await db
-      .select()
-      .from(contas)
-      .where(and(
-        eq(contas.id,     adiantamento.contaId),
-        eq(contas.userId, userId)
-      ))
-      .limit(1);
+    // conta_id fica NULL quando a conta usada no adiantamento foi excluída
+    // (ON DELETE SET NULL). Nesse caso não há onde estornar o dinheiro: o
+    // adiantamento ainda pode ser cancelado, só não mexe em conta/extrato.
+    let conta: typeof contas.$inferSelect | undefined;
 
-    if (!conta)
-      return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
+    if (adiantamento.contaId) {
+      [conta] = await db
+        .select()
+        .from(contas)
+        .where(and(
+          eq(contas.id,     adiantamento.contaId),
+          eq(contas.userId, userId)
+        ))
+        .limit(1);
+
+      if (!conta)
+        return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
+    }
 
     // ── 4. Buscar cartão ──────────────────────────────────────────────────────
     const [cartao] = await db
@@ -81,27 +88,31 @@ export async function DELETE(
     if (!cartao)
       return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
 
-    const novoSaldoConta  = Number(conta.saldoAtual) + valorNum;
-    const novoTotalFatura = Number(fatura.total)     + valorNum;
+    const novoTotalFatura = Number(fatura.total) + valorNum;
+    let novoSaldoConta: number | null = null;
 
-    // ── 5. Estornar valor à conta ─────────────────────────────────────────────
-    await db
-      .update(contas)
-      .set({ saldoAtual: novoSaldoConta.toFixed(2), updatedAt: new Date() })
-      .where(and(eq(contas.id, adiantamento.contaId), eq(contas.userId, userId)));
+    if (conta && adiantamento.contaId) {
+      novoSaldoConta = Number(conta.saldoAtual) + valorNum;
 
-    // ── 6. Registrar estorno no extrato ───────────────────────────────────────
-    await db.insert(extratoConta).values({
-      userId,
-      contaId:  adiantamento.contaId,
-      data:     new Date().toISOString().split("T")[0],
-      tipo:     "entrada",
-      valor:    valorNum.toFixed(2),
-      descricao: `Estorno adiantamento fatura ${cartao.nome} - ${String(fatura.mes).padStart(2, "0")}/${fatura.ano}`,
-      saldoApos: novoSaldoConta.toFixed(2),
-      origem:    "ESTORNO",
-      referenciaId: adiantamento.id,
-    });
+      // ── 5. Estornar valor à conta ───────────────────────────────────────────
+      await db
+        .update(contas)
+        .set({ saldoAtual: novoSaldoConta.toFixed(2), updatedAt: new Date() })
+        .where(and(eq(contas.id, adiantamento.contaId), eq(contas.userId, userId)));
+
+      // ── 6. Registrar estorno no extrato ─────────────────────────────────────
+      await db.insert(extratoConta).values({
+        userId,
+        contaId:  adiantamento.contaId,
+        data:     new Date().toISOString().split("T")[0],
+        tipo:     "entrada",
+        valor:    valorNum.toFixed(2),
+        descricao: `Estorno adiantamento fatura ${cartao.nome} - ${String(fatura.mes).padStart(2, "0")}/${fatura.ano}`,
+        saldoApos: novoSaldoConta.toFixed(2),
+        origem:    "ESTORNO",
+        referenciaId: adiantamento.id,
+      });
+    }
 
     // ── 7. Somar de volta o valor na fatura ───────────────────────────────────
     await db
@@ -128,7 +139,7 @@ export async function DELETE(
     return NextResponse.json({
       message:       "Adiantamento cancelado com sucesso",
       novoTotalFatura,
-      saldoConta:    novoSaldoConta,
+      saldoConta:    novoSaldoConta, // null = conta do adiantamento já foi excluída
     });
   } catch (error: any) {
     console.error("Erro ao cancelar adiantamento:", error);
