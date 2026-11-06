@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Wallet, Landmark, TrendingUp } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Wallet, Landmark, PiggyBank, LineChart } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { useContas } from "@/hooks/useContas";
 import { useAplicacoes } from "@/hooks/useAplicacoes";
@@ -34,6 +35,14 @@ function liquidoEstimado(a: Aplicacao, hoje: string): number {
   return estimarLiquidoTotal(proj.lotes, hoje, a.tributacao).valorLiquido;
 }
 
+// Padrão compacto dos cards de resumo (mesmo das páginas Dashboard e Cartões)
+const CARD = "!py-0 !gap-0 border-l-4 dark:bg-gray-900 dark:border-gray-800 hover:shadow-lg transition-shadow overflow-hidden";
+const HEADER = "flex flex-row items-center justify-between -space-y-1 !px-3 !pt-3 !pb-1 md:!px-4 md:!pt-5 md:!pb-1.5";
+const TITLE = "text-[11px] md:text-sm font-medium text-gray-900 dark:text-white leading-none md:leading-normal";
+const CONTENT = "!px-3 !pt-0 !pb-3 md:!px-4 md:!pt-0 md:!pb-5";
+const VALOR = "text-base md:text-2xl font-bold leading-none md:leading-normal !mb-1";
+const SUB = "text-[9px] md:text-xs text-gray-500 dark:text-gray-400 leading-none md:leading-normal mt-0.5 md:mt-1.5 truncate";
+
 export default function PatrimonioCard() {
   const { mask } = useHideValues();
   const contasQuery = useContas();
@@ -49,90 +58,117 @@ export default function PatrimonioCard() {
 
     const hoje = hojeBrt();
     const investidas = (aplicacoesQuery.data ?? []).filter((a) => !a.resgatada);
-    const investido = investidas.reduce((soma, a) => soma + liquidoEstimado(a, hoje), 0);
+    const rendaFixa = investidas.reduce((soma, a) => soma + liquidoEstimado(a, hoje), 0);
+    // Renda variável ainda não implementada
+    const rendaVariavel = 0;
+
+    const total = emContas + rendaFixa + rendaVariavel;
+    const parte = (v: number) => (total > 0 ? Math.max(0, (v / total) * 100) : 0);
 
     return {
       qtdContas: ativas.length,
       qtdAplicacoes: investidas.length,
       emContas,
-      investido,
-      total: emContas + investido,
+      rendaFixa,
+      rendaVariavel,
+      total,
+      pctContas: parte(emContas),
+      pctRendaFixa: parte(rendaFixa),
     };
   }, [contasQuery.data, aplicacoesQuery.data]);
 
-  const semNada = resumo.qtdContas === 0 && resumo.qtdAplicacoes === 0;
-  const cor = (v: number) =>
+  const corSaldo = (v: number) =>
     v >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
 
-  return (
-    <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-      <CardContent className="p-5 space-y-4">
-        {/* Total geral */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center flex-shrink-0">
-            <Wallet size={20} className="text-blue-600 dark:text-blue-400" />
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-0.5">
-              Patrimônio Total
-            </p>
-            {carregando ? (
-              <div className="h-9 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-            ) : erroContas ? (
-              <p className="text-red-500 text-sm">Erro ao carregar</p>
-            ) : semNada ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Nenhuma conta ativa ou investimento no momento.
-              </p>
-            ) : (
-              <span className={`text-3xl font-bold ${cor(resumo.total)}`}>
-                {mask(formatarMoeda(resumo.total))}
-              </span>
-            )}
-          </div>
-        </div>
+  const Carregando = () => (
+    <>
+      <Skeleton className="h-4 w-20 md:h-6 md:w-32 mb-1.5" />
+      <Skeleton className="h-2 w-12 md:h-3 md:w-20" />
+    </>
+  );
+  const Erro = () => <p className="text-xs text-red-500">Erro ao carregar</p>;
 
-        {/* Detalhamento: contas x investido */}
-        {!carregando && !erroContas && !semNada && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 p-3">
-              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide mb-1">
-                <Landmark size={14} />
-                Em contas
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
+      {/* Patrimônio total */}
+      <Card className={`${CARD} border-l-blue-500 dark:border-l-blue-600`}>
+        <CardHeader className={HEADER}>
+          <CardTitle className={TITLE}>Patrimônio total</CardTitle>
+          <Wallet className="h-3 w-3 md:h-4 md:w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+        </CardHeader>
+        <CardContent className={CONTENT}>
+          {carregando ? <Carregando /> : erroContas ? <Erro /> : (
+            <>
+              <div className={`${VALOR} ${corSaldo(resumo.total)}`}>
+                {mask(formatarMoeda(resumo.total))}
               </div>
-              <p className={`text-lg font-semibold ${cor(resumo.emContas)}`}>
-                {mask(formatarMoeda(resumo.emContas))}
+              <p className={SUB}>
+                {erroAplicacoes ? "sem investimentos (indisponíveis)" : "contas + investimentos"}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Em contas */}
+      <Card className={`${CARD} ${resumo.emContas >= 0 ? "border-l-green-500 dark:border-l-green-600" : "border-l-red-500 dark:border-l-red-600"}`}>
+        <CardHeader className={HEADER}>
+          <CardTitle className={TITLE}>Em contas</CardTitle>
+          <Landmark className={`h-3 w-3 md:h-4 md:w-4 flex-shrink-0 ${corSaldo(resumo.emContas)}`} />
+        </CardHeader>
+        <CardContent className={CONTENT}>
+          {carregando ? <Carregando /> : erroContas ? <Erro /> : (
+            <>
+              <div className={`${VALOR} ${corSaldo(resumo.emContas)}`}>
+                {mask(formatarMoeda(resumo.emContas))}
+              </div>
+              <p className={SUB}>
                 {resumo.qtdContas === 0
                   ? "Nenhuma conta ativa"
-                  : plural(resumo.qtdContas, "conta ativa", "contas ativas")}
+                  : `${plural(resumo.qtdContas, "conta ativa", "contas ativas")} · ${resumo.pctContas.toFixed(0)}%`}
               </p>
-            </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
-            <div className="rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 p-3">
-              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide mb-1">
-                <TrendingUp size={14} />
-                Investido (líquido)
+      {/* Renda fixa */}
+      <Card className={`${CARD} border-l-emerald-500 dark:border-l-emerald-600`}>
+        <CardHeader className={HEADER}>
+          <CardTitle className={TITLE}>Renda fixa</CardTitle>
+          <PiggyBank className="h-3 w-3 md:h-4 md:w-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+        </CardHeader>
+        <CardContent className={CONTENT}>
+          {carregando ? <Carregando /> : erroAplicacoes ? (
+            <p className="text-xs text-red-500">Indisponível</p>
+          ) : (
+            <>
+              <div className={`${VALOR} text-emerald-600 dark:text-emerald-400`}>
+                {mask(formatarMoeda(resumo.rendaFixa))}
               </div>
-              {erroAplicacoes ? (
-                <p className="text-sm text-red-500">Investimentos indisponíveis</p>
-              ) : (
-                <>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {mask(formatarMoeda(resumo.investido))}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {resumo.qtdAplicacoes === 0
-                      ? "Nenhuma aplicação ativa"
-                      : `${plural(resumo.qtdAplicacoes, "aplicação ativa", "aplicações ativas")} · estimado, após IR`}
-                  </p>
-                </>
-              )}
-            </div>
+              <p className={SUB}>
+                {resumo.qtdAplicacoes === 0
+                  ? "Nenhuma aplicação ativa"
+                  : `${plural(resumo.qtdAplicacoes, "aplicação", "aplicações")} · líquido · ${resumo.pctRendaFixa.toFixed(0)}%`}
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Renda variável (em desenvolvimento) */}
+      <Card className={`${CARD} border-l-purple-400 dark:border-l-purple-600`}>
+        <CardHeader className={HEADER}>
+          <CardTitle className={TITLE}>Renda variável</CardTitle>
+          <LineChart className="h-3 w-3 md:h-4 md:w-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+        </CardHeader>
+        <CardContent className={CONTENT}>
+          <div className={`${VALOR} text-purple-600 dark:text-purple-400`}>
+            {mask(formatarMoeda(resumo.rendaVariavel))}
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <p className={SUB}>Em breve · ações e FIIs</p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
