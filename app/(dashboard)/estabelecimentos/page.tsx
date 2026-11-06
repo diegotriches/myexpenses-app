@@ -1,16 +1,37 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MdAdd } from "react-icons/md";
-import { Search, Store, RefreshCw, AlertCircle } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Search,
+  Store,
+  RefreshCw,
+  AlertCircle,
+  MapPin,
+  Receipt,
+  TrendingUp,
+  TrendingDown,
+  Edit,
+  Trash2,
+  ListOrdered,
+} from "lucide-react";
 
 import EstabelecimentoCard from "@/components/estabelecimentos/EstabelecimentoCard";
 import EstabelecimentoFormModal from "@/components/estabelecimentos/EstabalecimentoFormModal";
 import ConfirmDeleteEstabelecimentoModal from "@/components/estabelecimentos/ConfirmDeleteEstabelecimentoModal";
 
 import { Estabelecimento } from "@/types/estabelecimento";
+import { iconOptions } from "@/utils/iconOptions";
+import { useHideValues } from "@/contexts/HideValuesContext";
 import {
   useEstabelecimentos,
   useCriarEstabelecimento,
@@ -18,7 +39,130 @@ import {
   useRemoverEstabelecimento,
 } from "@/hooks/useEstabelecimentos";
 
+const formatarMoeda = (valor: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+
+// ─── Bottom Sheet — detalhes no mobile ───────────────────────────────────────
+
+function BottomSheetConteudo({
+  estabelecimento,
+  onVerExtrato,
+  onEditar,
+  onExcluir,
+  onClose,
+}: {
+  estabelecimento: Estabelecimento;
+  onVerExtrato: () => void;
+  onEditar: () => void;
+  onExcluir: () => void;
+  onClose: () => void;
+}) {
+  const { mask } = useHideValues();
+  const IconComp = iconOptions.find((i) => i.name === estabelecimento.icone)?.component || null;
+
+  const totalEntrada = estabelecimento.totalEntrada ?? 0;
+  const totalSaida = estabelecimento.totalSaida ?? 0;
+  const quantidade = estabelecimento.totalTransacoes ?? 0;
+
+  return (
+    <div className="space-y-5 pb-2">
+      {/* Ícone + nome + localização */}
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md flex-shrink-0">
+          {IconComp ? <IconComp size={28} className="text-white" /> : <Store size={28} className="text-white" />}
+        </div>
+        <div className="min-w-0">
+          <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate">
+            {estabelecimento.nome}
+          </h3>
+          {estabelecimento.localizacao ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
+              <MapPin size={13} className="flex-shrink-0" />
+              <span className="truncate">{estabelecimento.localizacao}</span>
+            </p>
+          ) : (
+            <p className="text-sm text-gray-400 dark:text-gray-500 italic mt-0.5">Sem localização</p>
+          )}
+        </div>
+      </div>
+
+      <hr className="border-gray-200 dark:border-gray-700" />
+
+      {/* Totais */}
+      <div className="space-y-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          Movimentações
+        </p>
+        {quantidade === 0 ? (
+          <p className="text-sm text-gray-400 dark:text-gray-500 italic">Sem movimentações registradas</p>
+        ) : (
+          <div className="space-y-2">
+            {totalSaida > 0 && (
+              <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-2.5">
+                <span className="text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
+                  <TrendingDown size={15} /> Despesas
+                </span>
+                <span className="text-sm font-bold text-red-700 dark:text-red-400 tabular-nums">
+                  {mask(formatarMoeda(totalSaida))}
+                </span>
+              </div>
+            )}
+            {totalEntrada > 0 && (
+              <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 rounded-lg px-4 py-2.5">
+                <span className="text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
+                  <TrendingUp size={15} /> Receitas
+                </span>
+                <span className="text-sm font-bold text-green-700 dark:text-green-400 tabular-nums">
+                  {mask(formatarMoeda(totalEntrada))}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 px-1 pt-1">
+              <Receipt size={13} className="text-gray-400 dark:text-gray-500" />
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {quantidade} {quantidade === 1 ? "transação" : "transações"}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <hr className="border-gray-200 dark:border-gray-700" />
+
+      <Button
+        className="w-full bg-blue-700 hover:bg-blue-800"
+        onClick={() => { onVerExtrato(); onClose(); }}
+      >
+        <ListOrdered size={15} className="mr-2" />
+        Ver extrato do estabelecimento
+      </Button>
+
+      <div className="flex gap-3">
+        <Button
+          variant="outline"
+          className="flex-1 border-gray-200 dark:border-gray-700"
+          onClick={() => { onEditar(); onClose(); }}
+        >
+          <Edit size={15} className="mr-2" />
+          Editar
+        </Button>
+        <Button
+          variant="outline"
+          className="flex-1 border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+          onClick={() => { onExcluir(); onClose(); }}
+        >
+          <Trash2 size={15} className="mr-2" />
+          Excluir
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
+
 export default function EstabelecimentosPage() {
+  const router = useRouter();
   const {
     data: estabelecimentos = [],
     isLoading: loading,
@@ -36,6 +180,7 @@ export default function EstabelecimentosPage() {
   const [deleteAberto,  setDeleteAberto]  = useState(false);
   const [editando,      setEditando]      = useState<Estabelecimento | null>(null);
   const [excluindo,     setExcluindo]     = useState<Estabelecimento | null>(null);
+  const [sheet,         setSheet]         = useState<Estabelecimento | null>(null);
 
   const estabelecimentosFiltrados = useMemo(() => {
     let lista = [...estabelecimentos];
@@ -59,6 +204,11 @@ export default function EstabelecimentosPage() {
   function abrirCriacao() {
     setEditando(null);
     setFormAberto(true);
+  }
+
+  // Extrato do estabelecimento (página própria, ano atual inteiro)
+  function abrirExtrato(e: Estabelecimento) {
+    router.push(`/estabelecimentos/${e.id}?ano=${new Date().getFullYear()}&mes=todos`);
   }
 
   function abrirEdicao(e: Estabelecimento) {
@@ -241,11 +391,33 @@ export default function EstabelecimentosPage() {
                 estabelecimento={e}
                 onEditar={() => abrirEdicao(e)}
                 onExcluir={() => abrirExclusao(e)}
+                onVerExtrato={() => abrirExtrato(e)}
+                onMobileSelect={() => setSheet(e)}
               />
             ))}
           </div>
         </>
       )}
+
+      {/* Bottom Sheet — mobile */}
+      <Sheet open={!!sheet} onOpenChange={(open) => { if (!open) setSheet(null); }}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto px-6 pt-6 pb-8">
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-left text-base font-semibold text-gray-900 dark:text-white">
+              Detalhes do estabelecimento
+            </SheetTitle>
+          </SheetHeader>
+          {sheet && (
+            <BottomSheetConteudo
+              estabelecimento={sheet}
+              onVerExtrato={() => abrirExtrato(sheet)}
+              onEditar={() => abrirEdicao(sheet)}
+              onExcluir={() => abrirExclusao(sheet)}
+              onClose={() => setSheet(null)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Modais */}
       <EstabelecimentoFormModal
