@@ -150,8 +150,43 @@ export function useAtualizarConta() {
   });
 }
 
+export interface UsoConta {
+  transacoes: number;          // pix/dinheiro vinculadas (ficam no histórico, sem conta)
+  transferencias: number;      // apagadas junto com a conta
+  lancamentosExtrato: number;  // apagados junto com a conta
+  aplicacoes: number;          // apagadas junto (inclui aportes e resgates)
+  aplicacoesAtivas: number;
+  valorAplicado: number;       // valor atual das aplicações ativas
+  faturasPagas: number;        // ficam no histórico, sem conta de pagamento
+  cartoesVinculados: number;   // só perdem o vínculo
+  recorrencias: number;        // só perdem o vínculo
+  saldoAtual: number;
+}
+
 /**
- * Hook para remover conta
+ * Resumo do que a exclusão definitiva vai afetar (só busca com enabled=true)
+ */
+export function useUsoConta(id?: string, enabled = true) {
+  return useQuery({
+    queryKey: ["uso-conta", id],
+    queryFn: async (): Promise<UsoConta> => {
+      const res = await fetch(`/api/contas/${id}/uso`);
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({ error: "Erro ao carregar dados da conta" }));
+        throw new Error(e.error || "Erro ao carregar dados da conta");
+      }
+      return res.json();
+    },
+    enabled: !!id && enabled,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Hook para excluir conta DEFINITIVAMENTE
  * 
  * @example
  * const removerConta = useRemoverConta();
@@ -166,13 +201,18 @@ export function useRemoverConta() {
     onSuccess: () => {
       // Invalida cache de contas
       queryClient.invalidateQueries({ queryKey: contasKeys.all });
-      
-      // Invalida dashboard
+
+      // A exclusão apaga extrato/aplicações/transferências e desvincula
+      // transações e faturas, então tudo isso precisa ser recarregado
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["extrato"] });
+      queryClient.invalidateQueries({ queryKey: ["aplicacoes"] });
+      queryClient.invalidateQueries({ queryKey: ["transacoes"] });
+      queryClient.invalidateQueries({ queryKey: ["transferencias"] });
       
       toast({
-        title: "Conta removida!",
-        description: "A conta foi removida com sucesso.",
+        title: "Conta excluída!",
+        description: "A conta foi excluída definitivamente.",
       });
     },
     onError: (error: Error) => {

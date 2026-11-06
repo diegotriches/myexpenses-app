@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import ContaModal from "@/components/contas/ContaModal";
 import ContaCard from "@/components/contas/ContaCard";
-import ConfirmDeleteModal from "@/components/contas/ConfirmDeleteModal";
+import ExcluirContaModal from "@/components/contas/ExcluirContaModal";
 import { ModalTransferencia } from "@/components/transferencias/ModalTransferencia";
 import ModalAjustarSaldo from "@/components/contas/ModalAjustarSaldo";
 import PatrimonioCard from "@/components/contas/PatrimonioCard";
@@ -32,6 +32,7 @@ import { MdAdd } from "react-icons/md";
 import { Search } from "lucide-react";
 
 type OrdenacaoType = "nome" | "saldo-maior" | "saldo-menor" | "recente";
+type AbaType = "ativas" | "inativas";
 
 export default function ContasPage() {
   const { data: contas = [], isLoading: loading, error } = useContas();
@@ -50,13 +51,23 @@ export default function ContasPage() {
   const [modalAjusteOpen, setModalAjusteOpen] = useState(false);
   const [contaParaAjustar, setContaParaAjustar] = useState<Conta | null>(null);
 
-  // Busca e ordenação
+  // Aba (ativas / inativas), busca e ordenação
+  const [aba, setAba] = useState<AbaType>("ativas");
   const [busca, setBusca] = useState("");
   const [ordenacao, setOrdenacao] = useState<OrdenacaoType>("nome");
 
   // Aplica busca e ordenação
+  const qtdAtivas = useMemo(() => contas.filter((c) => c.ativo).length, [contas]);
+  const qtdInativas = contas.length - qtdAtivas;
+
+  // Só as contas da aba atual entram na busca/ordenação
+  const contasDaAba = useMemo(
+    () => contas.filter((c) => (aba === "ativas" ? c.ativo : !c.ativo)),
+    [contas, aba]
+  );
+
   const contasFiltradas = useMemo(() => {
-    let resultado = [...contas];
+    let resultado = [...contasDaAba];
 
     if (busca) {
       resultado = resultado.filter(c =>
@@ -81,7 +92,7 @@ export default function ContasPage() {
     });
 
     return resultado;
-  }, [contas, busca, ordenacao]);
+  }, [contasDaAba, busca, ordenacao]);
 
   function abrirNovaConta() {
     setContaEdicao(null);
@@ -123,6 +134,21 @@ export default function ContasPage() {
     } catch (error) {
       console.error("Erro ao excluir conta:", error);
     }
+  }
+
+  // Ativa/desativa a conta (mantém todo o histórico)
+  async function alternarAtivo(conta: Conta) {
+    try {
+      await atualizarConta.mutateAsync({ id: conta.id, dados: { ativo: !conta.ativo } });
+    } catch (error) {
+      console.error("Erro ao alterar status da conta:", error);
+    }
+  }
+
+  async function desativarEFechar() {
+    if (!contaParaExcluir) return;
+    await alternarAtivo(contaParaExcluir);
+    setContaParaExcluir(null);
   }
 
   function cancelarExclusao() {
@@ -206,6 +232,45 @@ export default function ContasPage() {
         <PatrimonioCard />
       )}
 
+      {/* Abas: contas ativas / inativas */}
+      {!loading && contas.length > 0 && (
+        <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700" role="tablist">
+          {([
+            { id: "ativas", label: "Ativas", qtd: qtdAtivas },
+            { id: "inativas", label: "Inativas", qtd: qtdInativas },
+          ] as const).map((item) => {
+            const selecionada = aba === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={selecionada}
+                onClick={() => setAba(item.id)}
+                className={[
+                  "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  selecionada
+                    ? "border-blue-700 text-blue-700 dark:border-blue-500 dark:text-blue-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200",
+                ].join(" ")}
+              >
+                {item.label}
+                <span
+                  className={[
+                    "ml-2 rounded-full px-2 py-0.5 text-xs",
+                    selecionada
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+                  ].join(" ")}
+                >
+                  {item.qtd}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Barra de busca e ações */}
       {!loading && contas.length > 0 && (
         <div className="flex flex-col md:flex-row gap-4">
@@ -267,6 +332,18 @@ export default function ContasPage() {
         </div>
       ) : contas.length === 0 ? (
         <EmptyState />
+      ) : contasDaAba.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+          <BsBank className="text-4xl text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          <p className="text-gray-600 dark:text-gray-300 font-medium mb-1">
+            {aba === "ativas" ? "Nenhuma conta ativa" : "Nenhuma conta inativa"}
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {aba === "ativas"
+              ? "Reative uma conta na aba Inativas ou adicione uma nova."
+              : "Contas desativadas aparecem aqui e podem ser reativadas a qualquer momento."}
+          </p>
+        </div>
       ) : contasFiltradas.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
           <Search className="text-4xl text-gray-300 dark:text-gray-600 mx-auto mb-3" />
@@ -281,6 +358,7 @@ export default function ContasPage() {
               conta={conta}
               onEditar={editarConta}
               onExcluir={solicitarExclusao}
+              onToggleAtivo={alternarAtivo}
               onExtrato={(c) => router.push(`/contas/${c.id}/extrato`)}
               onTransferir={handleAbrirTransferencia}
               onAjustarSaldo={handleAbrirAjuste}
@@ -310,13 +388,14 @@ export default function ContasPage() {
         conta={contaParaAjustar}
       />
 
-      <ConfirmDeleteModal
+      <ExcluirContaModal
         open={!!contaParaExcluir}
-        title="Excluir conta"
-        description={`Tem certeza que deseja excluir a conta "${contaParaExcluir?.nome}"? Esta ação não pode ser desfeita.`}
-        onConfirm={confirmarExclusao}
-        onCancel={cancelarExclusao}
-        loading={removerConta.isPending}
+        conta={contaParaExcluir}
+        loadingExcluir={removerConta.isPending}
+        loadingArquivar={atualizarConta.isPending}
+        onClose={cancelarExclusao}
+        onArquivar={desativarEFechar}
+        onExcluir={confirmarExclusao}
       />
     </div>
   );

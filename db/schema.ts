@@ -387,7 +387,7 @@ export const transacoes = pgTable("transacoes", {
   valor: numeric("valor", { precision: 14, scale: 2 }).notNull(),
   categoria: text("categoria"),
   formaPagamento: text("formaPagamento"),
-  contaId: uuid("conta_id").references(() => contas.id),
+  contaId: uuid("conta_id").references(() => contas.id, { onDelete: "set null" }),
   transferenciaId: uuid("transferencia_id"),
   cartaoId: integer("cartaoId").references(() => cartoes.id),
   estabelecimentoId: uuid("estabelecimento_id").references(
@@ -431,7 +431,9 @@ export const faturas = pgTable(
       .default("0"),
     paga: boolean("paga").notNull().default(false),
     dataPagamento: date("data_pagamento"),
-    contaPagamentoId: uuid("conta_pagamento_id").references(() => contas.id),
+    contaPagamentoId: uuid("conta_pagamento_id").references(() => contas.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -459,9 +461,9 @@ export const adiantamentosFatura = pgTable(
     faturaId: integer("fatura_id")
       .notNull()
       .references(() => faturas.id, { onDelete: "cascade" }),
-    contaId: uuid("conta_id")
-      .notNull()
-      .references(() => contas.id, { onDelete: "restrict" }),
+    contaId: uuid("conta_id").references(() => contas.id, {
+      onDelete: "set null",
+    }),
     valor: numeric("valor", { precision: 14, scale: 2 }).notNull(),
     descricao: text("descricao"),
     createdAt: timestamp("created_at", { withTimezone: true })

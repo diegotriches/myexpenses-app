@@ -156,23 +156,25 @@ export async function PUT(req: Request, { params }: RouteParams) {
   }
 }
 
-// DELETE - Deletar conta
+// DELETE - Excluir conta definitivamente
+//
+// As chaves estrangeiras de transacoes, faturas e adiantamentos_fatura usam
+// ON DELETE SET NULL (ver schema-conta-exclusao.sql). Por isso um único DELETE
+// faz tudo de forma atômica:
+//   • transações, faturas e adiantamentos ficam no histórico, sem conta vinculada
+//   • extrato, aplicações (com aportes/resgates/rendimentos) e transferências
+//     da conta são apagados em cascata
+// Para só tirar a conta de uso mantendo tudo, use PUT { ativo: false }.
 export async function DELETE(req: Request, { params }: RouteParams) {
   try {
-    // 🔐 Autenticação
     const userId = await getUserId();
 
-    // ✅ VALIDAÇÃO: Retorna 401 se não autenticado
     if (!userId) {
-      return NextResponse.json(
-        { error: "Não autenticado" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     const { id } = await params;
 
-    // 🔐 Deletar APENAS se pertencer ao usuário
     const [deleted] = await db
       .delete(contas)
       .where(and(eq(contas.id, id), eq(contas.userId, userId)))
