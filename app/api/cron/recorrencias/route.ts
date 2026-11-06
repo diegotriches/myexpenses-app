@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { recorrencias, transacoes, contas, cartoes, faturas } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { calcularFaturaDaTransacao, proximaFaturaAberta } from "@/utils/faturaUtils";
+import { recorrencias, transacoes } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { aplicarImpactoRecorrencia } from "@/lib/aplicarImpacto";
+import {
+  notificarImpactoRecorrencia,
+  notificarErroRecorrencia,
+} from "@/lib/notificarRecorrencia";
 
 /**
  * GET /api/cron/recorrencias
@@ -12,6 +16,10 @@ import { calcularFaturaDaTransacao, proximaFaturaAberta } from "@/utils/faturaUt
  * aplica o impacto financeiro SÓ NESTE MOMENTO — nunca antecipado, o que
  * corrige o bug do modelo antigo (todas as ocorrências debitavam a conta
  * de uma vez na criação).
+ *
+ * Falta de saldo/limite NÃO bloqueia a geração: a transação é criada, a
+ * conta pode ficar negativa / o limite pode estourar, e o usuário recebe
+ * uma notificação avisando.
  */
 export async function GET(req: NextRequest) {
   const inicioTotal = Date.now();
@@ -31,19 +39,25 @@ export async function GET(req: NextRequest) {
     .from(recorrencias)
     .where(eq(recorrencias.ativa, true));
 
-  const resultados: Array<{ id: string; status: "gerada" | "pulada" | "erro"; motivo?: string }> = [];
+  const resultados: Array<{
+    id: string;
+    status: "gerada" | "pulada" | "erro";
+    motivo?: string;
+    alerta?: string;
+  }> = [];
 
   for (const rec of ativas) {
+    // Clamp do dia do mês (ex: dia 31 em fevereiro vira o último dia)
+    const ultimoDiaDoMes = new Date(anoAtual, mesAtual, 0).getDate();
+    const diaAlvo = Math.min(rec.diaDoMes, ultimoDiaDoMes);
+    const dataTexto = `${String(diaAlvo).padStart(2, "0")}/${String(mesAtual).padStart(2, "0")}`;
+
     try {
       // Já gerou neste mês/ano — evita duplicar se o cron rodar 2x
       if (rec.ultimaGeracaoMes === mesAtual && rec.ultimaGeracaoAno === anoAtual) {
         resultados.push({ id: rec.id, status: "pulada", motivo: "já gerada este mês" });
         continue;
       }
-
-      // Clamp do dia do mês (ex: dia 31 em fevereiro vira o último dia)
-      const ultimoDiaDoMes = new Date(anoAtual, mesAtual, 0).getDate();
-      const diaAlvo = Math.min(rec.diaDoMes, ultimoDiaDoMes);
 
       if (diaAtual !== diaAlvo) {
         resultados.push({ id: rec.id, status: "pulada", motivo: "não é o dia" });
@@ -68,40 +82,19 @@ export async function GET(req: NextRequest) {
         origemRecorrenciaId: rec.id,
       }).returning();
 
-      // Impacto financeiro — aplicado SÓ AGORA, na data real de ocorrência
-      if (rec.formaPagamento === "cartao" && rec.cartaoId) {
-        const [cartao] = await db.select().from(cartoes).where(eq(cartoes.id, rec.cartaoId)).limit(1);
-        if (cartao && cartao.tipo === "credito") {
-          const diaFechamento = cartao.diaFechamento || 1;
-          const { mes: mesCalc, ano: anoCalc } = calcularFaturaDaTransacao(dataTransacao, diaFechamento);
-          const { mes: mesFatura, ano: anoFatura } = proximaFaturaAberta(mesCalc, anoCalc, diaFechamento);
-
-          const [faturaExistente] = await db.select().from(faturas)
-            .where(and(eq(faturas.cartaoId, rec.cartaoId), eq(faturas.userId, rec.userId), eq(faturas.mes, mesFatura), eq(faturas.ano, anoFatura)))
-            .limit(1);
-
-          if (faturaExistente) {
-            await db.update(faturas)
-              .set({ total: (Number(faturaExistente.total) + valor).toFixed(2), updatedAt: new Date() })
-              .where(eq(faturas.id, faturaExistente.id));
-          } else {
-            await db.insert(faturas).values({ userId: rec.userId, cartaoId: rec.cartaoId, mes: mesFatura, ano: anoFatura, total: valor.toFixed(2), paga: false });
-          }
-
-          await db.update(cartoes)
-            .set({ limiteDisponivel: (Number(cartao.limiteDisponivel) - valor).toFixed(2) })
-            .where(eq(cartoes.id, rec.cartaoId));
-        }
-      } else if (rec.contaId) {
-        const [conta] = await db.select().from(contas).where(eq(contas.id, rec.contaId)).limit(1);
-        if (conta) {
-          const saldoAtual = Number(conta.saldoAtual);
-          const novoSaldo = rec.tipo === "entrada" ? saldoAtual + valor : saldoAtual - valor;
-          await db.update(contas)
-            .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
-            .where(eq(contas.id, rec.contaId));
-        }
-      }
+      // Impacto financeiro — aplicado SÓ AGORA, na data real de ocorrência.
+      // Nunca bloqueia: devolve um alerta quando saldo/limite ficou negativo.
+      const alerta = await aplicarImpactoRecorrencia({
+        userId: rec.userId,
+        tipo: rec.tipo,
+        valor,
+        data: dataTransacao,
+        formaPagamento: rec.formaPagamento,
+        contaId: rec.contaId,
+        cartaoId: rec.cartaoId,
+        transacaoId: novaTransacao.id,
+        descricao: rec.descricao,
+      });
 
       const novasRepeticoesGeradas = rec.repeticoesGeradas + 1;
       const atingiuLimite = rec.repeticoesTotal !== null && novasRepeticoesGeradas >= rec.repeticoesTotal;
@@ -116,10 +109,32 @@ export async function GET(req: NextRequest) {
         })
         .where(eq(recorrencias.id, rec.id));
 
-      resultados.push({ id: rec.id, status: "gerada" });
+      // Notificação por último: se falhar, a geração já está consolidada
+      if (alerta) {
+        await notificarImpactoRecorrencia({
+          userId: rec.userId,
+          recorrenciaId: rec.id,
+          transacaoId: novaTransacao.id,
+          descricao: rec.descricao,
+          valor,
+          dataTexto,
+          alerta,
+        });
+      }
+
+      resultados.push({ id: rec.id, status: "gerada", alerta: alerta?.tipo });
     } catch (error: any) {
       console.error(`[Cron Recorrências] Erro na recorrência ${rec.id}:`, error.message);
       resultados.push({ id: rec.id, status: "erro", motivo: error.message });
+
+      await notificarErroRecorrencia({
+        userId: rec.userId,
+        recorrenciaId: rec.id,
+        descricao: rec.descricao,
+        valor: Number(rec.valor),
+        dataTexto,
+        motivo: error.message,
+      });
     }
   }
 

@@ -33,6 +33,8 @@ export function useCriarRecorrencia() {
       queryClient.invalidateQueries({ queryKey: ["contas"] });
       queryClient.invalidateQueries({ queryKey: ["cartoes"] });
       queryClient.invalidateQueries({ queryKey: ["faturas"] });
+      // A primeira ocorrência pode ter gerado aviso de saldo/limite
+      queryClient.invalidateQueries({ queryKey: ["notificacoes"] });
       toast({
         title: "Recorrência criada!",
         description: "As próximas ocorrências serão geradas automaticamente todo mês.",

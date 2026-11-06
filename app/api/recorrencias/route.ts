@@ -3,7 +3,9 @@ import { db } from "@/db";
 import { recorrencias, transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { calcularFaturaDaTransacao, proximaFaturaAberta } from "@/utils/faturaUtils";
+import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
+import { aplicarImpactoRecorrencia } from "@/lib/aplicarImpacto";
+import { notificarImpactoRecorrencia } from "@/lib/notificarRecorrencia";
 
 export async function GET(req: NextRequest) {
   const userId = await getUserId();
@@ -171,43 +173,35 @@ export async function POST(req: NextRequest) {
       origemRecorrenciaId: novaRecorrencia.id,
     }).returning();
 
-    if (formaPagamento === "cartao" && cartaoId) {
-      const [cartao] = await db.select().from(cartoes).where(eq(cartoes.id, Number(cartaoId))).limit(1);
-      if (cartao && cartao.tipo === "credito") {
-        const diaFechamento = cartao.diaFechamento || 1;
-        const { mes: mesCalc, ano: anoCalc } = calcularFaturaDaTransacao(dataInicio, diaFechamento);
-        const { mes: mesFatura, ano: anoFatura } = proximaFaturaAberta(mesCalc, anoCalc, diaFechamento);
-
-        const [faturaExistente] = await db.select().from(faturas)
-          .where(and(eq(faturas.cartaoId, Number(cartaoId)), eq(faturas.userId, userId), eq(faturas.mes, mesFatura), eq(faturas.ano, anoFatura)))
-          .limit(1);
-
-        if (faturaExistente) {
-          await db.update(faturas)
-            .set({ total: (Number(faturaExistente.total) + valorNum).toFixed(2), updatedAt: new Date() })
-            .where(eq(faturas.id, faturaExistente.id));
-        } else {
-          await db.insert(faturas).values({ userId, cartaoId: Number(cartaoId), mes: mesFatura, ano: anoFatura, total: valorNum.toFixed(2), paga: false });
-        }
-
-        await db.update(cartoes)
-          .set({ limiteDisponivel: (Number(cartao.limiteDisponivel) - valorNum).toFixed(2) })
-          .where(eq(cartoes.id, Number(cartaoId)));
-      }
-    } else if (contaId) {
-      const [conta] = await db.select().from(contas).where(eq(contas.id, contaId)).limit(1);
-      if (conta) {
-        const saldoAtual = Number(conta.saldoAtual);
-        const novoSaldo = tipo === "entrada" ? saldoAtual + valorNum : saldoAtual - valorNum;
-        await db.update(contas)
-          .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
-          .where(eq(contas.id, contaId));
-      }
-    }
+    // Mesmo helper do cron: aplica o impacto e devolve alerta se o saldo
+    // ou o limite ficou negativo (nunca bloqueia a geração)
+    const alerta = await aplicarImpactoRecorrencia({
+      userId,
+      tipo,
+      valor: valorNum,
+      data: dataInicio,
+      formaPagamento: formaPagamento || "dinheiro",
+      contaId: contaId || null,
+      cartaoId: cartaoId ? Number(cartaoId) : null,
+      transacaoId: transacaoGerada.id,
+      descricao: descricao || null,
+    });
 
     await db.update(recorrencias)
       .set({ repeticoesGeradas: 1, ultimaGeracaoMes: agora.getMonth() + 1, ultimaGeracaoAno: agora.getFullYear() })
       .where(eq(recorrencias.id, novaRecorrencia.id));
+
+    if (alerta) {
+      await notificarImpactoRecorrencia({
+        userId,
+        recorrenciaId: novaRecorrencia.id,
+        transacaoId: transacaoGerada.id,
+        descricao: descricao || null,
+        valor: valorNum,
+        dataTexto: `${String(diaInicio).padStart(2, "0")}/${String(mesInicio).padStart(2, "0")}`,
+        alerta,
+      });
+    }
   }
 
   return NextResponse.json(novaRecorrencia, { status: 201 });

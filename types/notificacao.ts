@@ -10,7 +10,10 @@ export type TipoNotificacao =
   | "SALDO_NEGATIVO"
   | "TRANSACAO_ENTRADA_ALTA"
   | "TRANSACAO_SAIDA_ALTA"
-  | "BACKUP_INATIVO";
+  | "BACKUP_INATIVO"
+  | "RECORRENCIA_SALDO_NEGATIVO"
+  | "RECORRENCIA_LIMITE_EXCEDIDO"
+  | "RECORRENCIA_ERRO";
 
 export type SeveridadeNotificacao = "info" | "warning" | "error" | "success";
 
