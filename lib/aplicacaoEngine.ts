@@ -52,9 +52,15 @@ async function buscarTaxasBcb(
   }
 }
 
+// Quantos dias para trás (a partir do último dia em cache) conferir se há
+// dia útil sem taxa no MEIO do cache
+const JANELA_BURACOS_DIAS = 45;
+
 /**
  * Garante que o cache `taxas_diarias` cubra [inicio, fim]. Busca no BCB só
- * o que falta (antes do que já está em cache e/ou depois dele).
+ * o que falta: antes do que já está em cache, depois dele e também dias
+ * úteis recentes que ficaram sem taxa no meio (o BCB às vezes não devolve
+ * um dia na hora e, sem essa checagem, ele nunca mais seria preenchido).
  */
 export async function garantirTaxas(indexador: Indexador, inicio: string, fim: string): Promise<string> {
   const [r] = await db
@@ -73,6 +79,33 @@ export async function garantirTaxas(indexador: Indexador, inicio: string, fim: s
     // antes do primeiro dado em cache, não há nada a buscar
     if (inicio < somarDias(minCache, -4)) faixas.push([inicio, somarDias(minCache, -1)]);
     if (maxCache < fim) faixas.push([somarDias(maxCache, 1), fim]);
+
+    // Buracos no meio do cache: dias úteis recentes sem taxa. Feriados também
+    // aparecem como "buraco", mas isso só custa uma consulta curta ao BCB
+    // (onConflictDoNothing evita duplicar o que já existe).
+    const limiteJanela = somarDias(maxCache, -JANELA_BURACOS_DIAS);
+    let janelaIni = inicio > limiteJanela ? inicio : limiteJanela;
+    if (janelaIni < minCache) janelaIni = minCache;
+
+    if (janelaIni < maxCache) {
+      const existentes = await db
+        .select({ data: taxasDiarias.data })
+        .from(taxasDiarias)
+        .where(and(
+          eq(taxasDiarias.indexador, indexador),
+          gte(taxasDiarias.data, janelaIni),
+          lte(taxasDiarias.data, maxCache),
+        ));
+      const temTaxa = new Set(existentes.map((r) => r.data));
+
+      let temBuraco = false;
+      for (let d = janelaIni; d < maxCache; d = somarDias(d, 1)) {
+        const diaSemana = new Date(`${d}T00:00:00Z`).getUTCDay(); // 0 dom, 6 sáb
+        if (diaSemana === 0 || diaSemana === 6) continue;
+        if (!temTaxa.has(d)) { temBuraco = true; break; }
+      }
+      if (temBuraco) faixas.push([janelaIni, maxCache]);
+    }
   }
 
   if (faixas.length === 0) return "cache completo";
@@ -137,6 +170,7 @@ export async function recalcularAplicacao(aplicacaoId: string): Promise<{
     })),
     taxas: taxasRows.map((t) => ({ data: t.data, taxa: Number(t.taxaPercentual) })),
     ate: fim,
+    rendeNoDiaAporte: ap.rendeNoDiaAporte,
   });
 
   // 1. estado de cada lote

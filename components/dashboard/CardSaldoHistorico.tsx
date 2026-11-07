@@ -79,7 +79,8 @@ function liquidoNoFimDoMes(a: Aplicacao, fimMes: string): number {
 
   const inicio = aportes.reduce((min, x) => (x.data < min ? x.data : min), aportes[0].data);
   const taxas: TaxaDia[] = [];
-  for (let d = somarDias(inicio, 1); d <= fimMes; d = somarDias(d, 1)) {
+  // se o aporte rende no próprio dia, a primeira taxa é a do dia do aporte
+  for (let d = a.rendeNoDiaAporte ? inicio : somarDias(inicio, 1); d <= fimMes; d = somarDias(d, 1)) {
     const dia = new Date(`${d}T00:00:00Z`).getUTCDay();
     if (dia === 0 || dia === 6) continue;
     taxas.push({ data: d, taxa: ultima.taxa });
@@ -97,6 +98,7 @@ function liquidoNoFimDoMes(a: Aplicacao, fimMes: string): number {
     })),
     taxas,
     ate: fimMes,
+    rendeNoDiaAporte: a.rendeNoDiaAporte,
   });
 
   return estimarLiquidoTotal(sim.lotes, fimMes, a.tributacao).valorLiquido;
@@ -111,7 +113,9 @@ function liquidoAtual(a: Aplicacao, hoje: string): number {
     principal: Number(x.principalRestante),
     valorAtual: Number(x.valorAtual),
   }));
-  const proj = projetarLotes(lotes, Number(a.percentualIndexador), a.ultimaTaxa, hoje);
+  const proj = projetarLotes(
+    lotes, Number(a.percentualIndexador), a.ultimaTaxa, hoje, a.rendeNoDiaAporte
+  );
   return estimarLiquidoTotal(proj.lotes, hoje, a.tributacao).valorLiquido;
 }
 

@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       contaId, descricao, valor, indexador, percentualIndexador,
-      dataVencimento, tributacao, dataAplicacao,
+      dataVencimento, tributacao, dataAplicacao, rendeNoDiaAporte,
     } = body;
 
     if (!contaId) return NextResponse.json({ error: "contaId é obrigatório" }, { status: 400 });
@@ -124,6 +124,8 @@ export async function POST(req: NextRequest) {
       indexador,
       percentualIndexador: percentualNum.toFixed(2),
       tributacao: tributacaoFinal,
+      // true = o aporte já rende a taxa do próprio dia (depende da corretora)
+      rendeNoDiaAporte: rendeNoDiaAporte === true,
       dataAplicacao: new Date(`${dataAporte}T12:00:00-03:00`),
       dataVencimento: dataVencimentoDate,
       resgatada: false,

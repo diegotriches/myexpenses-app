@@ -34,6 +34,7 @@ export interface Aplicacao {
   indexador: "cdi" | "selic";
   percentualIndexador: string;
   tributacao: "isento" | "tributavel";
+  rendeNoDiaAporte: boolean; // true = cada aporte já rende a taxa do próprio dia
   dataAplicacao: string;
   dataVencimento: string | null; // null = liquidez diária
   resgatada: boolean;
@@ -54,6 +55,7 @@ export interface CreateAplicacaoDTO {
   indexador: "cdi" | "selic";
   percentualIndexador: number;
   tributacao: "isento" | "tributavel";
+  rendeNoDiaAporte?: boolean; // omitido = rende a partir do dia útil seguinte
   dataVencimento?: string; // YYYY-MM-DD — omitido = liquidez diária
   dataAplicacao?: string;  // YYYY-MM-DD — omitido = hoje; passado = histórico
 }

@@ -221,6 +221,9 @@ export const aplicacoes = pgTable(
     indexador: text("indexador").notNull(), // "cdi" | "selic"
     percentualIndexador: numeric("percentual_indexador", { precision: 6, scale: 2 }).notNull(),
     tributacao: text("tributacao", { enum: ["isento", "tributavel"] }).notNull().default("tributavel"),
+    // true = cada aporte já rende a taxa do próprio dia (depende da corretora);
+    // false = começa a render no dia útil seguinte
+    rendeNoDiaAporte: boolean("rende_no_dia_aporte").notNull().default(false),
     dataAplicacao: timestamp("data_aplicacao", { withTimezone: true }).notNull(),
     dataVencimento: timestamp("data_vencimento", { withTimezone: true }),
     resgatada: boolean("resgatada").notNull().default(false),

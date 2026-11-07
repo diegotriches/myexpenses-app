@@ -5,7 +5,9 @@
 //
 // Modelo: uma aplicação é composta por APORTES (lotes). Cada lote:
 //  - rende a partir do dia útil seguinte à data do aporte (taxa com
-//    data > data do aporte);
+//    data > data do aporte) — a MENOS que a aplicação tenha a opção
+//    "rende no dia do aporte" (corretoras que já contam o próprio dia),
+//    caso em que também rende a taxa da data do aporte (data >= aporte);
 //  - tem a sua própria idade pra tabela regressiva de IR;
 //  - nos resgates, sai do lote mais ANTIGO primeiro (FIFO), que é também o
 //    de menor alíquota — é o critério usado pelas corretoras.
@@ -158,6 +160,8 @@ export function simularResgateFifo(
  *
  * Ordem dentro de um mesmo dia: (1) rende o que já estava aplicado,
  * (2) entram os aportes do dia, (3) saem os resgates do dia.
+ * Com `rendeNoDiaAporte`, os aportes do dia entram ANTES do rendimento
+ * (passos 1 e 2 invertidos), então já rendem a taxa daquele dia.
  */
 export function simularAplicacao(p: {
   percentual: number;
@@ -166,6 +170,7 @@ export function simularAplicacao(p: {
   resgates: ResgateEntrada[];
   taxas: TaxaDia[];
   ate: string; // última data considerada (inclusive)
+  rendeNoDiaAporte?: boolean; // true = o aporte já rende a taxa do próprio dia
 }): ResultadoSimulacao {
   const taxaPorData = new Map<string, number>();
   for (const t of p.taxas) if (t.data <= p.ate) taxaPorData.set(t.data, t.taxa);
@@ -194,13 +199,24 @@ export function simularAplicacao(p: {
   const rendimentosDiarios: ResultadoSimulacao["rendimentosDiarios"] = [];
   const resgatesSimulados: ResgateSimulado[] = [];
 
+  const entrarAportesDoDia = (data: string) => {
+    for (const a of aportesPorData.get(data) ?? []) {
+      lotes.push({ id: a.id, data: a.data, aportado: a.valor, principal: a.valor, valorAtual: a.valor });
+    }
+  };
+
   for (const data of datas) {
-    // 1. rendimento do dia (só lotes aportados ANTES deste dia)
+    // (rende no dia do aporte) os aportes do dia entram antes do rendimento
+    if (p.rendeNoDiaAporte) entrarAportesDoDia(data);
+
+    // 1. rendimento do dia (por padrão só lotes aportados ANTES deste dia;
+    // com rendeNoDiaAporte, também os aportados no próprio dia)
     const taxa = taxaPorData.get(data);
     if (taxa !== undefined) {
       let rendimentoDia = 0;
       for (const lote of lotes) {
-        if (lote.data < data && lote.valorAtual > EPS) {
+        const jaRende = p.rendeNoDiaAporte ? lote.data <= data : lote.data < data;
+        if (jaRende && lote.valorAtual > EPS) {
           const r = lote.valorAtual * (p.percentual / 100) * (taxa / 100);
           lote.valorAtual += r;
           rendimentoDia += r;
@@ -210,9 +226,7 @@ export function simularAplicacao(p: {
     }
 
     // 2. aportes do dia
-    for (const a of aportesPorData.get(data) ?? []) {
-      lotes.push({ id: a.id, data: a.data, aportado: a.valor, principal: a.valor, valorAtual: a.valor });
-    }
+    if (!p.rendeNoDiaAporte) entrarAportesDoDia(data);
 
     // 3. resgates do dia
     for (const r of resgatesPorData.get(data) ?? []) {
@@ -251,7 +265,8 @@ export function projetarLotes(
   lotes: LoteEstado[],
   percentual: number,
   ultimaTaxa: TaxaDia | null,
-  hoje: string
+  hoje: string,
+  rendeNoDiaAporte = false
 ): { lotes: LoteEstado[]; diasProjetados: number } {
   const copia = lotes.map((l) => ({ ...l }));
   if (!ultimaTaxa) return { lotes: copia, diasProjetados: 0 };
@@ -263,7 +278,8 @@ export function projetarLotes(
 
     let rendeu = false;
     for (const lote of copia) {
-      if (lote.data < d && lote.valorAtual > EPS) {
+      const jaRende = rendeNoDiaAporte ? lote.data <= d : lote.data < d;
+      if (jaRende && lote.valorAtual > EPS) {
         lote.valorAtual += lote.valorAtual * (percentual / 100) * (ultimaTaxa.taxa / 100);
         rendeu = true;
       }

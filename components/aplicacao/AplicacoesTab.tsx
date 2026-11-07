@@ -70,6 +70,7 @@ export default function AplicacoesTab({ contas }: Props) {
     indexador: "cdi" as "cdi" | "selic",
     percentualIndexador: "100",
     tributacao: "tributavel" as "isento" | "tributavel",
+    rendeNoDiaAporte: false,
     semVencimento: false,
     dataVencimento: "",
   });
@@ -128,7 +129,7 @@ export default function AplicacoesTab({ contas }: Props) {
   function visaoAtiva(a: Aplicacao) {
     const oficiais = lotesDe(a);
     const pct = Number(a.percentualIndexador);
-    const proj = projetarLotes(oficiais, pct, a.ultimaTaxa, hojeIso);
+    const proj = projetarLotes(oficiais, pct, a.ultimaTaxa, hojeIso, a.rendeNoDiaAporte);
     const est = estimarLiquidoTotal(proj.lotes, hojeIso, a.tributacao);
     const oficialBruto = oficiais.reduce((s, l) => s + l.valorAtual, 0);
     return { oficiais, oficialBruto, diasProjetados: proj.diasProjetados, est };
@@ -162,7 +163,7 @@ export default function AplicacoesTab({ contas }: Props) {
     setForm({
       contaId: contas[0]?.id ?? "", tipo: "saida", descricao: "", valor: "",
       dataAplicacao: hojeIso, indexador: "cdi", percentualIndexador: "100",
-      tributacao: "tributavel", semVencimento: false, dataVencimento: "",
+      tributacao: "tributavel", rendeNoDiaAporte: false, semVencimento: false, dataVencimento: "",
     });
     setErro(null);
     setModalNovaOpen(true);
@@ -186,6 +187,7 @@ export default function AplicacoesTab({ contas }: Props) {
         indexador: form.indexador,
         percentualIndexador: percentualNum,
         tributacao: form.tributacao,
+        rendeNoDiaAporte: form.rendeNoDiaAporte,
         dataVencimento: form.semVencimento ? undefined : form.dataVencimento,
         dataAplicacao: form.dataAplicacao,
       });
@@ -349,6 +351,7 @@ export default function AplicacoesTab({ contas }: Props) {
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400">
                                 {a.percentualIndexador}% do {INDEXADOR_LABEL[a.indexador]}
+                                {a.rendeNoDiaAporte && " · rende no dia do aporte"}
                               </p>
                             </div>
                           </div>
@@ -626,6 +629,19 @@ export default function AplicacoesTab({ contas }: Props) {
                   O IR é calculado por aporte, pela tabela regressiva (22,5% a 15%, conforme o tempo de cada aporte).
                 </p>
               )}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+              <div>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Rende a partir do dia do aporte</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Ligue se a sua corretora já conta o rendimento no próprio dia da aplicação. Desligado, o aporte começa a render no dia útil seguinte. Vale para esta aplicação e seus próximos aportes.
+                </p>
+              </div>
+              <Switch
+                checked={form.rendeNoDiaAporte}
+                onCheckedChange={(checked) => updateForm("rendeNoDiaAporte", checked)}
+              />
             </div>
 
             <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">

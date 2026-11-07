@@ -31,7 +31,9 @@ function liquidoEstimado(a: Aplicacao, hoje: string): number {
     principal: Number(x.principalRestante),
     valorAtual: Number(x.valorAtual),
   }));
-  const proj = projetarLotes(lotes, Number(a.percentualIndexador), a.ultimaTaxa, hoje);
+  const proj = projetarLotes(
+    lotes, Number(a.percentualIndexador), a.ultimaTaxa, hoje, a.rendeNoDiaAporte
+  );
   return estimarLiquidoTotal(proj.lotes, hoje, a.tributacao).valorLiquido;
 }
 
