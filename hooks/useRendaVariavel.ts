@@ -7,6 +7,7 @@ import {
   type CriarOperacaoRvDTO,
   type CriarProventoRvDTO,
   type ImportarProventosDTO,
+  type OperacaoParaImportar,
 } from "@/services/rendaVariavelService";
 import { useToast } from "@/hooks/use-toast";
 
@@ -44,6 +45,28 @@ export function useCriarOperacaoRv() {
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao registrar operação", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useImportarOperacoesRv() {
+  const invalidar = useInvalidar();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (operacoes: OperacaoParaImportar[]) => rendaVariavelService.importarOperacoes(operacoes),
+    onSuccess: (r) => {
+      invalidar();
+      toast({
+        title: r.inseridos > 0 ? "Operações importadas!" : "Nada novo para importar",
+        description:
+          `${r.inseridos} nova(s)` +
+          (r.duplicados > 0 ? ` · ${r.duplicados} já existia(m)` : "") +
+          (r.invalidos > 0 ? ` · ${r.invalidos} inválida(s)` : ""),
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao importar operações", description: error.message, variant: "destructive" });
     },
   });
 }

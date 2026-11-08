@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import {
   Plus, LineChart, Loader2, AlertCircle, Info, ChevronDown, ChevronUp,
-  Pencil, Trash2, ShoppingCart, HandCoins, RefreshCw,
+  Pencil, Trash2, ShoppingCart, HandCoins, RefreshCw, Upload,
 } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import {
@@ -35,6 +35,8 @@ import {
 } from "@/utils/rendaVariavelUtils";
 import MovCampoConta from "@/components/transacao/MovCampoConta";
 import ProventosRendaVariavel from "@/components/aplicacao/ProventosRendaVariavel";
+import ImportarOperacoesDialog from "@/components/aplicacao/ImportarOperacoesDialog";
+import { EVENTO_LABEL } from "@/utils/rendaVariavelUtils";
 
 interface Props {
   contas: Conta[];
@@ -222,6 +224,7 @@ export default function RendaVariavel({ contas }: Props) {
 
   // ── Exclusão ───────────────────────────────────────────────────────────────
   const [excluirAlvo, setExcluirAlvo] = useState<OperacaoRvApi | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const confirmarExclusao = async () => {
     if (!excluirAlvo) return;
     try {
@@ -255,14 +258,15 @@ export default function RendaVariavel({ contas }: Props) {
             <div className="min-w-0">
               <p className="text-gray-700 dark:text-gray-300">
                 <span className={o.tipo === "compra" ? "text-blue-600 dark:text-blue-400 font-medium" : "text-orange-600 dark:text-orange-400 font-medium"}>
-                  {o.tipo === "compra" ? "Compra" : "Venda"}
+                  {o.evento ? EVENTO_LABEL[o.evento] : o.tipo === "compra" ? "Compra" : "Venda"}
                 </span>{" "}
-                · {fmtIso(o.data)}
+                · {fmtIso(o.data)}{o.dataEstimada && <span title="Data do negócio estimada a partir da liquidação"> *</span>}
               </p>
               <p className="text-gray-500 dark:text-gray-400 truncate">
-                {o.quantidade} × {mask(formatarPreco(o.precoUnitario))}
+                {o.evento ? `${o.quantidade} (custo zero)` : `${o.quantidade} × ${mask(formatarPreco(o.precoUnitario))}`}
                 {o.taxas > 0 && ` · taxas ${mask(formatarMoeda(o.taxas))}`}
                 {o.movimentouConta && " · movimentou a conta"}
+                {o.origemImportacao && " · importada"}
               </p>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
@@ -436,6 +440,10 @@ export default function RendaVariavel({ contas }: Props) {
               Atualizar cotações
             </Button>
           )}
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Upload className="w-4 h-4 mr-1.5" />
+            Importar B3
+          </Button>
           <Button onClick={() => abrirModal("compra")} className="bg-blue-700 hover:bg-blue-900 text-white">
             <Plus className="w-4 h-4 mr-1.5" />
             Nova operação
@@ -488,6 +496,8 @@ export default function RendaVariavel({ contas }: Props) {
 
       {/* ── Proventos ───────────────────────────────────────────────────── */}
       <ProventosRendaVariavel contas={contas} />
+
+      <ImportarOperacoesDialog open={importOpen} onOpenChange={setImportOpen} existentes={operacoes} />
 
       {/* ── Modal Nova operação ─────────────────────────────────────────── */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>

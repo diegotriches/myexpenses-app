@@ -12,6 +12,15 @@
 export type TipoAtivo = "acao" | "fii" | "etf" | "bdr";
 export type TipoOperacao = "compra" | "venda";
 
+// Eventos corporativos que aumentam a quantidade SEM custo (entram como compra
+// de preço zero: a quantidade sobe e o preço médio cai na mesma proporção)
+export type EventoOperacao = "desdobramento" | "bonificacao";
+
+export const EVENTO_LABEL: Record<EventoOperacao, string> = {
+  desdobramento: "Desdobramento",
+  bonificacao: "Bonificação",
+};
+
 export const TIPO_ATIVO_LABEL: Record<TipoAtivo, string> = {
   acao: "Ação",
   fii: "FII",
@@ -28,6 +37,7 @@ export interface OperacaoRv {
   quantidade: number;
   precoUnitario: number;
   taxas: number;
+  evento?: EventoOperacao | null;
 }
 
 export interface CotacaoRv {

@@ -32,6 +32,10 @@ function paraApi(o: Linha) {
     taxas: Number(o.taxas),
     contaId: o.contaId,
     movimentouConta: o.movimentouConta,
+    evento: o.evento,
+    dataEstimada: o.dataEstimada,
+    instituicao: o.instituicao,
+    origemImportacao: o.origemImportacao,
     createdAt: o.createdAt,
   };
 }

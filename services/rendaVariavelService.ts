@@ -1,11 +1,14 @@
 // src/services/rendaVariavelService.ts
 
-import type { CotacaoRv, OperacaoRv, TipoAtivo, TipoOperacao } from "@/utils/rendaVariavelUtils";
+import type { CotacaoRv, EventoOperacao, OperacaoRv, TipoAtivo, TipoOperacao } from "@/utils/rendaVariavelUtils";
 import type { ProventoImportavel, ProventoRv, TipoProvento } from "@/utils/proventosUtils";
 
 export interface OperacaoRvApi extends OperacaoRv {
   contaId: string | null;
   movimentouConta: boolean;
+  dataEstimada: boolean;
+  instituicao: string | null;
+  origemImportacao: string | null;
   createdAt: string;
 }
 
@@ -38,6 +41,26 @@ export interface ImportarProventosDTO {
 }
 
 export interface ResultadoImportacaoProventos {
+  inseridos: number;
+  duplicados: number;
+  invalidos: number;
+  total: number;
+}
+
+export interface OperacaoParaImportar {
+  chave: string;
+  ticker: string;
+  tipoAtivo: TipoAtivo;
+  tipo: TipoOperacao;
+  evento: EventoOperacao | null;
+  data: string;
+  quantidade: number;
+  precoUnitario: number;
+  dataEstimada: boolean;
+  instituicao: string | null;
+}
+
+export interface ResultadoImportacaoOperacoes {
   inseridos: number;
   duplicados: number;
   invalidos: number;
@@ -77,6 +100,17 @@ export const rendaVariavelService = {
         body: JSON.stringify(dados),
       }),
       "Erro ao registrar operação",
+    );
+  },
+
+  async importarOperacoes(operacoes: OperacaoParaImportar[]): Promise<ResultadoImportacaoOperacoes> {
+    return tratar(
+      await fetch("/api/renda-variavel/operacoes/importar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operacoes }),
+      }),
+      "Erro ao importar operações",
     );
   },
 

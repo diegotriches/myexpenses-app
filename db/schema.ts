@@ -807,13 +807,19 @@ export const operacoesRv = pgTable(
     contaId: uuid("conta_id").references(() => contas.id, { onDelete: "set null" }),
     // true = esta operação alterou o saldo da conta (precisa ser revertida ao excluir)
     movimentouConta: boolean("movimentou_conta").notNull().default(false),
-    // preenchido pelo importador (etapa 3) para evitar importar duas vezes
+    // chave do movimento na planilha de origem: impede importar o mesmo duas vezes
     origemImportacao: text("origem_importacao"),
+    // desdobramento / bonificação: entram como compra de preço zero
+    evento: text("evento", { enum: ["desdobramento", "bonificacao"] }),
+    // true = a planilha só traz a data de liquidação; a do negócio foi estimada (D+2 úteis)
+    dataEstimada: boolean("data_estimada").notNull().default(false),
+    instituicao: text("instituicao"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     userTickerIdx: index("operacoes_rv_user_ticker_idx").on(table.userId, table.ticker),
     userDataIdx: index("operacoes_rv_user_data_idx").on(table.userId, table.data),
+    userOrigemUq: uniqueIndex("operacoes_rv_user_origem_uq").on(table.userId, table.origemImportacao),
   }),
 );
 
