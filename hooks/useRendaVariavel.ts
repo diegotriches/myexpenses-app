@@ -10,6 +10,7 @@ import {
   type OperacaoParaImportar,
 } from "@/services/rendaVariavelService";
 import { useToast } from "@/hooks/use-toast";
+import type { ConfigIr } from "@/utils/irRendaVariavelUtils";
 
 export function useRendaVariavel() {
   return useQuery({
@@ -229,6 +230,49 @@ export function useImportarProventosRv() {
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao importar proventos", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+// ── Imposto de renda ────────────────────────────────────────────────────────
+
+export function useIrRv() {
+  return useQuery({
+    queryKey: ["renda-variavel", "ir"],
+    queryFn: () => rendaVariavelService.obterIr(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useSalvarConfigIrRv() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (config: ConfigIr) => rendaVariavelService.salvarConfigIr(config),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["renda-variavel", "ir"] });
+      toast({ title: "Configuração de IR salva", description: "A apuração foi recalculada." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao salvar configuração", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useMarcarDarfsRv() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ itens, pago }: { itens: { competencia: string; valor: number }[]; pago: boolean }) =>
+      rendaVariavelService.marcarDarfs(itens, pago),
+    onSuccess: (_r, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["renda-variavel", "ir"] });
+      toast({ title: vars.pago ? "DARF marcado como pago" : "DARF marcado como pendente" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao atualizar DARF", description: error.message, variant: "destructive" });
     },
   });
 }

@@ -863,3 +863,33 @@ export const proventosRv = pgTable(
 );
 
 export type ProventoRvRow = typeof proventosRv.$inferSelect;
+
+// Parâmetros do controle de IR (uma linha por usuário; sem linha = padrões do app)
+export const irConfigRv = pgTable("ir_config_rv", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  aliquotaAcao: numeric("aliquota_acao", { precision: 5, scale: 2 }).notNull().default("15"),
+  aliquotaEtf: numeric("aliquota_etf", { precision: 5, scale: 2 }).notNull().default("15"),
+  aliquotaBdr: numeric("aliquota_bdr", { precision: 5, scale: 2 }).notNull().default("15"),
+  aliquotaFii: numeric("aliquota_fii", { precision: 5, scale: 2 }).notNull().default("20"),
+  aliquotaDayTrade: numeric("aliquota_day_trade", { precision: 5, scale: 2 }).notNull().default("20"),
+  limiteIsencaoAcoes: numeric("limite_isencao_acoes", { precision: 12, scale: 2 }).notNull().default("20000"),
+  prejuizoInicialComum: numeric("prejuizo_inicial_comum", { precision: 12, scale: 2 }).notNull().default("0"),
+  prejuizoInicialFii: numeric("prejuizo_inicial_fii", { precision: 12, scale: 2 }).notNull().default("0"),
+  prejuizoInicialDayTrade: numeric("prejuizo_inicial_day_trade", { precision: 12, scale: 2 }).notNull().default("0"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// DARFs marcados como pagos (a existência da linha = paga)
+export const irDarfRv = pgTable(
+  "ir_darf_rv",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    competencia: varchar("competencia", { length: 7 }).notNull(), // YYYY-MM
+    valor: numeric("valor", { precision: 12, scale: 2 }).notNull(),
+    pagoEm: timestamp("pago_em", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userCompetenciaUq: uniqueIndex("ir_darf_rv_user_competencia_uq").on(table.userId, table.competencia),
+  }),
+);

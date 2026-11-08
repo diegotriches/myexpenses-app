@@ -35,6 +35,7 @@ import {
 } from "@/utils/rendaVariavelUtils";
 import MovCampoConta from "@/components/transacao/MovCampoConta";
 import ProventosRendaVariavel from "@/components/aplicacao/ProventosRendaVariavel";
+import ImpostoRendaRendaVariavel from "@/components/aplicacao/ImpostoRendaRendaVariavel";
 import ImportarOperacoesDialog from "@/components/aplicacao/ImportarOperacoesDialog";
 import { EVENTO_LABEL } from "@/utils/rendaVariavelUtils";
 
@@ -496,6 +497,8 @@ export default function RendaVariavel({ contas }: Props) {
 
       {/* ── Proventos ───────────────────────────────────────────────────── */}
       <ProventosRendaVariavel contas={contas} />
+
+      <ImpostoRendaRendaVariavel />
 
       <ImportarOperacoesDialog open={importOpen} onOpenChange={setImportOpen} existentes={operacoes} />
 

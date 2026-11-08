@@ -1,6 +1,7 @@
 // src/services/rendaVariavelService.ts
 
 import type { CotacaoRv, EventoOperacao, OperacaoRv, TipoAtivo, TipoOperacao } from "@/utils/rendaVariavelUtils";
+import type { ConfigIr } from "@/utils/irRendaVariavelUtils";
 import type { ProventoImportavel, ProventoRv, TipoProvento } from "@/utils/proventosUtils";
 
 export interface OperacaoRvApi extends OperacaoRv {
@@ -67,6 +68,11 @@ export interface ResultadoImportacaoOperacoes {
   total: number;
 }
 
+export interface IrData {
+  config: ConfigIr;
+  darfsPagos: string[]; // competências (YYYY-MM)
+}
+
 export interface CriarOperacaoRvDTO {
   ticker: string;
   tipoAtivo: TipoAtivo;
@@ -111,6 +117,32 @@ export const rendaVariavelService = {
         body: JSON.stringify({ operacoes }),
       }),
       "Erro ao importar operações",
+    );
+  },
+
+  async obterIr(): Promise<IrData> {
+    return tratar(await fetch("/api/renda-variavel/ir"), "Erro ao carregar dados de IR");
+  },
+
+  async salvarConfigIr(config: ConfigIr): Promise<ConfigIr> {
+    return tratar(
+      await fetch("/api/renda-variavel/ir", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      }),
+      "Erro ao salvar configuração de IR",
+    );
+  },
+
+  async marcarDarfs(itens: { competencia: string; valor: number }[], pago: boolean): Promise<{ ok: boolean }> {
+    return tratar(
+      await fetch("/api/renda-variavel/ir/darf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itens, pago }),
+      }),
+      "Erro ao atualizar DARF",
     );
   },
 
