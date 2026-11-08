@@ -2,7 +2,12 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { rendaVariavelService, type CriarOperacaoRvDTO } from "@/services/rendaVariavelService";
+import {
+  rendaVariavelService,
+  type CriarOperacaoRvDTO,
+  type CriarProventoRvDTO,
+  type ImportarProventosDTO,
+} from "@/services/rendaVariavelService";
 import { useToast } from "@/hooks/use-toast";
 
 export function useRendaVariavel() {
@@ -132,6 +137,75 @@ export function useSalvarCotacaoRv() {
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao salvar cotação", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+// ── Proventos ───────────────────────────────────────────────────────────────
+
+export function useProventosRv() {
+  return useQuery({
+    queryKey: ["renda-variavel", "proventos"],
+    queryFn: () => rendaVariavelService.listarProventos(),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useCriarProventoRv() {
+  const invalidar = useInvalidar();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (dados: CriarProventoRvDTO) => rendaVariavelService.criarProvento(dados),
+    onSuccess: (p) => {
+      invalidar();
+      toast({
+        title: "Provento registrado!",
+        description: p.movimentouConta
+          ? "O valor foi creditado na conta e lançado no extrato."
+          : "Registrado sem alterar o saldo da conta.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao registrar provento", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useExcluirProventoRv() {
+  const invalidar = useInvalidar();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => rendaVariavelService.excluirProvento(id),
+    onSuccess: () => {
+      invalidar();
+      toast({ title: "Provento excluído" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Não foi possível excluir", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useImportarProventosRv() {
+  const invalidar = useInvalidar();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (dados: ImportarProventosDTO) => rendaVariavelService.importarProventos(dados),
+    onSuccess: (r) => {
+      invalidar();
+      toast({
+        title: r.inseridos > 0 ? "Proventos importados!" : "Nada novo para importar",
+        description:
+          `${r.inseridos} novo(s)` +
+          (r.duplicados > 0 ? ` · ${r.duplicados} já existia(m)` : "") +
+          (r.invalidos > 0 ? ` · ${r.invalidos} inválido(s)` : ""),
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao importar proventos", description: error.message, variant: "destructive" });
     },
   });
 }

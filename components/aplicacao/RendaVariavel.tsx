@@ -23,7 +23,7 @@ import {
 import { useHideValues } from "@/contexts/HideValuesContext";
 import {
   useRendaVariavel, useCriarOperacaoRv, useExcluirOperacaoRv, useSalvarCotacaoRv,
-  useAtualizarCotacoesRv,
+  useAtualizarCotacoesRv, useProventosRv,
 } from "@/hooks/useRendaVariavel";
 import type { OperacaoRvApi } from "@/services/rendaVariavelService";
 import type { Conta } from "@/types/conta";
@@ -34,6 +34,7 @@ import {
   type AtivoCarteira, type PosicaoAtivo, type TipoAtivo, type TipoOperacao,
 } from "@/utils/rendaVariavelUtils";
 import MovCampoConta from "@/components/transacao/MovCampoConta";
+import ProventosRendaVariavel from "@/components/aplicacao/ProventosRendaVariavel";
 
 interface Props {
   contas: Conta[];
@@ -87,11 +88,18 @@ export default function RendaVariavel({ contas }: Props) {
   const excluir = useExcluirOperacaoRv();
   const salvarCotacao = useSalvarCotacaoRv();
   const atualizarCotacoes = useAtualizarCotacoesRv();
+  const { data: proventos = [] } = useProventosRv();
 
   const hojeIso = hojeBrt();
   const operacoes = useMemo(() => data?.operacoes ?? [], [data]);
   const cotacoes = useMemo(() => data?.cotacoes ?? [], [data]);
   const carteira = useMemo(() => resumirCarteira(operacoes, cotacoes), [operacoes, cotacoes]);
+  // total de proventos recebidos por ticker (para mostrar em cada card)
+  const provPorTicker = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of proventos) m.set(p.ticker, (m.get(p.ticker) ?? 0) + p.valorLiquido);
+    return m;
+  }, [proventos]);
 
   // Ao abrir a aba, busca cotações novas uma vez (o servidor só consulta a brapi
   // dos ativos cuja cotação ficou velha, então abrir a aba não gasta cota à toa)
@@ -338,6 +346,14 @@ export default function RendaVariavel({ contas }: Props) {
               <span className="text-gray-600 dark:text-gray-400">Custo total</span>
               <span className="font-medium text-gray-900 dark:text-white">{mask(formatarMoeda(a.custoTotal))}</span>
             </div>
+            {(provPorTicker.get(a.ticker) ?? 0) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Proventos recebidos</span>
+                <span className="font-medium text-purple-600 dark:text-purple-400">
+                  {mask(formatarMoeda(provPorTicker.get(a.ticker) ?? 0))}
+                </span>
+              </div>
+            )}
             {a.vendas.length > 0 && (
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Realizado nas vendas</span>
@@ -469,6 +485,9 @@ export default function RendaVariavel({ contas }: Props) {
           )}
         </>
       )}
+
+      {/* ── Proventos ───────────────────────────────────────────────────── */}
+      <ProventosRendaVariavel contas={contas} />
 
       {/* ── Modal Nova operação ─────────────────────────────────────────── */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>

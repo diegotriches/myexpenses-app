@@ -829,3 +829,31 @@ export const cotacoesRv = pgTable("cotacoes_rv", {
 
 export type OperacaoRvRow = typeof operacoesRv.$inferSelect;
 export type CotacaoRvRow = typeof cotacoesRv.$inferSelect;
+
+// Proventos recebidos (dividendos, JCP e rendimentos de FII). O valor guardado
+// é o LÍQUIDO (o que de fato caiu na conta, já sem IR retido na fonte).
+export const proventosRv = pgTable(
+  "proventos_rv",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    ticker: varchar("ticker", { length: 12 }).notNull(),
+    tipo: text("tipo", { enum: ["dividendo", "jcp", "rendimento"] }).notNull(),
+    data: date("data").notNull(), // data do pagamento
+    quantidade: integer("quantidade"),
+    precoUnitario: numeric("preco_unitario", { precision: 14, scale: 6 }),
+    valorLiquido: numeric("valor_liquido", { precision: 12, scale: 2 }).notNull(),
+    instituicao: text("instituicao"),
+    contaId: uuid("conta_id").references(() => contas.id, { onDelete: "set null" }),
+    movimentouConta: boolean("movimentou_conta").notNull().default(false),
+    // ticker|data|tipo|valor|quantidade — evita lançar o mesmo provento duas vezes
+    chave: text("chave").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userDataIdx: index("proventos_rv_user_data_idx").on(table.userId, table.data),
+    userChaveUq: uniqueIndex("proventos_rv_user_chave_uq").on(table.userId, table.chave),
+  }),
+);
+
+export type ProventoRvRow = typeof proventosRv.$inferSelect;

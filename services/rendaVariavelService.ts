@@ -1,6 +1,7 @@
 // src/services/rendaVariavelService.ts
 
 import type { CotacaoRv, OperacaoRv, TipoAtivo, TipoOperacao } from "@/utils/rendaVariavelUtils";
+import type { ProventoImportavel, ProventoRv, TipoProvento } from "@/utils/proventosUtils";
 
 export interface OperacaoRvApi extends OperacaoRv {
   contaId: string | null;
@@ -18,6 +19,29 @@ export interface ResultadoAtualizacaoCotacoes {
   ignorados: string[];
   falhas: { ticker: string; motivo: string }[];
   interrompido: "sem-chave" | "chave-invalida" | "limite" | null;
+}
+
+export interface CriarProventoRvDTO {
+  ticker: string;
+  tipo: TipoProvento;
+  data: string; // YYYY-MM-DD (pagamento)
+  valorLiquido: number;
+  quantidade?: number;
+  contaId?: string;
+  movimentarConta?: boolean;
+}
+
+export interface ImportarProventosDTO {
+  proventos: ProventoImportavel[];
+  creditarConta?: boolean;
+  contaId?: string;
+}
+
+export interface ResultadoImportacaoProventos {
+  inseridos: number;
+  duplicados: number;
+  invalidos: number;
+  total: number;
 }
 
 export interface CriarOperacaoRvDTO {
@@ -71,6 +95,39 @@ export const rendaVariavelService = {
         body: JSON.stringify({ forcar }),
       }),
       "Erro ao atualizar cotações",
+    );
+  },
+
+  async listarProventos(): Promise<ProventoRv[]> {
+    return tratar(await fetch("/api/renda-variavel/proventos"), "Erro ao carregar proventos");
+  },
+
+  async criarProvento(dados: CriarProventoRvDTO): Promise<ProventoRv> {
+    return tratar(
+      await fetch("/api/renda-variavel/proventos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados),
+      }),
+      "Erro ao registrar provento",
+    );
+  },
+
+  async excluirProvento(id: string): Promise<{ ok: boolean }> {
+    return tratar(
+      await fetch(`/api/renda-variavel/proventos/${id}`, { method: "DELETE" }),
+      "Erro ao excluir provento",
+    );
+  },
+
+  async importarProventos(dados: ImportarProventosDTO): Promise<ResultadoImportacaoProventos> {
+    return tratar(
+      await fetch("/api/renda-variavel/proventos/importar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados),
+      }),
+      "Erro ao importar proventos",
     );
   },
 
