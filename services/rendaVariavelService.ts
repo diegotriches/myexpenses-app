@@ -68,6 +68,18 @@ export interface ResultadoImportacaoOperacoes {
   total: number;
 }
 
+export type CriarEventoDTO =
+  | { tipo: "desdobramento" | "grupamento"; ticker: string; data: string; antigo: number; novo: number }
+  | { tipo: "bonificacao"; ticker: string; data: string; percentual: number; custoUnitario: number }
+  | { tipo: "troca"; de: string; para: string };
+
+export interface ResultadoEvento {
+  ok?: boolean;
+  operacoes?: number;
+  posicaoAntes?: number;
+  posicaoDepois?: number;
+}
+
 export interface IrData {
   config: ConfigIr;
   darfsPagos: string[]; // competências (YYYY-MM)
@@ -117,6 +129,17 @@ export const rendaVariavelService = {
         body: JSON.stringify({ operacoes }),
       }),
       "Erro ao importar operações",
+    );
+  },
+
+  async criarEvento(dados: CriarEventoDTO): Promise<ResultadoEvento> {
+    return tratar(
+      await fetch("/api/renda-variavel/eventos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados),
+      }),
+      "Erro ao registrar evento",
     );
   },
 

@@ -70,6 +70,7 @@ interface Item {
   precoUnitario: number;
   taxas: number;
   id: string;
+  evento?: OperacaoRv["evento"];
 }
 
 /** Resultado de cada venda, separando day trade (mesmo ativo, mesmo dia) das operações comuns. */
@@ -132,6 +133,10 @@ export function apurarVendas(ops: OperacaoIr[]): VendaIr[] {
       if (o.tipo === "compra") {
         qtd += o.quantidade;
         custo += o.quantidade * o.precoUnitario + o.taxas;
+      } else if (o.evento === "grupamento") {
+        // só reduz a quantidade; o custo total é mantido e não há venda
+        qtd = Math.max(0, qtd - o.quantidade);
+        if (qtd === 0) custo = 0;
       } else {
         const pm = qtd > 0 ? custo / qtd : 0;
         const baixa = pm * o.quantidade;

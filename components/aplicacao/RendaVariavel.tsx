@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import {
   Plus, LineChart, Loader2, AlertCircle, Info, ChevronDown, ChevronUp,
-  Pencil, Trash2, ShoppingCart, HandCoins, RefreshCw, Upload,
+  Pencil, Trash2, ShoppingCart, HandCoins, RefreshCw, Upload, Shuffle,
 } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import {
@@ -36,6 +36,7 @@ import {
 import MovCampoConta from "@/components/transacao/MovCampoConta";
 import ProventosRendaVariavel from "@/components/aplicacao/ProventosRendaVariavel";
 import ImpostoRendaRendaVariavel from "@/components/aplicacao/ImpostoRendaRendaVariavel";
+import EventoCorporativoDialog from "@/components/aplicacao/EventoCorporativoDialog";
 import ImportarOperacoesDialog from "@/components/aplicacao/ImportarOperacoesDialog";
 import { EVENTO_LABEL } from "@/utils/rendaVariavelUtils";
 
@@ -226,6 +227,7 @@ export default function RendaVariavel({ contas }: Props) {
   // ── Exclusão ───────────────────────────────────────────────────────────────
   const [excluirAlvo, setExcluirAlvo] = useState<OperacaoRvApi | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [eventoOpen, setEventoOpen] = useState(false);
   const confirmarExclusao = async () => {
     if (!excluirAlvo) return;
     try {
@@ -264,7 +266,11 @@ export default function RendaVariavel({ contas }: Props) {
                 · {fmtIso(o.data)}{o.dataEstimada && <span title="Data do negócio estimada a partir da liquidação"> *</span>}
               </p>
               <p className="text-gray-500 dark:text-gray-400 truncate">
-                {o.evento ? `${o.quantidade} (custo zero)` : `${o.quantidade} × ${mask(formatarPreco(o.precoUnitario))}`}
+                {o.evento === "grupamento"
+                  ? `−${o.quantidade} (mantém o custo)`
+                  : o.evento && o.precoUnitario === 0
+                    ? `+${o.quantidade} (custo zero)`
+                    : `${o.quantidade} × ${mask(formatarPreco(o.precoUnitario))}`}
                 {o.taxas > 0 && ` · taxas ${mask(formatarMoeda(o.taxas))}`}
                 {o.movimentouConta && " · movimentou a conta"}
                 {o.origemImportacao && " · importada"}
@@ -430,7 +436,7 @@ export default function RendaVariavel({ contas }: Props) {
         <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xl">
           Ações, FIIs, ETFs e BDRs. Preço médio por CPF, somando todas as corretoras. Cotações pela brapi, com cerca de 30 minutos de atraso.
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {carteira.ativos.length > 0 && (
             <Button
               variant="outline"
@@ -441,6 +447,10 @@ export default function RendaVariavel({ contas }: Props) {
               Atualizar cotações
             </Button>
           )}
+          <Button variant="outline" onClick={() => setEventoOpen(true)}>
+            <Shuffle className="w-4 h-4 mr-1.5" />
+            Evento corporativo
+          </Button>
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <Upload className="w-4 h-4 mr-1.5" />
             Importar B3
@@ -501,6 +511,8 @@ export default function RendaVariavel({ contas }: Props) {
       <ImpostoRendaRendaVariavel />
 
       <ImportarOperacoesDialog open={importOpen} onOpenChange={setImportOpen} existentes={operacoes} />
+
+      <EventoCorporativoDialog open={eventoOpen} onOpenChange={setEventoOpen} operacoes={operacoes} />
 
       {/* ── Modal Nova operação ─────────────────────────────────────────── */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>

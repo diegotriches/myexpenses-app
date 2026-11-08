@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   rendaVariavelService,
   type CriarOperacaoRvDTO,
+  type CriarEventoDTO,
   type CriarProventoRvDTO,
   type ImportarProventosDTO,
   type OperacaoParaImportar,
@@ -68,6 +69,28 @@ export function useImportarOperacoesRv() {
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao importar operações", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useCriarEventoRv() {
+  const invalidar = useInvalidar();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (dados: CriarEventoDTO) => rendaVariavelService.criarEvento(dados),
+    onSuccess: (r, vars) => {
+      invalidar();
+      toast({
+        title: vars.tipo === "troca" ? "Ticker atualizado" : "Evento registrado",
+        description:
+          vars.tipo === "troca"
+            ? `${r.operacoes ?? 0} operação(ões) movida(s) para ${vars.para}.`
+            : `Posição: ${r.posicaoAntes} → ${r.posicaoDepois}. Preço médio recalculado.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao registrar evento", description: error.message, variant: "destructive" });
     },
   });
 }

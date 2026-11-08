@@ -809,8 +809,8 @@ export const operacoesRv = pgTable(
     movimentouConta: boolean("movimentou_conta").notNull().default(false),
     // chave do movimento na planilha de origem: impede importar o mesmo duas vezes
     origemImportacao: text("origem_importacao"),
-    // desdobramento / bonificação: entram como compra de preço zero
-    evento: text("evento", { enum: ["desdobramento", "bonificacao"] }),
+    // eventos corporativos (ver rendaVariavelUtils)
+    evento: text("evento", { enum: ["desdobramento", "bonificacao", "grupamento"] }),
     // true = a planilha só traz a data de liquidação; a do negócio foi estimada (D+2 úteis)
     dataEstimada: boolean("data_estimada").notNull().default(false),
     instituicao: text("instituicao"),

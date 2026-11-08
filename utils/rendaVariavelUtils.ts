@@ -12,13 +12,17 @@
 export type TipoAtivo = "acao" | "fii" | "etf" | "bdr";
 export type TipoOperacao = "compra" | "venda";
 
-// Eventos corporativos que aumentam a quantidade SEM custo (entram como compra
-// de preço zero: a quantidade sobe e o preço médio cai na mesma proporção)
-export type EventoOperacao = "desdobramento" | "bonificacao";
+// Eventos corporativos, guardados como operações marcadas com `evento`:
+//  - desdobramento: "compra" de preço zero (quantidade sobe, custo total igual)
+//  - bonificação: "compra" ao custo atribuído por ação (pode ser zero)
+//  - grupamento: "venda" que só reduz a quantidade; o custo total é mantido e
+//    NÃO conta como venda (sem resultado, sem imposto)
+export type EventoOperacao = "desdobramento" | "bonificacao" | "grupamento";
 
 export const EVENTO_LABEL: Record<EventoOperacao, string> = {
   desdobramento: "Desdobramento",
   bonificacao: "Bonificação",
+  grupamento: "Grupamento",
 };
 
 export const TIPO_ATIVO_LABEL: Record<TipoAtivo, string> = {
@@ -122,6 +126,10 @@ export function calcularPosicoes(ops: OperacaoRv[]): PosicaoAtivo[] {
         qtd += o.quantidade;
         custo += c;
         comprado += c;
+      } else if (o.evento === "grupamento") {
+        // reduz a quantidade mantendo o custo total (o preço médio sobe)
+        qtd = Math.max(0, qtd - o.quantidade);
+        if (qtd === 0) custo = 0;
       } else {
         const pm = qtd > 0 ? custo / qtd : 0;
         const custoBaixa = pm * o.quantidade;
