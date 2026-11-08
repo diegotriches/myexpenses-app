@@ -1,6 +1,6 @@
 // src/db/schema.ts
 import {
-  pgTable,
+  pgTable, primaryKey,
   serial,
   varchar,
   text,
@@ -832,6 +832,19 @@ export const cotacoesRv = pgTable("cotacoes_rv", {
   fonte: text("fonte").notNull().default("manual"),
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// Cotação informada manualmente: vale só para o usuário que a definiu e até a
+// próxima atualização automática do ticker em cotacoes_rv.
+export const cotacoesManuaisRv = pgTable(
+  "cotacoes_manuais_rv",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    ticker: varchar("ticker", { length: 12 }).notNull(),
+    preco: numeric("preco", { precision: 14, scale: 4 }).notNull(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.ticker] })]
+);
 
 export type OperacaoRvRow = typeof operacoesRv.$inferSelect;
 export type CotacaoRvRow = typeof cotacoesRv.$inferSelect;

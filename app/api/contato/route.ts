@@ -5,6 +5,15 @@ import { contatos } from "@/db/schema";
 import { getUserId } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 
+function escaparHtml(texto: string): string {
+  return texto
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -56,7 +65,7 @@ export async function POST(req: NextRequest) {
       await sendEmail({
         to: process.env.GMAIL_USER!,
         subject: "[MyExpenses] " + assuntoTexto[assunto] + ": " + nome,
-        html: "<p><b>Nome:</b> " + nome + "</p><p><b>Email:</b> " + email + "</p><p><b>Assunto:</b> " + assuntoTexto[assunto] + "</p><p><b>Mensagem:</b></p><p>" + mensagem + "</p><p>ID: " + novoContato.id + "</p>",
+        html: "<p><b>Nome:</b> " + escaparHtml(nome) + "</p><p><b>Email:</b> " + escaparHtml(email) + "</p><p><b>Assunto:</b> " + assuntoTexto[assunto] + "</p><p><b>Mensagem:</b></p><p>" + escaparHtml(mensagem) + "</p><p>ID: " + novoContato.id + "</p>",
         text: "Nome: " + nome + "\nEmail: " + email + "\nAssunto: " + assuntoTexto[assunto] + "\n\nMensagem:\n" + mensagem,
       });
     } catch (emailError) {

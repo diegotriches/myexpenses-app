@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { garantirDono } from "@/lib/garantirDono";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import { calcularIntervaloAno, lerAnoDaRequisicao } from "@/utils/periodoAno";
 
@@ -169,6 +170,9 @@ export async function POST(req: NextRequest) {
 
       // ── Criar transação ───────────────────────────────────────────────────
 
+      const erroDono = await garantirDono(userId, { estabelecimentoId: trans.estabelecimentoId });
+      if (erroDono) return NextResponse.json({ error: erroDono }, { status: 404 });
+
       const [novaTransacao] = await db.insert(transacoes).values({
         userId,
         tipo:           trans.tipo,
@@ -233,7 +237,7 @@ export async function POST(req: NextRequest) {
             .where(and(eq(cartoes.id, Number(trans.cartaoId)), eq(cartoes.userId, userId)));
         }
       } else if (trans.contaId && trans.formaPagamento !== "cartao") {
-        const [conta] = await db.select().from(contas).where(eq(contas.id, trans.contaId)).limit(1);
+        const [conta] = await db.select().from(contas).where(and(eq(contas.id, trans.contaId), eq(contas.userId, userId))).limit(1);
         const saldoAtual = Number(conta.saldoAtual);
         const novoSaldo  = trans.tipo === "entrada" ? saldoAtual + valorNum : saldoAtual - valorNum;
 

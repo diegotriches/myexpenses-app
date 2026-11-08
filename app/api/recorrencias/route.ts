@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { recorrencias, transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { garantirDono } from "@/lib/garantirDono";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import { aplicarImpactoRecorrencia } from "@/lib/aplicarImpacto";
 import { notificarImpactoRecorrencia } from "@/lib/notificarRecorrencia";
@@ -28,7 +29,7 @@ async function reverterTransacaoCompleta(
   const valor = Number(transacao.valor);
 
   if (transacao.contaId && transacao.formaPagamento !== "cartao") {
-    const [conta] = await db.select().from(contas).where(eq(contas.id, transacao.contaId)).limit(1);
+    const [conta] = await db.select().from(contas).where(and(eq(contas.id, transacao.contaId), eq(contas.userId, userId))).limit(1);
     if (conta) {
       const novoSaldo =
         transacao.tipo === "entrada" ? Number(conta.saldoAtual) - valor : Number(conta.saldoAtual) + valor;
@@ -41,10 +42,10 @@ async function reverterTransacaoCompleta(
   await db.delete(extratoConta).where(and(eq(extratoConta.referenciaId, transacao.id), eq(extratoConta.userId, userId)));
 
   if (transacao.cartaoId && transacao.formaPagamento === "cartao") {
-    const [cartao] = await db.select().from(cartoes).where(eq(cartoes.id, transacao.cartaoId)).limit(1);
+    const [cartao] = await db.select().from(cartoes).where(and(eq(cartoes.id, transacao.cartaoId), eq(cartoes.userId, userId))).limit(1);
     if (cartao) {
       if (cartao.tipo === "debito" && cartao.contaVinculadaId) {
-        const [conta] = await db.select().from(contas).where(eq(contas.id, cartao.contaVinculadaId)).limit(1);
+        const [conta] = await db.select().from(contas).where(and(eq(contas.id, cartao.contaVinculadaId), eq(contas.userId, userId))).limit(1);
         if (conta) {
           await db.update(contas)
             .set({ saldoAtual: (Number(conta.saldoAtual) + valor).toFixed(2), updatedAt: new Date() })
@@ -92,6 +93,10 @@ export async function POST(req: NextRequest) {
   if (!data || isNaN(new Date(data).getTime())) {
     return NextResponse.json({ error: "Data inválida" }, { status: 400 });
   }
+
+  // Antes de qualquer escrita, inclusive a reversão da transação de origem
+  const erroDono = await garantirDono(userId, { contaId, cartaoId, estabelecimentoId });
+  if (erroDono) return NextResponse.json({ error: erroDono }, { status: 404 });
 
   // ✅ CORRIGIDO: parseia a string "YYYY-MM-DD" pelos componentes, nunca
   // via new Date(string) + getters locais — isso é o bug clássico de fuso

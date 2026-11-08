@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
+import { verificarAdmin } from "@/lib/admin";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -12,6 +13,12 @@ import { eq } from "drizzle-orm";
  * Verifica se o usuário está autenticado e se o DB está acessível
  */
 export async function GET(req: NextRequest) {
+  try {
+    await verificarAdmin();
+  } catch {
+    return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+  }
+
   const inicio = Date.now();
   
   try {

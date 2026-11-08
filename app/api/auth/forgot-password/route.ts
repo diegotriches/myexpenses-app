@@ -113,15 +113,6 @@ export async function POST(req: NextRequest) {
     console.log("✅ Token salvo no banco");
 
     // ========================================
-    // GERAR LINK DE RECUPERAÇÃO
-    // ========================================
-    
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-    const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
-
-    console.log("📧 Link de recuperação:", resetLink);
-
-    // ========================================
     // ENVIAR EMAIL COM LINK DE RECUPERAÇÃO
     // ========================================
     

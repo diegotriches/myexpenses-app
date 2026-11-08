@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { cartoes, faturas, transacoes } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { garantirDono } from "@/lib/garantirDono";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 // ============================================================================
@@ -83,6 +84,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const erroDono = await garantirDono(userId, { contaId });
+    if (erroDono) return NextResponse.json({ error: erroDono }, { status: 404 });
 
     const dataCompra = data ? new Date(data) : new Date();
     const valorTotal = Number(valor);

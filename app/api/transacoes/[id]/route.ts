@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { transacoes, contas, extratoConta, cartoes, faturas, antecipacoesParcela } from "@/db/schema";
 import { or, eq, and, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { garantirDono } from "@/lib/garantirDono";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 // ── helpers financeiros ────────────────────────────────────────
@@ -33,10 +34,10 @@ const MSG_BLOQUEIO_FATURA_PAGA = "Esta transação faz parte de uma fatura já p
 async function processarExtratoESaldo(transacao: typeof transacoes.$inferSelect, userId: string) {
   const valorNum = Number(transacao.valor);
   if (transacao.cartaoId && transacao.formaPagamento === "cartao") {
-    const [cartao] = await db.select().from(cartoes).where(eq(cartoes.id, transacao.cartaoId)).limit(1);
+    const [cartao] = await db.select().from(cartoes).where(and(eq(cartoes.id, transacao.cartaoId), eq(cartoes.userId, userId))).limit(1);
     if (!cartao) return;
     if (cartao.tipo === "debito" && cartao.contaVinculadaId) {
-      const [conta] = await db.select().from(contas).where(eq(contas.id, cartao.contaVinculadaId)).limit(1);
+      const [conta] = await db.select().from(contas).where(and(eq(contas.id, cartao.contaVinculadaId), eq(contas.userId, userId))).limit(1);
       if (!conta) return;
       const novoSaldo = Number(conta.saldoAtual) - valorNum;
       await db.update(contas).set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() }).where(and(eq(contas.id, conta.id), eq(contas.userId, userId)));
@@ -49,7 +50,7 @@ async function processarExtratoESaldo(transacao: typeof transacoes.$inferSelect,
       await db.update(cartoes).set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${valorNum}` }).where(and(eq(cartoes.id, transacao.cartaoId), eq(cartoes.userId, userId)));
     }
   } else if (transacao.contaId && transacao.formaPagamento !== "cartao") {
-    const [conta] = await db.select().from(contas).where(eq(contas.id, transacao.contaId)).limit(1);
+    const [conta] = await db.select().from(contas).where(and(eq(contas.id, transacao.contaId), eq(contas.userId, userId))).limit(1);
     if (!conta) return;
     const saldoAtual = Number(conta.saldoAtual);
     const novoSaldo  = transacao.tipo === "entrada" ? saldoAtual + valorNum : saldoAtual - valorNum;
@@ -61,7 +62,7 @@ async function processarExtratoESaldo(transacao: typeof transacoes.$inferSelect,
 async function reverterExtratoESaldo(transacao: typeof transacoes.$inferSelect, userId: string) {
   const valor = Number(transacao.valor);
   if (transacao.contaId && transacao.formaPagamento !== "cartao") {
-    const [conta] = await db.select().from(contas).where(eq(contas.id, transacao.contaId)).limit(1);
+    const [conta] = await db.select().from(contas).where(and(eq(contas.id, transacao.contaId), eq(contas.userId, userId))).limit(1);
     if (conta) {
       const novoSaldo = transacao.tipo === "entrada" ? Number(conta.saldoAtual) - valor : Number(conta.saldoAtual) + valor;
       await db.update(contas).set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() }).where(and(eq(contas.id, transacao.contaId), eq(contas.userId, userId)));
@@ -156,6 +157,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { modoEdicao } = json;
 
     const estabelecimentoId = json.estabelecimentoId ?? null;
+
+    const erroDono = await garantirDono(userId, { contaId: json.contaId, cartaoId: json.cartaoId, estabelecimentoId });
+    if (erroDono) return NextResponse.json({ error: erroDono }, { status: 404 });
 
     // ── ÚNICA ────────────────────────────────────────────────────────────────
     if (modoEdicao === "unica") {
@@ -427,15 +431,15 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     for (const transacao of transacoesParaDeletar) {
       const valor = Number(transacao.valor);
       if (transacao.contaId && transacao.formaPagamento !== "cartao") {
-        const [conta] = await db.select().from(contas).where(eq(contas.id, transacao.contaId)).limit(1);
+        const [conta] = await db.select().from(contas).where(and(eq(contas.id, transacao.contaId), eq(contas.userId, userId))).limit(1);
         if (conta) { const novoSaldo = transacao.tipo === "entrada" ? Number(conta.saldoAtual) - valor : Number(conta.saldoAtual) + valor; await db.update(contas).set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() }).where(and(eq(contas.id, transacao.contaId), eq(contas.userId, userId))); }
       }
       await db.delete(extratoConta).where(and(eq(extratoConta.referenciaId, transacao.id), eq(extratoConta.userId, userId)));
       if (transacao.cartaoId && transacao.formaPagamento === "cartao") {
-        const [cartao] = await db.select().from(cartoes).where(eq(cartoes.id, transacao.cartaoId)).limit(1);
+        const [cartao] = await db.select().from(cartoes).where(and(eq(cartoes.id, transacao.cartaoId), eq(cartoes.userId, userId))).limit(1);
         if (cartao) {
           if (cartao.tipo === "debito" && cartao.contaVinculadaId) {
-            const [conta] = await db.select().from(contas).where(eq(contas.id, cartao.contaVinculadaId)).limit(1);
+            const [conta] = await db.select().from(contas).where(and(eq(contas.id, cartao.contaVinculadaId), eq(contas.userId, userId))).limit(1);
             if (conta) await db.update(contas).set({ saldoAtual: (Number(conta.saldoAtual) + valor).toFixed(2), updatedAt: new Date() }).where(and(eq(contas.id, conta.id), eq(contas.userId, userId)));
           } else if (cartao.tipo === "credito") {
             const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(new Date(transacao.data), cartao.diaFechamento || 1);

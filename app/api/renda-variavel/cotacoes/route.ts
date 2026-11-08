@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { operacoesRv, cotacoesRv } from "@/db/schema";
+import { operacoesRv, cotacoesManuaisRv } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { TICKER_REGEX, normalizarTicker } from "@/utils/rendaVariavelUtils";
@@ -24,7 +24,8 @@ export async function PUT(req: NextRequest) {
     if (isNaN(preco) || preco <= 0)
       return NextResponse.json({ error: "Preço inválido" }, { status: 400 });
 
-    // Só quem tem operações no ticker pode definir a cotação dele
+    // A cotação manual vale só para este usuário, e até a próxima atualização
+    // automática do ticker. Exige ter operações nele.
     const [tem] = await db
       .select({ id: operacoesRv.id })
       .from(operacoesRv)
@@ -34,11 +35,11 @@ export async function PUT(req: NextRequest) {
 
     const agora = new Date();
     await db
-      .insert(cotacoesRv)
-      .values({ ticker, preco: preco.toFixed(4), fonte: "manual", atualizadoEm: agora })
+      .insert(cotacoesManuaisRv)
+      .values({ userId, ticker, preco: preco.toFixed(4), atualizadoEm: agora })
       .onConflictDoUpdate({
-        target: cotacoesRv.ticker,
-        set: { preco: preco.toFixed(4), variacaoDia: null, fonte: "manual", atualizadoEm: agora },
+        target: [cotacoesManuaisRv.userId, cotacoesManuaisRv.ticker],
+        set: { preco: preco.toFixed(4), atualizadoEm: agora },
       });
 
     return NextResponse.json({ ok: true });

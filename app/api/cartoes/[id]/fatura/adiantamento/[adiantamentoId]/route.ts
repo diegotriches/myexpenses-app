@@ -52,6 +52,9 @@ export async function DELETE(
     if (!fatura)
       return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 });
 
+    if (fatura.cartaoId !== cartaoId)
+      return NextResponse.json({ error: "Adiantamento não encontrado" }, { status: 404 });
+
     if (fatura.paga)
       return NextResponse.json(
         { error: "Não é possível cancelar adiantamento de fatura já paga" },

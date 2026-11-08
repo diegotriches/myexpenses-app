@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { operacoesRv, cotacoesRv, contas, extratoConta } from "@/db/schema";
+import { operacoesRv, cotacoesRv, cotacoesManuaisRv, contas, extratoConta } from "@/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
@@ -70,15 +70,36 @@ export async function GET() {
     ? await db.select().from(cotacoesRv).where(inArray(cotacoesRv.ticker, tickers))
     : [];
 
+  const manuais = tickers.length
+    ? await db.select().from(cotacoesManuaisRv)
+        .where(and(eq(cotacoesManuaisRv.userId, userId), inArray(cotacoesManuaisRv.ticker, tickers)))
+    : [];
+
+  const porTicker = new Map(cots.map((c) => [c.ticker, {
+    ticker: c.ticker,
+    preco: Number(c.preco),
+    variacaoDia: c.variacaoDia !== null ? Number(c.variacaoDia) : null,
+    fonte: c.fonte,
+    atualizadoEm: c.atualizadoEm,
+  }]));
+
+  // A cotação manual só vale enquanto for mais recente que a automática
+  for (const m of manuais) {
+    const automatica = porTicker.get(m.ticker);
+    if (!automatica || m.atualizadoEm > automatica.atualizadoEm) {
+      porTicker.set(m.ticker, {
+        ticker: m.ticker,
+        preco: Number(m.preco),
+        variacaoDia: null,
+        fonte: "manual",
+        atualizadoEm: m.atualizadoEm,
+      });
+    }
+  }
+
   return NextResponse.json({
     operacoes: linhas.map(paraApi),
-    cotacoes: cots.map((c) => ({
-      ticker: c.ticker,
-      preco: Number(c.preco),
-      variacaoDia: c.variacaoDia !== null ? Number(c.variacaoDia) : null,
-      fonte: c.fonte,
-      atualizadoEm: c.atualizadoEm,
-    })),
+    cotacoes: Array.from(porTicker.values()),
   });
 }
 

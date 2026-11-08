@@ -4,6 +4,7 @@ import { cartoes, faturas, contas } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { garantirDono } from "@/lib/garantirDono";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
 // ============================================
@@ -251,6 +252,9 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const erroDono = await garantirDono(userId, { contaId: contaVinculadaId });
+    if (erroDono) return NextResponse.json({ error: erroDono }, { status: 404 });
 
     const [novo] = await db
       .insert(cartoes)

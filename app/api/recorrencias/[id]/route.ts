@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { recorrencias } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { garantirDono } from "@/lib/garantirDono";
 
 const FORMAS_VALIDAS = ["dinheiro", "pix", "cartao"];
 
@@ -74,6 +75,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   if (!existente) {
     return NextResponse.json({ error: "Recorrência não encontrada" }, { status: 404 });
   }
+
+  const erroDono = await garantirDono(userId, { contaId: camposPermitidos.contaId, cartaoId: camposPermitidos.cartaoId });
+  if (erroDono) return NextResponse.json({ error: erroDono }, { status: 404 });
 
   const formaPagamentoFinal = camposPermitidos.formaPagamento ?? existente.formaPagamento;
   const contaIdFinal = "contaId" in camposPermitidos ? camposPermitidos.contaId : existente.contaId;
