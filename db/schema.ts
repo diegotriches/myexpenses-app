@@ -779,3 +779,53 @@ export const backupsUsuario = pgTable(
 
 export type BackupUsuario = typeof backupsUsuario.$inferSelect;
 export type NovoBackupUsuario = typeof backupsUsuario.$inferInsert;
+
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDA VARIÁVEL (ações, FIIs, ETFs e BDRs)
+// ═══════════════════════════════════════════════════════════════════════════
+// Cada compra/venda é uma linha. Posição, preço médio e resultado são
+// SEMPRE calculados a partir das operações (src/utils/rendaVariavelUtils.ts),
+// nunca guardados — assim excluir/importar operações nunca deixa a carteira
+// inconsistente. O preço médio é por CPF (carteira única, todas as corretoras).
+
+export const operacoesRv = pgTable(
+  "operacoes_rv",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    ticker: varchar("ticker", { length: 12 }).notNull(),
+    tipoAtivo: text("tipo_ativo", { enum: ["acao", "fii", "etf", "bdr"] }).notNull(),
+    tipo: text("tipo", { enum: ["compra", "venda"] }).notNull(),
+    data: date("data").notNull(),
+    quantidade: integer("quantidade").notNull(),
+    precoUnitario: numeric("preco_unitario", { precision: 14, scale: 4 }).notNull(),
+    // corretagem + emolumentos + taxa de liquidação etc. da operação (R$)
+    taxas: numeric("taxas", { precision: 12, scale: 2 }).notNull().default("0"),
+    // conta usada para pagar/receber (opcional quando é só registro histórico)
+    contaId: uuid("conta_id").references(() => contas.id, { onDelete: "set null" }),
+    // true = esta operação alterou o saldo da conta (precisa ser revertida ao excluir)
+    movimentouConta: boolean("movimentou_conta").notNull().default(false),
+    // preenchido pelo importador (etapa 3) para evitar importar duas vezes
+    origemImportacao: text("origem_importacao"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userTickerIdx: index("operacoes_rv_user_ticker_idx").on(table.userId, table.ticker),
+    userDataIdx: index("operacoes_rv_user_data_idx").on(table.userId, table.data),
+  }),
+);
+
+// Última cotação conhecida de cada ticker. Na etapa 1 é preenchida à mão;
+// na etapa 2 um cron passa a atualizar automaticamente (fonte = "brapi").
+export const cotacoesRv = pgTable("cotacoes_rv", {
+  ticker: varchar("ticker", { length: 12 }).primaryKey(),
+  preco: numeric("preco", { precision: 14, scale: 4 }).notNull(),
+  variacaoDia: numeric("variacao_dia", { precision: 8, scale: 4 }),
+  fonte: text("fonte").notNull().default("manual"),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type OperacaoRvRow = typeof operacoesRv.$inferSelect;
+export type CotacaoRvRow = typeof cotacoesRv.$inferSelect;
