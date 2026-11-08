@@ -2,7 +2,7 @@
 
 // src/components/aplicacao/RendaVariavel.tsx
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,11 +18,12 @@ import {
 } from "@/components/ui/select";
 import {
   Plus, LineChart, Loader2, AlertCircle, Info, ChevronDown, ChevronUp,
-  Pencil, Trash2, ShoppingCart, HandCoins,
+  Pencil, Trash2, ShoppingCart, HandCoins, RefreshCw,
 } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import {
   useRendaVariavel, useCriarOperacaoRv, useExcluirOperacaoRv, useSalvarCotacaoRv,
+  useAtualizarCotacoesRv,
 } from "@/hooks/useRendaVariavel";
 import type { OperacaoRvApi } from "@/services/rendaVariavelService";
 import type { Conta } from "@/types/conta";
@@ -85,11 +86,22 @@ export default function RendaVariavel({ contas }: Props) {
   const criar = useCriarOperacaoRv();
   const excluir = useExcluirOperacaoRv();
   const salvarCotacao = useSalvarCotacaoRv();
+  const atualizarCotacoes = useAtualizarCotacoesRv();
 
   const hojeIso = hojeBrt();
   const operacoes = useMemo(() => data?.operacoes ?? [], [data]);
   const cotacoes = useMemo(() => data?.cotacoes ?? [], [data]);
   const carteira = useMemo(() => resumirCarteira(operacoes, cotacoes), [operacoes, cotacoes]);
+
+  // Ao abrir a aba, busca cotações novas uma vez (o servidor só consulta a brapi
+  // dos ativos cuja cotação ficou velha, então abrir a aba não gasta cota à toa)
+  const buscouAoAbrir = useRef(false);
+  useEffect(() => {
+    if (buscouAoAbrir.current || !data || carteira.ativos.length === 0) return;
+    buscouAoAbrir.current = true;
+    atualizarCotacoes.mutate({ forcar: false, silencioso: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, carteira.ativos.length]);
 
   const [abertos, setAbertos] = useState<Set<string>>(new Set());
   const [verEncerrados, setVerEncerrados] = useState(false);
@@ -309,9 +321,17 @@ export default function RendaVariavel({ contas }: Props) {
                 </button>
               </span>
             </div>
+            {a.variacaoDia !== null && (
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Variação no dia</span>
+                <span className={`font-medium ${cor(a.variacaoDia)}`}>
+                  {sinal(a.variacaoDia)}{a.variacaoDia.toFixed(2)}%
+                </span>
+              </div>
+            )}
             {a.cotacaoAtualizadaEm && (
               <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                {a.cotacaoFonte === "manual" ? "Informada manualmente" : "Atualizada"} em {fmtDataHora(a.cotacaoAtualizadaEm)}
+                {a.cotacaoFonte === "manual" ? "Informada manualmente" : "Atualizada pela brapi"} em {fmtDataHora(a.cotacaoAtualizadaEm)}
               </p>
             )}
             <div className="flex justify-between">
@@ -386,13 +406,25 @@ export default function RendaVariavel({ contas }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Ações, FIIs, ETFs e BDRs. O preço médio é calculado por CPF, somando todas as corretoras.
+        <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xl">
+          Ações, FIIs, ETFs e BDRs. Preço médio por CPF, somando todas as corretoras. Cotações pela brapi, com cerca de 30 minutos de atraso.
         </p>
-        <Button onClick={() => abrirModal("compra")} className="bg-blue-700 hover:bg-blue-900 text-white">
-          <Plus className="w-4 h-4 mr-1.5" />
-          Nova operação
-        </Button>
+        <div className="flex gap-2">
+          {carteira.ativos.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => atualizarCotacoes.mutate({ forcar: true })}
+              disabled={atualizarCotacoes.isPending}
+            >
+              <RefreshCw className={`w-4 h-4 mr-1.5 ${atualizarCotacoes.isPending ? "animate-spin" : ""}`} />
+              Atualizar cotações
+            </Button>
+          )}
+          <Button onClick={() => abrirModal("compra")} className="bg-blue-700 hover:bg-blue-900 text-white">
+            <Plus className="w-4 h-4 mr-1.5" />
+            Nova operação
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -605,7 +637,7 @@ export default function RendaVariavel({ contas }: Props) {
           <DialogHeader>
             <DialogTitle>Cotação de {cotacaoAlvo?.ticker}</DialogTitle>
             <DialogDescription>
-              Informe o preço atual. A atualização automática será adicionada na próxima etapa.
+              Informe o preço manualmente. A próxima atualização automática substitui este valor.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5 py-2">

@@ -13,6 +13,13 @@ export interface RendaVariavelData {
   cotacoes: CotacaoRv[];
 }
 
+export interface ResultadoAtualizacaoCotacoes {
+  atualizados: string[];
+  ignorados: string[];
+  falhas: { ticker: string; motivo: string }[];
+  interrompido: "sem-chave" | "chave-invalida" | "limite" | null;
+}
+
 export interface CriarOperacaoRvDTO {
   ticker: string;
   tipoAtivo: TipoAtivo;
@@ -53,6 +60,17 @@ export const rendaVariavelService = {
     return tratar(
       await fetch(`/api/renda-variavel/${id}`, { method: "DELETE" }),
       "Erro ao excluir operação",
+    );
+  },
+
+  async atualizarCotacoes(forcar = false): Promise<ResultadoAtualizacaoCotacoes> {
+    return tratar(
+      await fetch("/api/renda-variavel/cotacoes/atualizar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forcar }),
+      }),
+      "Erro ao atualizar cotações",
     );
   },
 

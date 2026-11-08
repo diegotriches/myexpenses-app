@@ -7,6 +7,7 @@ import { Wallet, Landmark, PiggyBank, LineChart } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { useContas } from "@/hooks/useContas";
 import { useAplicacoes } from "@/hooks/useAplicacoes";
+import { useRendaVariavel } from "@/hooks/useRendaVariavel";
 import type { Aplicacao } from "@/services/aplicacaoService";
 import {
   hojeBrt,
@@ -14,6 +15,7 @@ import {
   estimarLiquidoTotal,
   type LoteEstado,
 } from "@/utils/aplicacaoSimulacao";
+import { resumirCarteira } from "@/utils/rendaVariavelUtils";
 
 const formatarMoeda = (valor: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
@@ -49,10 +51,12 @@ export default function PatrimonioCard() {
   const { mask } = useHideValues();
   const contasQuery = useContas();
   const aplicacoesQuery = useAplicacoes();
+  const rvQuery = useRendaVariavel();
 
-  const carregando = contasQuery.isLoading || aplicacoesQuery.isLoading;
+  const carregando = contasQuery.isLoading || aplicacoesQuery.isLoading || rvQuery.isLoading;
   const erroContas = contasQuery.isError;
   const erroAplicacoes = aplicacoesQuery.isError;
+  const erroRv = rvQuery.isError;
 
   const resumo = useMemo(() => {
     const ativas = (contasQuery.data ?? []).filter((c) => c.ativo);
@@ -61,8 +65,9 @@ export default function PatrimonioCard() {
     const hoje = hojeBrt();
     const investidas = (aplicacoesQuery.data ?? []).filter((a) => !a.resgatada);
     const rendaFixa = investidas.reduce((soma, a) => soma + liquidoEstimado(a, hoje), 0);
-    // Renda variável ainda não implementada
-    const rendaVariavel = 0;
+    // Renda variável a valor de mercado (bruto, sem IR sobre o ganho)
+    const carteiraRv = resumirCarteira(rvQuery.data?.operacoes ?? [], rvQuery.data?.cotacoes ?? []);
+    const rendaVariavel = carteiraRv.valorMercado;
 
     const total = emContas + rendaFixa + rendaVariavel;
     const parte = (v: number) => (total > 0 ? Math.max(0, (v / total) * 100) : 0);
@@ -70,14 +75,17 @@ export default function PatrimonioCard() {
     return {
       qtdContas: ativas.length,
       qtdAplicacoes: investidas.length,
+      qtdAtivosRv: carteiraRv.ativos.length,
+      semCotacaoRv: carteiraRv.semCotacao,
       emContas,
       rendaFixa,
       rendaVariavel,
       total,
       pctContas: parte(emContas),
       pctRendaFixa: parte(rendaFixa),
+      pctRendaVariavel: parte(rendaVariavel),
     };
-  }, [contasQuery.data, aplicacoesQuery.data]);
+  }, [contasQuery.data, aplicacoesQuery.data, rvQuery.data]);
 
   const corSaldo = (v: number) =>
     v >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
@@ -105,7 +113,7 @@ export default function PatrimonioCard() {
                 {mask(formatarMoeda(resumo.total))}
               </div>
               <p className={SUB}>
-                {erroAplicacoes ? "sem investimentos (indisponíveis)" : "contas + investimentos"}
+                {erroAplicacoes || erroRv ? "sem parte dos investimentos (indisponíveis)" : "contas + investimentos"}
               </p>
             </>
           )}
@@ -158,17 +166,27 @@ export default function PatrimonioCard() {
         </CardContent>
       </Card>
 
-      {/* Renda variável (em desenvolvimento) */}
+      {/* Renda variável (valor de mercado) */}
       <Card className={`${CARD} border-l-purple-400 dark:border-l-purple-600`}>
         <CardHeader className={HEADER}>
           <CardTitle className={TITLE}>Renda variável</CardTitle>
           <LineChart className="h-3 w-3 md:h-4 md:w-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
         </CardHeader>
         <CardContent className={CONTENT}>
-          <div className={`${VALOR} text-purple-600 dark:text-purple-400`}>
-            {mask(formatarMoeda(resumo.rendaVariavel))}
-          </div>
-          <p className={SUB}>Em breve · ações e FIIs</p>
+          {carregando ? <Carregando /> : erroRv ? (
+            <p className="text-xs text-red-500">Indisponível</p>
+          ) : (
+            <>
+              <div className={`${VALOR} text-purple-600 dark:text-purple-400`}>
+                {mask(formatarMoeda(resumo.rendaVariavel))}
+              </div>
+              <p className={SUB}>
+                {resumo.qtdAtivosRv === 0
+                  ? "Nenhum ativo em carteira"
+                  : `${plural(resumo.qtdAtivosRv, "ativo", "ativos")} · a mercado · ${resumo.pctRendaVariavel.toFixed(0)}%`}
+              </p>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
