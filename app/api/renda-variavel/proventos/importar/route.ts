@@ -13,6 +13,7 @@ import { ErroFinanceiro, alterarSaldo } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { TICKER_REGEX, normalizarTicker, r2 } from "@/utils/rendaVariavelUtils";
 import { chaveProvento, TIPO_PROVENTO_LABEL, type TipoProvento } from "@/utils/proventosUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 const TIPOS: TipoProvento[] = ["dividendo", "jcp", "rendimento"];
 const MAX_LINHAS = 1000;
@@ -134,9 +135,7 @@ export async function POST(req: NextRequest) {
       invalidos,
       total: r2(inseridos.reduce((s, p) => s + Number(p.valorLiquido), 0)),
     });
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao importar proventos:", error);
-    return NextResponse.json({ error: error.message || "Erro ao importar proventos" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao importar proventos");
   }
 }

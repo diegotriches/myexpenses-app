@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { getToken } from "next-auth/jwt";
 import bcrypt from "bcryptjs";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 // Janela de reautenticação OAuth aceita (5 minutos)
 const OAUTH_REAUTH_WINDOW_SEGUNDOS = 5 * 60;
@@ -21,7 +22,7 @@ export async function PUT(
     const userId = await getUserId();
 
     if (!userId) {
-      return NextResponse.json({ message: "Não autenticado" }, { status: 401 });
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     // ✅ 2. Obter ID da URL
@@ -91,12 +92,8 @@ export async function PUT(
     }
 
     return NextResponse.json(atualizado);
-  } catch (err: any) {
-    console.error("❌ Erro ao atualizar usuário:", err);
-    return NextResponse.json(
-      { message: "Erro ao atualizar usuário" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return respostaDeErro(err, "Erro ao atualizar usuário");
   }
 }
 
@@ -109,7 +106,7 @@ export async function DELETE(
     // 1. Verificar autenticação
     const userId = await getUserId();
     if (!userId) {
-      return NextResponse.json({ message: "Não autenticado" }, { status: 401 });
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     // 2. Obter ID da URL
@@ -197,11 +194,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({ message: "Conta deletada com sucesso" });
-  } catch (err: any) {
-    console.error("❌ Erro ao deletar usuário:", err);
-    return NextResponse.json(
-      { message: "Erro ao deletar usuário" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return respostaDeErro(err, "Erro ao deletar usuário");
   }
 }

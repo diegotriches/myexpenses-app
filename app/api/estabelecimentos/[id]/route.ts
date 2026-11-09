@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { estabelecimentos } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 // GET - Buscar estabelecimento específico
 export async function GET(
@@ -38,9 +39,7 @@ export async function GET(
 
     return NextResponse.json(estabelecimento);
   } catch (error) {
-    console.error("Erro ao buscar estabelecimento:", error);
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }
 
@@ -95,9 +94,7 @@ export async function PUT(
 
     return NextResponse.json(atualizado);
   } catch (error) {
-    console.error("Erro ao atualizar estabelecimento:", error);
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }
 
@@ -136,8 +133,6 @@ export async function DELETE(
 
     return NextResponse.json({ message: "Estabelecimento removido com sucesso" });
   } catch (error) {
-    console.error("Erro ao remover estabelecimento:", error);
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }

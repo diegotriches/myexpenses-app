@@ -15,6 +15,7 @@ import {
   TICKER_REGEX, normalizarTicker, validarSequencia,
   type OperacaoRv, type TipoAtivo,
 } from "@/utils/rendaVariavelUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 const TIPOS_ATIVO: TipoAtivo[] = ["acao", "fii", "etf", "bdr"];
 const EVENTOS = ["desdobramento", "bonificacao"] as const;
@@ -141,8 +142,7 @@ export async function POST(req: NextRequest) {
       invalidos,
       total: entrada.length,
     });
-  } catch (error: any) {
-    console.error("Erro ao importar operações de renda variável:", error);
-    return NextResponse.json({ error: error.message || "Erro ao importar operações" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao importar operações");
   }
 }

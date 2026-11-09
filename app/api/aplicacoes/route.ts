@@ -7,9 +7,10 @@ import {
 } from "@/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
+import { movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { recalcularAplicacao } from "@/lib/aplicacaoEngine";
+import { respostaDeErro } from "@/lib/rota";
 
 const INDEXADORES_VALIDOS = ["cdi", "selic"];
 const TRIBUTACOES_VALIDAS = ["isento", "tributavel"];
@@ -154,9 +155,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(novaAplicacao, { status: 201 });
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao criar aplicação:", error);
-    return NextResponse.json({ error: error.message || "Erro ao criar aplicação" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao criar aplicação");
   }
 }

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { estabelecimentos, transacoes, contas, cartoes } from "@/db/schema";
 import { and, eq, sql, desc, ilike } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/estabelecimentos/[id]/extrato?ano=2026[&mes=11][&tipo=saida][&busca=...][&limit=50][&offset=0]
@@ -177,11 +178,7 @@ export async function GET(
       lancamentos,
       temMais,
     });
-  } catch (error: any) {
-    console.error("Erro ao buscar extrato do estabelecimento:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao buscar extrato do estabelecimento" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao buscar extrato do estabelecimento");
   }
 }

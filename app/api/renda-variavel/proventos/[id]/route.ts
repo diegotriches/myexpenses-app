@@ -6,6 +6,7 @@ import { proventosRv, extratoConta } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { ErroFinanceiro, alterarSaldo } from "@/lib/movimentacaoConta";
+import { respostaDeErro } from "@/lib/rota";
 
 export async function DELETE(
   _req: NextRequest,
@@ -41,9 +42,7 @@ export async function DELETE(
     });
 
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao excluir provento:", error);
-    return NextResponse.json({ error: error.message || "Erro ao excluir provento" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao excluir provento");
   }
 }

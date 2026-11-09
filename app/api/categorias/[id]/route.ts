@@ -10,6 +10,7 @@ import {
   contarUso,
   garantirCategoriaDestino,
 } from "@/utils/categoriaUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 // GET - Buscar categoria específica
 export async function GET(
@@ -49,13 +50,8 @@ export async function GET(
     }
 
     return NextResponse.json(categoria);
-  } catch (err: any) {
-    console.error("Erro ao buscar categoria:", err);
-
-    return NextResponse.json(
-      { error: err.message || "Erro ao buscar categoria" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return respostaDeErro(err, "Erro ao buscar categoria");
   }
 }
 
@@ -154,13 +150,8 @@ export async function PUT(
     }
 
     return NextResponse.json(updated);
-  } catch (err: any) {
-    console.error("Erro ao atualizar categoria:", err);
-
-    return NextResponse.json(
-      { error: err.message || "Erro ao atualizar categoria" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return respostaDeErro(err, "Erro ao atualizar categoria");
   }
 }
 
@@ -274,12 +265,7 @@ export async function DELETE(
       recorrenciasMovidas,
       destinos,
     });
-  } catch (err: any) {
-    console.error("Erro ao deletar categoria:", err);
-
-    return NextResponse.json(
-      { error: err.message || "Erro ao deletar categoria" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return respostaDeErro(err, "Erro ao deletar categoria");
   }
 }

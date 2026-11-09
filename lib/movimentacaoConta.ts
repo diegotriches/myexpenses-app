@@ -7,6 +7,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { contas, extratoConta } from "@/db/schema";
+import { ErroHttp } from "@/lib/erroHttp";
 
 export type TransacaoBanco = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -15,11 +16,7 @@ export type LeitorBanco = Pick<typeof db | TransacaoBanco, "select">;
 type OrigemExtrato = (typeof extratoConta.$inferInsert)["origem"];
 
 /** Erro de regra de negócio: desfaz a transação e vira resposta HTTP na rota. */
-export class ErroFinanceiro extends Error {
-  constructor(mensagem: string, readonly status: number = 400) {
-    super(mensagem);
-  }
-}
+export class ErroFinanceiro extends ErroHttp {}
 
 const centavos = (n: number) => Math.round(n * 100) / 100;
 

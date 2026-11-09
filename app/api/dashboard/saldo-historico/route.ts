@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { extratoConta, contas } from "@/db/schema";
 import { eq, and, lte } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/dashboard/saldo-historico?periodo=6
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
   try {
     const userId = await getUserId();
     if (!userId) {
-      return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     const periodoParam = req.nextUrl.searchParams.get("periodo") || "6";
@@ -129,11 +130,7 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json(resultado);
-  } catch (error: any) {
-    console.error("Erro ao buscar historico de saldo:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao buscar historico de saldo" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao buscar histórico de saldo");
   }
 }

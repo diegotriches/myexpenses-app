@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import type { BackupFrequencia } from "@/types/preferences";
+import { respostaDeErro } from "@/lib/rota";
 
 const FREQUENCIAS_VALIDAS: BackupFrequencia[] = ["diario", "semanal", "mensal"];
 
@@ -13,7 +14,7 @@ export async function GET() {
   try {
     const userId = await getUserId();
     if (!userId) {
-      return NextResponse.json({ message: "Não autenticado" }, { status: 401 });
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     const [userPreferences] = await db
@@ -45,12 +46,8 @@ export async function GET() {
     }
 
     return NextResponse.json(userPreferences);
-  } catch (err: any) {
-    console.error("❌ Erro ao buscar preferências:", err);
-    return NextResponse.json(
-      { message: err.message || "Erro ao buscar preferências" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return respostaDeErro(err, "Erro ao buscar preferências");
   }
 }
 
@@ -58,7 +55,7 @@ export async function PUT(req: NextRequest) {
   try {
     const userId = await getUserId();
     if (!userId) {
-      return NextResponse.json({ message: "Não autenticado" }, { status: 401 });
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     const body = await req.json();
@@ -202,12 +199,8 @@ export async function PUT(req: NextRequest) {
     }
 
     return NextResponse.json(resultado);
-  } catch (err: any) {
-    console.error("❌ Erro ao atualizar preferências:", err);
-    return NextResponse.json(
-      { message: err.message || "Erro ao atualizar preferências" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return respostaDeErro(err, "Erro ao atualizar preferências");
   }
 }
 
@@ -215,7 +208,7 @@ export async function DELETE() {
   try {
     const userId = await getUserId();
     if (!userId) {
-      return NextResponse.json({ message: "Não autenticado" }, { status: 401 });
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     await db.delete(preferences).where(eq(preferences.userId, userId));
@@ -242,11 +235,7 @@ export async function DELETE() {
       message: "Preferências restauradas ao padrão",
       preferences: novaPreferencia,
     });
-  } catch (err: any) {
-    console.error("❌ Erro ao deletar preferências:", err);
-    return NextResponse.json(
-      { message: err.message || "Erro ao deletar preferências" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return respostaDeErro(err, "Erro ao deletar preferências");
   }
 }

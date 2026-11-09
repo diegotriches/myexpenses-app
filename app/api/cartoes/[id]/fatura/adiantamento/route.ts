@@ -7,6 +7,7 @@ import { sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
+import { respostaDeErro } from "@/lib/rota";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/cartoes/[id]/fatura/adiantamento?mes=M&ano=A
@@ -147,13 +148,8 @@ export async function POST(
       },
       { status: 201 }
     );
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao registrar adiantamento:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao registrar adiantamento" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao registrar adiantamento");
   }
 }
 
@@ -199,10 +195,7 @@ export async function GET(
       .orderBy(adiantamentosFatura.createdAt);
 
     return NextResponse.json(lista);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Erro ao listar adiantamentos" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao listar adiantamentos");
   }
 }

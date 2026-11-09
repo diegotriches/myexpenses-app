@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { transacoes } from "@/db/schema";
 import { and, eq, desc, lte } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/dashboard/transacoes-recentes?limit=5
@@ -68,11 +69,7 @@ export async function GET(req: NextRequest) {
         recorrente: t.recorrente || false,
       })),
     });
-  } catch (error: any) {
-    console.error("Erro ao carregar transações recentes:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao carregar transações recentes" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao carregar transações recentes");
   }
 }

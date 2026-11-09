@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { notificacoes } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * PUT /api/notificacoes/marcar-todas-lidas
@@ -33,11 +34,7 @@ export async function PUT() {
       message: "Todas as notificações foram marcadas como lidas",
       count: updated.length,
     });
-  } catch (error: any) {
-    console.error("Erro ao marcar todas como lidas:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao marcar todas como lidas" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao marcar todas como lidas");
   }
 }

@@ -4,6 +4,7 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * POST /api/auth/forgot-password
@@ -133,10 +134,6 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error("❌ Erro ao processar recuperação de senha:", error);
-    return NextResponse.json(
-      { error: "Erro ao processar solicitação. Tente novamente." },
-      { status: 500 }
-    );
+    return respostaDeErro(error, "Erro ao processar solicitação. Tente novamente.");
   }
 }

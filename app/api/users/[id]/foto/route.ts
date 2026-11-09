@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { put, del } from "@vercel/blob";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 // POST - Upload de foto
 export async function POST(
@@ -18,7 +19,7 @@ export async function POST(
     
     if (!userId) {
       return NextResponse.json(
-        { message: "Não autenticado" },
+        { error: "Não autenticado" },
         { status: 401 }
       );
     }
@@ -126,12 +127,8 @@ export async function POST(
 
     // ✅ 11. Retornar usuário completo (consistente com service)
     return NextResponse.json(atualizado);
-  } catch (err: any) {
-    console.error("❌ Erro ao fazer upload:", err);
-    return NextResponse.json(
-      { message: "Erro ao fazer upload da foto" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return respostaDeErro(err, "Erro ao fazer upload da foto");
   }
 }
 
@@ -146,7 +143,7 @@ export async function DELETE(
     
     if (!userId) {
       return NextResponse.json(
-        { message: "Não autenticado" },
+        { error: "Não autenticado" },
         { status: 401 }
       );
     }
@@ -213,11 +210,7 @@ export async function DELETE(
 
     // ✅ 7. Retornar usuário completo (consistente com service)
     return NextResponse.json(atualizado);
-  } catch (err: any) {
-    console.error("❌ Erro ao remover foto:", err);
-    return NextResponse.json(
-      { message: "Erro ao remover foto" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return respostaDeErro(err, "Erro ao remover foto");
   }
 }

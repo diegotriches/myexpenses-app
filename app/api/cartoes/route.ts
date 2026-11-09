@@ -7,6 +7,7 @@ import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { garantirDono } from "@/lib/garantirDono";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 // ============================================
 // GET - Buscar todos os cartões do usuário
@@ -120,9 +121,7 @@ export async function GET() {
 
     return NextResponse.json(resultado, { status: 200 });
   } catch (err) {
-    console.error("Erro no GET /api/cartoes:", err);
-    const message = err instanceof Error ? err.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(err);
   }
 }
 
@@ -261,8 +260,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(novo, { status: 201 });
   } catch (err) {
-    console.error("Erro no POST /api/cartoes:", err);
-    const message = err instanceof Error ? err.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(err);
   }
 }

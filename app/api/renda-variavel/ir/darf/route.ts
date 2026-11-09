@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { irDarfRv } from "@/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,8 +37,7 @@ export async function POST(req: NextRequest) {
         .where(and(eq(irDarfRv.userId, userId), inArray(irDarfRv.competencia, itens.map((i) => i.competencia))));
     }
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    console.error("Erro ao atualizar DARF:", error);
-    return NextResponse.json({ error: error.message || "Erro ao atualizar DARF" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao atualizar DARF");
   }
 }

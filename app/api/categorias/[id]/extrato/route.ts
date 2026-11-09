@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { categorias, transacoes, contas, cartoes } from "@/db/schema";
 import { and, eq, sql, desc, ilike } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/categorias/[id]/extrato?ano=2026[&mes=11][&tipo=saida][&busca=...][&limit=50][&offset=0]
@@ -164,11 +165,7 @@ export async function GET(
       lancamentos,
       temMais,
     });
-  } catch (error: any) {
-    console.error("Erro ao buscar extrato da categoria:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao buscar extrato da categoria" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao buscar extrato da categoria");
   }
 }

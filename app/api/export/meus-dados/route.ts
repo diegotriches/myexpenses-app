@@ -6,6 +6,7 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { gerarArquivoBackup } from "@/lib/backupDados";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/export/meus-dados
@@ -47,11 +48,7 @@ export async function GET() {
         "Content-Length":      buffer.length.toString(),
       },
     });
-  } catch (error: unknown) {
-    console.error("[Export] Erro ao exportar dados:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro ao exportar dados" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao exportar dados");
   }
 }

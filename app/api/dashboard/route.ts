@@ -5,6 +5,7 @@ import { transacoes, cartoes, faturas } from "@/db/schema";
 import { and, gte, lt, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/dashboard?mes=1&ano=2026
@@ -173,11 +174,7 @@ export async function GET(req: NextRequest) {
       },
       cartoes: cartoesResumo,
     });
-  } catch (error: any) {
-    console.error("Erro ao carregar dashboard:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao carregar dashboard" },
-      { status: 500 },
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao carregar dashboard");
   }
 }

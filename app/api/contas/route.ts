@@ -5,6 +5,7 @@ import { contas, extratoConta } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
+import { respostaDeErro } from "@/lib/rota";
 
 // GET - Buscar todas as contas do usuário logado
 export async function GET() {
@@ -36,9 +37,7 @@ export async function GET() {
 
     return NextResponse.json(normalizadas);
   } catch (error) {
-    console.error("Erro ao buscar contas:", error);
-    const message = error instanceof Error ? error.message : "Erro ao buscar contas";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }
 
@@ -130,17 +129,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json(contaNormalizada, { status: 201 });
   } catch (error) {
-    console.error("❌ Erro detalhado ao criar conta:", error);
-
     // Retornar mensagem de erro mais específica
-    const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
     
-    return NextResponse.json(
-      { 
-        error: errorMessage,
-        details: process.env.NODE_ENV === "development" ? errorMessage : undefined
-      },
-      { status: 500 }
-    );
+    return respostaDeErro(error);
   }
 }

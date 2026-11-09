@@ -4,6 +4,7 @@ import { transferencias, extratoConta, contas } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { lerValorPositivo } from "@/lib/validators/financeiro";
+import { respostaDeErro } from "@/lib/rota";
 
 // GET - Buscar transferências do período
 export async function GET(req: NextRequest) {
@@ -103,9 +104,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(transferenciasFormatadas);
   } catch (error) {
-    console.error("Erro ao buscar transferências:", error);
-    const message = error instanceof Error ? error.message : "Erro ao buscar transferências";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }
 
@@ -312,10 +311,8 @@ export async function POST(req: NextRequest) {
         },
       };
 
-    const errorInfo = errorMessages[error.message] || {
-      message: "Erro ao criar transferência",
-      status: 500,
-    };
+    const errorInfo = error instanceof Error ? errorMessages[error.message] : undefined;
+    if (!errorInfo) return respostaDeErro(error, "Erro ao criar transferência");
 
     return NextResponse.json(
       { error: errorInfo.message },

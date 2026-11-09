@@ -16,7 +16,7 @@ export const preferencesService = {
     const res = await fetch(API_URL);
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.message || "Erro ao buscar preferências");
+      throw new Error(error.error || error.message || "Erro ao buscar preferências");
     }
     return res.json();
   },
@@ -33,7 +33,7 @@ export const preferencesService = {
     });
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.message || "Erro ao atualizar preferências");
+      throw new Error(error.error || error.message || "Erro ao atualizar preferências");
     }
     return res.json();
   },

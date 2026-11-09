@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { estabelecimentos } from "@/db/schema";
 import { sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/estabelecimentos
@@ -43,9 +44,7 @@ export async function GET() {
 
     return NextResponse.json(resultado.rows);
   } catch (error) {
-    console.error("Erro ao buscar estabelecimentos:", error);
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }
 
@@ -87,8 +86,6 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("Erro ao criar estabelecimento:", error);
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }

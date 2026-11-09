@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { cartoes, contas } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 // GET - Buscar cartão específico
 export async function GET(
@@ -44,9 +45,7 @@ export async function GET(
     const limiteDisponivel = await calcularLimiteDisponivel(db, cartao, userId);
     return NextResponse.json({ ...cartao, limiteDisponivel: limiteDisponivel.toFixed(2) });
   } catch (error) {
-    console.error("Erro ao buscar cartão:", error);
-    const message = error instanceof Error ? error.message : "Erro ao buscar cartão";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }
 
@@ -232,9 +231,7 @@ export async function PUT(
       { status: 200 }
     );
   } catch (error) {
-    console.error("Erro ao atualizar cartão:", error);
-    const message = error instanceof Error ? error.message : "Erro interno ao atualizar cartão";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }
 
@@ -282,8 +279,6 @@ export async function DELETE(
     return NextResponse.json({ message: "Cartão deletado com sucesso." });
 
   } catch (error: any) {
-    console.error("Erro ao deletar cartão:", error);
-
     // Constraint de FK — cartão tem movimentações vinculadas
     const isConstraintError =
       error?.code === "23503" ||
@@ -301,7 +296,6 @@ export async function DELETE(
       );
     }
 
-    const message = error instanceof Error ? error.message : "Erro interno ao deletar cartão.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error, "Erro ao excluir cartão.");
   }
 }

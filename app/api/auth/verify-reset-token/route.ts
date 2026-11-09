@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq, and, gt } from "drizzle-orm";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/auth/verify-reset-token?token=xxx
@@ -69,13 +70,6 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error("❌ Erro ao verificar token:", error);
-    return NextResponse.json(
-      { 
-        valid: false, 
-        error: "Erro ao verificar token" 
-      },
-      { status: 500 }
-    );
+    return respostaDeErro(error, "Erro ao verificar token");
   }
 }

@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import type { DespesasFuturas } from "@/types/dashboard";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/dashboard/despesas-futuras?mes=1&ano=2026
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
   try {
     const userId = await getUserId();
     if (!userId) {
-      return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -116,11 +117,7 @@ export async function GET(req: NextRequest) {
       total: Number(total.toFixed(2)),
       quantidade,
     });
-  } catch (error: any) {
-    console.error("Erro ao buscar despesas futuras:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao buscar despesas futuras" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao buscar despesas futuras");
   }
 }

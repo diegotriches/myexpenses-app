@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { backupsUsuario } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 // GET /api/backups/[id]/download — retorna o JSON completo do backup para download
 export async function GET(
@@ -39,7 +40,6 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Erro ao baixar backup:", error);
-    return NextResponse.json({ error: "Erro ao baixar backup" }, { status: 500 });
+    return respostaDeErro(error, "Erro ao baixar backup");
   }
 }

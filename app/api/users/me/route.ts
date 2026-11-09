@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 export async function GET() {
   try {
@@ -48,10 +49,6 @@ export async function GET() {
       hasPassword: !!password,
     });
   } catch (error) {
-    console.error("❌ Erro ao buscar usuário:", error);
-    return NextResponse.json(
-      { message: "Erro ao buscar usuário" },
-      { status: 500 }
-    );
+    return respostaDeErro(error, "Erro ao buscar usuário");
   }
 }

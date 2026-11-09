@@ -10,6 +10,7 @@ import {
   lerAnoDaRequisicao,
   hojeBrtDate,
 } from "@/utils/periodoAno";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/dashboard/valores-periodo?ano=2026
@@ -106,11 +107,7 @@ export async function GET(req: NextRequest) {
       aPagar,
       projecao: aReceber - aPagar,
     });
-  } catch (error: any) {
-    console.error("Erro ao carregar valores do período:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao carregar valores do período" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao carregar valores do período");
   }
 }

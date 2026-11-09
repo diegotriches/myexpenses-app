@@ -9,6 +9,7 @@ import { ErroFinanceiro } from "@/lib/movimentacaoConta";
 import { buscarAntecipacaoBloqueante, possuiEstorno, reverterImpacto, transacaoEmFaturaPaga } from "@/lib/impactoTransacao";
 import { aplicarImpactoRecorrencia } from "@/lib/aplicarImpacto";
 import { notificarImpactoRecorrencia } from "@/lib/notificarRecorrencia";
+import { respostaDeErro } from "@/lib/rota";
 
 export async function GET() {
   const userId = await getUserId();
@@ -158,9 +159,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(novaRecorrencia, { status: 201 });
-  } catch (error: unknown) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao criar recorrência:", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erro ao criar recorrência" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao criar recorrência");
   }
 }

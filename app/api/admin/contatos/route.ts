@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { contatos } from "@/db/schema";
 import { eq, desc, and, or, like, sql } from "drizzle-orm";
 import { verificarAdmin } from "@/lib/admin";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/admin/contatos
@@ -114,17 +115,8 @@ export async function GET(req: NextRequest) {
         naoLidos: Number(stats.naoLidos),
       },
     });
-  } catch (error: any) {
-    console.error("❌ Erro ao listar contatos:", error);
-    
-    if (error.message.includes("admin") || error.message.includes("Acesso negado")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Erro ao buscar contatos" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao buscar contatos");
   }
 }
 
@@ -205,16 +197,7 @@ export async function PATCH(req: NextRequest) {
       message: `${resultado.length} contato(s) atualizado(s)`,
       atualizados: resultado.length,
     });
-  } catch (error: any) {
-    console.error("❌ Erro ao atualizar contatos:", error);
-    
-    if (error.message.includes("admin") || error.message.includes("Acesso negado")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Erro ao atualizar contatos" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao atualizar contatos");
   }
 }

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { ErroHttp } from "@/lib/erroHttp";
 
 /**
  * Verifica se usuário atual é admin
@@ -15,7 +16,7 @@ export async function verificarAdmin(): Promise<string> {
   const userId = await getUserId();
 
   if (!userId) {
-    throw new Error("Não autenticado. Faça login para acessar esta área.");
+    throw new ErroHttp("Não autenticado. Faça login para acessar esta área.", 401);
   }
 
   // 2. Buscar role do usuário
@@ -31,13 +32,13 @@ export async function verificarAdmin(): Promise<string> {
     .limit(1);
 
   if (!user) {
-    throw new Error("Usuário não encontrado");
+    throw new ErroHttp("Usuário não encontrado", 404);
   }
 
   // 3. Verificar se é admin
   if (user.role !== "admin") {
     console.warn(`❌ Tentativa de acesso admin negada: ${user.email}`);
-    throw new Error("Acesso negado. Apenas administradores podem acessar esta área.");
+    throw new ErroHttp("Acesso negado. Apenas administradores podem acessar esta área.", 403);
   }
 
   console.log(`✅ Admin autenticado: ${user.email}`);

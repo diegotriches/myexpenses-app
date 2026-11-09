@@ -5,6 +5,7 @@ import { users, verificationTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { sendVerificationEmail } from "@/lib/email";
 import crypto from "crypto";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * POST /api/auth/resend-verification
@@ -71,10 +72,6 @@ export async function POST(req: Request) {
       message: "Se esse e-mail estiver cadastrado, você receberá um novo link em breve.",
     });
   } catch (error) {
-    console.error("Erro ao reenviar verificação:", error);
-    return NextResponse.json(
-      { error: "Erro ao reenviar e-mail. Tente novamente." },
-      { status: 500 }
-    );
+    return respostaDeErro(error, "Erro ao reenviar e-mail. Tente novamente.");
   }
 }

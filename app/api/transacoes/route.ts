@@ -10,6 +10,7 @@ import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { garantirDono } from "@/lib/garantirDono";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import { calcularIntervaloAno, lerAnoDaRequisicao } from "@/utils/periodoAno";
+import { respostaDeErro } from "@/lib/rota";
 
 export async function GET(req: NextRequest) {
   try {
@@ -76,9 +77,8 @@ export async function GET(req: NextRequest) {
       totalmenteEstornada: estornadas.has(t.id),
       emFaturaPaga: emFaturaPaga(t),
     })));
-  } catch (err: any) {
-    const message = err instanceof Error ? err.message : "Erro ao buscar transações";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (err) {
+    return respostaDeErro(err);
   }
 }
 
@@ -281,9 +281,7 @@ export async function POST(req: NextRequest) {
       Array.isArray(json) ? transacoesCriadas : transacoesCriadas[0],
       { status: 201 }
     );
-  } catch (err: any) {
-    if (err instanceof ErroFinanceiro) return NextResponse.json({ error: err.message }, { status: err.status });
-    const message = err instanceof Error ? err.message : "Erro ao criar transação";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (err) {
+    return respostaDeErro(err);
   }
 }

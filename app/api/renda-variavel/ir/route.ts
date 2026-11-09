@@ -6,6 +6,7 @@ import { irConfigRv, irDarfRv } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { CONFIG_IR_PADRAO, type ConfigIr } from "@/utils/irRendaVariavelUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 type Linha = typeof irConfigRv.$inferSelect;
 
@@ -85,8 +86,7 @@ export async function PUT(req: NextRequest) {
       .returning();
 
     return NextResponse.json(paraConfig(salva));
-  } catch (error: any) {
-    console.error("Erro ao salvar configuração de IR:", error);
-    return NextResponse.json({ error: error.message || "Erro ao salvar configuração" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao salvar configuração");
   }
 }

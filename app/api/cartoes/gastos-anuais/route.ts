@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { cartoes, faturas } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/cartoes/gastos-anuais?ano=2026
@@ -160,8 +161,6 @@ export async function GET(req: Request) {
       porCartao,
     });
   } catch (error) {
-    console.error("Erro ao buscar gastos anuais dos cartões:", error);
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }

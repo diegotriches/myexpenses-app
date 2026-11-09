@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { transacoes, categorias } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/categorias/totais?ano=2026
@@ -103,8 +104,6 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ano, totais: resultado });
   } catch (error) {
-    console.error("Erro ao buscar totais de categorias:", error);
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }

@@ -7,6 +7,7 @@ import { and, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { ErroFinanceiro, alterarSaldo } from "@/lib/movimentacaoConta";
 import { totalOperacao, validarSequencia, type OperacaoRv } from "@/utils/rendaVariavelUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 const fmtIso = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
@@ -78,9 +79,7 @@ export async function DELETE(
     });
 
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao excluir operação de renda variável:", error);
-    return NextResponse.json({ error: error.message || "Erro ao excluir operação" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao excluir operação");
   }
 }

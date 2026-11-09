@@ -18,6 +18,7 @@ import {
 import { adicionarMeses } from "@/utils/dateUtils";
 import { distribuirValor } from "@/utils/faturaUtils";
 import { lerValorPositivo } from "@/lib/validators/financeiro";
+import { respostaDeErro } from "@/lib/rota";
 
 type Transacao = typeof transacoes.$inferSelect;
 type NovaTransacao = typeof transacoes.$inferInsert;
@@ -361,9 +362,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     });
 
     return NextResponse.json(resposta);
-  } catch (error: unknown) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erro ao atualizar transação" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao atualizar transação");
   }
 }
 
@@ -427,8 +427,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     });
 
     return NextResponse.json({ sucesso: true, deletadas });
-  } catch (error: unknown) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erro desconhecido" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error);
   }
 }

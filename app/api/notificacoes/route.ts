@@ -6,6 +6,7 @@ import { notificacoes } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import type { CriarNotificacaoDTO } from "@/types/notificacao";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/notificacoes
@@ -68,12 +69,8 @@ export async function GET(req: NextRequest) {
       total: results.length,
       naoLidas: count || 0,
     });
-  } catch (error: any) {
-    console.error("❌ Erro ao listar notificações:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao listar notificações" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao listar notificações");
   }
 }
 
@@ -143,11 +140,7 @@ export async function POST(req: NextRequest) {
       .returning();
 
     return NextResponse.json(notificacao, { status: 201 });
-  } catch (error: any) {
-    console.error("❌ Erro ao criar notificação:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao criar notificação" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao criar notificação");
   }
 }

@@ -5,9 +5,10 @@ import { db } from "@/db";
 import { aplicacoes, aportesAplicacao, contas } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
+import { movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { recalcularAplicacao } from "@/lib/aplicacaoEngine";
+import { respostaDeErro } from "@/lib/rota";
 
 export async function POST(
   req: NextRequest,
@@ -81,9 +82,7 @@ export async function POST(
     catch (e) { console.error("[Aplicações] recálculo após aporte falhou:", e); }
 
     return NextResponse.json(aporte, { status: 201 });
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao registrar aporte:", error);
-    return NextResponse.json({ error: error.message || "Erro ao registrar aporte" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao registrar aporte");
   }
 }

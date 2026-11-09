@@ -6,6 +6,7 @@ import { transacoes } from "@/db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { contarFormas } from "@/utils/dashboardUtils";
 import { calcularIntervaloAno, lerAnoDaRequisicao } from "@/utils/periodoAno";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/dashboard/formas-pagamento?ano=2026
@@ -40,11 +41,7 @@ export async function GET(req: NextRequest) {
     const formas = contarFormas(transacoesPeriodo as any);
 
     return NextResponse.json(formas);
-  } catch (error: any) {
-    console.error("Erro ao buscar formas de pagamento:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro interno do servidor" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro interno do servidor");
   }
 }

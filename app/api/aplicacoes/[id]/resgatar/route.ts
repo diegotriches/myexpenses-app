@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 import { executarResgate } from "@/lib/aplicacaoEngine";
+import { respostaDeErro } from "@/lib/rota";
 
 export async function POST(
   req: NextRequest,
@@ -32,10 +33,8 @@ export async function POST(
     });
 
     return NextResponse.json({ ok: true, detalhamento });
-  } catch (error: any) {
-    console.error("Erro ao resgatar aplicação:", error);
-    const mensagem = error.message || "Erro ao resgatar aplicação";
-    const status = /não encontrad/i.test(mensagem) ? 404 : /inválido|maior que|já foi/i.test(mensagem) ? 400 : 500;
-    return NextResponse.json({ error: mensagem }, { status });
+  } catch (error) {
+    // Regras do resgate chegam como ErroFinanceiro, já com o status
+    return respostaDeErro(error, "Erro ao resgatar aplicação");
   }
 }

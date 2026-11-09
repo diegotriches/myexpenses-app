@@ -5,6 +5,7 @@ import { transacoes } from "@/db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularIntervaloAno, lerAnoDaRequisicao } from "@/utils/periodoAno";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/dashboard/grafico-meses?ano=2026
@@ -67,11 +68,7 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json(dadosPorMes);
-  } catch (error: any) {
-    console.error("Erro ao buscar gráfico de meses:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao buscar dados do gráfico" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao buscar dados do gráfico");
   }
 }

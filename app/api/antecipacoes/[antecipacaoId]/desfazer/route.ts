@@ -7,6 +7,7 @@ import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { ErroFinanceiro } from "@/lib/movimentacaoConta";
 import { ajustarTotalFatura } from "@/lib/impactoTransacao";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * POST /api/antecipacoes/[antecipacaoId]/desfazer
@@ -139,9 +140,7 @@ export async function POST(
     });
 
     return NextResponse.json({ sucesso: true, parcelasRestauradas: parcelasRemovidas.length });
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao desfazer antecipação:", error);
-    return NextResponse.json({ error: error.message || "Erro ao desfazer antecipação" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao desfazer antecipação");
   }
 }

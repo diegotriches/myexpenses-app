@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { transacoes } from "@/db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { calcularIntervaloAno, lerAnoDaRequisicao } from "@/utils/periodoAno";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/dashboard/recorrentes?ano=2026
@@ -38,11 +39,7 @@ export async function GET(req: NextRequest) {
       );
 
     return NextResponse.json(transacoesRecorrentes);
-  } catch (error: any) {
-    console.error("Erro ao buscar transações recorrentes:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro interno do servidor" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro interno do servidor");
   }
 }

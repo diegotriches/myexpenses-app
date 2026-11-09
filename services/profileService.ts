@@ -19,7 +19,7 @@ export const profileService = {
     const res = await fetch(`${API_URL}/me`);
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.message || "Erro ao buscar perfil");
+      throw new Error(error.error || error.message || "Erro ao buscar perfil");
     }
     return res.json();
   },
@@ -36,7 +36,7 @@ export const profileService = {
     });
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.message || "Erro ao atualizar perfil");
+      throw new Error(error.error || error.message || "Erro ao atualizar perfil");
     }
     return res.json();
   },
@@ -53,7 +53,7 @@ export const profileService = {
     });
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.message || "Erro ao alterar senha");
+      throw new Error(error.error || error.message || "Erro ao alterar senha");
     }
     return res.json();
   },
@@ -71,7 +71,7 @@ export const profileService = {
     });
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.message || "Erro ao fazer upload da foto");
+      throw new Error(error.error || error.message || "Erro ao fazer upload da foto");
     }
     return res.json();
   },
@@ -86,7 +86,7 @@ export const profileService = {
     });
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.message || "Erro ao remover foto");
+      throw new Error(error.error || error.message || "Erro ao remover foto");
     }
     return res.json();
   },
@@ -106,7 +106,7 @@ export const profileService = {
     if (!res.ok) {
       const error = await res.json().catch(() => ({}));
       throw Object.assign(
-        new Error(error.message || "Erro ao deletar conta"),
+        new Error(error.error || error.message || "Erro ao deletar conta"),
         { code: error.code }
       );
     }

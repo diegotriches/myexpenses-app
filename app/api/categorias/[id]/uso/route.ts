@@ -12,6 +12,7 @@ import {
   outraCategoriaCobre,
   contarUso,
 } from "@/utils/categoriaUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/categorias/[id]/uso
@@ -68,11 +69,7 @@ export async function GET(
     }
 
     return NextResponse.json({ transacoes, recorrencias, destinos, bloqueada: false });
-  } catch (err: any) {
-    console.error("Erro ao verificar uso da categoria:", err);
-    return NextResponse.json(
-      { error: err.message || "Erro ao verificar uso da categoria" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return respostaDeErro(err, "Erro ao verificar uso da categoria");
   }
 }

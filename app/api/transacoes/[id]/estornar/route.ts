@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { getUserId } from "@/lib/auth";
-import { ErroFinanceiro } from "@/lib/movimentacaoConta";
 import {
   cancelarCompraParcelada,
   carregarContexto,
@@ -13,6 +12,7 @@ import {
 } from "@/lib/estornoTransacao";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { lerValorPositivo } from "@/lib/validators/financeiro";
+import { respostaDeErro } from "@/lib/rota";
 
 type Contexto = { params: Promise<{ id: string }> };
 
@@ -21,12 +21,6 @@ interface CorpoEstorno {
   valor?: string | number;
   data?: string;
   motivo?: string;
-}
-
-function respostaDeErro(error: unknown, mensagemPadrao: string) {
-  if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-  console.error(mensagemPadrao, error);
-  return NextResponse.json({ error: error instanceof Error ? error.message : mensagemPadrao }, { status: 500 });
 }
 
 // Prévia para o modal: quanto pode ser estornado e onde cada parte vai entrar

@@ -4,6 +4,7 @@ import { transferencias, extratoConta, contas } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
+import { respostaDeErro } from "@/lib/rota";
 
 // Tipagem dos params da rota
 type RouteParams = {
@@ -101,9 +102,7 @@ export async function GET(
 
     return NextResponse.json(transferencia);
   } catch (error) {
-    console.error("Erro ao buscar transferência:", error);
-    const message = error instanceof Error ? error.message : "Erro ao buscar transferência";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }
 
@@ -291,10 +290,8 @@ export async function DELETE(
         },
       };
 
-    const errorInfo = errorMessages[error.message] || {
-      message: "Erro ao remover transferência",
-      status: 500,
-    };
+    const errorInfo = error instanceof Error ? errorMessages[error.message] : undefined;
+    if (!errorInfo) return respostaDeErro(error, "Erro ao remover transferência");
 
     return NextResponse.json(
       { error: errorInfo.message },

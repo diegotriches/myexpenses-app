@@ -15,7 +15,7 @@ import {
   type ResultadoSimulacao,
 } from "@/utils/aplicacaoSimulacao";
 import type { Tributacao } from "@/utils/aplicacaoUtils";
-import { movimentarConta } from "@/lib/movimentacaoConta";
+import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 
 // Séries SGS do Banco Central — já retornam a taxa diária em %
 const SERIES_BCB = { cdi: 12, selic: 11 } as const;
@@ -264,11 +264,11 @@ export async function executarResgate(params: {
   const [ap] = await db.select().from(aplicacoes)
     .where(and(eq(aplicacoes.id, params.aplicacaoId), eq(aplicacoes.userId, params.userId)))
     .limit(1);
-  if (!ap) throw new Error("Aplicação não encontrada");
-  if (ap.resgatada) throw new Error("Esta aplicação já foi resgatada");
+  if (!ap) throw new ErroFinanceiro("Aplicação não encontrada", 404);
+  if (ap.resgatada) throw new ErroFinanceiro("Esta aplicação já foi resgatada");
 
   const [conta] = await db.select().from(contas).where(eq(contas.id, ap.contaId)).limit(1);
-  if (!conta) throw new Error("Conta não encontrada");
+  if (!conta) throw new ErroFinanceiro("Conta não encontrada", 404);
 
   // O cálculo depende do BCB e fica fora da transação; esta contagem detecta
   // outro resgate feito nesse intervalo
@@ -276,7 +276,7 @@ export async function executarResgate(params: {
 
   // estado mais recente (com tudo que o BCB já publicou)
   const recalculo = await recalcularAplicacao(ap.id);
-  if (!recalculo) throw new Error("Aplicação sem aportes");
+  if (!recalculo) throw new ErroFinanceiro("Aplicação sem aportes");
   const lotes = recalculo.sim.lotes;
 
   const hoje = hojeBrt();
@@ -286,8 +286,8 @@ export async function executarResgate(params: {
   let bruto = total ? totalDisponivel : Number(params.valorBruto);
 
   if (!total) {
-    if (isNaN(bruto) || bruto <= 0) throw new Error("Valor de resgate inválido");
-    if (bruto > totalDisponivel + 0.005) throw new Error("Valor maior que o saldo da aplicação");
+    if (isNaN(bruto) || bruto <= 0) throw new ErroFinanceiro("Valor de resgate inválido");
+    if (bruto > totalDisponivel + 0.005) throw new ErroFinanceiro("Valor maior que o saldo da aplicação");
     // se pediu praticamente tudo, resgata tudo (evita sobrar "poeira")
     if (totalDisponivel - bruto < 0.01) { total = true; bruto = totalDisponivel; }
   }
@@ -303,10 +303,10 @@ export async function executarResgate(params: {
     // Trava a aplicação: resgates simultâneos passam um de cada vez
     const [atual] = await tx.select({ resgatada: aplicacoes.resgatada }).from(aplicacoes)
       .where(eq(aplicacoes.id, ap.id)).limit(1).for("update");
-    if (!atual || atual.resgatada) throw new Error("Esta aplicação já foi resgatada");
+    if (!atual || atual.resgatada) throw new ErroFinanceiro("Esta aplicação já foi resgatada");
 
     const resgatesAgora = await tx.$count(resgatesAplicacao, eq(resgatesAplicacao.aplicacaoId, ap.id));
-    if (resgatesAgora !== resgatesAntes) throw new Error("Outro resgate já foi processado. Tente novamente.");
+    if (resgatesAgora !== resgatesAntes) throw new ErroFinanceiro("Outro resgate já foi processado. Tente novamente.", 409);
 
     await movimentarConta(tx, {
       userId: params.userId,

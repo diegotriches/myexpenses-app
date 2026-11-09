@@ -14,6 +14,7 @@ import {
 } from "@/db/schema";
 import { and, eq, or, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -84,8 +85,6 @@ export async function GET(req: Request, { params }: RouteParams) {
       saldoAtual: Number(conta.saldoAtual),
     });
   } catch (error) {
-    console.error("Erro ao buscar uso da conta:", error);
-    const message = error instanceof Error ? error.message : "Erro ao buscar dados da conta";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }

@@ -4,6 +4,7 @@ import { categorias } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { v4 as uuidv4 } from "uuid";
+import { respostaDeErro } from "@/lib/rota";
 
 // GET - Buscar todas as categorias do usuário
 export async function GET() {
@@ -27,10 +28,8 @@ export async function GET() {
       .orderBy(categorias.tipo, categorias.nome);
 
     return NextResponse.json(rows);
-  } catch (err: any) {
-    console.error("Erro ao buscar categorias:", err);
-    const message = err instanceof Error ? err.message : "Erro ao buscar categorias";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (err) {
+    return respostaDeErro(err);
   }
 }
 
@@ -79,9 +78,7 @@ export async function POST(req: Request) {
       .returning();
 
     return NextResponse.json(inserted, { status: 201 });
-  } catch (err: any) {
-    console.error("Erro ao criar categoria:", err);
-    const message = err instanceof Error ? err.message : "Erro ao criar categoria";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (err) {
+    return respostaDeErro(err);
   }
 }

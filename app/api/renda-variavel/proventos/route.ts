@@ -5,10 +5,11 @@ import { db } from "@/db";
 import { proventosRv, contas } from "@/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { ErroFinanceiro, movimentarConta as registrarMovimentacao } from "@/lib/movimentacaoConta";
+import { movimentarConta as registrarMovimentacao } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { TICKER_REGEX, normalizarTicker, r2 } from "@/utils/rendaVariavelUtils";
 import { chaveProvento, TIPO_PROVENTO_LABEL, type TipoProvento } from "@/utils/proventosUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 const TIPOS: TipoProvento[] = ["dividendo", "jcp", "rendimento"];
 
@@ -134,9 +135,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(paraApi(criado), { status: 201 });
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao registrar provento:", error);
-    return NextResponse.json({ error: error.message || "Erro ao registrar provento" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao registrar provento");
   }
 }

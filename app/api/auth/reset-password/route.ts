@@ -5,6 +5,7 @@ import { eq, and, gt } from "drizzle-orm";
 import bcryptjs from "bcryptjs";
 import { sendPasswordChangedEmail } from "@/lib/email";
 import { validatePassword } from "@/lib/validators/password";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * POST /api/auth/reset-password
@@ -131,10 +132,6 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error("❌ Erro ao redefinir senha:", error);
-    return NextResponse.json(
-      { error: "Erro ao redefinir senha. Tente novamente." },
-      { status: 500 }
-    );
+    return respostaDeErro(error, "Erro ao redefinir senha. Tente novamente.");
   }
 }

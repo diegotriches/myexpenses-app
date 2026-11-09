@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { extratoConta, contas } from "@/db/schema";
 import { and, eq, gt, or, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 type RouteParams = {
   params: Promise<{ id: string; extratoId: string }>;
@@ -100,10 +101,6 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     if (error instanceof ErroExclusao) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("Erro ao excluir movimentação:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro ao excluir movimentação" },
-      { status: 500 }
-    );
+    return respostaDeErro(error, "Erro ao excluir movimentação");
   }
 }

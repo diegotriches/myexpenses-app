@@ -17,6 +17,7 @@ import {
   type OperacaoRv,
 } from "@/utils/rendaVariavelUtils";
 import { calcularEvento, posicaoEm, type TipoEventoCorporativo } from "@/utils/eventosCorporativosUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 const TIPOS: TipoEventoCorporativo[] = ["desdobramento", "grupamento", "bonificacao"];
 const fmtIso = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
@@ -133,8 +134,7 @@ export async function POST(req: NextRequest) {
       { id: criada.id, posicaoAntes: r.posicaoAntes, posicaoDepois: r.posicaoDepois },
       { status: 201 },
     );
-  } catch (error: any) {
-    console.error("Erro ao registrar evento corporativo:", error);
-    return NextResponse.json({ error: error.message || "Erro ao registrar evento" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao registrar evento");
   }
 }

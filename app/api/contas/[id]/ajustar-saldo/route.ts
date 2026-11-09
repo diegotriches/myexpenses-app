@@ -6,6 +6,7 @@ import { contas, extratoConta } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
+import { respostaDeErro } from "@/lib/rota";
 
 // ✅ NOVO: Tipos para os parâmetros
 type RouteParams = {
@@ -105,17 +106,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     };
 
     return NextResponse.json(contaNormalizada);
-  } catch (error: any) {
-    console.error("Erro ao ajustar saldo:", error);
-
-    if (error.message === "CONTA_NAO_ENCONTRADA") {
+  } catch (error) {
+    if (error instanceof Error && error.message === "CONTA_NAO_ENCONTRADA") {
       return NextResponse.json(
         { error: "Conta não encontrada ou acesso negado" },
         { status: 404 }
       );
     }
 
-    const message = error instanceof Error ? error.message : "Erro ao ajustar saldo";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error, "Erro ao ajustar saldo");
   }
 }

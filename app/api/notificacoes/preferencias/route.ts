@@ -6,6 +6,7 @@ import { preferenciasNotificacao } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import type { PreferenciasNotificacao } from "@/types/notificacao";
+import { respostaDeErro } from "@/lib/rota";
 
 export async function GET() {
   try {
@@ -36,12 +37,8 @@ export async function GET() {
     }
 
     return NextResponse.json(prefs);
-  } catch (error: any) {
-    console.error("❌ Erro ao buscar preferências:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao buscar preferências" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao buscar preferências");
   }
 }
 
@@ -127,11 +124,7 @@ export async function PUT(req: NextRequest) {
     }
 
     return NextResponse.json(result);
-  } catch (error: any) {
-    console.error("❌ Erro ao atualizar preferências:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao atualizar preferências" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao atualizar preferências");
   }
 }

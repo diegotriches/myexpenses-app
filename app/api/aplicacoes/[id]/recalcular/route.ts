@@ -10,6 +10,7 @@ import { aplicacoes } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { recalcularAplicacao } from "@/lib/aplicacaoEngine";
+import { respostaDeErro } from "@/lib/rota";
 
 export async function POST(
   _req: NextRequest,
@@ -33,8 +34,7 @@ export async function POST(
       valorAtual: Number(r.sim.valorAtual.toFixed(2)),
       principal: Number(r.sim.principal.toFixed(2)),
     });
-  } catch (error: any) {
-    console.error("Erro ao recalcular aplicação:", error);
-    return NextResponse.json({ error: error.message || "Erro ao recalcular" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao recalcular");
   }
 }

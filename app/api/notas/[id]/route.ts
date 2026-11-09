@@ -5,6 +5,7 @@ import { notas } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import type { UpdateNotaDTO } from "@/types/nota";
+import { respostaDeErro } from "@/lib/rota";
 
 const CORES_VALIDAS = ["yellow", "blue", "green", "red", "purple", "gray"] as const;
 
@@ -43,8 +44,7 @@ export async function PUT(
 
     return NextResponse.json(atualizada);
   } catch (error) {
-    console.error("Erro ao atualizar nota:", error);
-    return NextResponse.json({ error: "Erro ao atualizar nota" }, { status: 500 });
+    return respostaDeErro(error, "Erro ao atualizar nota");
   }
 }
 
@@ -69,7 +69,6 @@ export async function DELETE(
 
     return NextResponse.json({ message: "Nota removida com sucesso" });
   } catch (error) {
-    console.error("Erro ao deletar nota:", error);
-    return NextResponse.json({ error: "Erro ao deletar nota" }, { status: 500 });
+    return respostaDeErro(error, "Erro ao deletar nota");
   }
 }

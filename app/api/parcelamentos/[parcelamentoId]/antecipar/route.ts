@@ -8,6 +8,7 @@ import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import { ErroFinanceiro } from "@/lib/movimentacaoConta";
 import { ajustarTotalFatura, possuiEstorno } from "@/lib/impactoTransacao";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * POST /api/parcelamentos/[parcelamentoId]/antecipar
@@ -258,9 +259,7 @@ export async function POST(
     });
 
     return NextResponse.json(resposta);
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao antecipar parcelas:", error);
-    return NextResponse.json({ error: error.message || "Erro ao antecipar parcelas" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao antecipar parcelas");
   }
 }

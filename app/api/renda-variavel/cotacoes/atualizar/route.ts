@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularPosicoes, type OperacaoRv } from "@/utils/rendaVariavelUtils";
 import { atualizarCotacoes } from "@/lib/cotacoes/atualizarCotacoes";
+import { respostaDeErro } from "@/lib/rota";
 
 export const maxDuration = 60;
 
@@ -36,8 +37,7 @@ export async function POST(req: NextRequest) {
 
     const resultado = await atualizarCotacoes(abertos, { forcar: body?.forcar === true });
     return NextResponse.json(resultado);
-  } catch (error: any) {
-    console.error("Erro ao atualizar cotações:", error);
-    return NextResponse.json({ error: error.message || "Erro ao atualizar cotações" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao atualizar cotações");
   }
 }

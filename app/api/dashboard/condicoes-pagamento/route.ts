@@ -6,6 +6,7 @@ import { transacoes } from "@/db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { contarCondicoes } from "@/utils/dashboardUtils";
 import { calcularIntervaloAno, lerAnoDaRequisicao } from "@/utils/periodoAno";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/dashboard/condicoes-pagamento?ano=2026
@@ -40,11 +41,7 @@ export async function GET(req: NextRequest) {
     const condicoes = contarCondicoes(transacoesPeriodo as any);
 
     return NextResponse.json(condicoes);
-  } catch (error: any) {
-    console.error("Erro ao buscar condições de pagamento:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro interno do servidor" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro interno do servidor");
   }
 }

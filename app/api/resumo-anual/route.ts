@@ -5,6 +5,7 @@ import { transacoes, cartoes } from "@/db/schema";
 import { and, eq, gte, lt } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/resumo-anual?ano=2025
@@ -195,11 +196,7 @@ export async function GET(req: NextRequest) {
       totaisAnteriores: anterior.totais,
       mesesAnteriores:  anterior.meses,
     });
-  } catch (error: any) {
-    console.error("Erro ao carregar resumo anual:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao carregar resumo anual" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao carregar resumo anual");
   }
 }

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { notificacoes, cartoes, faturas, preferenciasNotificacao, users } from "@/db/schema";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
@@ -179,11 +180,7 @@ export async function POST() {
       message: "Verificação concluída",
       criadas: notificacoesCriadas,
     });
-  } catch (error: any) {
-    console.error("❌ Erro ao verificar notificações:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao verificar notificações" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao verificar notificações");
   }
 }

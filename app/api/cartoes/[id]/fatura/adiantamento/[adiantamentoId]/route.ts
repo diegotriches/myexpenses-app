@@ -6,6 +6,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
+import { respostaDeErro } from "@/lib/rota";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DELETE /api/cartoes/[id]/fatura/adiantamento/[adiantamentoId]
@@ -145,12 +146,7 @@ export async function DELETE(
       novoTotalFatura,
       saldoConta:    novoSaldoConta, // null = conta do adiantamento já foi excluída
     });
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao cancelar adiantamento:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao cancelar adiantamento" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao cancelar adiantamento");
   }
 }

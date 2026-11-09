@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, verificationTokens } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/auth/verify-email?token=xxx
@@ -83,10 +84,6 @@ export async function GET(req: Request) {
       message: "E-mail verificado com sucesso! Você já pode fazer login.",
     });
   } catch (error) {
-    console.error("Erro ao verificar e-mail:", error);
-    return NextResponse.json(
-      { error: "Erro ao verificar e-mail. Tente novamente." },
-      { status: 500 }
-    );
+    return respostaDeErro(error, "Erro ao verificar e-mail. Tente novamente.");
   }
 }

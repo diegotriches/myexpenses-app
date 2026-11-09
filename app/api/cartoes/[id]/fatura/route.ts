@@ -9,6 +9,7 @@ import { getUserId } from "@/lib/auth";
 import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { calcularDataVencimento, valorNaFatura } from "@/utils/faturaUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 export async function GET(
@@ -158,8 +159,7 @@ export async function GET(
       totalTransacoes: totalCalculado,
     });
   } catch (error) {
-    console.error("Erro ao buscar fatura:", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erro ao buscar fatura" }, { status: 500 });
+    return respostaDeErro(error, "Erro ao buscar fatura");
   }
 }
 
@@ -319,10 +319,8 @@ export async function POST(
       porCategoria,
       totalTransacoes: valorAPagar,
     });
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao pagar fatura:", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erro ao pagar fatura" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao pagar fatura");
   }
 }
 
@@ -443,9 +441,7 @@ export async function DELETE(
       porCategoria,
       totalTransacoes: totalFatura,
     });
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao estornar pagamento:", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Erro ao estornar pagamento" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao estornar pagamento");
   }
 }

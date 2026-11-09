@@ -5,6 +5,7 @@ import { notas } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import type { CreateNotaDTO } from "@/types/nota";
+import { respostaDeErro } from "@/lib/rota";
 
 const CORES_VALIDAS = ["yellow", "blue", "green", "red", "purple", "gray"] as const;
 
@@ -22,8 +23,7 @@ export async function GET() {
 
     return NextResponse.json(lista);
   } catch (error) {
-    console.error("Erro ao listar notas:", error);
-    return NextResponse.json({ error: "Erro ao listar notas" }, { status: 500 });
+    return respostaDeErro(error, "Erro ao listar notas");
   }
 }
 
@@ -54,7 +54,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(nova, { status: 201 });
   } catch (error) {
-    console.error("Erro ao criar nota:", error);
-    return NextResponse.json({ error: "Erro ao criar nota" }, { status: 500 });
+    return respostaDeErro(error, "Erro ao criar nota");
   }
 }

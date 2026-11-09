@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { contatos, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verificarAdmin } from "@/lib/admin";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/admin/contatos/[id]
@@ -49,17 +50,8 @@ export async function GET(
       ...data.contato,
       usuario: data.usuario,
     });
-  } catch (error: any) {
-    console.error("❌ Erro ao buscar contato:", error);
-    
-    if (error.message.includes("admin") || error.message.includes("Acesso negado")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Erro ao buscar contato" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao buscar contato");
   }
 }
 
@@ -128,17 +120,8 @@ export async function PATCH(
     console.log(`✅ Contato ${id} atualizado:`, updates);
 
     return NextResponse.json(atualizado);
-  } catch (error: any) {
-    console.error("❌ Erro ao atualizar contato:", error);
-    
-    if (error.message.includes("admin") || error.message.includes("Acesso negado")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Erro ao atualizar contato" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao atualizar contato");
   }
 }
 
@@ -175,16 +158,7 @@ export async function DELETE(
       message: "Contato excluído com sucesso",
       id: excluido.id,
     });
-  } catch (error: any) {
-    console.error("❌ Erro ao excluir contato:", error);
-    
-    if (error.message.includes("admin") || error.message.includes("Acesso negado")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Erro ao excluir contato" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao excluir contato");
   }
 }

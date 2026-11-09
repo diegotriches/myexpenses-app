@@ -8,6 +8,7 @@ import crypto from "crypto";
 import { criarDadosIniciaisUsuario } from "@/services/onboardingService";
 import { validatePassword } from "@/lib/validators/password";
 import { sendVerificationEmail } from "@/lib/email";
+import { respostaDeErro } from "@/lib/rota";
 
 export async function POST(req: Request) {
   try {
@@ -140,10 +141,6 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("❌ Erro ao registrar usuário:", error);
-    return NextResponse.json(
-      { error: "Erro ao criar conta. Tente novamente mais tarde." },
-      { status: 500 }
-    );
+    return respostaDeErro(error, "Erro ao criar conta. Tente novamente mais tarde.");
   }
 }

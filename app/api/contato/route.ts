@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { contatos } from "@/db/schema";
 import { getUserId } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
+import { respostaDeErro } from "@/lib/rota";
 
 function escaparHtml(texto: string): string {
   return texto
@@ -77,7 +78,6 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("Erro ao processar contato:", error);
-    return NextResponse.json({ error: "Erro ao enviar mensagem. Tente novamente mais tarde." }, { status: 500 });
+    return respostaDeErro(error, "Erro ao enviar mensagem. Tente novamente mais tarde.");
   }
 }

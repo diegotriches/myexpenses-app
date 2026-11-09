@@ -6,6 +6,7 @@ import { and, gte, lte, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import { calcularIntervaloAno, lerAnoDaRequisicao } from "@/utils/periodoAno";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * GET /api/dashboard/maiores-gastos?ano=2026&limit=5
@@ -97,11 +98,7 @@ export async function GET(req: NextRequest) {
       total,
       media: topGastos.length > 0 ? total / topGastos.length : 0,
     });
-  } catch (error: any) {
-    console.error("Erro ao carregar maiores gastos:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao carregar maiores gastos" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao carregar maiores gastos");
   }
 }

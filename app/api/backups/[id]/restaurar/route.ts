@@ -5,6 +5,7 @@ import { backupsUsuario, notificacoes } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { substituirDadosUsuario, validarArquivoBackup } from "@/lib/backupDados";
+import { respostaDeErro } from "@/lib/rota";
 
 export const maxDuration = 60;
 
@@ -61,11 +62,7 @@ export async function POST(
       backupId: id,
       data:     new Date(backup.createdAt).toISOString(),
     });
-  } catch (error: unknown) {
-    console.error("Erro ao restaurar backup:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro ao restaurar backup" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao restaurar backup");
   }
 }

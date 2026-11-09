@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { backupsUsuario } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 // DELETE /api/backups/[id] — remove um backup específico manualmente
 export async function DELETE(
@@ -25,7 +26,6 @@ export async function DELETE(
 
     return NextResponse.json({ message: "Backup removido com sucesso" });
   } catch (error) {
-    console.error("Erro ao remover backup:", error);
-    return NextResponse.json({ error: "Erro ao remover backup" }, { status: 500 });
+    return respostaDeErro(error, "Erro ao remover backup");
   }
 }

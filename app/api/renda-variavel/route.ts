@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { operacoesRv, cotacoesRv, cotacoesManuaisRv, contas } from "@/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { ErroFinanceiro, movimentarConta as registrarMovimentacao } from "@/lib/movimentacaoConta";
+import { movimentarConta as registrarMovimentacao } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import {
   TICKER_REGEX,
@@ -15,6 +15,7 @@ import {
   type OperacaoRv,
   type TipoAtivo,
 } from "@/utils/rendaVariavelUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 const TIPOS_ATIVO: TipoAtivo[] = ["acao", "fii", "etf", "bdr"];
 
@@ -218,9 +219,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(paraApi(criada), { status: 201 });
-  } catch (error: any) {
-    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
-    console.error("Erro ao registrar operação de renda variável:", error);
-    return NextResponse.json({ error: error.message || "Erro ao registrar operação" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao registrar operação");
   }
 }

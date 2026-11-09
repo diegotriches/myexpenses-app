@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 import { substituirDadosUsuario, validarArquivoBackup } from "@/lib/backupDados";
+import { respostaDeErro } from "@/lib/rota";
 
 export const maxDuration = 60;
 
@@ -50,11 +51,7 @@ export async function POST(req: NextRequest) {
       totalImportado,
       duracao,
     });
-  } catch (error: unknown) {
-    console.error("[Import] Erro ao processar importação:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro ao processar importação" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao processar importação");
   }
 }

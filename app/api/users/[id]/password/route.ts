@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { getUserId } from "@/lib/auth";
 import { validatePassword } from "@/lib/validators/password";
+import { respostaDeErro } from "@/lib/rota";
 
 // PUT - Alterar senha
 export async function PUT(
@@ -19,7 +20,7 @@ export async function PUT(
     
     if (!userId) {
       return NextResponse.json(
-        { message: "Não autenticado" },
+        { error: "Não autenticado" },
         { status: 401 }
       );
     }
@@ -118,11 +119,7 @@ export async function PUT(
     return NextResponse.json({ 
       message: "Senha alterada com sucesso" 
     });
-  } catch (err: any) {
-    console.error("❌ Erro ao alterar senha:", err);
-    return NextResponse.json(
-      { message: "Erro ao alterar senha" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return respostaDeErro(err, "Erro ao alterar senha");
   }
 }

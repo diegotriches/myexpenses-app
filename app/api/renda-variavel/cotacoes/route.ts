@@ -9,6 +9,7 @@ import { operacoesRv, cotacoesManuaisRv } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { TICKER_REGEX, normalizarTicker } from "@/utils/rendaVariavelUtils";
+import { respostaDeErro } from "@/lib/rota";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -43,8 +44,7 @@ export async function PUT(req: NextRequest) {
       });
 
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    console.error("Erro ao salvar cotação:", error);
-    return NextResponse.json({ error: error.message || "Erro ao salvar cotação" }, { status: 500 });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao salvar cotação");
   }
 }

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { notificacoes } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 /**
  * PUT /api/notificacoes/[id]/lida
@@ -44,11 +45,7 @@ export async function PUT(
       .returning();
 
     return NextResponse.json(updated);
-  } catch (error: any) {
-    console.error("Erro ao marcar notificação como lida:", error);
-    return NextResponse.json(
-      { error: error.message || "Erro ao marcar como lida" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao marcar como lida");
   }
 }

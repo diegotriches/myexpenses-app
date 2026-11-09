@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { contas } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { respostaDeErro } from "@/lib/rota";
 
 // ✅ NOVO: Tipos para os parâmetros
 type RouteParams = {
@@ -47,9 +48,7 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(contaNormalizada);
   } catch (error) {
-    console.error("Erro ao buscar conta:", error);
-    const message = error instanceof Error ? error.message : "Erro ao buscar conta";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }
 
@@ -143,9 +142,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(contaNormalizada);
   } catch (error) {
-    console.error("Erro ao atualizar conta:", error);
-    const message = error instanceof Error ? error.message : "Erro ao atualizar conta";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }
 
@@ -182,8 +179,6 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    console.error("Erro ao remover conta:", error);
-    const message = error instanceof Error ? error.message : "Erro ao remover conta";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respostaDeErro(error);
   }
 }

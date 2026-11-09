@@ -140,7 +140,7 @@ export async function GET(req: NextRequest) {
 
   const authHeader = req.headers.get("authorization");
   if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
 
   console.log("[Cron Backup] Iniciando verificação diária de backups...");
