@@ -65,7 +65,15 @@ export function sugerirTipoAtivo(ticker: string): TipoAtivo {
   return "acao";
 }
 
-export const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+/** Mesmo arredondamento para positivos e negativos, sem o erro de ponto flutuante de n × 100. */
+export function r2(n: number): number {
+  if (!Number.isFinite(n)) return n;
+  const absoluto = Math.abs(n);
+  const texto = String(absoluto);
+  const centavos = texto.includes("e") ? Math.round(absoluto * 100) : Math.round(Number(`${texto}e2`));
+  const resultado = centavos / 100;
+  return n < 0 && resultado !== 0 ? -resultado : resultado;
+}
 
 /** Valor financeiro da operação: compra = o que sai (com taxas); venda = o que entra (já sem taxas). */
 export function totalOperacao(o: Pick<OperacaoRv, "tipo" | "quantidade" | "precoUnitario" | "taxas">): number {
@@ -73,10 +81,17 @@ export function totalOperacao(o: Pick<OperacaoRv, "tipo" | "quantidade" | "preco
   return r2(o.tipo === "compra" ? bruto + o.taxas : bruto - o.taxas);
 }
 
-export function ordenarOperacoes<T extends Pick<OperacaoRv, "id" | "data" | "tipo">>(ops: T[]): T[] {
+// No mesmo dia: compras, depois eventos que aumentam a posição, grupamento e, por último, vendas
+function prioridadeNoDia(o: Pick<OperacaoRv, "tipo" | "evento">): number {
+  if (o.tipo === "compra") return o.evento ? 1 : 0;
+  return o.evento === "grupamento" ? 2 : 3;
+}
+
+export function ordenarOperacoes<T extends Pick<OperacaoRv, "id" | "data" | "tipo" | "evento">>(ops: T[]): T[] {
   return [...ops].sort((a, b) => {
     if (a.data !== b.data) return a.data < b.data ? -1 : 1;
-    if (a.tipo !== b.tipo) return a.tipo === "compra" ? -1 : 1;
+    const prioridade = prioridadeNoDia(a) - prioridadeNoDia(b);
+    if (prioridade !== 0) return prioridade;
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   });
 }
@@ -85,9 +100,140 @@ export interface VendaApurada {
   operacaoId: string;
   data: string;
   quantidade: number;
+  valorBruto: number; // quantidade × preço
   valorLiquido: number; // quantidade × preço − taxas
   custoBaixa: number; // quantidade × preço médio
   resultado: number; // valorLiquido − custoBaixa
+  dayTrade: boolean;
+  estimada: boolean; // data do negócio estimada (importação da B3)
+}
+
+export type OperacaoApuravel = OperacaoRv & { dataEstimada?: boolean };
+
+export interface ApuracaoTicker {
+  quantidade: number;
+  custoTotal: number;
+  totalComprado: number;
+  totalVendido: number;
+  resultadoRealizado: number;
+  vendas: VendaApurada[];
+}
+
+/**
+ * Motor único de custo, usado pela carteira e pelo IR: pares de day trade
+ * (mesmo ativo e mesmo dia, com data real) saem do preço médio; o restante
+ * segue como operação comum, baixando o custo pelo preço médio.
+ */
+export function apurarTicker(lista: OperacaoApuravel[]): ApuracaoTicker {
+  const porDia = new Map<string, OperacaoApuravel[]>();
+  for (const o of lista) {
+    const doDia = porDia.get(o.data) ?? [];
+    doDia.push(o);
+    porDia.set(o.data, doDia);
+  }
+
+  const vendas: VendaApurada[] = [];
+  const comuns: OperacaoApuravel[] = [];
+  let realizado = 0;
+  let comprado = 0;
+  let vendido = 0;
+
+  for (const [data, doDia] of Array.from(porDia.entries())) {
+    const elegiveis = doDia.filter((o) => !o.dataEstimada && !o.evento);
+    const compras = elegiveis.filter((o) => o.tipo === "compra");
+    const vendasDia = elegiveis.filter((o) => o.tipo === "venda");
+    const qCompra = compras.reduce((s, o) => s + o.quantidade, 0);
+    const qVenda = vendasDia.reduce((s, o) => s + o.quantidade, 0);
+    const pareado = Math.min(qCompra, qVenda);
+
+    if (pareado === 0) {
+      comuns.push(...doDia);
+      continue;
+    }
+
+    const base = doDia[0];
+    const custoUnit = compras.reduce((s, o) => s + o.quantidade * o.precoUnitario + o.taxas, 0) / qCompra;
+    const liquidoUnit = vendasDia.reduce((s, o) => s + o.quantidade * o.precoUnitario - o.taxas, 0) / qVenda;
+    const brutoUnit = vendasDia.reduce((s, o) => s + o.quantidade * o.precoUnitario, 0) / qVenda;
+    const resultado = pareado * (liquidoUnit - custoUnit);
+
+    vendas.push({
+      operacaoId: `dt-${base.ticker}-${data}`,
+      data,
+      quantidade: pareado,
+      valorBruto: r2(pareado * brutoUnit),
+      valorLiquido: r2(pareado * liquidoUnit),
+      custoBaixa: r2(pareado * custoUnit),
+      resultado: r2(resultado),
+      dayTrade: true,
+      estimada: false,
+    });
+    realizado += resultado;
+    comprado += pareado * custoUnit;
+    vendido += pareado * liquidoUnit;
+
+    // O que sobra além do pareado segue como operação comum
+    comuns.push(...doDia.filter((o) => o.dataEstimada || o.evento));
+    if (qCompra > pareado) {
+      comuns.push({ ...base, id: `${base.ticker}-${data}-c`, tipo: "compra", quantidade: qCompra - pareado, precoUnitario: custoUnit, taxas: 0, evento: null, dataEstimada: false });
+    }
+    if (qVenda > pareado) {
+      const restante = qVenda - pareado;
+      comuns.push({ ...base, id: `${base.ticker}-${data}-v`, tipo: "venda", quantidade: restante, precoUnitario: brutoUnit, taxas: restante * (brutoUnit - liquidoUnit), evento: null, dataEstimada: false });
+    }
+  }
+
+  let qtd = 0;
+  let custo = 0;
+
+  for (const o of ordenarOperacoes(comuns)) {
+    if (o.tipo === "compra") {
+      const c = o.quantidade * o.precoUnitario + o.taxas;
+      qtd += o.quantidade;
+      custo += c;
+      comprado += c;
+    } else if (o.evento === "grupamento") {
+      // reduz a quantidade mantendo o custo total (o preço médio sobe)
+      qtd = Math.max(0, qtd - o.quantidade);
+      if (qtd === 0) custo = 0;
+    } else {
+      const pm = qtd > 0 ? custo / qtd : 0;
+      const custoBaixa = pm * o.quantidade;
+      const valorBruto = o.quantidade * o.precoUnitario;
+      const valorLiquido = valorBruto - o.taxas;
+      const resultado = valorLiquido - custoBaixa;
+      vendas.push({
+        operacaoId: o.id,
+        data: o.data,
+        quantidade: o.quantidade,
+        valorBruto: r2(valorBruto),
+        valorLiquido: r2(valorLiquido),
+        custoBaixa: r2(custoBaixa),
+        resultado: r2(resultado),
+        dayTrade: false,
+        estimada: !!o.dataEstimada,
+      });
+      realizado += resultado;
+      vendido += valorLiquido;
+      qtd -= o.quantidade;
+      custo -= custoBaixa;
+      if (qtd <= 0) {
+        qtd = 0;
+        custo = 0;
+      }
+    }
+  }
+
+  vendas.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
+
+  return {
+    quantidade: qtd,
+    custoTotal: custo,
+    totalComprado: comprado,
+    totalVendido: vendido,
+    resultadoRealizado: realizado,
+    vendas,
+  };
 }
 
 export interface PosicaoAtivo {
@@ -102,8 +248,8 @@ export interface PosicaoAtivo {
   vendas: VendaApurada[];
 }
 
-export function calcularPosicoes(ops: OperacaoRv[]): PosicaoAtivo[] {
-  const porTicker = new Map<string, OperacaoRv[]>();
+export function calcularPosicoes(ops: OperacaoApuravel[]): PosicaoAtivo[] {
+  const porTicker = new Map<string, OperacaoApuravel[]>();
   for (const o of ops) {
     const lista = porTicker.get(o.ticker) ?? [];
     lista.push(o);
@@ -112,58 +258,19 @@ export function calcularPosicoes(ops: OperacaoRv[]): PosicaoAtivo[] {
 
   const posicoes: PosicaoAtivo[] = [];
   for (const [ticker, lista] of Array.from(porTicker.entries())) {
-    let qtd = 0;
-    let custo = 0;
-    let realizado = 0;
-    let comprado = 0;
-    let vendido = 0;
-    const vendas: VendaApurada[] = [];
     const ordenadas = ordenarOperacoes(lista);
-
-    for (const o of ordenadas) {
-      if (o.tipo === "compra") {
-        const c = o.quantidade * o.precoUnitario + o.taxas;
-        qtd += o.quantidade;
-        custo += c;
-        comprado += c;
-      } else if (o.evento === "grupamento") {
-        // reduz a quantidade mantendo o custo total (o preço médio sobe)
-        qtd = Math.max(0, qtd - o.quantidade);
-        if (qtd === 0) custo = 0;
-      } else {
-        const pm = qtd > 0 ? custo / qtd : 0;
-        const custoBaixa = pm * o.quantidade;
-        const valorLiquido = o.quantidade * o.precoUnitario - o.taxas;
-        const resultado = valorLiquido - custoBaixa;
-        vendas.push({
-          operacaoId: o.id,
-          data: o.data,
-          quantidade: o.quantidade,
-          valorLiquido: r2(valorLiquido),
-          custoBaixa: r2(custoBaixa),
-          resultado: r2(resultado),
-        });
-        realizado += resultado;
-        vendido += valorLiquido;
-        qtd -= o.quantidade;
-        custo -= custoBaixa;
-        if (qtd <= 0) {
-          qtd = 0;
-          custo = 0;
-        }
-      }
-    }
+    const a = apurarTicker(lista);
 
     posicoes.push({
       ticker,
       tipoAtivo: ordenadas[ordenadas.length - 1].tipoAtivo,
-      quantidade: qtd,
-      custoTotal: r2(custo),
-      precoMedio: qtd > 0 ? custo / qtd : 0,
-      totalComprado: r2(comprado),
-      totalVendido: r2(vendido),
-      resultadoRealizado: r2(realizado),
-      vendas,
+      quantidade: a.quantidade,
+      custoTotal: r2(a.custoTotal),
+      precoMedio: a.quantidade > 0 ? a.custoTotal / a.quantidade : 0,
+      totalComprado: r2(a.totalComprado),
+      totalVendido: r2(a.totalVendido),
+      resultadoRealizado: r2(a.resultadoRealizado),
+      vendas: a.vendas,
     });
   }
 

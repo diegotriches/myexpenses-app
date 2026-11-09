@@ -14,47 +14,13 @@ import {
   TICKER_REGEX, normalizarTicker, r2, ordenarOperacoes, validarSequencia,
   type EventoOperacao, type OperacaoRv, type TipoAtivo, type TipoOperacao,
 } from "./rendaVariavelUtils";
+import { ehDiaUtilB3 } from "./calendarioB3";
+import { dataIso, numero, semAcento, texto } from "./b3ParserUtils";
 
 // ── Calendário de dias úteis da B3 ──────────────────────────────────────────
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const somarDiasUtc = (d: Date, n: number) => new Date(d.getTime() + n * 86400000);
-
-function pascoa(ano: number): Date {
-  const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100;
-  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const mes = Math.floor((h + l - 7 * m + 114) / 31);
-  const dia = ((h + l - 7 * m + 114) % 31) + 1;
-  return new Date(Date.UTC(ano, mes - 1, dia));
-}
-
-const cacheFeriados = new Map<number, Set<string>>();
-
-function feriadosB3(ano: number): Set<string> {
-  const c = cacheFeriados.get(ano);
-  if (c) return c;
-  const p = pascoa(ano);
-  const f = new Set<string>([
-    `${ano}-01-01`, `${ano}-04-21`, `${ano}-05-01`, `${ano}-09-07`, `${ano}-10-12`,
-    `${ano}-11-02`, `${ano}-11-15`, `${ano}-12-24`, `${ano}-12-25`, `${ano}-12-31`,
-    iso(somarDiasUtc(p, -48)), iso(somarDiasUtc(p, -47)), // Carnaval
-    iso(somarDiasUtc(p, -2)), // Sexta-feira Santa
-    iso(somarDiasUtc(p, 60)), // Corpus Christi
-  ]);
-  if (ano >= 2024) f.add(`${ano}-11-20`); // Consciência Negra
-  cacheFeriados.set(ano, f);
-  return f;
-}
-
-export function ehDiaUtilB3(dataIso: string): boolean {
-  const d = new Date(`${dataIso}T00:00:00Z`);
-  const dia = d.getUTCDay();
-  if (dia === 0 || dia === 6) return false;
-  return !feriadosB3(d.getUTCFullYear()).has(dataIso);
-}
 
 /** Data estimada do negócio: `dias` dias úteis antes da liquidação (padrão D+2). */
 export function estimarDataNegocio(liquidacao: string, dias = 2): string {
@@ -107,29 +73,6 @@ export interface LeituraOperacoes {
 
 // ── Leitura ─────────────────────────────────────────────────────────────────
 
-const semAcento = (s: string) =>
-  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
-const texto = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim());
-
-function numero(v: unknown): number | null {
-  if (typeof v === "number") return Number.isFinite(v) ? v : null;
-  const t = texto(v);
-  if (!t || t === "-") return null;
-  const n = Number(t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t);
-  return Number.isFinite(n) ? n : null;
-}
-
-function dataIso(v: unknown): string | null {
-  if (v instanceof Date && !isNaN(v.getTime())) {
-    return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, "0")}-${String(v.getDate()).padStart(2, "0")}`;
-  }
-  const t = texto(v);
-  const br = t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
-  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
-  return null;
-}
-
 const RENDA_FIXA = /^(CDB|LCI|LCA|LC|CRI|CRA|DEB|DEBENTURE|TESOURO|NTN|LTN|LFT)\b/i;
 
 const PROVENTOS = new Set([
@@ -143,7 +86,7 @@ const ROTINA = new Set([
 // Mudam a posição (ou o caixa) e precisam de tratamento manual
 const ATENCAO = new Set([
   "restituicao de capital em acoes", "resgate", "recibo de subscricao",
-  "direitos de subscricao - exercido", "solicitacao de subscricao",
+  "direitos de subscricao - exercido", "solicitacao de subscricao", "grupamento",
 ]);
 
 export function lerPlanilhaOperacoes(linhas: unknown[][]): LeituraOperacoes {

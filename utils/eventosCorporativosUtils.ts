@@ -37,7 +37,8 @@ export function calcularEvento(posicao: number, e: ParametrosEvento): ResultadoE
   if (e.tipo === "bonificacao") {
     const pct = Number(e.percentual);
     if (!(pct > 0) || pct > 1000) return { ...base, erro: "Informe o percentual de bonificação (ex.: 10)." };
-    const add = Math.floor((posicao * pct) / 100);
+    // A tolerância evita perder uma ação por ponto flutuante (375 × 18,4% = 68,999…)
+    const add = Math.floor((posicao * pct) / 100 + 1e-9);
     if (add < 1) return { ...base, erro: "A bonificação não gera nenhuma ação inteira para esta posição." };
     return { posicaoAntes: posicao, posicaoDepois: posicao + add, delta: add };
   }

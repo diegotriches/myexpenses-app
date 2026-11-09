@@ -64,6 +64,10 @@ export async function POST(req: NextRequest) {
     // Repetidos dentro do próprio arquivo contam como um só
     const unicos = Array.from(new Map(validos.map((v) => [v.chave, v])).values());
 
+    if (unicos.length === 0) {
+      return NextResponse.json({ inseridos: 0, duplicados: 0, invalidos, total: 0 });
+    }
+
     // Creditar a conta? Para planilhas (histórico) o padrão é NÃO creditar
     const creditar = body.creditarConta === true;
     let conta: typeof contas.$inferSelect | undefined;

@@ -8,6 +8,7 @@
 // O valor guardado é o LÍQUIDO (já sem o IR retido na fonte, como a B3 informa).
 
 import { TICKER_REGEX, normalizarTicker, r2 } from "./rendaVariavelUtils";
+import { dataIso, numero, semAcento, texto } from "./b3ParserUtils";
 
 export type TipoProvento = "dividendo" | "jcp" | "rendimento";
 
@@ -53,30 +54,6 @@ export interface ResultadoLeitura {
   proventos: ProventoImportavel[];
   ignorados: { motivo: string; quantidade: number }[];
   erro?: string;
-}
-
-const semAcento = (s: string) =>
-  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
-
-const texto = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim());
-
-function numero(v: unknown): number | null {
-  if (typeof v === "number") return Number.isFinite(v) ? v : null;
-  const t = texto(v);
-  if (!t || t === "-") return null;
-  const n = Number(t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t);
-  return Number.isFinite(n) ? n : null;
-}
-
-function dataIso(v: unknown): string | null {
-  if (v instanceof Date && !isNaN(v.getTime())) {
-    return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, "0")}-${String(v.getDate()).padStart(2, "0")}`;
-  }
-  const t = texto(v);
-  const br = t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
-  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
-  return null;
 }
 
 // Tipos de evento da B3 (sem acento, minúsculos) → tipo interno

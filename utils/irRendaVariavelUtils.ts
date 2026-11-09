@@ -19,9 +19,10 @@
 // detectado e vendas perto da virada do mês podem cair no mês errado — o mês é sinalizado.
 
 import {
-  calcularPosicoes, ordenarOperacoes, r2,
+  apurarTicker, calcularPosicoes, r2,
   type OperacaoRv, type TipoAtivo,
 } from "./rendaVariavelUtils";
+import { ehDiaUtilBancario } from "./calendarioB3";
 
 export interface ConfigIr {
   aliquotaAcao: number; // % swing
@@ -63,16 +64,6 @@ export interface VendaIr {
   estimada: boolean;
 }
 
-interface Item {
-  tipo: "compra" | "venda";
-  data: string;
-  quantidade: number;
-  precoUnitario: number;
-  taxas: number;
-  id: string;
-  evento?: OperacaoRv["evento"];
-}
-
 /** Resultado de cada venda, separando day trade (mesmo ativo, mesmo dia) das operações comuns. */
 export function apurarVendas(ops: OperacaoIr[]): VendaIr[] {
   const porTicker = new Map<string, OperacaoIr[]>();
@@ -83,74 +74,14 @@ export function apurarVendas(ops: OperacaoIr[]): VendaIr[] {
   }
 
   const vendas: VendaIr[] = [];
-
   for (const [ticker, lista] of Array.from(porTicker.entries())) {
     const tipoAtivo = lista[0].tipoAtivo;
-    const porDia = new Map<string, OperacaoIr[]>();
-    for (const o of lista) {
-      const l = porDia.get(o.data) ?? [];
-      l.push(o);
-      porDia.set(o.data, l);
-    }
-
-    const swing: Item[] = [];
-    for (const [data, doDia] of Array.from(porDia.entries())) {
-      const elegiveis = doDia.filter((o) => !o.dataEstimada && !o.evento);
-      const compras = elegiveis.filter((o) => o.tipo === "compra");
-      const vendasDia = elegiveis.filter((o) => o.tipo === "venda");
-      const qC = compras.reduce((s, o) => s + o.quantidade, 0);
-      const qV = vendasDia.reduce((s, o) => s + o.quantidade, 0);
-      const dt = Math.min(qC, qV);
-
-      if (dt === 0) {
-        doDia.forEach((o) => swing.push({ ...o }));
-        continue;
-      }
-
-      const custoC = compras.reduce((s, o) => s + o.quantidade * o.precoUnitario + o.taxas, 0) / qC;
-      const liqV = vendasDia.reduce((s, o) => s + o.quantidade * o.precoUnitario - o.taxas, 0) / qV;
-      const brutoV = vendasDia.reduce((s, o) => s + o.quantidade * o.precoUnitario, 0) / qV;
-
+    for (const v of apurarTicker(lista).vendas) {
       vendas.push({
-        ticker, tipoAtivo, data, quantidade: dt,
-        valorBruto: r2(dt * brutoV),
-        resultado: r2(dt * (liqV - custoC)),
-        dayTrade: true,
-        estimada: false,
+        ticker, tipoAtivo, data: v.data, quantidade: v.quantidade,
+        valorBruto: v.valorBruto, resultado: v.resultado,
+        dayTrade: v.dayTrade, estimada: v.estimada,
       });
-
-      // o que sobra (compras ou vendas além do pareado) segue como operação comum
-      doDia.filter((o) => o.dataEstimada || o.evento).forEach((o) => swing.push({ ...o }));
-      if (qC > dt) swing.push({ id: `${ticker}-${data}-c`, tipo: "compra", data, quantidade: qC - dt, precoUnitario: custoC, taxas: 0 });
-      if (qV > dt) swing.push({ id: `${ticker}-${data}-v`, tipo: "venda", data, quantidade: qV - dt, precoUnitario: liqV, taxas: 0 });
-    }
-
-    // posição / preço médio com compras antes de vendas no mesmo dia
-    const estimadaPorId = new Map(lista.map((o) => [o.id, !!o.dataEstimada]));
-    let qtd = 0;
-    let custo = 0;
-    for (const o of ordenarOperacoes(swing)) {
-      if (o.tipo === "compra") {
-        qtd += o.quantidade;
-        custo += o.quantidade * o.precoUnitario + o.taxas;
-      } else if (o.evento === "grupamento") {
-        // só reduz a quantidade; o custo total é mantido e não há venda
-        qtd = Math.max(0, qtd - o.quantidade);
-        if (qtd === 0) custo = 0;
-      } else {
-        const pm = qtd > 0 ? custo / qtd : 0;
-        const baixa = pm * o.quantidade;
-        const liquido = o.quantidade * o.precoUnitario - o.taxas;
-        vendas.push({
-          ticker, tipoAtivo, data: o.data, quantidade: o.quantidade,
-          valorBruto: r2(o.quantidade * o.precoUnitario),
-          resultado: r2(liquido - baixa),
-          dayTrade: false,
-          estimada: estimadaPorId.get(o.id) ?? false,
-        });
-        qtd -= o.quantidade;
-        custo -= baixa;
-      }
     }
   }
 
@@ -189,12 +120,11 @@ function apurarCaixa(parcelas: { valor: number; aliq: number }[], pool: number) 
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-/** Último dia útil (seg–sex, sem feriados nacionais fixos) do mês seguinte à competência. */
+/** Último dia útil bancário do mês seguinte à competência. */
 export function vencimentoDarf(competencia: string): string {
   const [a, m] = competencia.split("-").map(Number);
   let d = new Date(Date.UTC(a, m + 1, 0)); // último dia do mês seguinte (m é 1-based → m+1 index)
-  const fixos = new Set(["01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "12-25"]);
-  while (d.getUTCDay() === 0 || d.getUTCDay() === 6 || fixos.has(iso(d).slice(5))) {
+  while (!ehDiaUtilBancario(iso(d))) {
     d = new Date(d.getTime() - 86400000);
   }
   return iso(d);

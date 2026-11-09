@@ -21,6 +21,7 @@ function useInvalidarAplicacoes() {
   return () => {
     queryClient.invalidateQueries({ queryKey: ["aplicacoes"] });
     queryClient.invalidateQueries({ queryKey: ["contas"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["extrato"] });
   };
 }

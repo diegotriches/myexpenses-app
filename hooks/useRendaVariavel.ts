@@ -26,6 +26,7 @@ function useInvalidar() {
   return () => {
     queryClient.invalidateQueries({ queryKey: ["renda-variavel"] });
     queryClient.invalidateQueries({ queryKey: ["contas"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["extrato"] });
   };
 }
