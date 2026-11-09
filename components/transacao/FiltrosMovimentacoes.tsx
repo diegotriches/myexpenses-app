@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { InputMoeda } from "@/components/ui/input-moeda";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, X, Filter } from "lucide-react";
@@ -199,13 +200,13 @@ export default function FiltrosMovimentacoes({
             {/* Valor mínimo */}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Valor mín. (R$)</label>
-              <Input type="number" min="0" step="0.01" placeholder="0,00" value={filtros.valorMin} onChange={(e) => updateFiltro("valorMin", e.target.value)} />
+              <InputMoeda placeholder="0,00" value={filtros.valorMin} onChange={(v) => updateFiltro("valorMin", v)} />
             </div>
 
             {/* Valor máximo */}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Valor máx. (R$)</label>
-              <Input type="number" min="0" step="0.01" placeholder="0,00" value={filtros.valorMax} onChange={(e) => updateFiltro("valorMax", e.target.value)} />
+              <InputMoeda placeholder="0,00" value={filtros.valorMax} onChange={(v) => updateFiltro("valorMax", v)} />
             </div>
           </div>
 

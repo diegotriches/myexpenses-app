@@ -10,7 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { InputMoeda } from "@/components/ui/input-moeda";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -147,16 +147,15 @@ export default function ModalAjustarSaldo({ open, onClose, conta }: Props) {
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm font-medium">
                 R$
               </span>
-              <Input
+              <InputMoeda
                 id="valor"
-                type="number"
-                step="0.01"
+                permitirNegativo
                 value={valor}
-                onChange={(e) => {
-                  setValor(e.target.value);
+                onChange={(v) => {
+                  setValor(v);
                   setErro(null);
                 }}
-                placeholder="0.00"
+                placeholder="0,00"
                 className="pl-10 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 disabled={ajustarSaldo.isPending}
                 autoFocus

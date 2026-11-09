@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { InputMoeda } from "@/components/ui/input-moeda";
 import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -361,7 +362,7 @@ export default function ImpostoRendaRendaVariavel() {
             {CAMPOS_VALOR.map((c) => (
               <div key={c.chave} className="space-y-1">
                 <Label className="text-xs">{c.rotulo}</Label>
-                <Input inputMode="decimal" value={form[c.chave] ?? ""} onChange={(e) => setForm((f) => ({ ...f, [c.chave]: e.target.value }))} />
+                <InputMoeda value={form[c.chave] ?? ""} onChange={(v) => setForm((f) => ({ ...f, [c.chave]: v }))} />
                 {c.dica && <p className="text-[11px] text-gray-400">{c.dica}</p>}
               </div>
             ))}

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button }  from "@/components/ui/button";
 import { Input }   from "@/components/ui/input";
+import { InputMoeda } from "@/components/ui/input-moeda";
 import { Label }   from "@/components/ui/label";
 import {
   Select,
@@ -214,11 +215,9 @@ export default function AdiantamentoFaturaModal({
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
                 R$
               </span>
-              <Input
-                type="text"
-                inputMode="decimal"
+              <InputMoeda
                 value={valorStr}
-                onChange={(e) => setValorStr(e.target.value)}
+                onChange={setValorStr}
                 disabled={loading}
                 className="pl-9 h-11 text-base font-semibold"
                 placeholder="0,00"

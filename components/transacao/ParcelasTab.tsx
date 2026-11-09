@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { InputMoeda } from "@/components/ui/input-moeda";
 import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -433,13 +434,10 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
 
               <div className="space-y-1.5">
                 <Label htmlFor="antecipar-desconto">Desconto por antecipação (opcional)</Label>
-                <Input
+                <InputMoeda
                   id="antecipar-desconto"
-                  type="number"
-                  step="0.01"
-                  min="0"
                   value={desconto}
-                  onChange={(e) => setDesconto(e.target.value)}
+                  onChange={setDesconto}
                   placeholder="0,00"
                 />
               </div>

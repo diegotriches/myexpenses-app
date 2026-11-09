@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { InputMoeda } from "@/components/ui/input-moeda";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -603,24 +604,22 @@ export default function RendaVariavel({ contas }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="rv-preco">Preço unitário (R$)</Label>
-                <Input
+                <InputMoeda
                   id="rv-preco"
-                  inputMode="decimal"
                   placeholder="38,50"
                   value={form.preco}
-                  onChange={(e) => updateForm("preco", e.target.value.replace(/[^\d.,]/g, ""))}
+                  onChange={(v) => updateForm("preco", v)}
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="rv-taxas">Taxas e corretagem (R$, opcional)</Label>
-              <Input
+              <InputMoeda
                 id="rv-taxas"
-                inputMode="decimal"
                 placeholder="0,00"
                 value={form.taxas}
-                onChange={(e) => updateForm("taxas", e.target.value.replace(/[^\d.,]/g, ""))}
+                onChange={(v) => updateForm("taxas", v)}
               />
               <p className="text-[11px] text-gray-500 dark:text-gray-400">
                 Somadas ao custo nas compras (entram no preço médio) e descontadas nas vendas.
@@ -686,11 +685,10 @@ export default function RendaVariavel({ contas }: Props) {
           </DialogHeader>
           <div className="space-y-1.5 py-2">
             <Label htmlFor="rv-cotacao">Preço (R$)</Label>
-            <Input
+            <InputMoeda
               id="rv-cotacao"
-              inputMode="decimal"
               value={cotacaoValor}
-              onChange={(e) => setCotacaoValor(e.target.value.replace(/[^\d.,]/g, ""))}
+              onChange={setCotacaoValor}
               placeholder="0,00"
             />
             {cotacaoErro && (

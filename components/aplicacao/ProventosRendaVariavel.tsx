@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { InputMoeda } from "@/components/ui/input-moeda";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -379,12 +380,11 @@ export default function ProventosRendaVariavel({ contas }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="prov-valor">Valor líquido (R$)</Label>
-                <Input
+                <InputMoeda
                   id="prov-valor"
-                  inputMode="decimal"
                   placeholder="6,75"
                   value={form.valor}
-                  onChange={(e) => updateForm("valor", e.target.value.replace(/[^\d.,]/g, ""))}
+                  onChange={(v) => updateForm("valor", v)}
                 />
               </div>
               <div className="space-y-1.5">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InputMoeda } from "@/components/ui/input-moeda";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -186,13 +187,10 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
               <label className="text-sm font-medium mb-2 block text-gray-700 dark:text-gray-300">
                 Valor mín. (R$)
               </label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
+              <InputMoeda
                 placeholder="0,00"
                 value={filtros.valorMin}
-                onChange={(e) => updateFiltro("valorMin", e.target.value)}
+                onChange={(v) => updateFiltro("valorMin", v)}
                 className="dark:bg-gray-900 dark:border-gray-600 dark:text-white"
               />
             </div>
@@ -200,13 +198,10 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
               <label className="text-sm font-medium mb-2 block text-gray-700 dark:text-gray-300">
                 Valor máx. (R$)
               </label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
+              <InputMoeda
                 placeholder="0,00"
                 value={filtros.valorMax}
-                onChange={(e) => updateFiltro("valorMax", e.target.value)}
+                onChange={(v) => updateFiltro("valorMax", v)}
                 className="dark:bg-gray-900 dark:border-gray-600 dark:text-white"
               />
             </div>

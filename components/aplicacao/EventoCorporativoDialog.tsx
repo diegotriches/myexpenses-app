@@ -5,6 +5,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InputMoeda } from "@/components/ui/input-moeda";
 import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -164,7 +165,7 @@ export default function EventoCorporativoDialog({ open, onOpenChange, operacoes 
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Custo por ação (R$)</Label>
-                    <Input inputMode="decimal" value={custo} onChange={(e) => setCusto(e.target.value)} placeholder="0,00" />
+                    <InputMoeda value={custo} onChange={setCusto} placeholder="0,00" />
                   </div>
                 </div>
               ) : (
