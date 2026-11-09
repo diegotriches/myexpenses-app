@@ -2,9 +2,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { proventosRv, contas, extratoConta } from "@/db/schema";
+import { proventosRv, contas } from "@/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { ErroFinanceiro, movimentarConta as registrarMovimentacao } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { TICKER_REGEX, normalizarTicker, r2 } from "@/utils/rendaVariavelUtils";
 import { chaveProvento, TIPO_PROVENTO_LABEL, type TipoProvento } from "@/utils/proventosUtils";
@@ -98,44 +99,43 @@ export async function POST(req: NextRequest) {
       if (!conta.ativo) return NextResponse.json({ error: "Conta inativa" }, { status: 400 });
     }
 
-    const [criado] = await db
-      .insert(proventosRv)
-      .values({
-        userId,
-        ticker,
-        tipo,
-        data,
-        quantidade,
-        precoUnitario: body.precoUnitario ? Number(body.precoUnitario).toFixed(6) : null,
-        valorLiquido: valorLiquido.toFixed(2),
-        instituicao: body.instituicao ? String(body.instituicao) : null,
-        contaId: conta?.id ?? null,
-        movimentouConta: movimentar,
-        chave,
-      })
-      .returning();
+    const criado = await db.transaction(async (tx) => {
+      const [registro] = await tx
+        .insert(proventosRv)
+        .values({
+          userId,
+          ticker,
+          tipo,
+          data,
+          quantidade,
+          precoUnitario: body.precoUnitario ? Number(body.precoUnitario).toFixed(6) : null,
+          valorLiquido: valorLiquido.toFixed(2),
+          instituicao: body.instituicao ? String(body.instituicao) : null,
+          contaId: conta?.id ?? null,
+          movimentouConta: movimentar,
+          chave,
+        })
+        .returning();
 
-    if (movimentar && conta) {
-      const saldoApos = r2(Number(conta.saldoAtual) + valorLiquido);
-      await db
-        .update(contas)
-        .set({ saldoAtual: saldoApos.toFixed(2), updatedAt: new Date() })
-        .where(eq(contas.id, conta.id));
-      await db.insert(extratoConta).values({
-        userId,
-        contaId: conta.id,
-        data,
-        tipo: "entrada",
-        valor: valorLiquido.toFixed(2),
-        descricao: `${TIPO_PROVENTO_LABEL[tipo as TipoProvento]} ${ticker}`,
-        saldoApos: saldoApos.toFixed(2),
-        origem: "TRANSACAO_MANUAL",
-        referenciaId: criado.id,
-      });
-    }
+      if (movimentar && conta) {
+        await registrarMovimentacao(tx, {
+          userId,
+          contaId: conta.id,
+          tipo: "entrada",
+          valor: valorLiquido,
+          data,
+          descricao: `${TIPO_PROVENTO_LABEL[tipo as TipoProvento]} ${ticker}`,
+          origem: "TRANSACAO_MANUAL",
+          referenciaId: registro.id,
+        });
+      }
+
+      return registro;
+    });
 
     return NextResponse.json(paraApi(criado), { status: 201 });
   } catch (error: any) {
+    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Erro ao registrar provento:", error);
     return NextResponse.json({ error: error.message || "Erro ao registrar provento" }, { status: 500 });
   }

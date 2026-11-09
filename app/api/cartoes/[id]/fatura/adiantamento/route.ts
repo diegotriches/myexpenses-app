@@ -1,10 +1,11 @@
 // src/app/api/cartoes/[id]/fatura/adiantamento/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { adiantamentosFatura, faturas, contas, cartoes, extratoConta } from "@/db/schema";
+import { adiantamentosFatura, faturas, contas, cartoes } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -77,12 +78,6 @@ export async function POST(
     if (!conta)  return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
     if (!conta.ativo) return NextResponse.json({ error: "Conta inativa" }, { status: 400 });
 
-    const saldoAntes = Number(conta.saldoAtual);
-    if (saldoAntes < valorNum)
-      return NextResponse.json({ error: "Saldo insuficiente na conta selecionada" }, { status: 400 });
-
-    const saldoDepois = saldoAntes - valorNum;
-
     // ── 3. Buscar cartão ──────────────────────────────────────────────────────
     const [cartao] = await db
       .select()
@@ -95,51 +90,53 @@ export async function POST(
     const descricaoFinal = descricao?.trim() ||
       `Adiantamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`;
 
-    // ── 4. Registrar adiantamento ─────────────────────────────────────────────
-    const [adiantamento] = await db
-      .insert(adiantamentosFatura)
-      .values({
+    const { adiantamento, saldoDepois, novoTotalFatura } = await db.transaction(async (tx) => {
+      const [atual] = await tx.select().from(faturas).where(eq(faturas.id, fatura.id)).limit(1).for("update");
+      if (!atual || atual.paga) throw new ErroFinanceiro("Fatura já está paga — use o pagamento normal");
+
+      const restante = Number(atual.total);
+      if (valorNum > restante) {
+        throw new ErroFinanceiro(`Valor excede o saldo restante da fatura (R$ ${restante.toFixed(2)})`);
+      }
+
+      const [novo] = await tx
+        .insert(adiantamentosFatura)
+        .values({
+          userId,
+          faturaId:  fatura.id,
+          contaId,
+          valor:     valorNum.toFixed(2),
+          descricao: descricaoFinal,
+        })
+        .returning();
+
+      const { saldoApos } = await movimentarConta(tx, {
         userId,
-        faturaId:  fatura.id,
         contaId,
-        valor:     valorNum.toFixed(2),
+        tipo:      "saida",
+        valor:     valorNum,
+        data:      hojeBrt(),
         descricao: descricaoFinal,
-      })
-      .returning();
+        origem:    "PAGAMENTO_FATURA",
+        referenciaId: novo.id,
+        mensagemSaldoInsuficiente: "Saldo insuficiente na conta selecionada",
+      });
 
-    // ── 5. Debitar conta ──────────────────────────────────────────────────────
-    await db
-      .update(contas)
-      .set({ saldoAtual: saldoDepois.toFixed(2), updatedAt: new Date() })
-      .where(and(eq(contas.id, contaId), eq(contas.userId, userId)));
+      const novoTotal = restante - valorNum;
+      await tx
+        .update(faturas)
+        .set({ total: novoTotal.toFixed(2), updatedAt: new Date() })
+        .where(eq(faturas.id, fatura.id));
 
-    // ── 6. Registrar no extrato ───────────────────────────────────────────────
-    await db.insert(extratoConta).values({
-      userId,
-      contaId,
-      data:      hojeBrt(),
-      tipo:      "saida",
-      valor:     valorNum.toFixed(2),
-      descricao: descricaoFinal,
-      saldoApos: saldoDepois.toFixed(2),
-      origem:    "PAGAMENTO_FATURA",
-      referenciaId: adiantamento.id,
+      await tx
+        .update(cartoes)
+        .set({
+          limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valorNum}`,
+        })
+        .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
+
+      return { adiantamento: novo, saldoDepois: saldoApos, novoTotalFatura: novoTotal };
     });
-
-    // ── 7. Reduzir total da fatura pelo valor adiantado ───────────────────────
-    const novoTotalFatura = totalFatura - valorNum;
-    await db
-      .update(faturas)
-      .set({ total: novoTotalFatura.toFixed(2), updatedAt: new Date() })
-      .where(eq(faturas.id, fatura.id));
-
-    // ── 8. Restaurar limite do cartão ─────────────────────────────────────────
-    await db
-      .update(cartoes)
-      .set({
-        limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valorNum}`,
-      })
-      .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
     return NextResponse.json(
       {
@@ -151,6 +148,7 @@ export async function POST(
       { status: 201 }
     );
   } catch (error: any) {
+    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Erro ao registrar adiantamento:", error);
     return NextResponse.json(
       { error: error.message || "Erro ao registrar adiantamento" },

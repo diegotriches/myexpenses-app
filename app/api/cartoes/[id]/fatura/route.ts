@@ -1,9 +1,10 @@
 // app/api/cartoes/[id]/fatura/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { transacoes, faturas, contas, extratoConta, cartoes, notificacoes, adiantamentosFatura } from "@/db/schema";
+import { transacoes, faturas, contas, cartoes, notificacoes, adiantamentosFatura } from "@/db/schema";
 import { eq, and, gte, lt, sql, sum } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { calcularDataVencimento } from "@/utils/faturaUtils";
 
@@ -214,56 +215,54 @@ export async function POST(
     if (!conta)       return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
     if (!conta.ativo) return NextResponse.json({ error: "Conta inativa não pode realizar pagamentos" }, { status: 400 });
 
-    const saldoAntes = Number(conta.saldoAtual);
-    if (saldoAntes < valorAPagar)
-      return NextResponse.json({ error: "Saldo insuficiente para pagamento da fatura" }, { status: 400 });
-
-    const saldoDepois = saldoAntes - valorAPagar;
-
     // 3. Buscar cartão
     const [cartao] = await db.select().from(cartoes)
       .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
     if (!cartao) return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
 
-    if (valorAPagar > 0) {
-      // 4. Registrar no extrato
-      await db.insert(extratoConta).values({
-        userId, contaId,
-        data:        dataPgtoStr,
-        tipo:        "saida",
-        valor:       valorAPagar.toFixed(2),
-        descricao:   `Pagamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`,
-        saldoApos:   saldoDepois.toFixed(2),
-        origem:      "PAGAMENTO_FATURA",
-        referenciaId: fatura.id.toString(),
+    await db.transaction(async (tx) => {
+      // Trava a fatura: um segundo clique espera aqui e recebe "já foi paga"
+      const [atual] = await tx.select().from(faturas).where(eq(faturas.id, fatura.id)).limit(1).for("update");
+      if (!atual || atual.paga) throw new ErroFinanceiro("Fatura já foi paga");
+      if (Number(atual.total) !== valorAPagar) {
+        throw new ErroFinanceiro("A fatura foi alterada. Recarregue a página e tente novamente.", 409);
+      }
+
+      // 4 e 5. Debita a conta e registra no extrato
+      if (valorAPagar > 0) {
+        await movimentarConta(tx, {
+          userId, contaId,
+          tipo:        "saida",
+          valor:       valorAPagar,
+          data:        dataPgtoStr,
+          descricao:   `Pagamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`,
+          origem:      "PAGAMENTO_FATURA",
+          referenciaId: fatura.id.toString(),
+          mensagemSaldoInsuficiente: "Saldo insuficiente para pagamento da fatura",
+        });
+      }
+
+      // 6. Liberar limite do cartão — valor pago + limite extra de antecipações
+      await tx.update(cartoes)
+        .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valorLiberado}` })
+        .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
+
+      // 7. Marcar fatura como paga
+      await tx.update(faturas)
+        .set({ paga: true, dataPagamento: dataPgtoStr, contaPagamentoId: contaId, updatedAt: new Date() })
+        .where(eq(faturas.id, fatura.id));
+
+      // 8. Notificação
+      await tx.insert(notificacoes).values({
+        userId,
+        tipo:       "FATURA_PAGA",
+        severidade: "success",
+        titulo:     `Fatura ${cartao.nome} paga com sucesso!`,
+        mensagem:   `Fatura de ${String(mes).padStart(2, "0")}/${ano} no valor de R$ ${valorAPagar.toFixed(2)} foi paga em ${dataPgto.toLocaleDateString("pt-BR")}.`,
+        link:       `/cartoes/${cartaoId}/fatura?mes=${mes}&ano=${ano}`,
+        metadata:   { cartaoId: String(cartaoId), mes: String(mes), ano: String(ano), total: String(valorAPagar) },
       });
-
-      // 5. Atualizar saldo da conta
-      await db.update(contas)
-        .set({ saldoAtual: saldoDepois.toFixed(2), updatedAt: new Date() })
-        .where(and(eq(contas.id, contaId), eq(contas.userId, userId)));
-    }
-
-    // 6. Liberar limite do cartão — valor pago + limite extra de antecipações
-    await db.update(cartoes)
-      .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valorLiberado}` })
-      .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
-
-    // 7. Marcar fatura como paga
-    await db.update(faturas)
-      .set({ paga: true, dataPagamento: dataPgtoStr, contaPagamentoId: contaId, updatedAt: new Date() })
-      .where(eq(faturas.id, fatura.id));
-
-    // 8. Notificação
-    await db.insert(notificacoes).values({
-      userId,
-      tipo:       "FATURA_PAGA",
-      severidade: "success",
-      titulo:     `Fatura ${cartao.nome} paga com sucesso!`,
-      mensagem:   `Fatura de ${String(mes).padStart(2, "0")}/${ano} no valor de R$ ${valorAPagar.toFixed(2)} foi paga em ${dataPgto.toLocaleDateString("pt-BR")}.`,
-      link:       `/cartoes/${cartaoId}/fatura?mes=${mes}&ano=${ano}`,
-      metadata:   { cartaoId: String(cartaoId), mes: String(mes), ano: String(ano), total: String(valorAPagar) },
     });
 
     // 9. Retornar dados
@@ -319,6 +318,7 @@ export async function POST(
       totalTransacoes: valorAPagar,
     });
   } catch (error: any) {
+    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Erro ao pagar fatura:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Erro ao pagar fatura" }, { status: 500 });
   }
@@ -356,48 +356,39 @@ export async function DELETE(
     const limiteExtra    = Number(fatura.limiteExtraAoPagar ?? 0);
     const valorAReverter = totalFatura + limiteExtra;
 
-    let novoSaldo = 0;
-    if (contaEstorno) {
-      const [conta] = await db.select().from(contas)
-        .where(and(eq(contas.id, contaEstorno), eq(contas.userId, userId)));
-
-      if (!conta) return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
-
-      novoSaldo = Number(conta.saldoAtual) + totalFatura;
-    }
-
     const [cartao] = await db.select().from(cartoes)
       .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
     if (!cartao) return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
 
-    if (contaEstorno) {
-      await db.insert(extratoConta).values({
-        userId,
-        contaId:     contaEstorno,
-        data:        hojeBrt(),
-        tipo:        "entrada",
-        valor:       totalFatura.toFixed(2),
-        descricao:   `Estorno pagamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`,
-        saldoApos:   novoSaldo.toFixed(2),
-        origem:      "ESTORNO",
-        referenciaId: fatura.id.toString(),
-      });
+    await db.transaction(async (tx) => {
+      // Trava a fatura para o estorno não acontecer duas vezes
+      const [atual] = await tx.select().from(faturas).where(eq(faturas.id, fatura.id)).limit(1).for("update");
+      if (!atual || !atual.paga) throw new ErroFinanceiro("Fatura não está paga");
 
-      await db.update(contas)
-        .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
-        .where(and(eq(contas.id, contaEstorno), eq(contas.userId, userId)));
-    }
+      if (contaEstorno) {
+        await movimentarConta(tx, {
+          userId,
+          contaId:     contaEstorno,
+          tipo:        "entrada",
+          valor:       totalFatura,
+          data:        hojeBrt(),
+          descricao:   `Estorno pagamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`,
+          origem:      "ESTORNO",
+          referenciaId: fatura.id.toString(),
+        });
+      }
 
-    // ✅ Reverte o limite pelo valor TOTAL liberado no pagamento
-    // (totalFatura + limiteExtra), não só totalFatura
-    await db.update(cartoes)
-      .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${valorAReverter}` })
-      .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
+      // ✅ Reverte o limite pelo valor TOTAL liberado no pagamento
+      // (totalFatura + limiteExtra), não só totalFatura
+      await tx.update(cartoes)
+        .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${valorAReverter}` })
+        .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
-    await db.update(faturas)
-      .set({ paga: false, dataPagamento: null, contaPagamentoId: null, updatedAt: new Date() })
-      .where(eq(faturas.id, fatura.id));
+      await tx.update(faturas)
+        .set({ paga: false, dataPagamento: null, contaPagamentoId: null, updatedAt: new Date() })
+        .where(eq(faturas.id, fatura.id));
+    });
 
     const diaFechamento      = cartao.diaFechamento || 1;
     const anoMesAnterior     = mes === 1 ? ano - 1 : ano;
@@ -453,6 +444,7 @@ export async function DELETE(
       totalTransacoes: totalFatura,
     });
   } catch (error: any) {
+    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Erro ao estornar pagamento:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Erro ao estornar pagamento" }, { status: 500 });
   }

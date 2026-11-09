@@ -2,10 +2,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { proventosRv, contas, extratoConta } from "@/db/schema";
+import { proventosRv, extratoConta } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { r2 } from "@/utils/rendaVariavelUtils";
+import { ErroFinanceiro, alterarSaldo } from "@/lib/movimentacaoConta";
 
 export async function DELETE(
   _req: NextRequest,
@@ -23,23 +23,26 @@ export async function DELETE(
       .limit(1);
     if (!p) return NextResponse.json({ error: "Provento não encontrado" }, { status: 404 });
 
-    // Se tinha creditado a conta, devolve (tira o valor do saldo) e remove do extrato
-    if (p.movimentouConta && p.contaId) {
-      const [conta] = await db.select().from(contas).where(eq(contas.id, p.contaId)).limit(1);
-      if (conta) {
-        await db
-          .update(contas)
-          .set({ saldoAtual: r2(Number(conta.saldoAtual) - Number(p.valorLiquido)).toFixed(2), updatedAt: new Date() })
-          .where(eq(contas.id, conta.id));
-      }
-      await db
-        .delete(extratoConta)
-        .where(and(eq(extratoConta.referenciaId, id), eq(extratoConta.userId, userId)));
-    }
+    await db.transaction(async (tx) => {
+      // Trava o provento para a reversão não acontecer duas vezes
+      const [aindaExiste] = await tx.select({ id: proventosRv.id }).from(proventosRv)
+        .where(and(eq(proventosRv.id, id), eq(proventosRv.userId, userId))).limit(1).for("update");
+      if (!aindaExiste) throw new ErroFinanceiro("Provento não encontrado", 404);
 
-    await db.delete(proventosRv).where(eq(proventosRv.id, id));
+      // Se tinha creditado a conta, devolve (tira o valor do saldo) e remove do extrato
+      if (p.movimentouConta && p.contaId) {
+        await alterarSaldo(tx, userId, p.contaId, -Number(p.valorLiquido));
+        await tx
+          .delete(extratoConta)
+          .where(and(eq(extratoConta.referenciaId, id), eq(extratoConta.userId, userId)));
+      }
+
+      await tx.delete(proventosRv).where(eq(proventosRv.id, id));
+    });
+
     return NextResponse.json({ ok: true });
   } catch (error: any) {
+    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Erro ao excluir provento:", error);
     return NextResponse.json({ error: error.message || "Erro ao excluir provento" }, { status: 500 });
   }

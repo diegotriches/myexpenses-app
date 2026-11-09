@@ -7,7 +7,7 @@
 import { db } from "@/db";
 import {
   aplicacoes, aportesAplicacao, resgatesAplicacao, taxasDiarias,
-  rendimentosAplicacao, contas, extratoConta,
+  rendimentosAplicacao, contas,
 } from "@/db/schema";
 import { and, asc, eq, gte, lte, max, min, notInArray, sql } from "drizzle-orm";
 import {
@@ -15,6 +15,7 @@ import {
   type ResultadoSimulacao,
 } from "@/utils/aplicacaoSimulacao";
 import type { Tributacao } from "@/utils/aplicacaoUtils";
+import { movimentarConta } from "@/lib/movimentacaoConta";
 
 // Séries SGS do Banco Central — já retornam a taxa diária em %
 const SERIES_BCB = { cdi: 12, selic: 11 } as const;
@@ -269,6 +270,10 @@ export async function executarResgate(params: {
   const [conta] = await db.select().from(contas).where(eq(contas.id, ap.contaId)).limit(1);
   if (!conta) throw new Error("Conta não encontrada");
 
+  // O cálculo depende do BCB e fica fora da transação; esta contagem detecta
+  // outro resgate feito nesse intervalo
+  const resgatesAntes = await db.$count(resgatesAplicacao, eq(resgatesAplicacao.aplicacaoId, ap.id));
+
   // estado mais recente (com tudo que o BCB já publicou)
   const recalculo = await recalcularAplicacao(ap.id);
   if (!recalculo) throw new Error("Aplicação sem aportes");
@@ -292,52 +297,61 @@ export async function executarResgate(params: {
   const valorLiquido = arredondar2(bruto - impostoRetido);
   const agora = new Date();
 
-  const novoSaldo = Number(conta.saldoAtual) + valorLiquido;
-  await db.update(contas)
-    .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: agora })
-    .where(eq(contas.id, conta.id));
-
   const rotulo = params.automatico ? "Resgate automático" : total ? "Resgate" : "Resgate parcial";
-  await db.insert(extratoConta).values({
-    userId: params.userId, contaId: conta.id,
-    data: hoje, tipo: "entrada", valor: valorLiquido.toFixed(2),
-    descricao: impostoRetido > 0
-      ? `${rotulo} — ${ap.descricao || "Aplicação"} (IR retido: R$ ${impostoRetido.toFixed(2)})`
-      : `${rotulo} — ${ap.descricao || "Aplicação"}`,
-    saldoApos: novoSaldo.toFixed(2),
-    origem: "RESGATE_APLICACAO", referenciaId: ap.id,
+
+  await db.transaction(async (tx) => {
+    // Trava a aplicação: resgates simultâneos passam um de cada vez
+    const [atual] = await tx.select({ resgatada: aplicacoes.resgatada }).from(aplicacoes)
+      .where(eq(aplicacoes.id, ap.id)).limit(1).for("update");
+    if (!atual || atual.resgatada) throw new Error("Esta aplicação já foi resgatada");
+
+    const resgatesAgora = await tx.$count(resgatesAplicacao, eq(resgatesAplicacao.aplicacaoId, ap.id));
+    if (resgatesAgora !== resgatesAntes) throw new Error("Outro resgate já foi processado. Tente novamente.");
+
+    await movimentarConta(tx, {
+      userId: params.userId,
+      contaId: conta.id,
+      tipo: "entrada",
+      valor: valorLiquido,
+      data: hoje,
+      descricao: impostoRetido > 0
+        ? `${rotulo} — ${ap.descricao || "Aplicação"} (IR retido: R$ ${impostoRetido.toFixed(2)})`
+        : `${rotulo} — ${ap.descricao || "Aplicação"}`,
+      origem: "RESGATE_APLICACAO",
+      referenciaId: ap.id,
+    });
+
+    await tx.insert(resgatesAplicacao).values({
+      aplicacaoId: ap.id,
+      data: hoje,
+      valorBruto: bruto.toFixed(2),
+      tipo: total ? "total" : "parcial",
+      impostoRetido: impostoRetido.toFixed(2),
+      valorLiquido: valorLiquido.toFixed(2),
+      contaId: conta.id,
+      historico: false,
+    });
+
+    if (total) {
+      await tx.update(aportesAplicacao)
+        .set({ principalRestante: "0", valorAtual: "0" })
+        .where(eq(aportesAplicacao.aplicacaoId, ap.id));
+
+      await tx.update(aplicacoes)
+        .set({
+          resgatada: true,
+          dataResgate: agora,
+          valorResgatado: valorLiquido.toFixed(2),
+          impostoRetido: impostoRetido.toFixed(2),
+          // valorPrincipal / valorAtual ficam com o último valor calculado
+          // (é o que o histórico mostra)
+          updatedAt: agora,
+        })
+        .where(eq(aplicacoes.id, ap.id));
+    }
   });
 
-  await db.insert(resgatesAplicacao).values({
-    aplicacaoId: ap.id,
-    data: hoje,
-    valorBruto: bruto.toFixed(2),
-    tipo: total ? "total" : "parcial",
-    impostoRetido: impostoRetido.toFixed(2),
-    valorLiquido: valorLiquido.toFixed(2),
-    contaId: conta.id,
-    historico: false,
-  });
-
-  if (total) {
-    await db.update(aportesAplicacao)
-      .set({ principalRestante: "0", valorAtual: "0" })
-      .where(eq(aportesAplicacao.aplicacaoId, ap.id));
-
-    await db.update(aplicacoes)
-      .set({
-        resgatada: true,
-        dataResgate: agora,
-        valorResgatado: valorLiquido.toFixed(2),
-        impostoRetido: impostoRetido.toFixed(2),
-        // valorPrincipal / valorAtual ficam com o último valor calculado
-        // (é o que o histórico mostra)
-        updatedAt: agora,
-      })
-      .where(eq(aplicacoes.id, ap.id));
-  } else {
-    await recalcularAplicacao(ap.id);
-  }
+  if (!total) await recalcularAplicacao(ap.id);
 
   return {
     tipo: total ? "total" : "parcial",

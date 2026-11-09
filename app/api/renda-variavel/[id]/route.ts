@@ -2,10 +2,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { operacoesRv, contas, extratoConta } from "@/db/schema";
+import { operacoesRv, extratoConta } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
-import { totalOperacao, validarSequencia, r2, type OperacaoRv } from "@/utils/rendaVariavelUtils";
+import { ErroFinanceiro, alterarSaldo } from "@/lib/movimentacaoConta";
+import { totalOperacao, validarSequencia, type OperacaoRv } from "@/utils/rendaVariavelUtils";
 
 const fmtIso = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
@@ -53,30 +54,32 @@ export async function DELETE(
       );
     }
 
-    // Desfaz o efeito no saldo da conta, se a operação tinha movimentado
-    if (op.movimentouConta && op.contaId) {
-      const [conta] = await db.select().from(contas).where(eq(contas.id, op.contaId)).limit(1);
-      if (conta) {
+    await db.transaction(async (tx) => {
+      // Trava a operação para a reversão não acontecer duas vezes
+      const [aindaExiste] = await tx.select({ id: operacoesRv.id }).from(operacoesRv)
+        .where(and(eq(operacoesRv.id, id), eq(operacoesRv.userId, userId))).limit(1).for("update");
+      if (!aindaExiste) throw new ErroFinanceiro("Operação não encontrada", 404);
+
+      // Desfaz o efeito no saldo da conta, se a operação tinha movimentado
+      if (op.movimentouConta && op.contaId) {
         const total = totalOperacao({
           tipo: op.tipo,
           quantidade: op.quantidade,
           precoUnitario: Number(op.precoUnitario),
           taxas: Number(op.taxas),
         });
-        const novoSaldo = r2(Number(conta.saldoAtual) + (op.tipo === "compra" ? total : -total));
-        await db
-          .update(contas)
-          .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
-          .where(eq(contas.id, conta.id));
+        await alterarSaldo(tx, userId, op.contaId, op.tipo === "compra" ? total : -total);
+        await tx
+          .delete(extratoConta)
+          .where(and(eq(extratoConta.referenciaId, id), eq(extratoConta.userId, userId)));
       }
-      await db
-        .delete(extratoConta)
-        .where(and(eq(extratoConta.referenciaId, id), eq(extratoConta.userId, userId)));
-    }
 
-    await db.delete(operacoesRv).where(eq(operacoesRv.id, id));
+      await tx.delete(operacoesRv).where(eq(operacoesRv.id, id));
+    });
+
     return NextResponse.json({ ok: true });
   } catch (error: any) {
+    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Erro ao excluir operação de renda variável:", error);
     return NextResponse.json({ error: error.message || "Erro ao excluir operação" }, { status: 500 });
   }

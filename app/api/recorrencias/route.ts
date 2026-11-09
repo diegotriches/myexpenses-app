@@ -160,38 +160,42 @@ export async function POST(req: NextRequest) {
   // (com o impacto financeiro sendo aplicado agora mesmo). Se for uma data
   // futura, não gera nada agora — fica pro cron gerar no dia certo.
   if (ehHoje) {
-    const [transacaoGerada] = await db.insert(transacoes).values({
-      userId,
-      tipo,
-      valor: valorNum.toFixed(2),
-      data: dataInicio,
-      descricao: descricao || null,
-      categoria: categoria || null,
-      formaPagamento: formaPagamento || "dinheiro",
-      contaId: contaId || null,
-      cartaoId: cartaoId ? Number(cartaoId) : null,
-      estabelecimentoId: estabelecimentoId || null,
-      recorrente: true,
-      origemRecorrenciaId: novaRecorrencia.id,
-    }).returning();
+    const { transacaoGerada, alerta } = await db.transaction(async (tx) => {
+      const [criada] = await tx.insert(transacoes).values({
+        userId,
+        tipo,
+        valor: valorNum.toFixed(2),
+        data: dataInicio,
+        descricao: descricao || null,
+        categoria: categoria || null,
+        formaPagamento: formaPagamento || "dinheiro",
+        contaId: contaId || null,
+        cartaoId: cartaoId ? Number(cartaoId) : null,
+        estabelecimentoId: estabelecimentoId || null,
+        recorrente: true,
+        origemRecorrenciaId: novaRecorrencia.id,
+      }).returning();
 
-    // Mesmo helper do cron: aplica o impacto e devolve alerta se o saldo
-    // ou o limite ficou negativo (nunca bloqueia a geração)
-    const alerta = await aplicarImpactoRecorrencia({
-      userId,
-      tipo,
-      valor: valorNum,
-      data: dataInicio,
-      formaPagamento: formaPagamento || "dinheiro",
-      contaId: contaId || null,
-      cartaoId: cartaoId ? Number(cartaoId) : null,
-      transacaoId: transacaoGerada.id,
-      descricao: descricao || null,
+      // Mesmo helper do cron: aplica o impacto e devolve alerta se o saldo
+      // ou o limite ficou negativo (nunca bloqueia a geração)
+      const alertaImpacto = await aplicarImpactoRecorrencia(tx, {
+        userId,
+        tipo,
+        valor: valorNum,
+        data: dataInicio,
+        formaPagamento: formaPagamento || "dinheiro",
+        contaId: contaId || null,
+        cartaoId: cartaoId ? Number(cartaoId) : null,
+        transacaoId: criada.id,
+        descricao: descricao || null,
+      });
+
+      await tx.update(recorrencias)
+        .set({ repeticoesGeradas: 1, ultimaGeracaoMes: mesInicio, ultimaGeracaoAno: anoInicio })
+        .where(eq(recorrencias.id, novaRecorrencia.id));
+
+      return { transacaoGerada: criada, alerta: alertaImpacto };
     });
-
-    await db.update(recorrencias)
-      .set({ repeticoesGeradas: 1, ultimaGeracaoMes: mesInicio, ultimaGeracaoAno: anoInicio })
-      .where(eq(recorrencias.id, novaRecorrencia.id));
 
     if (alerta) {
       await notificarImpactoRecorrencia({

@@ -2,16 +2,16 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { operacoesRv, cotacoesRv, cotacoesManuaisRv, contas, extratoConta } from "@/db/schema";
+import { operacoesRv, cotacoesRv, cotacoesManuaisRv, contas } from "@/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { ErroFinanceiro, movimentarConta as registrarMovimentacao } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import {
   TICKER_REGEX,
   normalizarTicker,
   totalOperacao,
   validarSequencia,
-  r2,
   type OperacaoRv,
   type TipoAtivo,
 } from "@/utils/rendaVariavelUtils";
@@ -183,44 +183,43 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Saldo insuficiente na conta para esta compra" }, { status: 400 });
     }
 
-    const [criada] = await db
-      .insert(operacoesRv)
-      .values({
-        userId,
-        ticker,
-        tipoAtivo,
-        tipo,
-        data,
-        quantidade,
-        precoUnitario: preco.toFixed(4),
-        taxas: taxas.toFixed(2),
-        contaId: conta?.id ?? null,
-        movimentouConta: movimentar,
-      })
-      .returning();
+    const criada = await db.transaction(async (tx) => {
+      const [registro] = await tx
+        .insert(operacoesRv)
+        .values({
+          userId,
+          ticker,
+          tipoAtivo,
+          tipo,
+          data,
+          quantidade,
+          precoUnitario: preco.toFixed(4),
+          taxas: taxas.toFixed(2),
+          contaId: conta?.id ?? null,
+          movimentouConta: movimentar,
+        })
+        .returning();
 
-    if (movimentar && conta) {
-      const saldoApos = r2(Number(conta.saldoAtual) + (tipo === "venda" ? total : -total));
-      await db
-        .update(contas)
-        .set({ saldoAtual: saldoApos.toFixed(2), updatedAt: new Date() })
-        .where(eq(contas.id, conta.id));
+      if (movimentar && conta) {
+        await registrarMovimentacao(tx, {
+          userId,
+          contaId: conta.id,
+          tipo: tipo === "venda" ? "entrada" : "saida",
+          valor: total,
+          data,
+          descricao: `${tipo === "venda" ? "Venda" : "Compra"} de ${quantidade} ${ticker}`,
+          origem: tipo === "venda" ? "RESGATE_APLICACAO" : "APLICACAO",
+          referenciaId: registro.id,
+          mensagemSaldoInsuficiente: tipo === "compra" ? "Saldo insuficiente na conta para esta compra" : undefined,
+        });
+      }
 
-      await db.insert(extratoConta).values({
-        userId,
-        contaId: conta.id,
-        data,
-        tipo: tipo === "venda" ? "entrada" : "saida",
-        valor: total.toFixed(2),
-        descricao: `${tipo === "venda" ? "Venda" : "Compra"} de ${quantidade} ${ticker}`,
-        saldoApos: saldoApos.toFixed(2),
-        origem: tipo === "venda" ? "RESGATE_APLICACAO" : "APLICACAO",
-        referenciaId: criada.id,
-      });
-    }
+      return registro;
+    });
 
     return NextResponse.json(paraApi(criada), { status: 201 });
   } catch (error: any) {
+    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Erro ao registrar operação de renda variável:", error);
     return NextResponse.json({ error: error.message || "Erro ao registrar operação" }, { status: 500 });
   }

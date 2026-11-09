@@ -9,8 +9,8 @@
 // O impacto é aplicado normalmente (saldo pode ficar negativo, limite pode
 // ficar negativo) e a função devolve um "alerta" para o chamador notificar.
 
-import { db } from "@/db";
-import { contas, cartoes, faturas, extratoConta } from "@/db/schema";
+import { cartoes, faturas } from "@/db/schema";
+import { movimentarConta, type TransacaoBanco } from "@/lib/movimentacaoConta";
 import { eq, and } from "drizzle-orm";
 import {
   calcularFaturaDaTransacao,
@@ -55,6 +55,7 @@ interface DadosExtrato {
 const arredondar = (n: number) => Math.round(n * 100) / 100;
 
 async function ajustarSaldoConta(
+  tx: TransacaoBanco,
   contaId: string,
   userId: string,
   tipo: string,
@@ -62,47 +63,23 @@ async function ajustarSaldoConta(
   extrato: DadosExtrato,
   cartaoNome?: string,
 ): Promise<AlertaImpacto | null> {
-  const [conta] = await db
-    .select()
-    .from(contas)
-    .where(and(eq(contas.id, contaId), eq(contas.userId, userId)))
-    .limit(1);
-  if (!conta) return null;
+  const { conta, saldoApos } = await movimentarConta(tx, {
+    userId,
+    contaId,
+    tipo: tipo === "entrada" ? "entrada" : "saida",
+    valor,
+    data: extrato.data,
+    descricao: extrato.descricao,
+    origem: "TRANSACAO_MANUAL",
+    referenciaId: extrato.transacaoId,
+  });
 
-  const saldoAtual = Number(conta.saldoAtual);
-  const novoSaldo = arredondar(
-    tipo === "entrada" ? saldoAtual + valor : saldoAtual - valor,
-  );
-
-  await db
-    .update(contas)
-    .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
-    .where(eq(contas.id, contaId));
-
-  // Mesmo registro que o lançamento manual faz em POST /api/transacoes.
-  // Se falhar, só loga: a transação e o saldo já estão consolidados.
-  try {
-    await db.insert(extratoConta).values({
-      userId,
-      contaId,
-      data: extrato.data,
-      tipo: tipo === "entrada" ? "entrada" : "saida",
-      valor: valor.toFixed(2),
-      descricao: extrato.descricao,
-      saldoApos: novoSaldo.toFixed(2),
-      origem: "TRANSACAO_MANUAL",
-      referenciaId: extrato.transacaoId,
-    });
-  } catch (error: any) {
-    console.error("[Recorrências] Falha ao registrar no extrato:", error?.message);
-  }
-
-  if (tipo === "saida" && novoSaldo < 0) {
+  if (tipo === "saida" && saldoApos < 0) {
     return {
       tipo: "SALDO_NEGATIVO",
       contaId,
       contaNome: conta.nome,
-      saldoApos: novoSaldo,
+      saldoApos,
       cartaoNome,
     };
   }
@@ -110,6 +87,7 @@ async function ajustarSaldoConta(
 }
 
 export async function aplicarImpactoRecorrencia(
+  tx: TransacaoBanco,
   p: Params,
 ): Promise<AlertaImpacto | null> {
   const { userId, tipo, valor, data, formaPagamento, contaId, cartaoId } = p;
@@ -120,17 +98,19 @@ export async function aplicarImpactoRecorrencia(
 
   // ── Cartão ────────────────────────────────────────────────────────────────
   if (formaPagamento === "cartao" && cartaoId) {
-    const [cartao] = await db
+    const [cartao] = await tx
       .select()
       .from(cartoes)
       .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)))
-      .limit(1);
+      .limit(1)
+      .for("update");
     if (!cartao) return null;
 
     // Débito: sai da conta vinculada ao cartão
     if (cartao.tipo === "debito") {
       if (!cartao.contaVinculadaId) return null;
       return ajustarSaldoConta(
+        tx,
         cartao.contaVinculadaId,
         userId,
         tipo,
@@ -157,7 +137,7 @@ export async function aplicarImpactoRecorrencia(
         diaFechamento,
       );
 
-      const [faturaExistente] = await db
+      const [faturaExistente] = await tx
         .select()
         .from(faturas)
         .where(
@@ -168,10 +148,11 @@ export async function aplicarImpactoRecorrencia(
             eq(faturas.ano, anoFatura),
           ),
         )
-        .limit(1);
+        .limit(1)
+        .for("update");
 
       if (faturaExistente) {
-        await db
+        await tx
           .update(faturas)
           .set({
             total: (Number(faturaExistente.total) + valor).toFixed(2),
@@ -179,7 +160,7 @@ export async function aplicarImpactoRecorrencia(
           })
           .where(eq(faturas.id, faturaExistente.id));
       } else {
-        await db.insert(faturas).values({
+        await tx.insert(faturas).values({
           userId,
           cartaoId,
           mes: mesFatura,
@@ -190,7 +171,7 @@ export async function aplicarImpactoRecorrencia(
       }
 
       const novoLimite = arredondar(Number(cartao.limiteDisponivel) - valor);
-      await db
+      await tx
         .update(cartoes)
         .set({ limiteDisponivel: novoLimite.toFixed(2) })
         .where(eq(cartoes.id, cartaoId));
@@ -209,7 +190,7 @@ export async function aplicarImpactoRecorrencia(
 
   // ── Conta (dinheiro / PIX) ────────────────────────────────────────────────
   if (contaId) {
-    return ajustarSaldoConta(contaId, userId, tipo, valor, {
+    return ajustarSaldoConta(tx, contaId, userId, tipo, valor, {
       transacaoId: p.transacaoId,
       data: dataISO,
       descricao: descricaoBase,

@@ -162,7 +162,8 @@ export async function POST(req: NextRequest) {
         .from(contas)
         .where(
           and(eq(contas.id, contaOrigemId), eq(contas.userId, userId))
-        );
+        )
+        .for("update");
 
       if (!contaOrigem) {
         throw new Error("CONTA_ORIGEM_NAO_ENCONTRADA");
@@ -177,7 +178,8 @@ export async function POST(req: NextRequest) {
         .from(contas)
         .where(
           and(eq(contas.id, contaDestinoId), eq(contas.userId, userId))
-        );
+        )
+        .for("update");
 
       if (!contaDestino) {
         throw new Error("CONTA_DESTINO_NAO_ENCONTRADA");

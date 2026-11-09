@@ -144,7 +144,8 @@ export async function DELETE(
             eq(transferencias.id, transferenciaId),
             eq(transferencias.userId, userId) // 🔐 Verificar ownership
           )
-        );
+        )
+        .for("update");
 
       if (!transferencia) {
         throw new Error("TRANSFERENCIA_NAO_ENCONTRADA");
@@ -161,7 +162,8 @@ export async function DELETE(
             eq(contas.id, transferencia.contaOrigemId),
             eq(contas.userId, userId) // 🔐 Verificar ownership
           )
-        );
+        )
+        .for("update");
 
       if (!contaOrigem) {
         throw new Error("CONTA_ORIGEM_NAO_ENCONTRADA");
@@ -175,7 +177,8 @@ export async function DELETE(
             eq(contas.id, transferencia.contaDestinoId),
             eq(contas.userId, userId) // 🔐 Verificar ownership
           )
-        );
+        )
+        .for("update");
 
       if (!contaDestino) {
         throw new Error("CONTA_DESTINO_NAO_ENCONTRADA");

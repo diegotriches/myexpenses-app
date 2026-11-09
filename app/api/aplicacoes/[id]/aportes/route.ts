@@ -2,9 +2,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { aplicacoes, aportesAplicacao, contas, extratoConta } from "@/db/schema";
+import { aplicacoes, aportesAplicacao, contas } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { recalcularAplicacao } from "@/lib/aplicacaoEngine";
 
@@ -47,34 +48,33 @@ export async function POST(
     if (!conta)       return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
     if (!conta.ativo) return NextResponse.json({ error: "Conta inativa" }, { status: 400 });
 
-    if (!historico) {
-      const saldoAtual = Number(conta.saldoAtual);
-      if (saldoAtual < valorNum)
-        return NextResponse.json({ error: "Saldo insuficiente na conta para esse aporte" }, { status: 400 });
+    const aporte = await db.transaction(async (tx) => {
+      if (!historico) {
+        await movimentarConta(tx, {
+          userId,
+          contaId: conta.id,
+          tipo: "saida",
+          valor: valorNum,
+          data: hoje,
+          descricao: `Aporte — ${aplicacao.descricao || aplicacao.indexador.toUpperCase()}`,
+          origem: "APLICACAO",
+          referenciaId: aplicacao.id,
+          mensagemSaldoInsuficiente: "Saldo insuficiente na conta para esse aporte",
+        });
+      }
 
-      const novoSaldo = saldoAtual - valorNum;
-      await db.update(contas)
-        .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
-        .where(eq(contas.id, conta.id));
+      const [criado] = await tx.insert(aportesAplicacao).values({
+        aplicacaoId: aplicacao.id,
+        data: dataAporte,
+        valor: valorNum.toFixed(2),
+        principalRestante: valorNum.toFixed(8),
+        valorAtual: valorNum.toFixed(8),
+        contaId: conta.id,
+        historico,
+      }).returning();
 
-      await db.insert(extratoConta).values({
-        userId, contaId: conta.id,
-        data: hoje, tipo: "saida", valor: valorNum.toFixed(2),
-        descricao: `Aporte — ${aplicacao.descricao || aplicacao.indexador.toUpperCase()}`,
-        saldoApos: novoSaldo.toFixed(2),
-        origem: "APLICACAO", referenciaId: aplicacao.id,
-      });
-    }
-
-    const [aporte] = await db.insert(aportesAplicacao).values({
-      aplicacaoId: aplicacao.id,
-      data: dataAporte,
-      valor: valorNum.toFixed(2),
-      principalRestante: valorNum.toFixed(8),
-      valorAtual: valorNum.toFixed(8),
-      contaId: conta.id,
-      historico,
-    }).returning();
+      return criado;
+    });
 
     // recalcula já, pra o aporte (e o rendimento retroativo) aparecerem na hora
     try { await recalcularAplicacao(aplicacao.id); }
@@ -82,6 +82,7 @@ export async function POST(
 
     return NextResponse.json(aporte, { status: 201 });
   } catch (error: any) {
+    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Erro ao registrar aporte:", error);
     return NextResponse.json({ error: error.message || "Erro ao registrar aporte" }, { status: 500 });
   }

@@ -3,10 +3,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import {
-  aplicacoes, aportesAplicacao, resgatesAplicacao, taxasDiarias, contas, extratoConta,
+  aplicacoes, aportesAplicacao, resgatesAplicacao, taxasDiarias, contas, 
 } from "@/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { recalcularAplicacao } from "@/lib/aplicacaoEngine";
 
@@ -104,53 +105,47 @@ export async function POST(req: NextRequest) {
     if (!conta)       return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
     if (!conta.ativo) return NextResponse.json({ error: "Conta inativa" }, { status: 400 });
 
-    const agora = new Date();
-
-    if (!historico) {
-      const saldoAtual = Number(conta.saldoAtual);
-      if (saldoAtual < valorNum)
-        return NextResponse.json({ error: "Saldo insuficiente na conta para aplicar esse valor" }, { status: 400 });
-
-      await db.update(contas)
-        .set({ saldoAtual: (saldoAtual - valorNum).toFixed(2), updatedAt: agora })
-        .where(eq(contas.id, contaId));
-    }
-
-    const [novaAplicacao] = await db.insert(aplicacoes).values({
-      userId, contaId,
-      descricao: descricao || null,
-      valorPrincipal: valorNum.toFixed(2),
-      valorAtual: valorNum.toFixed(2),
-      indexador,
-      percentualIndexador: percentualNum.toFixed(2),
-      tributacao: tributacaoFinal,
-      // true = o aporte já rende a taxa do próprio dia (depende da corretora)
-      rendeNoDiaAporte: rendeNoDiaAporte === true,
-      dataAplicacao: new Date(`${dataAporte}T12:00:00-03:00`),
-      dataVencimento: dataVencimentoDate,
-      resgatada: false,
-    }).returning();
-
-    await db.insert(aportesAplicacao).values({
-      aplicacaoId: novaAplicacao.id,
-      data: dataAporte,
-      valor: valorNum.toFixed(2),
-      principalRestante: valorNum.toFixed(8),
-      valorAtual: valorNum.toFixed(8),
-      contaId,
-      historico,
-    });
-
-    if (!historico) {
-      await db.insert(extratoConta).values({
+    const novaAplicacao = await db.transaction(async (tx) => {
+      const [criada] = await tx.insert(aplicacoes).values({
         userId, contaId,
-        data: hoje,
-        tipo: "saida", valor: valorNum.toFixed(2),
-        descricao: `Aplicação — ${descricao || indexador.toUpperCase()}`,
-        saldoApos: (Number(conta.saldoAtual) - valorNum).toFixed(2),
-        origem: "APLICACAO", referenciaId: novaAplicacao.id,
+        descricao: descricao || null,
+        valorPrincipal: valorNum.toFixed(2),
+        valorAtual: valorNum.toFixed(2),
+        indexador,
+        percentualIndexador: percentualNum.toFixed(2),
+        tributacao: tributacaoFinal,
+        // true = o aporte já rende a taxa do próprio dia (depende da corretora)
+        rendeNoDiaAporte: rendeNoDiaAporte === true,
+        dataAplicacao: new Date(`${dataAporte}T12:00:00-03:00`),
+        dataVencimento: dataVencimentoDate,
+        resgatada: false,
+      }).returning();
+
+      await tx.insert(aportesAplicacao).values({
+        aplicacaoId: criada.id,
+        data: dataAporte,
+        valor: valorNum.toFixed(2),
+        principalRestante: valorNum.toFixed(8),
+        valorAtual: valorNum.toFixed(8),
+        contaId,
+        historico,
       });
-    }
+
+      if (!historico) {
+        await movimentarConta(tx, {
+          userId, contaId,
+          tipo: "saida",
+          valor: valorNum,
+          data: hoje,
+          descricao: `Aplicação — ${descricao || indexador.toUpperCase()}`,
+          origem: "APLICACAO",
+          referenciaId: criada.id,
+          mensagemSaldoInsuficiente: "Saldo insuficiente na conta para aplicar esse valor",
+        });
+      }
+
+      return criada;
+    });
 
     // aplicação retroativa já nasce com o rendimento calculado até hoje
     if (historico) {
@@ -160,6 +155,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(novaAplicacao, { status: 201 });
   } catch (error: any) {
+    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Erro ao criar aplicação:", error);
     return NextResponse.json({ error: error.message || "Erro ao criar aplicação" }, { status: 500 });
   }

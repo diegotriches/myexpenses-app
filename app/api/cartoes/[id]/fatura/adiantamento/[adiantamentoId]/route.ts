@@ -1,9 +1,10 @@
 // src/app/api/cartoes/[id]/fatura/adiantamento/[adiantamentoId]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { adiantamentosFatura, faturas, contas, cartoes, extratoConta } from "@/db/schema";
+import { adiantamentosFatura, faturas, contas, cartoes } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -92,53 +93,52 @@ export async function DELETE(
     if (!cartao)
       return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
 
-    const novoTotalFatura = Number(fatura.total) + valorNum;
-    let novoSaldoConta: number | null = null;
+    const { novoTotalFatura, novoSaldoConta } = await db.transaction(async (tx) => {
+      // Trava o adiantamento para o cancelamento não acontecer duas vezes
+      const [aindaExiste] = await tx.select({ id: adiantamentosFatura.id }).from(adiantamentosFatura)
+        .where(eq(adiantamentosFatura.id, adiantamentoId)).limit(1).for("update");
+      if (!aindaExiste) throw new ErroFinanceiro("Adiantamento não encontrado", 404);
 
-    if (conta && adiantamento.contaId) {
-      novoSaldoConta = Number(conta.saldoAtual) + valorNum;
+      const [atual] = await tx.select().from(faturas).where(eq(faturas.id, fatura.id)).limit(1).for("update");
+      if (!atual || atual.paga) throw new ErroFinanceiro("Não é possível cancelar adiantamento de fatura já paga");
 
-      // ── 5. Estornar valor à conta ───────────────────────────────────────────
-      await db
-        .update(contas)
-        .set({ saldoAtual: novoSaldoConta.toFixed(2), updatedAt: new Date() })
-        .where(and(eq(contas.id, adiantamento.contaId), eq(contas.userId, userId)));
+      let saldoConta: number | null = null;
+      if (conta && adiantamento.contaId) {
+        const resultado = await movimentarConta(tx, {
+          userId,
+          contaId:  adiantamento.contaId,
+          tipo:     "entrada",
+          valor:    valorNum,
+          data:     hojeBrt(),
+          descricao: `Estorno adiantamento fatura ${cartao.nome} - ${String(atual.mes).padStart(2, "0")}/${atual.ano}`,
+          origem:    "ESTORNO",
+          referenciaId: adiantamento.id,
+        });
+        saldoConta = resultado.saldoApos;
+      }
 
-      // ── 6. Registrar estorno no extrato ─────────────────────────────────────
-      await db.insert(extratoConta).values({
-        userId,
-        contaId:  adiantamento.contaId,
-        data:     hojeBrt(),
-        tipo:     "entrada",
-        valor:    valorNum.toFixed(2),
-        descricao: `Estorno adiantamento fatura ${cartao.nome} - ${String(fatura.mes).padStart(2, "0")}/${fatura.ano}`,
-        saldoApos: novoSaldoConta.toFixed(2),
-        origem:    "ESTORNO",
-        referenciaId: adiantamento.id,
-      });
-    }
+      const novoTotal = Number(atual.total) + valorNum;
+      await tx
+        .update(faturas)
+        .set({ total: novoTotal.toFixed(2), updatedAt: new Date() })
+        .where(eq(faturas.id, fatura.id));
 
-    // ── 7. Somar de volta o valor na fatura ───────────────────────────────────
-    await db
-      .update(faturas)
-      .set({ total: novoTotalFatura.toFixed(2), updatedAt: new Date() })
-      .where(eq(faturas.id, fatura.id));
+      await tx
+        .update(cartoes)
+        .set({
+          limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${valorNum}`,
+        })
+        .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
-    // ── 8. Remover o limite que havia sido restaurado ─────────────────────────
-    await db
-      .update(cartoes)
-      .set({
-        limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${valorNum}`,
-      })
-      .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
+      await tx
+        .delete(adiantamentosFatura)
+        .where(and(
+          eq(adiantamentosFatura.id,     adiantamentoId),
+          eq(adiantamentosFatura.userId, userId)
+        ));
 
-    // ── 9. Deletar o adiantamento ─────────────────────────────────────────────
-    await db
-      .delete(adiantamentosFatura)
-      .where(and(
-        eq(adiantamentosFatura.id,     adiantamentoId),
-        eq(adiantamentosFatura.userId, userId)
-      ));
+      return { novoTotalFatura: novoTotal, novoSaldoConta: saldoConta };
+    });
 
     return NextResponse.json({
       message:       "Adiantamento cancelado com sucesso",
@@ -146,6 +146,7 @@ export async function DELETE(
       saldoConta:    novoSaldoConta, // null = conta do adiantamento já foi excluída
     });
   } catch (error: any) {
+    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Erro ao cancelar adiantamento:", error);
     return NextResponse.json(
       { error: error.message || "Erro ao cancelar adiantamento" },

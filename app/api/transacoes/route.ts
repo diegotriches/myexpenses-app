@@ -1,9 +1,10 @@
 // app/api/transacoes/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
+import { transacoes, contas, cartoes, faturas } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { garantirDono } from "@/lib/garantirDono";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import { calcularIntervaloAno, lerAnoDaRequisicao } from "@/utils/periodoAno";
@@ -91,41 +92,43 @@ export async function POST(req: NextRequest) {
 
     const parcelamentoId = isParcelas ? crypto.randomUUID() : null;
 
-    const transacoesCriadas = [];
+    const transacoesCriadas: (typeof transacoes.$inferSelect)[] = [];
 
+    // Tudo ou nada: uma parcela recusada desfaz as anteriores
+    await db.transaction(async (tx) => {
     for (let index = 0; index < transacoesArray.length; index++) {
       const trans = transacoesArray[index];
 
       // ── Validações ────────────────────────────────────────────────────────
 
       if (!trans.tipo || !["entrada", "saida"].includes(trans.tipo))
-        return NextResponse.json({ error: "Tipo de transação inválido" }, { status: 400 });
+        throw new ErroFinanceiro("Tipo de transação inválido", 400);
 
       if (trans.tipo === "entrada" && !trans.contaId)
-        return NextResponse.json({ error: "Conta é obrigatória para receitas" }, { status: 400 });
+        throw new ErroFinanceiro("Conta é obrigatória para receitas", 400);
 
       if (trans.tipo === "saida" && trans.formaPagamento !== "cartao" && !trans.contaId)
-        return NextResponse.json({ error: "Conta é obrigatória para despesas com dinheiro/PIX" }, { status: 400 });
+        throw new ErroFinanceiro("Conta é obrigatória para despesas com dinheiro/PIX", 400);
 
       if (!trans.data || isNaN(new Date(trans.data).getTime()))
-        return NextResponse.json({ error: "Data inválida" }, { status: 400 });
+        throw new ErroFinanceiro("Data inválida", 400);
 
       if (trans.formaPagamento === "cartao" && !trans.cartaoId)
-        return NextResponse.json({ error: "Cartão é obrigatório quando forma de pagamento for 'cartao'" }, { status: 400 });
+        throw new ErroFinanceiro("Cartão é obrigatório quando forma de pagamento for 'cartao'", 400);
 
       const valorNum = Number(trans.valor);
       if (isNaN(valorNum) || valorNum <= 0)
-        return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
+        throw new ErroFinanceiro("Valor inválido", 400);
 
       // ── Verificar conta ───────────────────────────────────────────────────
 
       if (trans.contaId) {
-        const [conta] = await db.select().from(contas)
+        const [conta] = await tx.select().from(contas)
           .where(and(eq(contas.id, trans.contaId), eq(contas.userId, userId))).limit(1);
-        if (!conta)       return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
-        if (!conta.ativo) return NextResponse.json({ error: "Conta inativa" }, { status: 400 });
+        if (!conta)       throw new ErroFinanceiro("Conta não encontrada", 404);
+        if (!conta.ativo) throw new ErroFinanceiro("Conta inativa", 400);
         if (trans.tipo === "saida" && trans.formaPagamento !== "cartao" && Number(conta.saldoAtual) < valorNum)
-          return NextResponse.json({ error: "Saldo insuficiente" }, { status: 400 });
+          throw new ErroFinanceiro("Saldo insuficiente", 400);
       }
 
       // ── Verificar cartão ──────────────────────────────────────────────────
@@ -134,36 +137,33 @@ export async function POST(req: NextRequest) {
       let contaParaDebito = null;
 
       if (trans.cartaoId) {
-        [cartao] = await db.select().from(cartoes)
+        [cartao] = await tx.select().from(cartoes)
           .where(and(eq(cartoes.id, Number(trans.cartaoId)), eq(cartoes.userId, userId))).limit(1);
-        if (!cartao)       return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
-        if (!cartao.ativo) return NextResponse.json({ error: "Cartão inativo" }, { status: 400 });
+        if (!cartao)       throw new ErroFinanceiro("Cartão não encontrado", 404);
+        if (!cartao.ativo) throw new ErroFinanceiro("Cartão inativo", 400);
 
         if (cartao.tipo === "debito") {
           if (!cartao.contaVinculadaId)
-            return NextResponse.json({ error: "Cartão de débito sem conta vinculada" }, { status: 400 });
+            throw new ErroFinanceiro("Cartão de débito sem conta vinculada", 400);
 
-          const [conta] = await db.select().from(contas)
+          const [conta] = await tx.select().from(contas)
             .where(and(eq(contas.id, cartao.contaVinculadaId), eq(contas.userId, userId))).limit(1);
-          if (!conta)       return NextResponse.json({ error: "Conta vinculada ao cartão de débito não encontrada" }, { status: 404 });
-          if (!conta.ativo) return NextResponse.json({ error: "Conta vinculada ao cartão de débito está inativa" }, { status: 400 });
+          if (!conta)       throw new ErroFinanceiro("Conta vinculada ao cartão de débito não encontrada", 404);
+          if (!conta.ativo) throw new ErroFinanceiro("Conta vinculada ao cartão de débito está inativa", 400);
           if (Number(conta.saldoAtual) < valorNum)
-            return NextResponse.json({ error: `Saldo insuficiente na conta ${conta.nome}` }, { status: 400 });
+            throw new ErroFinanceiro(`Saldo insuficiente na conta ${conta.nome}`, 400);
           contaParaDebito = conta;
         }
 
         if (cartao.tipo === "credito" && trans.tipo === "saida") {
           if (Number(cartao.limiteDisponivel) < valorNum)
-            return NextResponse.json({ error: "Limite insuficiente no cartão de crédito" }, { status: 400 });
+            throw new ErroFinanceiro("Limite insuficiente no cartão de crédito", 400);
 
           // Bloqueia só se a fatura daquela data já estiver PAGA
           const diaFechamento = cartao.diaFechamento || 1;
           const verificacao = await verificarFaturaPaga(userId, cartao.id, diaFechamento, trans.data);
           if (verificacao.bloqueado) {
-            return NextResponse.json(
-              { error: `${verificacao.motivo}. Estorne o pagamento da fatura ou escolha outra data.` },
-              { status: 400 }
-            );
+            throw new ErroFinanceiro(`${verificacao.motivo}. Estorne o pagamento da fatura ou escolha outra data.`);
           }
         }
       }
@@ -171,9 +171,9 @@ export async function POST(req: NextRequest) {
       // ── Criar transação ───────────────────────────────────────────────────
 
       const erroDono = await garantirDono(userId, { estabelecimentoId: trans.estabelecimentoId });
-      if (erroDono) return NextResponse.json({ error: erroDono }, { status: 404 });
+      if (erroDono) throw new ErroFinanceiro(erroDono, 404);
 
-      const [novaTransacao] = await db.insert(transacoes).values({
+      const [novaTransacao] = await tx.insert(transacoes).values({
         userId,
         tipo:           trans.tipo,
         valor:          valorNum.toFixed(2),
@@ -201,17 +201,16 @@ export async function POST(req: NextRequest) {
 
       if (trans.cartaoId && cartao) {
         if (cartao.tipo === "debito" && contaParaDebito) {
-          const novoSaldo = Number(contaParaDebito.saldoAtual) - valorNum;
-          await db.update(contas)
-            .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
-            .where(and(eq(contas.id, contaParaDebito.id), eq(contas.userId, userId)));
-          await db.insert(extratoConta).values({
-            userId, contaId: contaParaDebito.id,
+          await movimentarConta(tx, {
+            userId,
+            contaId: contaParaDebito.id,
+            tipo: "saida",
+            valor: valorNum,
             data: new Date(trans.data).toISOString().split("T")[0],
-            tipo: "saida", valor: valorNum.toFixed(2),
             descricao: trans.descricao || `Compra no débito - ${cartao.nome}`,
-            saldoApos: novoSaldo.toFixed(2),
-            origem: "TRANSACAO_MANUAL", referenciaId: novaTransacao.id,
+            origem: "TRANSACAO_MANUAL",
+            referenciaId: novaTransacao.id,
+            mensagemSaldoInsuficiente: `Saldo insuficiente na conta ${contaParaDebito.nome}`,
           });
         } else if (cartao.tipo === "credito") {
           const diaFechamento = cartao.diaFechamento || 1;
@@ -220,47 +219,45 @@ export async function POST(req: NextRequest) {
           // total da fatura diferente do que a exclusão/edição calcula)
           const { mes: mesFatura, ano: anoFatura } = calcularFaturaDaTransacao(trans.data as string, diaFechamento);
 
-          const [faturaExistente] = await db.select().from(faturas)
+          const [faturaExistente] = await tx.select().from(faturas)
             .where(and(eq(faturas.cartaoId, Number(trans.cartaoId)), eq(faturas.userId, userId), eq(faturas.mes, mesFatura), eq(faturas.ano, anoFatura)))
-            .limit(1);
+            .limit(1)
+            .for("update");
 
           if (faturaExistente) {
-            await db.update(faturas)
+            await tx.update(faturas)
               .set({ total: (Number(faturaExistente.total) + valorNum).toFixed(2), updatedAt: new Date() })
               .where(eq(faturas.id, faturaExistente.id));
           } else {
-            await db.insert(faturas).values({ userId, cartaoId: Number(trans.cartaoId), mes: mesFatura, ano: anoFatura, total: valorNum.toFixed(2), paga: false });
+            await tx.insert(faturas).values({ userId, cartaoId: Number(trans.cartaoId), mes: mesFatura, ano: anoFatura, total: valorNum.toFixed(2), paga: false });
           }
 
-          await db.update(cartoes)
+          await tx.update(cartoes)
             .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${valorNum}` })
             .where(and(eq(cartoes.id, Number(trans.cartaoId)), eq(cartoes.userId, userId)));
         }
       } else if (trans.contaId && trans.formaPagamento !== "cartao") {
-        const [conta] = await db.select().from(contas).where(and(eq(contas.id, trans.contaId), eq(contas.userId, userId))).limit(1);
-        const saldoAtual = Number(conta.saldoAtual);
-        const novoSaldo  = trans.tipo === "entrada" ? saldoAtual + valorNum : saldoAtual - valorNum;
-
-        await db.update(contas)
-          .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
-          .where(and(eq(contas.id, trans.contaId), eq(contas.userId, userId)));
-        await db.insert(extratoConta).values({
-          userId, contaId: trans.contaId,
-          data: new Date(trans.data).toISOString().split("T")[0],
+        await movimentarConta(tx, {
+          userId,
+          contaId: trans.contaId,
           tipo: trans.tipo === "entrada" ? "entrada" : "saida",
-          valor: valorNum.toFixed(2),
+          valor: valorNum,
+          data: new Date(trans.data).toISOString().split("T")[0],
           descricao: trans.descricao || "Transação manual",
-          saldoApos: novoSaldo.toFixed(2),
-          origem: "TRANSACAO_MANUAL", referenciaId: novaTransacao.id,
+          origem: "TRANSACAO_MANUAL",
+          referenciaId: novaTransacao.id,
+          mensagemSaldoInsuficiente: trans.tipo === "saida" ? "Saldo insuficiente" : undefined,
         });
       }
     }
+    });
 
     return NextResponse.json(
       Array.isArray(json) ? transacoesCriadas : transacoesCriadas[0],
       { status: 201 }
     );
   } catch (err: any) {
+    if (err instanceof ErroFinanceiro) return NextResponse.json({ error: err.message }, { status: err.status });
     const message = err instanceof Error ? err.message : "Erro ao criar transação";
     return NextResponse.json({ error: message }, { status: 500 });
   }

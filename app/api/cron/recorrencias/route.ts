@@ -73,47 +73,52 @@ export async function GET(req: NextRequest) {
       const valor = Number(rec.valor);
       const dataTransacao = new Date(anoAtual, mesAtual - 1, diaAlvo);
 
-      const [novaTransacao] = await db.insert(transacoes).values({
-        userId: rec.userId,
-        tipo: rec.tipo,
-        valor: valor.toFixed(2),
-        data: dataTransacao,
-        descricao: rec.descricao,
-        categoria: rec.categoria,
-        formaPagamento: rec.formaPagamento,
-        contaId: rec.contaId,
-        cartaoId: rec.cartaoId,
-        estabelecimentoId: rec.estabelecimentoId,
-        recorrente: true,
-        origemRecorrenciaId: rec.id,
-      }).returning();
+      // Transação, impacto e contador juntos: falha em qualquer um não deixa
+      // a ocorrência pela metade, e o cron pode tentar de novo
+      const { novaTransacao, alerta } = await db.transaction(async (tx) => {
+        const [criada] = await tx.insert(transacoes).values({
+          userId: rec.userId,
+          tipo: rec.tipo,
+          valor: valor.toFixed(2),
+          data: dataTransacao,
+          descricao: rec.descricao,
+          categoria: rec.categoria,
+          formaPagamento: rec.formaPagamento,
+          contaId: rec.contaId,
+          cartaoId: rec.cartaoId,
+          estabelecimentoId: rec.estabelecimentoId,
+          recorrente: true,
+          origemRecorrenciaId: rec.id,
+        }).returning();
 
-      // Impacto financeiro — aplicado SÓ AGORA, na data real de ocorrência.
-      // Nunca bloqueia: devolve um alerta quando saldo/limite ficou negativo.
-      const alerta = await aplicarImpactoRecorrencia({
-        userId: rec.userId,
-        tipo: rec.tipo,
-        valor,
-        data: dataTransacao,
-        formaPagamento: rec.formaPagamento,
-        contaId: rec.contaId,
-        cartaoId: rec.cartaoId,
-        transacaoId: novaTransacao.id,
-        descricao: rec.descricao,
+        // Nunca bloqueia: devolve um alerta quando saldo/limite ficou negativo.
+        const alertaImpacto = await aplicarImpactoRecorrencia(tx, {
+          userId: rec.userId,
+          tipo: rec.tipo,
+          valor,
+          data: dataTransacao,
+          formaPagamento: rec.formaPagamento,
+          contaId: rec.contaId,
+          cartaoId: rec.cartaoId,
+          transacaoId: criada.id,
+          descricao: rec.descricao,
+        });
+
+        const novasRepeticoesGeradas = rec.repeticoesGeradas + 1;
+        const atingiuLimite = rec.repeticoesTotal !== null && novasRepeticoesGeradas >= rec.repeticoesTotal;
+
+        await tx.update(recorrencias)
+          .set({
+            repeticoesGeradas: novasRepeticoesGeradas,
+            ultimaGeracaoMes: mesAtual,
+            ultimaGeracaoAno: anoAtual,
+            ativa: atingiuLimite ? false : rec.ativa,
+            updatedAt: new Date(),
+          })
+          .where(eq(recorrencias.id, rec.id));
+
+        return { novaTransacao: criada, alerta: alertaImpacto };
       });
-
-      const novasRepeticoesGeradas = rec.repeticoesGeradas + 1;
-      const atingiuLimite = rec.repeticoesTotal !== null && novasRepeticoesGeradas >= rec.repeticoesTotal;
-
-      await db.update(recorrencias)
-        .set({
-          repeticoesGeradas: novasRepeticoesGeradas,
-          ultimaGeracaoMes: mesAtual,
-          ultimaGeracaoAno: anoAtual,
-          ativa: atingiuLimite ? false : rec.ativa,
-          updatedAt: new Date(),
-        })
-        .where(eq(recorrencias.id, rec.id));
 
       // Notificação por último: se falhar, a geração já está consolidada
       if (alerta) {

@@ -60,7 +60,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         .select()
         .from(contas)
         .where(and(eq(contas.id, contaId), eq(contas.userId, userId)))
-        .limit(1);
+        .limit(1)
+        .for("update");
 
       if (!contaAtual) {
         throw new Error("CONTA_NAO_ENCONTRADA");
