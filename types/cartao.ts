@@ -76,26 +76,6 @@ export interface UpdateCartaoDTO {
 }
 
 /**
- * Resposta detalhada da fatura (GET /api/cartoes/[id]/fatura)
- */
-export interface FaturaResponse {
-  fatura: FaturaAtual;
-  cartao: {
-    id: number;
-    nome: string;
-    diaFechamento: number | null;
-    diaVencimento: number | null;
-  };
-  periodo: {
-    inicio: string;
-    fim: string;
-    descricao: string;
-  };
-  transacoes: TransacaoFatura[];
-  totalTransacoes: number;
-}
-
-/**
  * Transação vinculada à fatura
  */
 export interface TransacaoFatura {

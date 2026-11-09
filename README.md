@@ -4,10 +4,12 @@ Este guia ajuda você a configurar o MyExpenses do zero.
 
 ## 📋 Pré-requisitos
 
-- Node.js 18+ instalado
+- Node.js 20.9+ instalado (exigido pelo Next.js 16)
 - Conta no [Neon](https://neon.tech) (PostgreSQL serverless)
 - Conta no [Google Cloud Console](https://console.cloud.google.com)
+- Conta Gmail com verificação em duas etapas (envio de e-mails)
 - Conta na [Vercel](https://vercel.com) (para produção)
+- Conta na [brapi.dev](https://brapi.dev) (cotações de renda variável)
 
 ---
 
@@ -64,27 +66,21 @@ postgresql://user:pass@ep-xxx.neon.tech/myexpenses?sslmode=require
 3. Nome: `MyExpenses`
 4. Clique em **"Create"**
 
-### 4.2. Habilitar Google+ API
-
-1. Menu lateral → **"APIs & Services"** → **"Library"**
-2. Busque: `Google+ API`
-3. Clique em **"Enable"**
-
-### 4.3. Criar Credenciais OAuth
+### 4.2. Criar Credenciais OAuth
 
 1. Menu lateral → **"APIs & Services"** → **"Credentials"**
 2. Clique em **"Create Credentials"** → **"OAuth client ID"**
 3. Se aparecer aviso, configure a **OAuth consent screen**:
    - User Type: **External**
    - App name: `MyExpenses`
-   - User support email: seu email
-   - Developer contact: seu email
+   - User support email: seu e-mail
+   - Developer contact: seu e-mail
    - Salve e continue
 
 4. Volte para **"Create OAuth client ID"**:
    - Application type: **Web application**
    - Name: `MyExpenses Web Client`
-   
+
 5. **Authorized JavaScript origins**:
    ```
    http://localhost:3000
@@ -103,15 +99,13 @@ postgresql://user:pass@ep-xxx.neon.tech/myexpenses?sslmode=require
 
 ---
 
-## 🔑 Passo 5: Gerar NEXTAUTH_SECRET
+## 🔑 Passo 5: Gerar os segredos
 
-Execute no terminal:
+Gere um valor para `NEXTAUTH_SECRET` e outro para `CRON_SECRET`:
 
 ```bash
 openssl rand -base64 32
 ```
-
-Ou acesse: https://generate-secret.vercel.app/32
 
 ---
 
@@ -122,38 +116,32 @@ Ou acesse: https://generate-secret.vercel.app/32
    cp .env.example .env.local
    ```
 
-2. Abra `.env.local` e preencha:
+2. Abra `.env.local` e preencha cada variável. O `.env.example` explica como obter cada uma:
 
-```bash
-# Database
-DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/myexpenses?sslmode=require
+| Variável | Para quê |
+|---|---|
+| `DATABASE_URL` | Banco no Neon (com `?sslmode=require`) |
+| `NEXTAUTH_SECRET`, `NEXTAUTH_URL` | Sessão e URL base do login |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Login com Google |
+| `BLOB_READ_WRITE_TOKEN` | Foto de perfil (Vercel Blob) |
+| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | E-mails de verificação, recuperação de senha e contato |
+| `NEXT_PUBLIC_APP_URL` | URL pública gravada nos backups |
+| `CRON_SECRET` | Autenticação das rotas `/api/cron/*` |
+| `BRAPI_API_KEY` | Cotações de renda variável |
 
-# NextAuth
-NEXTAUTH_SECRET=sua-chave-gerada-com-openssl-aqui
-NEXTAUTH_URL=http://localhost:3000
-
-# Google OAuth
-GOOGLE_CLIENT_ID=123456-abcdef.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-abcdefghijk
-
-# Vercel Blob (opcional por enquanto)
-BLOB_READ_WRITE_TOKEN=vercel_blob_rw_xxxxx
-
-# Ambiente
-NODE_ENV=development
-```
-
-⚠️ **IMPORTANTE**: Valores **SEM ASPAS**!
+⚠️ **IMPORTANTE**: Valores **SEM ASPAS**! Não defina `NODE_ENV`: o Next cuida dela.
 
 ---
 
 ## 🗃️ Passo 7: Criar Tabelas no Banco
 
+Em um banco **novo e vazio**, crie as tabelas a partir de `db/schema.ts`:
+
 ```bash
-npm run db:push
+npx drizzle-kit push
 ```
 
-Este comando cria todas as tabelas necessárias no PostgreSQL.
+Em um banco que já tem dados, **não use** esse comando: mudanças de schema são aplicadas com os scripts SQL da pasta `sql/` (`AAAA-MM-DD-descricao.sql`), rodados manualmente no console do Neon antes do deploy.
 
 ---
 
@@ -165,14 +153,15 @@ npm run dev
 
 Acesse: http://localhost:3000
 
+Antes de publicar, rode `npm run pre-deploy` (checagem de tipos, lint e build).
+
 ---
 
 ## ✅ Passo 9: Testar
 
 1. Clique em **"Login"**
-2. Escolha **"Login com Google"**
-3. Autorize o app
-4. Você deve ser redirecionado para o dashboard ✅
+2. Escolha **"Login com Google"**, ou cadastre-se com e-mail e senha (é preciso confirmar o e-mail)
+3. Você deve ser redirecionado para o dashboard ✅
 
 ---
 
@@ -186,16 +175,10 @@ Acesse: http://localhost:3000
 
 ### 2. Configurar Variáveis de Ambiente
 
-Na seção **"Environment Variables"**, adicione:
+Em **Settings → Environment Variables**, cadastre todas as variáveis da tabela do Passo 6, com os valores de produção:
 
-```
-DATABASE_URL = [sua connection string do Neon]
-NEXTAUTH_SECRET = [a MESMA chave do .env.local]
-NEXTAUTH_URL = https://seu-app.vercel.app
-GOOGLE_CLIENT_ID = [seu client id]
-GOOGLE_CLIENT_SECRET = [seu client secret]
-BLOB_READ_WRITE_TOKEN = [seu token da Vercel Blob]
-```
+- `NEXTAUTH_URL` e `NEXT_PUBLIC_APP_URL` = `https://seu-app.vercel.app`
+- `CRON_SECRET` é obrigatória: sem ela, todos os crons respondem 401
 
 ⚠️ Valores **SEM ASPAS**!
 
@@ -211,6 +194,8 @@ BLOB_READ_WRITE_TOKEN = [seu token da Vercel Blob]
 ### 4. Deploy
 
 Clique em **"Deploy"** e aguarde!
+
+Os crons (backup, recorrências, aplicações e cotações) são definidos em `vercel.json` e passam a rodar após o deploy.
 
 ---
 
@@ -228,21 +213,16 @@ Clique em **"Deploy"** e aguarde!
 
 **Solução**: Verifique os Redirect URIs no Google Console.
 
+### E-mails não chegam
+
+**Solução**: Confira `GMAIL_USER` e `GMAIL_APP_PASSWORD` (senha de app, não a senha da conta).
+
 ### Sessão não persiste
 
-**Solução**: 
+**Solução**:
 1. Limpe cookies do navegador
-2. Verifique se NEXTAUTH_SECRET é o mesmo em dev e prod
-3. Verifique se NEXTAUTH_URL está correto
-
----
-
-## 📚 Próximos Passos
-
-- [ ] Configurar Vercel Blob para upload de fotos
-- [ ] Convidar usuários beta
-- [ ] Configurar domínio customizado
-- [ ] Habilitar Analytics
+2. Verifique se NEXTAUTH_URL está correto para o ambiente
+3. Lembre que trocar a NEXTAUTH_SECRET encerra todas as sessões abertas
 
 ---
 
