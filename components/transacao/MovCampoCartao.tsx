@@ -12,6 +12,7 @@ import { useContas } from "@/hooks/useContas";
 import { TrendingDown } from "lucide-react";
 import { empresaOptions } from "@/utils/cartaoOptions";
 import { CreditCard, AlertCircle, Wallet } from "lucide-react";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Props {
   form: {
@@ -22,6 +23,7 @@ interface Props {
   renderInfoBox?: (content: React.ReactNode) => React.ReactNode;
   hideSelect?: boolean;
   error?: string;
+  disabled?: boolean;
 }
 
 function CartaoIcone({
@@ -54,7 +56,9 @@ export default function MovCampoCartao({
   renderInfoBox,
   hideSelect = false,
   error,
+  disabled = false,
 }: Props) {
+  const { mask } = useHideValues();
   const { data: cartoes = [], isLoading } = useCartoes();
   const cartoesAtivos = cartoes.filter((c) => c.ativo);
   const cartaoSelecionado = cartoesAtivos.find((c) => String(c.id) === form.cartaoId);
@@ -87,7 +91,7 @@ export default function MovCampoCartao({
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600 dark:text-gray-400">Saldo atual:</span>
             <span className="font-medium text-gray-900 dark:text-white">
-              {formatarMoeda(Number(contaVinculada.saldoAtual))}
+              {mask(formatarMoeda(Number(contaVinculada.saldoAtual)))}
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
@@ -102,7 +106,7 @@ export default function MovCampoCartao({
           <div className="border-t border-gray-300 dark:border-gray-600 pt-2 flex items-center justify-between">
             <span className="text-sm font-medium text-gray-900 dark:text-white">Saldo projetado:</span>
             <span className={`font-semibold ${Number(contaVinculada.saldoAtual) - parseFloat(form.valor) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-              {formatarMoeda(Number(contaVinculada.saldoAtual) - parseFloat(form.valor))}
+              {mask(formatarMoeda(Number(contaVinculada.saldoAtual) - parseFloat(form.valor)))}
             </span>
           </div>
           {Number(contaVinculada.saldoAtual) - parseFloat(form.valor) < 0 && (
@@ -121,7 +125,7 @@ export default function MovCampoCartao({
             <div className="flex-1 bg-white dark:bg-gray-900 rounded-md p-3 text-center">
               <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Disponível</div>
               <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                {formatarMoeda(Number(cartaoSelecionado.limiteDisponivel))}
+                {mask(formatarMoeda(Number(cartaoSelecionado.limiteDisponivel)))}
               </div>
             </div>
             <div className="flex-1 bg-white dark:bg-gray-900 rounded-md p-3 text-center">
@@ -133,7 +137,7 @@ export default function MovCampoCartao({
             <div className="flex-1 bg-white dark:bg-gray-900 rounded-md p-3 text-center">
               <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Após compra</div>
               <div className={`text-sm font-bold ${limiteProjetado! >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                {formatarMoeda(limiteProjetado!)}
+                {mask(formatarMoeda(limiteProjetado!))}
               </div>
             </div>
           </div>
@@ -160,7 +164,7 @@ export default function MovCampoCartao({
     <>
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-900 dark:text-white">Cartão</label>
-        <Select value={form.cartaoId} onValueChange={(v) => update("cartaoId", v)}>
+        <Select value={form.cartaoId} onValueChange={(v) => update("cartaoId", v)} disabled={disabled}>
           <SelectTrigger className={`h-12 dark:bg-gray-800 dark:border-gray-700 ${triggerErrorClass}`}>
             <SelectValue placeholder="Selecione o cartão">
               {cartaoSelecionado && (

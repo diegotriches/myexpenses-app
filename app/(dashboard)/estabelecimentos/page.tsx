@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 
 import EstabelecimentoCard from "@/components/estabelecimentos/EstabelecimentoCard";
-import EstabelecimentoFormModal from "@/components/estabelecimentos/EstabalecimentoFormModal";
+import EstabelecimentoFormModal from "@/components/estabelecimentos/EstabelecimentoFormModal";
 import ConfirmDeleteEstabelecimentoModal from "@/components/estabelecimentos/ConfirmDeleteEstabelecimentoModal";
 
 import { Estabelecimento } from "@/types/estabelecimento";

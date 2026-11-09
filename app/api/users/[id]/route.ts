@@ -48,7 +48,7 @@ export async function PUT(
     }
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json({ message: "Email inválido" }, { status: 400 });
+      return NextResponse.json({ message: "E-mail inválido" }, { status: 400 });
     }
 
     // ✅ 5. Verificar se email já existe (para outro usuário)

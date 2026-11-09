@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { DiaPickerField } from "@/components/cartoes/DiaPickerField";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 type TipoCartao = "credito" | "debito";
 
@@ -36,6 +37,7 @@ interface Props {
 
 export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props) {
   const { data: contas = [] } = useContas();
+  const { mask } = useHideValues();
 
   const [form, setForm] = useState({
     nome: "", tipo: "credito" as TipoCartao, bandeira: "", empresa: "",
@@ -324,7 +326,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
               {contasAtivas.length > 0 ? (
                 contasAtivas.map((conta) => (
                   <SelectItem key={conta.id} value={conta.id}>
-                    {conta.nome} — R$ {Number(conta.saldoAtual).toFixed(2)}
+                    {conta.nome} — {mask(Number(conta.saldoAtual).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }))}
                     {conta.banco && ` (${conta.banco})`}
                   </SelectItem>
                 ))

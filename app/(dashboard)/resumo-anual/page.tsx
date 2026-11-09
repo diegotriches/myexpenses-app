@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useResumoAnual } from "@/hooks/useResumoAnual";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 // ── Constantes ─────────────────────────────────────────────────────────────
 
@@ -59,6 +60,7 @@ function KpiCard({
   titulo: string; valor: number; anterior: number;
   icone: React.ElementType; corPositiva?: boolean;
 }) {
+  const { mask } = useHideValues();
   const diff    = variacao(valor, anterior);
   const subindo = diff > 0;
   const neutro  = diff === 0;
@@ -75,7 +77,7 @@ function KpiCard({
           <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">{titulo}</p>
           <Icone className="h-5 w-5 text-blue-600 dark:text-blue-400" />
         </div>
-        <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{fmt(valor)}</p>
+        <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{mask(fmt(valor))}</p>
         {!neutro && (
           <p className={`text-xs flex items-center gap-1 ${cor}`}>
             {subindo ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
@@ -90,13 +92,14 @@ function KpiCard({
 // ── Tooltip customizado ────────────────────────────────────────────────────
 
 function TooltipMoeda({ active, payload, label }: any) {
+  const { mask } = useHideValues();
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 text-sm">
       <p className="font-semibold text-gray-900 dark:text-white mb-1">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} style={{ color: p.color }}>
-          {p.name}: {fmt(p.value)}
+          {p.name}: {mask(fmt(p.value))}
         </p>
       ))}
     </div>
@@ -120,6 +123,7 @@ function RoscaComLista({
   renderLabel:  (item: any, i: number) => React.ReactNode;
   renderDetalhe?: (item: any) => React.ReactNode;
 }) {
+  const { mask } = useHideValues();
   return (
     <div className="flex flex-col md:flex-row items-center gap-6">
       {/* Gráfico de rosca */}
@@ -138,7 +142,7 @@ function RoscaComLista({
                 <Cell key={i} fill={cores[i % cores.length]} />
               ))}
             </Pie>
-            <Tooltip formatter={(v: any) => fmt(Number(v))} />
+            <Tooltip formatter={(v) => mask(fmt(Number(v ?? 0)))} />
           </PieChart>
         </ResponsiveContainer>
       </div>
@@ -157,7 +161,7 @@ function RoscaComLista({
               </div>
               <div className="text-right ml-2 flex-shrink-0">
                 <span className="font-semibold text-gray-900 dark:text-white block">
-                  {fmt(item.total)}
+                  {mask(fmt(item.total))}
                 </span>
                 {renderDetalhe && (
                   <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -190,6 +194,7 @@ function RoscaComLista({
 // ── Página principal ───────────────────────────────────────────────────────
 
 export default function ResumoAnualPage() {
+  const { mask } = useHideValues();
   const anoAtual = new Date().getFullYear();
   const [ano, setAno] = useState(anoAtual);
   const [exportando, setExportando] = useState(false);
@@ -331,7 +336,7 @@ export default function ResumoAnualPage() {
                 <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Melhor Mês</p>
               </div>
               <p className="font-bold text-gray-900 dark:text-white">{nomeMes(data.melhorMes.mes)}</p>
-              <p className="text-sm text-green-600 dark:text-green-400 font-medium">{fmt(data.melhorMes.saldo)}</p>
+              <p className="text-sm text-green-600 dark:text-green-400 font-medium">{mask(fmt(data.melhorMes.saldo))}</p>
             </CardContent>
           </Card>
         )}
@@ -345,7 +350,7 @@ export default function ResumoAnualPage() {
               </div>
               <p className="font-bold text-gray-900 dark:text-white">{nomeMes(data.piorMes.mes)}</p>
               <p className={`text-sm font-medium ${data.piorMes.saldo >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                {fmt(data.piorMes.saldo)}
+                {mask(fmt(data.piorMes.saldo))}
               </p>
             </CardContent>
           </Card>
@@ -358,9 +363,9 @@ export default function ResumoAnualPage() {
               <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Média Mensal</p>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Receitas</p>
-            <p className="font-bold text-green-600 dark:text-green-400 text-sm">{fmt(data.mediaMensal.receitas)}</p>
+            <p className="font-bold text-green-600 dark:text-green-400 text-sm">{mask(fmt(data.mediaMensal.receitas))}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-1">Despesas</p>
-            <p className="font-bold text-red-600 dark:text-red-400 text-sm">{fmt(data.mediaMensal.despesas)}</p>
+            <p className="font-bold text-red-600 dark:text-red-400 text-sm">{mask(fmt(data.mediaMensal.despesas))}</p>
           </CardContent>
         </Card>
 
@@ -375,7 +380,7 @@ export default function ResumoAnualPage() {
                 {data.maiorDespesa.descricao || "Sem descrição"}
               </p>
               <p className="text-sm text-red-600 dark:text-red-400 font-medium">
-                {fmt(Number(data.maiorDespesa.valor))}
+                {mask(fmt(Number(data.maiorDespesa.valor)))}
               </p>
               {data.maiorDespesa.categoria && (
                 <Badge variant="secondary" className="mt-1 text-xs dark:bg-gray-700">

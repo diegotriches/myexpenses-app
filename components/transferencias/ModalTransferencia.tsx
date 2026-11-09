@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowRightLeft, ArrowRight } from "lucide-react";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface ModalTransferenciaProps {
   open: boolean;
@@ -35,6 +36,7 @@ export function ModalTransferencia({
   contas,
   contaOrigemInicialId,
 }: ModalTransferenciaProps) {
+  const { mask } = useHideValues();
   const criarTransferencia = useCriarTransferencia();
   const contasAtivas = contas.filter((c) => c.ativo);
 
@@ -123,7 +125,7 @@ export function ModalTransferencia({
             ? "text-green-600 dark:text-green-400"
             : "text-red-600 dark:text-red-400"
         }`}>
-          {formatarSaldo(conta.saldoAtual)}
+          {mask(formatarSaldo(conta.saldoAtual))}
         </span>
       </div>
     </SelectItem>

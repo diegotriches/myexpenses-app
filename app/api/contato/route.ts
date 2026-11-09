@@ -24,11 +24,11 @@ export async function POST(req: NextRequest) {
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || typeof email !== "string" || !emailRegex.test(email)) {
-      return NextResponse.json({ error: "Email invalido" }, { status: 400 });
+      return NextResponse.json({ error: "E-mail inválido" }, { status: 400 });
     }
     const assuntosValidos = ["duvida", "sugestao", "problema", "outro"];
     if (!assunto || !assuntosValidos.includes(assunto)) {
-      return NextResponse.json({ error: "Assunto invalido" }, { status: 400 });
+      return NextResponse.json({ error: "Assunto inválido" }, { status: 400 });
     }
     if (!mensagem || typeof mensagem !== "string" || mensagem.trim().length < 10) {
       return NextResponse.json({ error: "Mensagem deve ter pelo menos 10 caracteres" }, { status: 400 });
@@ -57,16 +57,16 @@ export async function POST(req: NextRequest) {
 
     try {
       const assuntoTexto: Record<string, string> = {
-        duvida: "Duvida",
-        sugestao: "Sugestao",
+        duvida: "Dúvida",
+        sugestao: "Sugestão",
         problema: "Problema",
         outro: "Outro",
       };
       await sendEmail({
         to: process.env.GMAIL_USER!,
         subject: "[MyExpenses] " + assuntoTexto[assunto] + ": " + nome,
-        html: "<p><b>Nome:</b> " + escaparHtml(nome) + "</p><p><b>Email:</b> " + escaparHtml(email) + "</p><p><b>Assunto:</b> " + assuntoTexto[assunto] + "</p><p><b>Mensagem:</b></p><p>" + escaparHtml(mensagem) + "</p><p>ID: " + novoContato.id + "</p>",
-        text: "Nome: " + nome + "\nEmail: " + email + "\nAssunto: " + assuntoTexto[assunto] + "\n\nMensagem:\n" + mensagem,
+        html: "<p><b>Nome:</b> " + escaparHtml(nome) + "</p><p><b>E-mail:</b> " + escaparHtml(email) + "</p><p><b>Assunto:</b> " + assuntoTexto[assunto] + "</p><p><b>Mensagem:</b></p><p>" + escaparHtml(mensagem) + "</p><p>ID: " + novoContato.id + "</p>",
+        text: "Nome: " + nome + "\nE-mail: " + email + "\nAssunto: " + assuntoTexto[assunto] + "\n\nMensagem:\n" + mensagem,
       });
     } catch (emailError) {
       console.error("Erro ao enviar email de contato:", emailError);

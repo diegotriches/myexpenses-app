@@ -21,6 +21,7 @@ import { useAntecipagem, useAntecipacoes, useDesfazerAntecipacao, useTodasAnteci
 import { filtrarParceladas } from "@/utils/dashboardUtils";
 import type { Transacao } from "@/types/transacao";
 import type { AntecipacaoRegistro } from "@/services/parcelamentoService";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Props {
   onEditar: (mov: Transacao) => void;
@@ -95,6 +96,7 @@ function AntecipacoesDoParcelamento({ parcelamentoId }: { parcelamentoId: string
 }
 
 export default function ParcelasTab({ onEditar, onExcluir }: Props) {
+  const { mask } = useHideValues();
   const { data: transacoes = [], isLoading } = useTransacoesTodas();
   const antecipar = useAntecipagem();
   // Usado só pra saber QUAIS parcelamentos têm antecipação pendente
@@ -290,7 +292,7 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
                   </div>
                 </div>
                 <span className="text-sm font-bold text-orange-600 dark:text-orange-400 whitespace-nowrap">
-                  {formatarMoeda(g.totalCompra)}
+                  {mask(formatarMoeda(g.totalCompra))}
                 </span>
               </div>
 
@@ -314,12 +316,12 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
                     {formatarData(g.representante.data)}
                   </div>
                 )}
-                <span>{g.totalParcelas}x de {formatarMoeda(Number(g.representante.valor))}</span>
+                <span>{g.totalParcelas}x de {mask(formatarMoeda(Number(g.representante.valor)))}</span>
               </div>
 
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 flex items-center justify-between">
                 <span className="text-xs text-gray-500 dark:text-gray-400">Restante ({g.parcelasRestantes}x):</span>
-                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{formatarMoeda(g.valorRestante)}</span>
+                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{mask(formatarMoeda(g.valorRestante))}</span>
               </div>
 
               <AntecipacoesDoParcelamento parcelamentoId={g.chave} />
@@ -395,7 +397,7 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
                 </div>
 
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Valor de face antecipado: <span className="font-semibold text-gray-800 dark:text-gray-200">{formatarMoeda(a.valorTotalAntecipado)}</span>
+                  Valor de face antecipado: <span className="font-semibold text-gray-800 dark:text-gray-200">{mask(formatarMoeda(a.valorTotalAntecipado))}</span>
                 </p>
 
                 <AntecipacoesDoParcelamento parcelamentoId={a.chave} />
@@ -446,16 +448,16 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 space-y-1">
                   <div className="flex justify-between text-xs">
                     <span className="text-amber-700 dark:text-amber-300">Valor de face ({qtdParaCalculo}x):</span>
-                    <span className="font-medium text-amber-900 dark:text-amber-200">{formatarMoeda(totalAntecipacao)}</span>
+                    <span className="font-medium text-amber-900 dark:text-amber-200">{mask(formatarMoeda(totalAntecipacao))}</span>
                   </div>
                   {descontoParaCalculo > 0 && (
                     <div className="flex justify-between text-xs">
                       <span className="text-amber-700 dark:text-amber-300">Com desconto:</span>
-                      <span className="font-semibold text-amber-900 dark:text-amber-200">{formatarMoeda(totalComDesconto)}</span>
+                      <span className="font-semibold text-amber-900 dark:text-amber-200">{mask(formatarMoeda(totalComDesconto))}</span>
                     </div>
                   )}
                   <p className="text-[11px] text-amber-700 dark:text-amber-400 pt-1">
-                    O limite do cartão volta pelo valor de face ({formatarMoeda(totalAntecipacao)}), independente do desconto.
+                    O limite do cartão volta pelo valor de face ({mask(formatarMoeda(totalAntecipacao))}), independente do desconto.
                   </p>
                 </div>
               )}

@@ -63,4 +63,12 @@ export const faturaService = {
     return res.json();
   },
 
+  async estornarPagamento(cartaoId: number | string, ano: number, mes: number): Promise<void> {
+    const res = await fetch(`/api/cartoes/${cartaoId}/fatura?ano=${ano}&mes=${mes}`, { method: "DELETE" });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: "Erro ao cancelar pagamento" }));
+      throw new Error(error.error || error.message || "Erro ao cancelar pagamento");
+    }
+  },
+
 };

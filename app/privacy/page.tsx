@@ -285,7 +285,7 @@ export default function PrivacyPage() {
               </p>
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 space-y-2">
                 <p className="text-gray-700 dark:text-gray-300">
-                  <strong>Email:</strong> myexpenses.noreply@gmail.com
+                  <strong>E-mail:</strong> myexpenses.noreply@gmail.com
                 </p>
 
                 <p className="text-gray-700 dark:text-gray-300">

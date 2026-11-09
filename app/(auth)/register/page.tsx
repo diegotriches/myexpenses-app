@@ -30,7 +30,7 @@ import { AutoRedirectIfAuthenticated } from "@/components/auth/AutoRedirectIfAut
 
 const registerSchema = z.object({
   name:     z.string().min(2, "O nome deve ter ao menos 2 caracteres"),
-  email:    z.string().email("Email inválido"),
+  email:    z.string().email("E-mail inválido"),
   password: z.string()
     .min(8, "A senha deve ter no mínimo 8 caracteres")
     .regex(/[a-z]/,        "A senha deve conter pelo menos uma letra minúscula")
@@ -172,7 +172,7 @@ function RegisterForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-gray-700 dark:text-gray-300">Email</FormLabel>
+              <FormLabel className="text-gray-700 dark:text-gray-300">E-mail</FormLabel>
               <FormControl>
                 <div className="relative">
                   <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />

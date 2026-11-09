@@ -25,7 +25,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email("Email inválido"),
+  email: z.string().email("E-mail inválido"),
 });
 
 export default function ForgotPasswordPage() {

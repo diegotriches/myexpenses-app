@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Conta } from "@/types/conta";
 import { useAjustarSaldo } from "@/hooks/useContas";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Props {
   open: boolean;
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export default function ModalAjustarSaldo({ open, onClose, conta }: Props) {
+  const { mask } = useHideValues();
   const [valor, setValor] = useState("");
   const [descricao, setDescricao] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -125,7 +127,7 @@ export default function ModalAjustarSaldo({ open, onClose, conta }: Props) {
             </AlertTitle>
             <AlertDescription className="text-gray-700 dark:text-gray-300">
               <span className="text-2xl font-bold">
-                {formatarMoeda(saldoAtual)}
+                {mask(formatarMoeda(saldoAtual))}
               </span>
             </AlertDescription>
           </Alert>
@@ -229,14 +231,14 @@ export default function ModalAjustarSaldo({ open, onClose, conta }: Props) {
               >
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-sm">
-                    {formatarMoeda(saldoAtual)}
+                    {mask(formatarMoeda(saldoAtual))}
                   </span>
                   <span className="text-lg font-medium">
                     {isAumento ? "+" : ""}{formatarMoeda(valorNumerico)}
                   </span>
                   <span className="text-sm">→</span>
                   <span className="text-2xl font-bold">
-                    {formatarMoeda(novoSaldo)}
+                    {mask(formatarMoeda(novoSaldo))}
                   </span>
                 </div>
               </AlertDescription>

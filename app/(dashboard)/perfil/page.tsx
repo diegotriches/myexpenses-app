@@ -137,8 +137,8 @@ if (!usuario) {
             className="flex items-center gap-2 data-[state=active]:bg-red-600 data-[state=active]:text-white cursor-pointer"
           >
             <Trash2 size={16} />
-            <span className="hidden sm:inline">Deletar Conta</span>
-            <span className="sm:hidden">Deletar</span>
+            <span className="hidden sm:inline">Excluir Conta</span>
+            <span className="sm:hidden">Excluir</span>
           </TabsTrigger>
         </TabsList>
 

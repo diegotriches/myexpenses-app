@@ -61,7 +61,7 @@ export default function EditarDadosCard({ usuario }: Props) {
     if (!form.email || form.email.trim() === "") {
       novosErros.email = "Email é obrigatório";
     } else if (!validarEmail(form.email)) {
-      novosErros.email = "Email inválido";
+      novosErros.email = "E-mail inválido";
     }
 
     setErrors(novosErros);

@@ -38,6 +38,7 @@ import MovCamposBasicos from "@/components/transacao/MovCamposBasicos";
 import MovCampoFormaPagamento from "@/components/transacao/MovCampoFormaPagamento";
 import MovCampoConta from "@/components/transacao/MovCampoConta";
 import MovCampoCartao from "@/components/transacao/MovCampoCartao";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Props {
   contas: Conta[];
@@ -51,6 +52,7 @@ const FORMA_PAGAMENTO_LABEL: Record<string, string> = {
 };
 
 export default function RecorrenciasTab({ contas, cartoes }: Props) {
+  const { mask } = useHideValues();
   const { data: recorrencias = [], isLoading } = useRecorrencias();
   const atualizar = useAtualizarRecorrencia();
   const cancelar = useCancelarRecorrencia();
@@ -242,7 +244,7 @@ export default function RecorrenciasTab({ contas, cartoes }: Props) {
 
                 <div className="flex items-center justify-between">
                   <span className={`text-lg font-bold ${isReceita ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                    {isReceita ? "+" : "-"} {formatarMoeda(Number(r.valor))}
+                    {isReceita ? "+" : "-"} {mask(formatarMoeda(Number(r.valor)))}
                     <span className="text-xs font-normal text-gray-500 dark:text-gray-400">/mês</span>
                   </span>
                 </div>

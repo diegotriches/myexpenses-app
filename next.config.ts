@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
               // Estilos: próprio domínio + inline (necessário para Tailwind/shadcn)
               "style-src 'self' 'unsafe-inline'",
               // Imagens: próprio domínio + data URIs + Google (avatares OAuth)
-              "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com",
+              "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://*.public.blob.vercel-storage.com",
               // Fontes: próprio domínio + Google Fonts
               "font-src 'self' https://fonts.gstatic.com",
               // Conexões: próprio domínio + APIs necessárias

@@ -12,6 +12,7 @@ import { useContas } from "@/hooks/useContas";
 import { TrendingUp, TrendingDown, Wallet, AlertCircle } from "lucide-react";
 import { empresaOptions } from "@/utils/cartaoOptions";
 import Image from "next/image";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Props {
   form: {
@@ -34,6 +35,7 @@ export default function MovCampoConta({
   error,
   valorOriginal,
 }: Props) {
+  const { mask } = useHideValues();
   const { data: contas = [], isLoading, error: queryError } = useContas();
 
   const contasAtivas = contas.filter((c) => c.ativo);
@@ -101,7 +103,7 @@ export default function MovCampoConta({
     <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 space-y-2">
       <div className="flex items-center justify-between text-sm">
         <span className="text-gray-600 dark:text-gray-400">Saldo atual:</span>
-        <span className="font-medium text-gray-900 dark:text-white">{formatarMoeda(saldoAtual)}</span>
+        <span className="font-medium text-gray-900 dark:text-white">{mask(formatarMoeda(saldoAtual))}</span>
       </div>
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
@@ -118,7 +120,7 @@ export default function MovCampoConta({
       <div className="border-t border-gray-300 dark:border-gray-600 pt-2 flex items-center justify-between">
         <span className="text-sm font-medium text-gray-900 dark:text-white">Saldo projetado:</span>
         <span className={`font-semibold ${saldoProjetado! >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-          {formatarMoeda(saldoProjetado!)}
+          {mask(formatarMoeda(saldoProjetado!))}
         </span>
       </div>
       {saldoProjetado! < 0 && (
@@ -160,7 +162,7 @@ export default function MovCampoConta({
                   </div>
                   <div className="flex flex-col items-start">
                     <span className="font-medium text-sm text-gray-900 dark:text-white">{contaSelecionada.nome}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{formatarMoeda(saldoAtual)}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{mask(formatarMoeda(saldoAtual))}</span>
                   </div>
                 </div>
               )}
@@ -192,7 +194,7 @@ export default function MovCampoConta({
                             <><span className="text-xs text-gray-500 dark:text-gray-400">{conta.banco}</span><span className="text-xs text-gray-500 dark:text-gray-400">•</span></>
                           )}
                           <span className={`text-xs font-medium ${saldoConta >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                            {formatarMoeda(saldoConta)}
+                            {mask(formatarMoeda(saldoConta))}
                           </span>
                         </div>
                       </div>

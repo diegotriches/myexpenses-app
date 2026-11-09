@@ -121,6 +121,12 @@ export default function FormMovimentacaoModal({
     return Number(grupo.reduce((soma, t) => soma + Number(t.valor), 0).toFixed(2));
   }, [modoEdicao, transacaoEdicao, todasTransacoes]);
 
+  // Parcelas em fatura paga mantêm o valor e impedem trocar o cartão
+  const parcelasEmFaturaPaga = useMemo(() => {
+    if (modoEdicao !== "todas_parcelas" || !transacaoEdicao?.parcelamentoId) return 0;
+    return todasTransacoes.filter((t) => t.parcelamentoId === transacaoEdicao.parcelamentoId && t.emFaturaPaga).length;
+  }, [modoEdicao, transacaoEdicao, todasTransacoes]);
+
   const [errors, setErrors] = useState<FormErrors>({});
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -477,7 +483,7 @@ export default function FormMovimentacaoModal({
             <div className="grid grid-cols-2 gap-3">
               <MovCampoFormaPagamento form={form} update={updateAny} opcoesDisponiveis={opcoesFormaPagamento} />
               {mostrarCampoConta  && <MovCampoConta  form={form} update={updateAny} renderInfoBox={() => null} error={errors.conta}  valorOriginal={valorOriginalEdicao} />}
-              {mostrarCampoCartao && <MovCampoCartao form={form} update={updateAny} renderInfoBox={() => null} error={errors.cartao} />}
+              {mostrarCampoCartao && <MovCampoCartao form={form} update={updateAny} renderInfoBox={() => null} error={errors.cartao} disabled={parcelasEmFaturaPaga > 0} />}
             </div>
 
             {mostrarCampoConta  && form.contaId  && (
@@ -527,6 +533,12 @@ export default function FormMovimentacaoModal({
                   <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-amber-700 dark:text-amber-300">
                     As alterações serão aplicadas a <strong>todas as parcelas</strong> deste parcelamento.
+                    {parcelasEmFaturaPaga > 0 && (
+                      <>
+                        {" "}{parcelasEmFaturaPaga === 1 ? "1 parcela está" : `${parcelasEmFaturaPaga} parcelas estão`} em fatura paga:
+                        {" "}mantém o valor, e o restante do total é dividido entre as demais. O cartão não pode ser trocado.
+                      </>
+                    )}
                   </p>
                 </div>
               )}

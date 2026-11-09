@@ -30,6 +30,7 @@ import {
   Info,
   Zap,
 } from "lucide-react";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Conta {
   id:         string;
@@ -61,6 +62,7 @@ export default function AdiantamentoFaturaModal({
   loading = false,
   onConfirmar,
 }: Props) {
+  const { mask } = useHideValues();
   const [contaId,    setContaId]    = useState("");
   const [valorStr,   setValorStr]   = useState("");
   const [descricao,  setDescricao]  = useState("");
@@ -143,7 +145,7 @@ export default function AdiantamentoFaturaModal({
               Saldo restante da fatura
             </p>
             <p className="text-2xl font-bold text-amber-900 dark:text-amber-100">
-              {formatarMoeda(totalFatura)}
+              {mask(formatarMoeda(totalFatura))}
             </p>
           </div>
 
@@ -166,7 +168,7 @@ export default function AdiantamentoFaturaModal({
                     <SelectItem key={c.id} value={c.id}>
                       <div className="flex items-center justify-between w-full gap-4">
                         <span>{c.nome}</span>
-                        <span className="text-xs text-gray-500">{formatarMoeda(saldo)}</span>
+                        <span className="text-xs text-gray-500">{mask(formatarMoeda(saldo))}</span>
                       </div>
                     </SelectItem>
                   );
@@ -177,7 +179,7 @@ export default function AdiantamentoFaturaModal({
               <Alert variant="destructive" className="py-2">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-xs">
-                  Saldo insuficiente. Disponível: {formatarMoeda(saldoConta)}
+                  Saldo insuficiente. Disponível: {mask(formatarMoeda(saldoConta))}
                 </AlertDescription>
               </Alert>
             )}

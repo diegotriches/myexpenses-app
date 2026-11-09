@@ -56,6 +56,7 @@ const formatarCompacto = (valor: number) => {
 };
 
 function TooltipCustomizado({ active, payload, label }: any) {
+  const { mask } = useHideValues();
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 text-sm min-w-[160px]">
@@ -67,7 +68,7 @@ function TooltipCustomizado({ active, payload, label }: any) {
             <span className="text-gray-500 dark:text-gray-400">{entry.name}</span>
           </div>
           <span className="font-medium tabular-nums" style={{ color: entry.fill }}>
-            {formatarCompacto(entry.value)}
+            {mask(formatarCompacto(entry.value))}
           </span>
         </div>
       ))}
@@ -155,7 +156,7 @@ export default function GastosAnuaisCard({ ano }: Props) {
               <BarChart data={dadosGrafico} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barSize={18}>
                 <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-gray-100 dark:text-gray-700" />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: "currentColor" }} className="text-gray-500 dark:text-gray-400" tickLine={false} axisLine={false} />
-                <YAxis tickFormatter={formatarCompacto} tick={{ fontSize: 11, fill: "currentColor" }} className="text-gray-500 dark:text-gray-400" tickLine={false} axisLine={false} width={64} />
+                <YAxis tickFormatter={(v) => mask(formatarCompacto(v))} tick={{ fontSize: 11, fill: "currentColor" }} className="text-gray-500 dark:text-gray-400" tickLine={false} axisLine={false} width={64} />
                 <Tooltip content={<TooltipCustomizado />} />
                 <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                 <Bar dataKey="pago"     name="Pago"     stackId="a" fill="#22c55e" radius={[0, 0, 0, 0]} />

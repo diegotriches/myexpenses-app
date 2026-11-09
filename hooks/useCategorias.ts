@@ -85,6 +85,10 @@ export function useAtualizarCategoria(options: MutationOptions = {}) {
       // Invalida categoria específica e lista
       queryClient.invalidateQueries({ queryKey: categoriasKeys.byId(variables.id) });
       queryClient.invalidateQueries({ queryKey: categoriasKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["transacoes"] });
+      queryClient.invalidateQueries({ queryKey: ["recorrencias"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["categorias-totais"] });
       
       if (showToast) {
         toast({

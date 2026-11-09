@@ -218,7 +218,7 @@ export default function ContatoPage() {
             <div className="flex items-start gap-3 group">
               <FiMail className="text-yellow-300 mt-1 flex-shrink-0 group-hover:scale-110 transition-transform" size={20} />
               <div>
-                <p className="font-medium text-white">Email:</p>
+                <p className="font-medium text-white">E-mail:</p>
                 <a 
                   href="mailto:myexpenses.noreply@gmail.com"
                   className="hover:text-white hover:underline transition-colors"

@@ -37,6 +37,7 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Conta {
   id: string;
@@ -64,6 +65,7 @@ export default function PagarFaturaModal({
   onConfirmar,
   loading = false, // ✅ Loading vem do pai (isPending da mutation)
 }: Props) {
+  const { mask } = useHideValues();
   const [contaId, setContaId] = useState("");
   const [dataPagamento, setDataPagamento] = useState<Date | undefined>(new Date());
   const [erro, setErro] = useState<string | null>(null);
@@ -166,7 +168,7 @@ export default function PagarFaturaModal({
               Valor Total da Fatura
             </p>
             <p className="text-3xl font-bold text-blue-900 dark:text-blue-100">
-              {formatarMoeda(total)}
+              {mask(formatarMoeda(total))}
             </p>
           </div>
 
@@ -204,7 +206,7 @@ export default function PagarFaturaModal({
                             <span>{conta.nome}</span>
                           </div>
                           <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {formatarMoeda(saldo)}
+                            {mask(formatarMoeda(saldo))}
                           </span>
                         </div>
                       </SelectItem>
@@ -219,7 +221,7 @@ export default function PagarFaturaModal({
               <Alert variant="destructive" className="mt-2">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Saldo insuficiente. Disponível: {formatarMoeda(saldoAtualNum)}
+                  Saldo insuficiente. Disponível: {mask(formatarMoeda(saldoAtualNum))}
                 </AlertDescription>
               </Alert>
             )}

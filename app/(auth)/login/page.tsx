@@ -24,7 +24,7 @@ import { Checkbox }  from "@/components/ui/checkbox";
 import { AutoRedirectIfAuthenticated } from "@/components/auth/AutoRedirectIfAuthenticated";
 
 const loginSchema = z.object({
-  email:    z.string().email("Email inválido"),
+  email:    z.string().email("E-mail inválido"),
   password: z.string().min(6, "A senha deve ter ao menos 6 caracteres"),
 });
 
@@ -164,7 +164,7 @@ function LoginForm() {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-gray-700 dark:text-gray-300">Email</FormLabel>
+                <FormLabel className="text-gray-700 dark:text-gray-300">E-mail</FormLabel>
                 <FormControl>
                   <div className="relative">
                     <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />

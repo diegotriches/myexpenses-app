@@ -54,7 +54,28 @@ export async function GET(req: NextRequest) {
       .orderBy(sql`${transacoes.createdAt} DESC`);
 
     const estornadas = await comprasTotalmenteEstornadas(db, userId, result);
-    return NextResponse.json(result.map((t) => ({ ...t, totalmenteEstornada: estornadas.has(t.id) })));
+
+    // Fatura paga trava o valor da compra; o formulário usa isso para avisar antes de salvar
+    const [cartoesCredito, faturasPagas] = await Promise.all([
+      db.select({ id: cartoes.id, diaFechamento: cartoes.diaFechamento }).from(cartoes)
+        .where(and(eq(cartoes.userId, userId), eq(cartoes.tipo, "credito"))),
+      db.select({ cartaoId: faturas.cartaoId, mes: faturas.mes, ano: faturas.ano }).from(faturas)
+        .where(and(eq(faturas.userId, userId), eq(faturas.paga, true))),
+    ]);
+    const fechamentoPorCartao = new Map(cartoesCredito.map((c) => [c.id, c.diaFechamento || 1]));
+    const pagas = new Set(faturasPagas.map((f) => `${f.cartaoId}-${f.mes}-${f.ano}`));
+    const emFaturaPaga = (t: (typeof result)[number]) => {
+      const fechamento = t.cartaoId ? fechamentoPorCartao.get(t.cartaoId) : undefined;
+      if (t.formaPagamento !== "cartao" || !t.cartaoId || fechamento === undefined) return false;
+      const { mes, ano } = calcularFaturaDaTransacao(new Date(t.data), fechamento);
+      return pagas.has(`${t.cartaoId}-${mes}-${ano}`);
+    };
+
+    return NextResponse.json(result.map((t) => ({
+      ...t,
+      totalmenteEstornada: estornadas.has(t.id),
+      emFaturaPaga: emFaturaPaga(t),
+    })));
   } catch (err: any) {
     const message = err instanceof Error ? err.message : "Erro ao buscar transações";
     return NextResponse.json({ error: message }, { status: 500 });

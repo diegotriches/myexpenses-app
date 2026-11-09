@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return NextResponse.json({ error: "Email inválido" }, { status: 400 });
+      return NextResponse.json({ error: "E-mail inválido" }, { status: 400 });
     }
 
     const emailLower = email.toLowerCase().trim();

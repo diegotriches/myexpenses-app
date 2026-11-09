@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, Archive, Loader2 } from "lucide-react";
 import { useUsoConta } from "@/hooks/useContas";
 import { Conta } from "@/types/conta";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Props {
   open: boolean;
@@ -35,6 +36,7 @@ export default function ExcluirContaModal({
   onArquivar,
   onExcluir,
 }: Props) {
+  const { mask } = useHideValues();
   const { data: uso, isLoading, isError } = useUsoConta(conta?.id, open);
   const ocupado = loadingExcluir || loadingArquivar;
 
@@ -111,13 +113,13 @@ export default function ExcluirContaModal({
 
                 {uso.aplicacoesAtivas > 0 && (
                   <p className="rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 p-2">
-                    Há {plural(uso.aplicacoesAtivas, "aplicação ativa", "aplicações ativas")} ({moeda(uso.valorAplicado)}).
+                    Há {plural(uso.aplicacoesAtivas, "aplicação ativa", "aplicações ativas")} ({mask(moeda(uso.valorAplicado))}).
                     Resgate antes de excluir, senão esse valor deixa de aparecer no app.
                   </p>
                 )}
                 {uso.saldoAtual !== 0 && (
                   <p className="rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 p-2">
-                    O saldo atual da conta é {moeda(uso.saldoAtual)} e deixará de entrar no patrimônio.
+                    O saldo atual da conta é {mask(moeda(uso.saldoAtual))} e deixará de entrar no patrimônio.
                   </p>
                 )}
               </>

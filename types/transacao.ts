@@ -34,6 +34,7 @@ export interface TransacaoBase {
   recorrente?: boolean;
   recorrenciaId?: string | null;
   totalmenteEstornada?: boolean;
+  emFaturaPaga?: boolean;
   repeticoes?: number | null;
 
   // Transferência

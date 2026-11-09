@@ -34,6 +34,7 @@ import {
 // valor em formato calculadora)
 import MovCampoConta from "@/components/transacao/MovCampoConta";
 import MovCamposBasicos from "@/components/transacao/MovCamposBasicos";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Props {
   contas: Conta[];
@@ -48,6 +49,7 @@ const formatarMoeda = (valor: number) =>
 const fmtIso = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
 export default function AplicacoesTab({ contas }: Props) {
+  const { mask } = useHideValues();
   const { data: todasAplicacoes = [], isLoading } = useAplicacoes();
   const criar = useCriarAplicacao();
   const resgatar = useResgatarAplicacao();
@@ -373,15 +375,15 @@ export default function AplicacoesTab({ contas }: Props) {
 
                         <div className="flex items-baseline justify-between">
                           <span className="text-lg font-bold text-gray-900 dark:text-white">
-                            {formatarMoeda(valorExibido)}
+                            {mask(formatarMoeda(valorExibido))}
                           </span>
                           <span className="text-xs font-medium text-green-600 dark:text-green-400">
-                            +{formatarMoeda(rendimento)}
+                            +{mask(formatarMoeda(rendimento))}
                           </span>
                         </div>
 
                         <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                          Principal investido: {formatarMoeda(principalExibido)}
+                          Principal investido: {mask(formatarMoeda(principalExibido))}
                         </p>
 
                         {/* IR e líquido estimados — comparáveis com a corretora */}
@@ -389,11 +391,11 @@ export default function AplicacoesTab({ contas }: Props) {
                           <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2.5 space-y-1 text-xs">
                             <div className="flex justify-between">
                               <span className="text-gray-600 dark:text-gray-400">IR estimado (se resgatar hoje)</span>
-                              <span className="font-medium text-red-600 dark:text-red-400">-{formatarMoeda(visao.est.impostoRetido)}</span>
+                              <span className="font-medium text-red-600 dark:text-red-400">-{mask(formatarMoeda(visao.est.impostoRetido))}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="font-medium text-gray-700 dark:text-gray-300">Líquido estimado</span>
-                              <span className="font-bold text-gray-900 dark:text-white">{formatarMoeda(visao.est.valorLiquido)}</span>
+                              <span className="font-bold text-gray-900 dark:text-white">{mask(formatarMoeda(visao.est.valorLiquido))}</span>
                             </div>
                           </div>
                         )}
@@ -402,7 +404,7 @@ export default function AplicacoesTab({ contas }: Props) {
                           <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
                             <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
                             Inclui {visao.diasProjetados} dia(s) útil(eis) estimado(s): o BCB ainda não publicou a taxa.
-                            Confirmado até {a.ultimaTaxa ? fmtIso(a.ultimaTaxa.data) : "—"}: {formatarMoeda(visao.oficialBruto)}.
+                            Confirmado até {a.ultimaTaxa ? fmtIso(a.ultimaTaxa.data) : "—"}: {mask(formatarMoeda(visao.oficialBruto))}.
                           </p>
                         )}
 
@@ -434,7 +436,7 @@ export default function AplicacoesTab({ contas }: Props) {
                             {a.impostoRetido && Number(a.impostoRetido) > 0 && (
                               <p className="flex items-center gap-1">
                                 <Receipt className="w-3 h-3" />
-                                IR retido: {formatarMoeda(Number(a.impostoRetido))}
+                                IR retido: {mask(formatarMoeda(Number(a.impostoRetido)))}
                               </p>
                             )}
                           </div>
@@ -465,7 +467,7 @@ export default function AplicacoesTab({ contas }: Props) {
                                             {x.historico && <span className="ml-1 text-[10px] text-gray-400">(histórico)</span>}
                                           </span>
                                           <span className="text-gray-500 dark:text-gray-400">
-                                            {formatarMoeda(Number(x.valor))} → <strong className="text-gray-900 dark:text-white">{formatarMoeda(Number(x.valorAtual))}</strong>
+                                            {mask(formatarMoeda(Number(x.valor)))} → <strong className="text-gray-900 dark:text-white">{mask(formatarMoeda(Number(x.valorAtual)))}</strong>
                                           </span>
                                           <span className="text-[10px] text-gray-400 whitespace-nowrap">IR {aliq}%</span>
                                         </div>
@@ -485,9 +487,9 @@ export default function AplicacoesTab({ contas }: Props) {
                                           </span>
                                         </span>
                                         <span className="text-gray-500 dark:text-gray-400">
-                                          {formatarMoeda(Number(r.valorBruto))}
+                                          {mask(formatarMoeda(Number(r.valorBruto)))}
                                           {r.impostoRetido && Number(r.impostoRetido) > 0 && (
-                                            <span className="text-red-600 dark:text-red-400"> (IR {formatarMoeda(Number(r.impostoRetido))})</span>
+                                            <span className="text-red-600 dark:text-red-400"> (IR {mask(formatarMoeda(Number(r.impostoRetido)))})</span>
                                           )}
                                         </span>
                                       </div>
@@ -774,7 +776,7 @@ export default function AplicacoesTab({ contas }: Props) {
                     campo="valor"
                   />
                   <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                    Valor BRUTO a retirar (disponível: {formatarMoeda(previewResgate.disponivel)}). O IR é descontado desse valor
+                    Valor BRUTO a retirar (disponível: {mask(formatarMoeda(previewResgate.disponivel))}). O IR é descontado desse valor
                     e sai primeiro dos aportes mais antigos.
                   </p>
                 </div>
@@ -784,11 +786,11 @@ export default function AplicacoesTab({ contas }: Props) {
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-1.5 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Valor resgatado (bruto):</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{formatarMoeda(previewResgate.r.bruto)}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{mask(formatarMoeda(previewResgate.r.bruto))}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Rendimento nesse valor:</span>
-                    <span className="font-medium text-green-600 dark:text-green-400">+{formatarMoeda(previewResgate.r.rendimentoBruto)}</span>
+                    <span className="font-medium text-green-600 dark:text-green-400">+{mask(formatarMoeda(previewResgate.r.rendimentoBruto))}</span>
                   </div>
 
                   {resgateAlvo.tributacao === "tributavel" ? (
@@ -798,13 +800,13 @@ export default function AplicacoesTab({ contas }: Props) {
                         return (
                           <div key={c.loteId} className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                             <span>Aporte de {lote ? fmtIso(lote.data) : "—"} · IR {c.aliquota}%</span>
-                            <span>-{formatarMoeda(c.imposto)}</span>
+                            <span>-{mask(formatarMoeda(c.imposto))}</span>
                           </div>
                         );
                       })}
                       <div className="flex justify-between">
                         <span className="text-gray-600 dark:text-gray-400">IR retido:</span>
-                        <span className="font-medium text-red-600 dark:text-red-400">-{formatarMoeda(previewResgate.r.impostoRetido)}</span>
+                        <span className="font-medium text-red-600 dark:text-red-400">-{mask(formatarMoeda(previewResgate.r.impostoRetido))}</span>
                       </div>
                     </>
                   ) : (
@@ -816,7 +818,7 @@ export default function AplicacoesTab({ contas }: Props) {
 
                   <div className="flex justify-between pt-1.5 border-t border-gray-200 dark:border-gray-700">
                     <span className="font-semibold text-gray-900 dark:text-white">Valor líquido a receber:</span>
-                    <span className="font-bold text-gray-900 dark:text-white">{formatarMoeda(previewResgate.r.valorLiquido)}</span>
+                    <span className="font-bold text-gray-900 dark:text-white">{mask(formatarMoeda(previewResgate.r.valorLiquido))}</span>
                   </div>
                 </div>
               )}

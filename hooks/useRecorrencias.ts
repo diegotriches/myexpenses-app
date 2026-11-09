@@ -33,6 +33,9 @@ export function useCriarRecorrencia() {
       queryClient.invalidateQueries({ queryKey: ["contas"] });
       queryClient.invalidateQueries({ queryKey: ["cartoes"] });
       queryClient.invalidateQueries({ queryKey: ["faturas"] });
+      queryClient.invalidateQueries({ queryKey: ["cartoes-gastos-anuais"] });
+      queryClient.invalidateQueries({ queryKey: ["categorias-totais"] });
+      queryClient.invalidateQueries({ queryKey: ["resumo-anual"] });
       // A primeira ocorrência pode ter gerado aviso de saldo/limite
       queryClient.invalidateQueries({ queryKey: ["notificacoes"] });
       toast({

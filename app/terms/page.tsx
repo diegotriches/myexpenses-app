@@ -191,7 +191,7 @@ export default function TermsPage() {
               </p>
               <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <p className="text-gray-700 dark:text-gray-300">
-                  <strong>Email:</strong> myexpenses.noreply@gmail.com<br />
+                  <strong>E-mail:</strong> myexpenses.noreply@gmail.com<br />
                   <strong>Endereço:</strong> Farroupilha, Rio Grande do Sul, Brasil
                 </p>
               </div>

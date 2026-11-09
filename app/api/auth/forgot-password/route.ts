@@ -29,7 +29,7 @@ import { sendPasswordResetEmail } from "@/lib/email";
  * 
  * Retorna:
  * - 200: Mensagem genérica de sucesso (sempre)
- * - 400: Email inválido ou não fornecido
+ * - 400: E-mail inválido ou não fornecido
  * - 500: Erro interno
  */
 export async function POST(req: NextRequest) {
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return NextResponse.json(
-        { error: "Email inválido" },
+        { error: "E-mail inválido" },
         { status: 400 }
       );
     }

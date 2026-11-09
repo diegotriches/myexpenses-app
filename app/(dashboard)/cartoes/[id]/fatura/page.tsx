@@ -33,6 +33,7 @@ import {
 import {
   useFaturaCartao,
   usePagarFatura,
+  useCancelarPagamentoFatura,
   useAdiantamentos,
   useRegistrarAdiantamento,
   useCancelarAdiantamento,
@@ -132,6 +133,7 @@ export default function FaturaPage() {
   const [usuarioNavegou, setUsuarioNavegou] = useState(veioViaLink);
 
   const pagarFaturaMutation = usePagarFatura();
+  const cancelarPagamento = useCancelarPagamentoFatura();
   const registrarAdiantamento = useRegistrarAdiantamento();
   const cancelarAdiantamentoMut = useCancelarAdiantamento();
 
@@ -277,20 +279,12 @@ export default function FaturaPage() {
   // ── Cancelar pagamento de fatura ──────────────────────────────────────────
   const handleCancelarPagamento = async () => {
     if (!dadosFatura?.id) return;
-    const res = await fetch(
-      `/api/cartoes/${id}/fatura?mes=${mesFinal + 1}&ano=${anoFinal}`,
-      { method: "DELETE" },
-    );
-    if (!res.ok) {
-      const err = await res
-        .json()
-        .catch(() => ({ error: "Erro ao cancelar pagamento" }));
-      throw new Error(err.error);
+    try {
+      await cancelarPagamento.mutateAsync({ cartaoId: id, mes: mesFinal + 1, ano: anoFinal });
+      setModalCancelarPgto(false);
+    } catch {
+      // O erro já aparece em toast; o modal fica aberto para nova tentativa
     }
-    setModalCancelarPgto(false);
-    // Invalida cache via React Query
-    pagarFaturaMutation.reset();
-    window.location.reload();
   };
 
   const formatarMoeda = (valor: number) =>
@@ -305,7 +299,7 @@ export default function FaturaPage() {
       <div className="max-w-3xl mx-auto p-4 md:p-6">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Parametros invalidos.</AlertDescription>
+          <AlertDescription>Parâmetros inválidos.</AlertDescription>
         </Alert>
       </div>
     );
@@ -462,7 +456,7 @@ export default function FaturaPage() {
                 {dadosTransacoes.length > 0 && (
                   <span className="text-xs text-gray-600 dark:text-gray-400">
                     {dadosTransacoes.length}{" "}
-                    {dadosTransacoes.length === 1 ? "transacao" : "transacoes"}
+                    {dadosTransacoes.length === 1 ? "transação" : "transações"}
                   </span>
                 )}
               </div>
@@ -611,7 +605,7 @@ export default function FaturaPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm md:text-base flex items-center gap-2">
             <Receipt size={16} className="text-blue-600" />
-            Transacoes ({dadosTransacoes.length})
+            Transações ({dadosTransacoes.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
@@ -619,7 +613,7 @@ export default function FaturaPage() {
             <div className="text-center py-8 md:py-12">
               <Receipt className="mx-auto mb-3 text-gray-300" size={40} />
               <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                Nenhuma transacao encontrada
+                Nenhuma transação encontrada
               </p>
             </div>
           ) : (
@@ -701,8 +695,10 @@ export default function FaturaPage() {
             >
               Voltar
             </Button>
-            <Button variant="destructive" onClick={handleCancelarPagamento}>
-              <RotateCcw size={14} className="mr-2" />
+            <Button variant="destructive" onClick={handleCancelarPagamento} disabled={cancelarPagamento.isPending}>
+              {cancelarPagamento.isPending
+                ? <Loader2 size={14} className="mr-2 animate-spin" />
+                : <RotateCcw size={14} className="mr-2" />}
               Confirmar cancelamento
             </Button>
           </DialogFooter>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, ChevronRight, Loader2 } from "lucide-react";
 import type { FaturaPendente } from "@/hooks/useFaturasPendentes";
+import { useHideValues } from "@/contexts/HideValuesContext";
 
 const meses = [
   "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
@@ -36,6 +37,7 @@ export default function AlertaFaturasPendentes({
   compacto = false,
   onVerFatura,
 }: Props) {
+  const { mask } = useHideValues();
   const router = useRouter();
 
   const formatarMoeda = (valor: number) =>
@@ -92,7 +94,7 @@ export default function AlertaFaturasPendentes({
                 ? "text-red-700 dark:text-red-400"
                 : "text-yellow-700 dark:text-yellow-400"
               )}>
-                Total: {formatarMoeda(totalPendente)}
+                Total: {mask(formatarMoeda(totalPendente))}
               </p>
             </div>
             <Button
@@ -128,8 +130,8 @@ export default function AlertaFaturasPendentes({
           : "text-yellow-800 dark:text-yellow-300"
         )}>
           {pendentes.length === 1
-            ? "Voce tem 1 fatura nao paga"
-            : "Voce tem " + pendentes.length + " faturas nao pagas"
+            ? "Você tem 1 fatura não paga"
+            : "Você tem " + pendentes.length + " faturas não pagas"
           }
         </p>
 
@@ -161,7 +163,7 @@ export default function AlertaFaturasPendentes({
                     ? "text-red-600 dark:text-red-400"
                     : "text-yellow-600 dark:text-yellow-400"
                   )}>
-                    {formatarMoeda(pendente.total)}
+                    {mask(formatarMoeda(pendente.total))}
                   </span>
                 </div>
               </div>
@@ -187,7 +189,7 @@ export default function AlertaFaturasPendentes({
             ? "border-red-200 dark:border-red-800 text-red-800 dark:text-red-300"
             : "border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-300"
           )}>
-            Total pendente: {formatarMoeda(totalPendente)}
+            Total pendente: {mask(formatarMoeda(totalPendente))}
           </p>
         )}
       </AlertDescription>

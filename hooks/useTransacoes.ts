@@ -51,6 +51,10 @@ function invalidarTudo(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ["faturas"]         });
   queryClient.invalidateQueries({ queryKey: ["extrato"]         });
   queryClient.invalidateQueries({ queryKey: ["estabelecimentos"] });
+  // Totais anuais têm chave própria, fora do prefixo de transações
+  queryClient.invalidateQueries({ queryKey: ["cartoes-gastos-anuais"] });
+  queryClient.invalidateQueries({ queryKey: ["categorias-totais"] });
+  queryClient.invalidateQueries({ queryKey: ["resumo-anual"] });
 }
 
 export function useTransacoes() {

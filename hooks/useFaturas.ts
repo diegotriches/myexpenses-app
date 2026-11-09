@@ -4,6 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { faturaService } from "@/services/faturaService";
 import { useToast } from "@/hooks/use-toast";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import type {
   FaturaDetalhada,
   PagarFaturaDTO,
@@ -108,7 +109,7 @@ export function usePagarFatura() {
     }) => {
       const dados: PagarFaturaDTO = {
         contaId,
-        dataPagamento: dataPagamento || new Date().toISOString().split("T")[0],
+        dataPagamento: dataPagamento || hojeBrt(),
       };
 
       return faturaService.pagar(cartaoId, ano, mes, dados);
@@ -132,6 +133,7 @@ export function usePagarFatura() {
       // Invalida dashboard e extrato
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["extrato"] });
+      queryClient.invalidateQueries({ queryKey: ["cartoes-gastos-anuais"] });
 
       toast({
         title: "Fatura paga!",
@@ -144,6 +146,27 @@ export function usePagarFatura() {
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+}
+
+export function useCancelarPagamentoFatura() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ cartaoId, ano, mes }: { cartaoId: number | string; ano: number; mes: number }) =>
+      faturaService.estornarPagamento(cartaoId, ano, mes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["faturas"] });
+      queryClient.invalidateQueries({ queryKey: ["cartoes"] });
+      queryClient.invalidateQueries({ queryKey: ["contas"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["cartoes-gastos-anuais"] });
+      toast({ title: "Pagamento cancelado", description: "A fatura voltou a ficar em aberto." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao cancelar pagamento", description: error.message, variant: "destructive" });
     },
   });
 }
