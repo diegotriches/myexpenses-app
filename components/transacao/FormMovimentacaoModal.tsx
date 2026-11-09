@@ -27,6 +27,7 @@ import {
 import type { CreateRecorrenciaDTO } from "@/types/recorrencia";
 
 import { formatarDataParaInput } from "@/utils/dateUtils";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { buildTransacoesFromForm } from "@/lib/buildTransacoesFromForm";
 // ✅ NOVO: builder separado para o payload de recorrência
 import { buildCreateRecorrenciaFromForm } from "@/lib/buildCreateRecorrenciaFromForm";
@@ -68,7 +69,7 @@ const initialForm = {
   tipo:              "saida" as "entrada" | "saida",
   categoria:         "",
   valor:             "",
-  data:              new Date().toISOString().split("T")[0],
+  data:              "",
   descricao:         "",
   formaPagamento:    "dinheiro" as "dinheiro" | "pix" | "cartao",
   cartaoId:          "",
@@ -83,6 +84,9 @@ const initialForm = {
 };
 
 type FormState = typeof initialForm;
+
+// Função para a data ser a do momento em que o formulário abre
+const novoForm = (): FormState => ({ ...initialForm, data: hojeBrt() });
 
 const tipoPagamentoIcons: Record<TipoPagamento, any> = {
   avista:     FaMoneyBill,
@@ -106,7 +110,7 @@ export default function FormMovimentacaoModal({
   loading = false,
 }: Props) {
   const isEdit = Boolean(transacaoEdicao);
-  const [form,   setForm]   = useState<FormState>(initialForm);
+  const [form,   setForm]   = useState<FormState>(novoForm);
   const [errors, setErrors] = useState<FormErrors>({});
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -215,7 +219,7 @@ export default function FormMovimentacaoModal({
 
   useEffect(() => {
     if (!transacaoEdicao) {
-      setForm(initialForm);
+      setForm(novoForm());
       setErrors({});
       return;
     }
@@ -392,7 +396,7 @@ export default function FormMovimentacaoModal({
       }
 
       onOpenChange(false);
-      if (!isEdit) setForm(initialForm);
+      if (!isEdit) setForm(novoForm());
     } catch (error) {
       console.error("Erro ao salvar a movimentação:", error);
       setErrors({ valor: error instanceof Error ? error.message : "Erro ao salvar movimentação" });
@@ -400,7 +404,7 @@ export default function FormMovimentacaoModal({
   };
 
   const handleOpenChange = (open: boolean) => {
-    if (!open && !isEdit) { setForm(initialForm); setErrors({}); }
+    if (!open && !isEdit) { setForm(novoForm()); setErrors({}); }
     onOpenChange(open);
   };
 

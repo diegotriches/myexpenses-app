@@ -21,6 +21,7 @@ import FiltrosExtrato, { FiltrosExtratoState } from "@/components/extrato/Filtro
 import { useExtratoConta } from "@/hooks/useContas";
 import type { MovimentacaoExtrato } from "@/types/conta";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarDataParaExibicao } from "@/utils/dateUtils";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const ITENS_POR_PAGINA = 20;
@@ -203,7 +204,7 @@ export default function ExtratoContaPage() {
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <OrigemBadge origem={item.origem} />
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {new Date(item.data).toLocaleDateString("pt-BR")}
+                {formatarDataParaExibicao(item.data)}
               </span>
             </div>
             <p className="font-medium text-gray-900 dark:text-white">{item.descricao}</p>
@@ -400,7 +401,7 @@ export default function ExtratoContaPage() {
                       }`}
                     >
                       <td className="p-3 whitespace-nowrap text-gray-900 dark:text-gray-200">
-                        {new Date(item.data).toLocaleDateString("pt-BR")}
+                        {formatarDataParaExibicao(item.data)}
                       </td>
                       <td className="p-3 text-gray-900 dark:text-gray-200 w-0 min-w-0" style={{ maxWidth: 0 }}>
                         <div className="truncate" title={item.descricao}>{item.descricao}</div>

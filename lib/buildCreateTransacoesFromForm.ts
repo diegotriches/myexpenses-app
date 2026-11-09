@@ -1,6 +1,7 @@
 import { CreateTransacaoDTO } from "@/types/transacao";
 import { FormMovimentacao } from "./buildTransacoesFromForm";
 import { normalizeDate } from "./utils";
+import { adicionarMeses } from "@/utils/dateUtils";
 
 interface Params {
   form: FormMovimentacao;
@@ -30,8 +31,7 @@ export function buildCreateTransacoesFromForm({
     const valorParcela = valorTotal / form.parcelas;
 
     return Array.from({ length: form.parcelas }).map((_, i) => {
-      const data = new Date(baseData);
-      data.setMonth(data.getMonth() + i);
+      const data = adicionarMeses(new Date(baseData), i);
 
       return {
         tipo: form.tipo,

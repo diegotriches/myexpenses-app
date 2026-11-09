@@ -105,6 +105,14 @@ export async function PUT(req: Request, { params }: RouteParams) {
       );
     }
 
+    // Mudar o saldo inicial deixaria saldo e extrato inconsistentes
+    if (payload.saldoInicial !== undefined && Number(payload.saldoInicial) !== Number(contaExistente.saldoInicial)) {
+      return NextResponse.json(
+        { error: "O saldo inicial não pode ser alterado. Use o ajuste de saldo." },
+        { status: 400 }
+      );
+    }
+
     // Preparar dados para atualização
     const dadosAtualizacao: {
       updatedAt: Date;
@@ -112,7 +120,6 @@ export async function PUT(req: Request, { params }: RouteParams) {
       banco?: string | null;
       ativo?: boolean;
       observacoes?: string | null;
-      saldoInicial?: string;
     } = {
       updatedAt: new Date(),
     };
@@ -124,14 +131,6 @@ export async function PUT(req: Request, { params }: RouteParams) {
     if (payload.ativo !== undefined) dadosAtualizacao.ativo = payload.ativo;
     if (payload.observacoes !== undefined) {
       dadosAtualizacao.observacoes = payload.observacoes?.trim() || null;
-    }
-
-    // ✅ Permitir editar saldoInicial (recalcula saldoAtual automaticamente)
-    if (payload.saldoInicial !== undefined) {
-      const saldoInicialNum = Number(payload.saldoInicial);
-      if (!Number.isNaN(saldoInicialNum)) {
-        dadosAtualizacao.saldoInicial = saldoInicialNum.toString();
-      }
     }
 
     // 🔐 Atualizar APENAS se pertencer ao usuário

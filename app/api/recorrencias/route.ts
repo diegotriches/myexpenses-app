@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { recorrencias, transacoes, contas, cartoes, faturas, extratoConta } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { garantirDono } from "@/lib/garantirDono";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import { aplicarImpactoRecorrencia } from "@/lib/aplicarImpacto";
@@ -111,11 +112,7 @@ export async function POST(req: NextRequest) {
   const dataInicio = new Date(anoInicio, mesInicio - 1, diaInicio);
   const diaDoMes = diaInicio;
 
-  const agora = new Date();
-  const ehHoje =
-    anoInicio === agora.getFullYear() &&
-    mesInicio === agora.getMonth() + 1 &&
-    diaInicio === agora.getDate();
+  const ehHoje = String(data).slice(0, 10) === hojeBrt();
 
   // ✅ NOVO: se estamos convertendo uma transação "à vista" existente,
   // reverte o impacto financeiro dela e a remove — ela será substituída
@@ -193,7 +190,7 @@ export async function POST(req: NextRequest) {
     });
 
     await db.update(recorrencias)
-      .set({ repeticoesGeradas: 1, ultimaGeracaoMes: agora.getMonth() + 1, ultimaGeracaoAno: agora.getFullYear() })
+      .set({ repeticoesGeradas: 1, ultimaGeracaoMes: mesInicio, ultimaGeracaoAno: anoInicio })
       .where(eq(recorrencias.id, novaRecorrencia.id));
 
     if (alerta) {

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { transacoes, faturas, contas, extratoConta, cartoes, notificacoes, adiantamentosFatura } from "@/db/schema";
 import { eq, and, gte, lt, sql, sum } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { calcularDataVencimento } from "@/utils/faturaUtils";
 
 // ── GET ───────────────────────────────────────────────────────────────────────
@@ -181,7 +182,7 @@ export async function POST(
       return NextResponse.json({ error: "Conta inválida" }, { status: 400 });
 
     const dataPgto    = dataPagamento ? new Date(dataPagamento) : new Date();
-    const dataPgtoStr = dataPgto.toISOString().split("T")[0];
+    const dataPgtoStr = dataPagamento ? dataPgto.toISOString().split("T")[0] : hojeBrt();
 
     // 1. Buscar fatura
     const [fatura] = await db.select().from(faturas)
@@ -197,8 +198,14 @@ export async function POST(
     const limiteExtra    = Number(fatura.limiteExtraAoPagar ?? 0);
     const valorLiberado  = valorAPagar + limiteExtra;
 
-    if (valorAPagar <= 0)
-      return NextResponse.json({ error: "Fatura sem saldo a pagar (já coberta por adiantamentos)" }, { status: 400 });
+    // Total zero só é aceito quando adiantamentos cobriram a fatura inteira:
+    // ela é marcada como paga sem novo débito na conta.
+    if (valorAPagar <= 0) {
+      const [adiantamento] = await db.select({ id: adiantamentosFatura.id }).from(adiantamentosFatura)
+        .where(and(eq(adiantamentosFatura.faturaId, fatura.id), eq(adiantamentosFatura.userId, userId)))
+        .limit(1);
+      if (!adiantamento) return NextResponse.json({ error: "Fatura sem saldo a pagar" }, { status: 400 });
+    }
 
     // 2. Buscar conta
     const [conta] = await db.select().from(contas)
@@ -219,22 +226,24 @@ export async function POST(
 
     if (!cartao) return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
 
-    // 4. Registrar no extrato
-    await db.insert(extratoConta).values({
-      userId, contaId,
-      data:        dataPgtoStr,
-      tipo:        "saida",
-      valor:       valorAPagar.toFixed(2),
-      descricao:   `Pagamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`,
-      saldoApos:   saldoDepois.toFixed(2),
-      origem:      "PAGAMENTO_FATURA",
-      referenciaId: fatura.id.toString(),
-    });
+    if (valorAPagar > 0) {
+      // 4. Registrar no extrato
+      await db.insert(extratoConta).values({
+        userId, contaId,
+        data:        dataPgtoStr,
+        tipo:        "saida",
+        valor:       valorAPagar.toFixed(2),
+        descricao:   `Pagamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`,
+        saldoApos:   saldoDepois.toFixed(2),
+        origem:      "PAGAMENTO_FATURA",
+        referenciaId: fatura.id.toString(),
+      });
 
-    // 5. Atualizar saldo da conta
-    await db.update(contas)
-      .set({ saldoAtual: saldoDepois.toFixed(2), updatedAt: new Date() })
-      .where(and(eq(contas.id, contaId), eq(contas.userId, userId)));
+      // 5. Atualizar saldo da conta
+      await db.update(contas)
+        .set({ saldoAtual: saldoDepois.toFixed(2), updatedAt: new Date() })
+        .where(and(eq(contas.id, contaId), eq(contas.userId, userId)));
+    }
 
     // 6. Liberar limite do cartão — valor pago + limite extra de antecipações
     await db.update(cartoes)
@@ -339,41 +348,46 @@ export async function DELETE(
 
     if (!fatura)       return NextResponse.json({ error: "Fatura não encontrada" }, { status: 404 });
     if (!fatura.paga)  return NextResponse.json({ error: "Fatura não está paga" }, { status: 400 });
-    if (!fatura.contaPagamentoId) return NextResponse.json({ error: "Conta de pagamento não identificada" }, { status: 400 });
 
     const totalFatura    = Number(fatura.total);
+    // Fatura quitada só por adiantamentos não debitou conta: não há o que devolver
+    const contaEstorno   = totalFatura > 0 ? fatura.contaPagamentoId : null;
+    if (totalFatura > 0 && !contaEstorno) return NextResponse.json({ error: "Conta de pagamento não identificada" }, { status: 400 });
     const limiteExtra    = Number(fatura.limiteExtraAoPagar ?? 0);
     const valorAReverter = totalFatura + limiteExtra;
 
-    const [conta] = await db.select().from(contas)
-      .where(and(eq(contas.id, fatura.contaPagamentoId), eq(contas.userId, userId)));
+    let novoSaldo = 0;
+    if (contaEstorno) {
+      const [conta] = await db.select().from(contas)
+        .where(and(eq(contas.id, contaEstorno), eq(contas.userId, userId)));
 
-    if (!conta) return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
+      if (!conta) return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
 
-    const novoSaldo = Number(conta.saldoAtual) + totalFatura;
+      novoSaldo = Number(conta.saldoAtual) + totalFatura;
+    }
 
     const [cartao] = await db.select().from(cartoes)
       .where(and(eq(cartoes.id, cartaoId), eq(cartoes.userId, userId)));
 
     if (!cartao) return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
 
-    const dataFormatada = new Date().toISOString().split("T")[0];
+    if (contaEstorno) {
+      await db.insert(extratoConta).values({
+        userId,
+        contaId:     contaEstorno,
+        data:        hojeBrt(),
+        tipo:        "entrada",
+        valor:       totalFatura.toFixed(2),
+        descricao:   `Estorno pagamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`,
+        saldoApos:   novoSaldo.toFixed(2),
+        origem:      "ESTORNO",
+        referenciaId: fatura.id.toString(),
+      });
 
-    await db.insert(extratoConta).values({
-      userId,
-      contaId:     fatura.contaPagamentoId,
-      data:        dataFormatada,
-      tipo:        "entrada",
-      valor:       totalFatura.toFixed(2),
-      descricao:   `Estorno pagamento fatura ${cartao.nome} - ${String(mes).padStart(2, "0")}/${ano}`,
-      saldoApos:   novoSaldo.toFixed(2),
-      origem:      "ESTORNO",
-      referenciaId: fatura.id.toString(),
-    });
-
-    await db.update(contas)
-      .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
-      .where(and(eq(contas.id, fatura.contaPagamentoId), eq(contas.userId, userId)));
+      await db.update(contas)
+        .set({ saldoAtual: novoSaldo.toFixed(2), updatedAt: new Date() })
+        .where(and(eq(contas.id, contaEstorno), eq(contas.userId, userId)));
+    }
 
     // ✅ Reverte o limite pelo valor TOTAL liberado no pagamento
     // (totalFatura + limiteExtra), não só totalFatura

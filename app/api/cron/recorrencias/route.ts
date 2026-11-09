@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { recorrencias, transacoes } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { aplicarImpactoRecorrencia } from "@/lib/aplicarImpacto";
 import {
   notificarImpactoRecorrencia,
@@ -56,6 +57,11 @@ export async function GET(req: NextRequest) {
       // Já gerou neste mês/ano — evita duplicar se o cron rodar 2x
       if (rec.ultimaGeracaoMes === mesAtual && rec.ultimaGeracaoAno === anoAtual) {
         resultados.push({ id: rec.id, status: "pulada", motivo: "já gerada este mês" });
+        continue;
+      }
+
+      if (hojeBrt() < rec.dataInicio.toISOString().slice(0, 10)) {
+        resultados.push({ id: rec.id, status: "pulada", motivo: "ainda não começou" });
         continue;
       }
 

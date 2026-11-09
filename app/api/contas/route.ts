@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { contas, extratoConta } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 
 // GET - Buscar todas as contas do usuário logado
 export async function GET() {
@@ -92,8 +93,7 @@ export async function POST(req: Request) {
     if (saldoInicial !== 0) {
       try {
         // Formatar data como YYYY-MM-DD (string)
-        const dataAtual = new Date();
-        const dataFormatada = dataAtual.toISOString().split("T")[0];
+        const dataFormatada = hojeBrt();
 
         await db.insert(extratoConta).values({
           userId, // ✅ userId é obrigatório no schema

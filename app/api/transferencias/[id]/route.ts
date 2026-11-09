@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { transferencias, extratoConta, contas } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 
 // Tipagem dos params da rota
 type RouteParams = {
@@ -194,7 +195,7 @@ export async function DELETE(
 
       // 5. Criar ID para o estorno
       const estornoId = crypto.randomUUID();
-      const dataAtual = new Date().toISOString().split("T")[0];
+      const dataAtual = hojeBrt();
 
       // 6. Registrar estorno: entrada na conta de origem
       await tx.insert(extratoConta).values({
@@ -256,17 +257,6 @@ export async function DELETE(
           and(
             eq(transferencias.id, transferenciaId),
             eq(transferencias.userId, userId) // 🔐 Garantir ownership
-          )
-        );
-
-      // 10. Remover as movimentações do extrato
-      await tx
-        .delete(extratoConta)
-        .where(
-          and(
-            eq(extratoConta.referenciaId, transferenciaId),
-            eq(extratoConta.userId, userId), // 🔐 Garantir ownership
-            eq(extratoConta.origem, "TRANSFERENCIA")
           )
         );
     });

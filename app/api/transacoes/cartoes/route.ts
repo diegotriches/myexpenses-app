@@ -4,42 +4,10 @@ import { db } from "@/db";
 import { cartoes, faturas, transacoes } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { adicionarMeses } from "@/utils/dateUtils";
+import { lerValorPositivo } from "@/lib/validators/financeiro";
 import { garantirDono } from "@/lib/garantirDono";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
-
-// ============================================================================
-// HELPER: Adicionar meses sem overflow de dias
-// ============================================================================
-
-/**
- * Avança N meses a partir de uma data sem overflow de dias.
- *
- * O JavaScript nativo faz:
- *   new Date(2026, 0, 31).setMonth(1) → 3 de março (31/fev não existe)
- *
- * Esta função trava no último dia do mês destino quando necessário:
- *   31/jan + 1 mês → 28/fev (não 03/mar)
- *   30/jan + 1 mês → 28/fev
- *   31/jan + 2 meses → 31/mar ✅
- */
-function adicionarMeses(data: Date, meses: number): Date {
-  const diaOriginal = data.getDate();
-
-  // Avança para o dia 1 antes de mudar o mês — evita overflow
-  const resultado = new Date(data);
-  resultado.setDate(1);
-  resultado.setMonth(resultado.getMonth() + meses);
-
-  // Usa o menor entre o dia original e o último dia do mês destino
-  const ultimoDiaDoMes = new Date(
-    resultado.getFullYear(),
-    resultado.getMonth() + 1,
-    0
-  ).getDate();
-
-  resultado.setDate(Math.min(diaOriginal, ultimoDiaDoMes));
-  return resultado;
-}
 
 // ============================================================================
 // POST - Criar transação de cartão (à vista ou parcelada)
@@ -71,7 +39,7 @@ export async function POST(req: NextRequest) {
     } = body;
 
     /* 1. Validações básicas */
-    if (!cartaoId || !contaId || !valor || Number(valor) <= 0) {
+    if (!cartaoId || !contaId || lerValorPositivo(valor) === null) {
       return NextResponse.json(
         { error: "Cartão, conta e valor válido são obrigatórios" },
         { status: 400 }

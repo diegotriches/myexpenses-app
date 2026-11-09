@@ -226,10 +226,8 @@ export default function FaturaPage() {
     (acc, a) => acc + Number(a.valor),
     0,
   );
-  const saldoRestanteFatura = Math.max(
-    0,
-    Number(dadosFatura?.total ?? 0) - totalAdiantado,
-  );
+  // O total da fatura já vem líquido dos adiantamentos
+  const saldoRestanteFatura = Math.max(0, Number(dadosFatura?.total ?? 0));
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handlePagarFatura = async (dados: {

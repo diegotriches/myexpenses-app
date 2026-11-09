@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { contas, extratoConta } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 
 // ✅ NOVO: Tipos para os parâmetros
 type RouteParams = {
@@ -69,8 +70,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       const novoSaldo = saldoAnterior + valorNum;
 
       // 2. Registrar no extrato
-      const dataAtual = new Date();
-      const dataFormatada = dataAtual.toISOString().split("T")[0];
+      const dataFormatada = hojeBrt();
 
       await tx.insert(extratoConta).values({
         userId,

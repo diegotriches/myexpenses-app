@@ -150,3 +150,17 @@ export function formatarDataPorExtenso(data: string | Date | null | undefined): 
   
   return `${dia} de ${mes} de ${ano}`;
 }
+
+/**
+ * Avança N meses sem transbordar o dia: 31/01 + 1 mês = 28/02, não 03/03.
+ * Calcula em UTC porque as datas de lançamento vêm como meia-noite UTC.
+ */
+export function adicionarMeses(data: Date, meses: number): Date {
+  const resultado = new Date(data);
+  const diaOriginal = resultado.getUTCDate();
+  resultado.setUTCDate(1);
+  resultado.setUTCMonth(resultado.getUTCMonth() + meses);
+  const ultimoDia = new Date(Date.UTC(resultado.getUTCFullYear(), resultado.getUTCMonth() + 1, 0)).getUTCDate();
+  resultado.setUTCDate(Math.min(diaOriginal, ultimoDia));
+  return resultado;
+}

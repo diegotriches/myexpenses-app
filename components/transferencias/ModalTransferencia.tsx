@@ -1,5 +1,6 @@
 "use client";
 
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { useState } from "react";
 import { Conta } from "@/types/conta";
 import { useCriarTransferencia } from "@/hooks/useTransferencias";
@@ -41,9 +42,7 @@ export function ModalTransferencia({
   const [contaDestinoId, setContaDestinoId] = useState("");
   const [valorCentavos,  setValorCentavos]  = useState(0);
   const [descricao,      setDescricao]      = useState("");
-  const [data,           setData]           = useState(
-    new Date().toISOString().substring(0, 10)
-  );
+  const [data,           setData]           = useState(hojeBrt);
 
   // ── Valor estilo calculadora ──────────────────────────────────────────────
   const valorNumerico = valorCentavos / 100;
@@ -71,7 +70,7 @@ export function ModalTransferencia({
     setContaDestinoId("");
     setValorCentavos(0);
     setDescricao("");
-    setData(new Date().toISOString().substring(0, 10));
+    setData(hojeBrt());
   };
 
   // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)

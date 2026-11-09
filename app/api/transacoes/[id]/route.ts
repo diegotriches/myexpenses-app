@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { transacoes, contas, extratoConta, cartoes, faturas, antecipacoesParcela } from "@/db/schema";
 import { or, eq, and, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { adicionarMeses } from "@/utils/dateUtils";
+import { lerValorPositivo } from "@/lib/validators/financeiro";
 import { garantirDono } from "@/lib/garantirDono";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 
@@ -161,6 +163,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const erroDono = await garantirDono(userId, { contaId: json.contaId, cartaoId: json.cartaoId, estabelecimentoId });
     if (erroDono) return NextResponse.json({ error: erroDono }, { status: 404 });
 
+    if (lerValorPositivo(json.valor) === null) return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
+
     // ── ÚNICA ────────────────────────────────────────────────────────────────
     if (modoEdicao === "unica") {
       const [transacaoExistente] = await db.select().from(transacoes)
@@ -204,7 +208,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const [parcela1] = await db.update(transacoes).set({ tipo: json.tipo, descricao: json.descricao, valor: valorParcela.toFixed(2), data: dataParaAtualizar, categoria: json.categoria, contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null), formaPagamento: json.formaPagamento, cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null, estabelecimentoId, parcelado: true, parcelas: totalParcelas, parcelaAtual: 1, parcelamentoId, recorrente: false, recorrenciaId: null, repeticoes: null, updatedAt: new Date() }).where(and(eq(transacoes.id, id), eq(transacoes.userId, userId))).returning();
         const parcelasParaCriar = [];
         for (let i = 2; i <= totalParcelas; i++) {
-          const dataParcela = new Date(dataParaAtualizar); dataParcela.setMonth(dataParcela.getMonth() + (i - 1));
+          const dataParcela = adicionarMeses(dataParaAtualizar, i - 1);
           parcelasParaCriar.push({ userId, tipo: json.tipo as string, descricao: json.descricao as string | null, valor: valorParcela.toFixed(2), data: dataParcela, categoria: json.categoria as string | null, contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null), formaPagamento: json.formaPagamento as string, cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null, estabelecimentoId, parcelado: true, parcelas: totalParcelas, parcelaAtual: i, parcelamentoId, recorrente: false, recorrenciaId: null, repeticoes: null });
         }
         const novasParcelas = await db.insert(transacoes).values(parcelasParaCriar).returning();
@@ -219,7 +223,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const [repeticao1] = await db.update(transacoes).set({ tipo: json.tipo, descricao: json.descricao, valor: String(json.valor), data: dataParaAtualizar, categoria: json.categoria, contaId: json.contaId || null, formaPagamento: json.formaPagamento, cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null, estabelecimentoId, recorrente: true, recorrenciaId, repeticoes: totalRepeticoes, parcelado: false, parcelamentoId: null, parcelas: null, parcelaAtual: null, updatedAt: new Date() }).where(and(eq(transacoes.id, id), eq(transacoes.userId, userId))).returning();
         const repeticoesParaCriar = [];
         for (let i = 2; i <= totalRepeticoes; i++) {
-          const dataRepeticao = new Date(dataParaAtualizar); dataRepeticao.setMonth(dataRepeticao.getMonth() + (i - 1));
+          const dataRepeticao = adicionarMeses(dataParaAtualizar, i - 1);
           repeticoesParaCriar.push({ userId, tipo: json.tipo as string, descricao: json.descricao as string | null, valor: String(json.valor), data: dataRepeticao, categoria: json.categoria as string | null, contaId: json.contaId as string | null, formaPagamento: json.formaPagamento as string, cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null, estabelecimentoId, recorrente: true, recorrenciaId, repeticoes: totalRepeticoes, parcelado: false, parcelamentoId: null, parcelas: null, parcelaAtual: null });
         }
         const novasRepeticoes = await db.insert(transacoes).values(repeticoesParaCriar).returning();
@@ -303,7 +307,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const dataBase = new Date(ultimaParcela.data);
         const novasData = [];
         for (let i = totalParcelasAtuais + 1; i <= totalParcelasNovo; i++) {
-          const dataNova = new Date(dataBase); dataNova.setMonth(dataBase.getMonth() + (i - totalParcelasAtuais));
+          const dataNova = adicionarMeses(dataBase, i - totalParcelasAtuais);
           novasData.push({
             userId, tipo: json.tipo as string, descricao: json.descricao as string | null,
             valor: valorParcela.toFixed(2), data: dataNova, categoria: json.categoria as string | null,
@@ -354,7 +358,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const dataBase = new Date(ultimaRepeticao.data);
         const novasData = [];
         for (let i = totalRepeticoesAtuais + 1; i <= totalRepeticoesNovo; i++) {
-          const dataNova = new Date(dataBase); dataNova.setMonth(dataBase.getMonth() + (i - totalRepeticoesAtuais));
+          const dataNova = adicionarMeses(dataBase, i - totalRepeticoesAtuais);
           novasData.push({ userId, tipo: json.tipo as string, descricao: json.descricao as string | null, valor: String(json.valor), data: dataNova, categoria: json.categoria as string | null, contaId: json.formaPagamento === "cartao" ? null : (json.contaId || null), formaPagamento: json.formaPagamento as string, cartaoId: json.formaPagamento === "cartao" ? json.cartaoId : null, estabelecimentoId, recorrente: true, recorrenciaId: json.recorrenciaId, repeticoes: totalRepeticoesNovo, parcelado: false, parcelamentoId: null, parcelas: null, parcelaAtual: null });
         }
         criadas = await db.insert(transacoes).values(novasData).returning();

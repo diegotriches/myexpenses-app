@@ -28,7 +28,10 @@ export function calcularFaturaDaTransacao(
   const str = typeof dataTransacao === "string" ? dataTransacao : dataTransacao.toISOString();
   const [anoTransacao, mesTransacao, diaTransacao] = str.slice(0, 10).split("-").map(Number);
 
-  if (diaTransacao >= diaFechamento) {
+  // Mesmo limite de calcularPeriodoFatura: fechamento 31 em fevereiro vale no último dia
+  const ultimoDiaDoMes = new Date(Date.UTC(anoTransacao, mesTransacao, 0)).getUTCDate();
+
+  if (diaTransacao >= Math.min(diaFechamento, ultimoDiaDoMes)) {
     // No dia de fechamento ou após → próxima fatura
     const proximaFatura = new Date(Date.UTC(anoTransacao, mesTransacao, 1));
     return {

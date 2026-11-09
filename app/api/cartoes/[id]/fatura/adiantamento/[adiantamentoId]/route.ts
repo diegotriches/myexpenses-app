@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { adiantamentosFatura, faturas, contas, cartoes, extratoConta } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DELETE /api/cartoes/[id]/fatura/adiantamento/[adiantamentoId]
@@ -107,7 +108,7 @@ export async function DELETE(
       await db.insert(extratoConta).values({
         userId,
         contaId:  adiantamento.contaId,
-        data:     new Date().toISOString().split("T")[0],
+        data:     hojeBrt(),
         tipo:     "entrada",
         valor:    valorNum.toFixed(2),
         descricao: `Estorno adiantamento fatura ${cartao.nome} - ${String(fatura.mes).padStart(2, "0")}/${fatura.ano}`,

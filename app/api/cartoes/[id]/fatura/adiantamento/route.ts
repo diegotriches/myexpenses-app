@@ -2,9 +2,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { adiantamentosFatura, faturas, contas, cartoes, extratoConta } from "@/db/schema";
-import { eq, and, sum } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/cartoes/[id]/fatura/adiantamento?mes=M&ano=A
@@ -57,20 +58,8 @@ export async function POST(
     if (totalFatura <= 0)
       return NextResponse.json({ error: "Fatura sem saldo a adiantar" }, { status: 400 });
 
-    // Calcula quanto já foi adiantado nessa fatura
-    const [somaAdiantamentos] = await db
-      .select({ total: sum(adiantamentosFatura.valor) })
-      .from(adiantamentosFatura)
-      .where(and(
-        eq(adiantamentosFatura.faturaId, fatura.id),
-        eq(adiantamentosFatura.userId,   userId)
-      ));
-
-    const totalAdiantado = Number(somaAdiantamentos?.total ?? 0);
-    const saldoRestante  = totalFatura - totalAdiantado;
-
-    if (saldoRestante <= 0)
-      return NextResponse.json({ error: "Fatura já está totalmente adiantada" }, { status: 400 });
+    // fatura.total já vem líquido dos adiantamentos anteriores
+    const saldoRestante = totalFatura;
 
     if (valorNum > saldoRestante)
       return NextResponse.json(
@@ -128,7 +117,7 @@ export async function POST(
     await db.insert(extratoConta).values({
       userId,
       contaId,
-      data:      new Date().toISOString().split("T")[0],
+      data:      hojeBrt(),
       tipo:      "saida",
       valor:     valorNum.toFixed(2),
       descricao: descricaoFinal,

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { transferencias, extratoConta, contas } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { lerValorPositivo } from "@/lib/validators/financeiro";
 
 // GET - Buscar transferências do período
 export async function GET(req: NextRequest) {
@@ -140,8 +141,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const valorNum = Number(valor);
-    if (valorNum <= 0) {
+    const valorNum = lerValorPositivo(valor);
+    if (valorNum === null) {
       return NextResponse.json(
         { error: "Valor deve ser maior que zero" },
         { status: 400 }
