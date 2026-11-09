@@ -11,6 +11,7 @@ import {
   atualizarImpacto,
   buscarAntecipacaoBloqueante,
   mudaImpacto,
+  possuiEstorno,
   reverterImpacto,
   transacaoEmFaturaPaga,
 } from "@/lib/impactoTransacao";
@@ -52,6 +53,7 @@ const MSG_ANTECIPACAO_EDITAR  = "Esta transação faz parte de uma antecipação
 const MSG_ANTECIPACAO_EXCLUIR = "Esta transação faz parte de uma antecipação pendente. Desfaça a antecipação na aba Parcelas antes de excluir.";
 const MSG_ORIGEM_PAGA         = "Esta transação faz parte de uma fatura já paga. Estorne o pagamento da fatura para alterar o valor, a data ou a forma de pagamento.";
 const MSG_DESTINO_PAGO        = "A fatura dessa data já está paga. Estorne o pagamento da fatura ou escolha outra data.";
+const MSG_COM_ESTORNO         = "Esta compra tem estorno lançado. Exclua o estorno antes de alterar o valor ou excluir a compra.";
 const MSG_EXCLUIR_PAGA        = "Esta transação faz parte de uma fatura já paga. Não é possível excluí-la, para preservar o histórico.";
 
 function montarProposta(camposBase: Edicao["camposBase"], valor: string, data: Date) {
@@ -81,6 +83,7 @@ async function editarUnica({ tx, userId, id, json, camposBase }: Edicao) {
     .where(and(eq(transacoes.id, id), eq(transacoes.userId, userId))).limit(1).for("update");
   if (!existente) throw new ErroFinanceiro("Transação não encontrada", 404);
 
+  if (existente.tipo === "estorno") throw new ErroFinanceiro("Estorno não pode ser editado. Exclua e lance novamente.");
   if (await buscarAntecipacaoBloqueante(tx, userId, existente)) throw new ErroFinanceiro(MSG_ANTECIPACAO_EDITAR);
 
   const data = json.data ? new Date(json.data) : new Date(existente.data);
@@ -93,6 +96,7 @@ async function editarUnica({ tx, userId, id, json, camposBase }: Edicao) {
 
   const proposta = montarProposta(camposBase, String(json.valor), data);
   if (viraParcelado || viraRecorrente || mudaImpacto(existente, proposta)) {
+    if (await possuiEstorno(tx, userId, [existente.id])) throw new ErroFinanceiro(MSG_COM_ESTORNO);
     await garantirFaturasAbertas(tx, userId, existente, proposta);
   }
 
@@ -226,6 +230,14 @@ async function editarTodasParcelas({ tx, userId, json, camposBase }: Edicao) {
   }));
 
   // Valida tudo antes da primeira gravação
+  if (await possuiEstorno(tx, userId, parcelas.map((t) => t.id)) && (
+    excedentes.length > 0 ||
+    totalNovo > totalAtual ||
+    planejadas.some(({ antiga, valor }) => mudaImpacto(antiga, montarProposta(camposBase, valor, antiga.data)))
+  )) {
+    throw new ErroFinanceiro(MSG_COM_ESTORNO);
+  }
+
   for (const { antiga, valor } of planejadas) {
     const proposta = montarProposta(camposBase, valor, antiga.data);
     if (mudaImpacto(antiga, proposta)) await garantirFaturasAbertas(tx, userId, antiga, proposta);
@@ -401,6 +413,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
           }
         }
       }
+
+      if (await possuiEstorno(tx, userId, paraExcluir.map((t) => t.id))) throw new ErroFinanceiro(MSG_COM_ESTORNO);
 
       for (const t of paraExcluir) await reverterImpacto(tx, t, userId);
 

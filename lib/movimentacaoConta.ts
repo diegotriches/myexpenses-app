@@ -10,6 +10,8 @@ import { contas, extratoConta } from "@/db/schema";
 
 export type TransacaoBanco = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+export type LeitorBanco = Pick<typeof db | TransacaoBanco, "select">;
+
 type OrigemExtrato = (typeof extratoConta.$inferInsert)["origem"];
 
 /** Erro de regra de negócio: desfaz a transação e vira resposta HTTP na rota. */

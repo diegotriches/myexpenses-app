@@ -87,7 +87,8 @@ export async function GET(
       let totalEntrada = 0, totalSaida = 0, quantidade = 0;
       for (const l of linhas) {
         if (l.tipo === "entrada") totalEntrada = Number(l.total);
-        else if (l.tipo === "saida") totalSaida = Number(l.total);
+        else if (l.tipo === "saida") totalSaida += Number(l.total);
+        else if (l.tipo === "estorno") totalSaida -= Number(l.total);
         quantidade += l.quantidade;
       }
       return { totalEntrada, totalSaida, quantidade };
@@ -115,7 +116,8 @@ export async function GET(
       const alvo = porMes[l.mes - 1];
       if (!alvo) continue;
       if (l.tipo === "entrada") alvo.entrada = Number(l.total);
-      else if (l.tipo === "saida") alvo.saida = Number(l.total);
+      else if (l.tipo === "saida") alvo.saida += Number(l.total);
+      else if (l.tipo === "estorno") alvo.saida -= Number(l.total);
     }
 
     const totalAnoEntrada = porMes.reduce((s, m) => s + m.entrada, 0);

@@ -246,7 +246,7 @@ export default function FormMovimentacaoModal({
 
     setForm({
       contaId:    transacaoEdicao.contaId ?? "",
-      tipo:       transacaoEdicao.tipo    ?? "entrada",
+      tipo:       transacaoEdicao.tipo === "saida" ? "saida" : "entrada", // estorno não é editável
       categoria:  transacaoEdicao.categoria   ?? "",
       valor:      String(valorFormulario),
       data:       dataFormatada,

@@ -404,6 +404,8 @@ export const transacoes = pgTable("transacoes", {
     { onDelete: "set null" },
   ),
   repeticoes: integer("repeticoes"),
+  // Estorno (tipo "estorno"): compra de origem. Sem FK, como referenciaId do extrato
+  estornoDeId: uuid("estorno_de_id"),
   parcelado: boolean("parcelado").default(false),
   parcelamentoId: varchar("parcelamentoId", { length: 36 }),
   parcelas: integer("parcelas"),

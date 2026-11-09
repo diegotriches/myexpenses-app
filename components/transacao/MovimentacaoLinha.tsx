@@ -74,6 +74,10 @@ export default function MovimentacaoLinha({
   const { mask } = useHideValues();
 
   const isTransferencia = !!mov.transferenciaId;
+  const isEstorno       = mov.tipo === "estorno";
+  const creditoVisual   = mov.tipo === "entrada" || isEstorno; // verde, com sinal de mais
+  const rotuloTipo      = isEstorno ? "Estorno" : "Receita";
+  const riscoEstornada  = mov.totalmenteEstornada ? "line-through text-gray-400 dark:text-gray-500" : "";
   const contaAtual      = contas.find((c) => c.id === mov.contaId);
 
   const descricaoTransferencia =
@@ -183,7 +187,7 @@ export default function MovimentacaoLinha({
             {MOTIVO_BLOQUEIO}
           </div>
         )}
-        {!isTransferencia && (
+        {!isTransferencia && !isEstorno && (
           <DropdownMenuItem
             onClick={onEditar}
             disabled={bloqueada}
@@ -206,7 +210,7 @@ export default function MovimentacaoLinha({
   // ── MOBILE: card ──────────────────────────────────────────────────────────
   if (viewMode === "card") {
     return (
-      <Card className={mov.tipo === "entrada"
+      <Card className={creditoVisual
         ? "bg-green-50/30 dark:bg-green-950/10 border-green-200 dark:border-green-900"
         : "bg-red-50/30 dark:bg-red-950/10 border-red-200 dark:border-red-900"
       }>
@@ -217,9 +221,9 @@ export default function MovimentacaoLinha({
                 <span className="text-xs text-gray-600 dark:text-gray-400">
                   {formatarDataParaExibicao(mov.data)}
                 </span>
-                {mov.tipo === "entrada" ? (
+                {creditoVisual ? (
                   <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
-                    <ArrowUpCircle className="w-3 h-3 mr-1" />Receita
+                    <ArrowUpCircle className="w-3 h-3 mr-1" />{rotuloTipo}
                   </Badge>
                 ) : (
                   <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800">
@@ -232,15 +236,15 @@ export default function MovimentacaoLinha({
                   </Badge>
                 )}
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white text-base line-clamp-2">
+              <h3 className={`font-semibold text-base line-clamp-2 ${riscoEstornada || "text-gray-900 dark:text-white"}`}>
                 {isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}
               </h3>
             </div>
             {renderAcoesMenu()}
           </div>
 
-          <div className={`text-2xl font-bold mb-3 ${mov.tipo === "entrada" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-            {mov.tipo === "entrada" ? "+" : "-"} {valorExibido}
+          <div className={`text-2xl font-bold mb-3 ${creditoVisual ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+            {creditoVisual ? "+" : "-"} {valorExibido}
           </div>
 
           <div className="space-y-2 text-sm">
@@ -248,7 +252,7 @@ export default function MovimentacaoLinha({
               <div className="flex items-center justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Categoria:</span>
                 <div className="flex items-center gap-2">
-                  {CategoriaIconComp && <CategoriaIconComp size={16} className={`flex-shrink-0 ${mov.tipo === "entrada" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} />}
+                  {CategoriaIconComp && <CategoriaIconComp size={16} className={`flex-shrink-0 ${creditoVisual ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} />}
                   <span className="font-medium text-gray-900 dark:text-white">{mov.categoria}</span>
                 </div>
               </div>
@@ -304,14 +308,14 @@ export default function MovimentacaoLinha({
   // ── DESKTOP: table row ────────────────────────────────────────────────────
   return (
     <tr className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
-      mov.tipo === "entrada" ? "bg-green-50/30 dark:bg-green-950/10" : "bg-red-50/30 dark:bg-red-950/10"
+      creditoVisual ? "bg-green-50/30 dark:bg-green-950/10" : "bg-red-50/30 dark:bg-red-950/10"
     }`}>
       <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
         {formatarDataParaExibicao(mov.data)}
       </td>
       <td className="px-3 py-3 text-sm text-gray-900 dark:text-gray-100 w-0 min-w-0" style={{ maxWidth: 0 }}>
         <div className="flex items-center gap-1.5">
-          <div className="truncate" title={isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}>
+          <div className={`truncate ${riscoEstornada}`} title={isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}>
             {isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}
           </div>
           {bloqueada && (
@@ -323,9 +327,9 @@ export default function MovimentacaoLinha({
       </td>
       <td className="px-2 py-3 text-center">
         <div className="flex justify-center">
-          {mov.tipo === "entrada" ? (
+          {creditoVisual ? (
             <Badge variant="outline" className="inline-flex items-center gap-1 whitespace-nowrap bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
-              <ArrowUpCircle className="w-3 h-3 flex-shrink-0" />Receita
+              <ArrowUpCircle className="w-3 h-3 flex-shrink-0" />{rotuloTipo}
             </Badge>
           ) : (
             <Badge variant="outline" className="inline-flex items-center gap-1 whitespace-nowrap bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800">
@@ -339,14 +343,14 @@ export default function MovimentacaoLinha({
           <span className="text-gray-400 dark:text-gray-600">—</span>
         ) : (
           <div className="flex items-center gap-1.5 max-w-[120px]">
-            {CategoriaIconComp && <CategoriaIconComp size={15} className={`flex-shrink-0 ${mov.tipo === "entrada" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} />}
+            {CategoriaIconComp && <CategoriaIconComp size={15} className={`flex-shrink-0 ${creditoVisual ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} />}
             <span className="truncate">{mov.categoria}</span>
           </div>
         )}
       </td>
       <td className="px-3 py-3 text-right text-sm font-semibold whitespace-nowrap">
-        <span className={mov.tipo === "entrada" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-          {mov.tipo === "entrada" ? "+" : "-"} {valorExibido.replace("R$ ", "").trim()}
+        <span className={creditoVisual ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+          {creditoVisual ? "+" : "-"} {valorExibido.replace("R$ ", "").trim()}
         </span>
       </td>
       <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">

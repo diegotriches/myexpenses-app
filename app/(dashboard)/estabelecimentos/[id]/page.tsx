@@ -49,7 +49,7 @@ import { useHideValues } from "@/contexts/HideValuesContext";
 interface Lancamento {
   id: string;
   data: string;
-  tipo: "entrada" | "saida";
+  tipo: "entrada" | "saida" | "estorno";
   descricao: string | null;
   categoria: string | null;
   valor: number;
@@ -470,7 +470,7 @@ export default function EstabelecimentoExtratoPage() {
                   )}
                   <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                     {g.itens.map((l) => {
-                      const entrada = l.tipo === "entrada";
+                      const entrada = l.tipo === "entrada" || l.tipo === "estorno";
                       const noCartao = l.formaPagamento === "cartao" || !!l.cartaoId;
                       return (
                         <li key={l.id} className="flex items-center gap-3 px-4 py-3">

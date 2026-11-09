@@ -81,7 +81,8 @@ export async function GET(req: NextRequest) {
         else recebidos += valor;
       }
 
-      if (t.tipo === "saida" && isFutura) {
+      if ((t.tipo === "saida" || t.tipo === "estorno") && isFutura) {
+        const aAbater = t.tipo === "estorno" ? -valor : valor;
         if (t.formaPagamento === "cartao" && t.cartaoId) {
           const cartao = cartoesMap.get(t.cartaoId);
           if (cartao) {
@@ -90,11 +91,11 @@ export async function GET(req: NextRequest) {
               cartao.diaFechamento || 1
             );
             if (faturaDentroDoAno(mesFatura, anoFatura)) {
-              aPagar += valor;
+              aPagar += aAbater;
             }
           }
         } else {
-          aPagar += valor;
+          aPagar += aAbater;
         }
       }
     }

@@ -104,6 +104,8 @@ export interface TransacaoFatura {
   descricao: string;
   valor: number;
   categoria: string;
+  tipo?: string;
+  totalmenteEstornada?: boolean;
   parcelas?: number;
   parcelaAtual?: number;
 }

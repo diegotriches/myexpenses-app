@@ -40,6 +40,9 @@ import {
 import { useFaturasPendentes } from "@/hooks/useFaturasPendentes";
 import { useContas } from "@/hooks/useContas";
 import FaturaItem from "@/components/fatura/FaturaItem";
+import EstornoModal from "@/components/fatura/EstornoModal";
+import { useExcluirTransacao } from "@/hooks/useTransacoes";
+import type { TransacaoFatura } from "@/types/cartao";
 import PagarFaturaModal from "@/components/fatura/PagarFaturaModal";
 import AdiantamentoFaturaModal from "@/components/fatura/AdiantamentoFaturaModal";
 import AdiantamentosLista from "@/components/fatura/AdiantamentosLista";
@@ -122,6 +125,8 @@ export default function FaturaPage() {
   const veioViaLink = mesUrl !== null && anoUrl !== null;
 
   const [modalPagar, setModalPagar] = useState(false);
+  const [compraEstorno, setCompraEstorno] = useState<TransacaoFatura | null>(null);
+  const excluirTransacao = useExcluirTransacao();
   const [modalAdiantamento, setModalAdiantamento] = useState(false);
   const [modalCancelarPgto, setModalCancelarPgto] = useState(false);
   const [usuarioNavegou, setUsuarioNavegou] = useState(veioViaLink);
@@ -620,12 +625,19 @@ export default function FaturaPage() {
           ) : (
             <div className="space-y-2">
               {dadosTransacoes.map((t) => (
-                <FaturaItem key={t.id} transacao={t} />
+                <FaturaItem
+                  key={t.id}
+                  transacao={t}
+                  onEstornar={t.totalmenteEstornada ? undefined : () => setCompraEstorno(t)}
+                  onExcluirEstorno={dadosFatura?.paga ? undefined : () => excluirTransacao.mutate({ id: t.id })}
+                />
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {compraEstorno && <EstornoModal key={compraEstorno.id} compra={compraEstorno} onClose={() => setCompraEstorno(null)} />}
 
       {/* Modal pagar fatura */}
       <PagarFaturaModal

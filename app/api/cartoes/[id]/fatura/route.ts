@@ -1,4 +1,5 @@
 // app/api/cartoes/[id]/fatura/route.ts
+import { comprasTotalmenteEstornadas } from "@/lib/estornoTransacao";
 import { calcularLimiteDisponivel } from "@/lib/limiteCartao";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
@@ -7,7 +8,7 @@ import { eq, and, gte, lt, sql, sum } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
-import { calcularDataVencimento } from "@/utils/faturaUtils";
+import { calcularDataVencimento, valorNaFatura } from "@/utils/faturaUtils";
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 export async function GET(
@@ -60,7 +61,7 @@ export async function GET(
         eq(faturas.mes,      mes)
       ));
 
-    const totalCalculado = transacoesDoMes.reduce((acc, t) => acc + Number(t.valor), 0);
+    const totalCalculado = transacoesDoMes.reduce((acc, t) => acc + valorNaFatura(t), 0);
 
     let faturaAtual = fatura;
 
@@ -111,7 +112,7 @@ export async function GET(
     const porCategoria: Record<string, number> = {};
     transacoesDoMes.forEach((t) => {
       const cat = t.categoria || "Sem categoria";
-      porCategoria[cat] = (porCategoria[cat] || 0) + Number(t.valor);
+      porCategoria[cat] = (porCategoria[cat] || 0) + valorNaFatura(t);
     });
 
     const diaVencimento  = cartao.diaVencimento || 1;
@@ -123,6 +124,8 @@ export async function GET(
     if (faturaAtual?.paga)        status = "PAGA";
     else if (hoje > dataVencimento) status = "ATRASADA";
     else                            status = "EM_ABERTO";
+
+    const estornadas = await comprasTotalmenteEstornadas(db, userId, transacoesDoMes);
 
     return NextResponse.json({
       fatura: faturaAtual ? {
@@ -150,7 +153,7 @@ export async function GET(
         fim:       new Date(ano, mes - 1, diaFim - 1, 23, 59, 59).toISOString().split("T")[0],
         descricao: `${inicio.toLocaleDateString("pt-BR")} - ${new Date(ano, mes - 1, diaFim - 1).toLocaleDateString("pt-BR")}`,
       },
-      transacoes:      transacoesDoMes.map(t => ({ ...t, valor: Number(t.valor) })),
+      transacoes:      transacoesDoMes.map(t => ({ ...t, valor: Number(t.valor), totalmenteEstornada: estornadas.has(t.id) })),
       porCategoria,
       totalTransacoes: totalCalculado,
     });
@@ -284,7 +287,7 @@ export async function POST(
     const porCategoria: Record<string, number> = {};
     transacoesDoMes.forEach((t) => {
       const cat = t.categoria || "Sem categoria";
-      porCategoria[cat] = (porCategoria[cat] || 0) + Number(t.valor);
+      porCategoria[cat] = (porCategoria[cat] || 0) + valorNaFatura(t);
     });
 
     const diaVencimento  = cartao.diaVencimento || 1;
@@ -406,7 +409,7 @@ export async function DELETE(
     const porCategoria: Record<string, number> = {};
     transacoesDoMes.forEach((t) => {
       const cat = t.categoria || "Sem categoria";
-      porCategoria[cat] = (porCategoria[cat] || 0) + Number(t.valor);
+      porCategoria[cat] = (porCategoria[cat] || 0) + valorNaFatura(t);
     });
 
     const diaVencimento  = cartao.diaVencimento || 1;

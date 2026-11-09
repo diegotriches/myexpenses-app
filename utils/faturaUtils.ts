@@ -297,3 +297,8 @@ export function distribuirValor(totalCentavos: number, partes: number): string[]
   const sobra = totalCentavos - base * partes;
   return Array.from({ length: partes }, (_, i) => ((base + (i < sobra ? 1 : 0)) / 100).toFixed(2));
 }
+
+/** Valor com sinal na fatura: o estorno abate o total. */
+export function valorNaFatura(t: { tipo: string; valor: string | number }): number {
+  return t.tipo === "estorno" ? -Number(t.valor) : Number(t.valor);
+}

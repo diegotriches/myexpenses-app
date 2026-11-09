@@ -1,4 +1,5 @@
 // app/api/transacoes/route.ts
+import { comprasTotalmenteEstornadas } from "@/lib/estornoTransacao";
 import { calcularLimiteDisponivel } from "@/lib/limiteCartao";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
@@ -52,7 +53,8 @@ export async function GET(req: NextRequest) {
       .where(and(...filtros))
       .orderBy(sql`${transacoes.createdAt} DESC`);
 
-    return NextResponse.json(result);
+    const estornadas = await comprasTotalmenteEstornadas(db, userId, result);
+    return NextResponse.json(result.map((t) => ({ ...t, totalmenteEstornada: estornadas.has(t.id) })));
   } catch (err: any) {
     const message = err instanceof Error ? err.message : "Erro ao buscar transações";
     return NextResponse.json({ error: message }, { status: 500 });

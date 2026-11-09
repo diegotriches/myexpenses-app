@@ -4,7 +4,7 @@
 // TIPOS: Transações
 // ========================================
 
-export type TipoTransacao = "entrada" | "saida";
+export type TipoTransacao = "entrada" | "saida" | "estorno";
 
 export type FormaPagamento = "dinheiro" | "pix" | "cartao" | "transferencia";
 
@@ -33,6 +33,7 @@ export interface TransacaoBase {
   // Recorrência
   recorrente?: boolean;
   recorrenciaId?: string | null;
+  totalmenteEstornada?: boolean;
   repeticoes?: number | null;
 
   // Transferência

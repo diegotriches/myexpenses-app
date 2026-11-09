@@ -4,7 +4,7 @@
 // (débito) ou fatura + limite (crédito). Criar, editar, excluir e converter
 // passam por aqui, para aplicar e reverter serem sempre simétricos.
 
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 import {
   adiantamentosFatura,
   antecipacoesParcela,
@@ -13,8 +13,8 @@ import {
   faturas,
   transacoes,
 } from "@/db/schema";
-import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
-import { alterarSaldo, movimentarConta, type TransacaoBanco } from "@/lib/movimentacaoConta";
+import { calcularFaturaDaTransacao, calcularPeriodoFatura, valorNaFatura } from "@/utils/faturaUtils";
+import { alterarSaldo, movimentarConta, type LeitorBanco, type TransacaoBanco } from "@/lib/movimentacaoConta";
 
 type Transacao = typeof transacoes.$inferSelect;
 type Fatura = typeof faturas.$inferSelect;
@@ -93,18 +93,20 @@ export async function aplicarImpacto(tx: TransacaoBanco, t: Transacao, userId: s
       const { mes, ano } = calcularFaturaDaTransacao(new Date(t.data), cartao.diaFechamento || 1);
       const fatura = await buscarFaturaDoMes(tx, userId, t.cartaoId, mes, ano);
 
+      const delta = valorNaFatura(t);
+
       if (fatura) {
         await tx
           .update(faturas)
-          .set({ total: (Number(fatura.total) + valor).toFixed(2), updatedAt: new Date() })
+          .set({ total: (Number(fatura.total) + delta).toFixed(2), updatedAt: new Date() })
           .where(eq(faturas.id, fatura.id));
       } else {
-        await tx.insert(faturas).values({ userId, cartaoId: t.cartaoId, mes, ano, total: valor.toFixed(2), paga: false });
+        await tx.insert(faturas).values({ userId, cartaoId: t.cartaoId, mes, ano, total: delta.toFixed(2), paga: false });
       }
 
       await tx
         .update(cartoes)
-        .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${valor}` })
+        .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${delta}` })
         .where(eq(cartoes.id, t.cartaoId));
     }
     return;
@@ -134,11 +136,31 @@ export async function reverterImpacto(tx: TransacaoBanco, t: Transacao, userId: 
     } else if (cartao?.tipo === "credito") {
       const { mes, ano } = calcularFaturaDaTransacao(new Date(t.data), cartao.diaFechamento || 1);
       const fatura = await buscarFaturaDoMes(tx, userId, t.cartaoId, mes, ano);
-      if (fatura) await ajustarTotalFatura(tx, fatura, Number(fatura.total) - valor);
+      const delta = valorNaFatura(t);
+
+      if (fatura) {
+        const novoTotal = Number(fatura.total) - delta;
+        const { inicio, fim } = calcularPeriodoFatura(mes, ano, cartao.diaFechamento || 1);
+        const temEstorno = t.tipo === "estorno" || await tx.$count(transacoes, and(
+          eq(transacoes.userId, userId),
+          eq(transacoes.cartaoId, t.cartaoId),
+          eq(transacoes.tipo, "estorno"),
+          gte(transacoes.data, inicio),
+          lt(transacoes.data, fim),
+        )) > 0;
+
+        if (temEstorno) {
+          await tx.update(faturas)
+            .set({ total: novoTotal.toFixed(2), updatedAt: new Date() })
+            .where(eq(faturas.id, fatura.id));
+        } else {
+          await ajustarTotalFatura(tx, fatura, novoTotal);
+        }
+      }
 
       await tx
         .update(cartoes)
-        .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${valor}` })
+        .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) + ${delta}` })
         .where(eq(cartoes.id, t.cartaoId));
     }
   } else if (t.contaId) {
@@ -160,8 +182,27 @@ export function mudaImpacto(antiga: CamposImpacto, nova: CamposImpacto): boolean
     : (antiga.contaId ?? null) !== (nova.contaId ?? null);
 }
 
+// O estorno guarda o nome da compra no texto; o motivo, quando há, vem depois dele
+async function renomearEstornos(tx: TransacaoBanco, antiga: Transacao, nova: Transacao, userId: string) {
+  if ((antiga.descricao ?? "") === (nova.descricao ?? "")) return;
+
+  const prefixoAntigo = `Estorno de: ${antiga.descricao || "compra"}`;
+  const prefixoNovo = `Estorno de: ${nova.descricao || "compra"}`;
+  const estornos = await tx
+    .select({ id: transacoes.id, descricao: transacoes.descricao })
+    .from(transacoes)
+    .where(and(eq(transacoes.userId, userId), eq(transacoes.estornoDeId, nova.id)));
+
+  for (const estorno of estornos) {
+    const sufixo = estorno.descricao?.startsWith(prefixoAntigo) ? estorno.descricao.slice(prefixoAntigo.length) : "";
+    await tx.update(transacoes).set({ descricao: prefixoNovo + sufixo, updatedAt: new Date() }).where(eq(transacoes.id, estorno.id));
+  }
+}
+
 /** Reverte a versão antiga e aplica a nova; sem mudança de valor, só atualiza o texto do extrato. */
 export async function atualizarImpacto(tx: TransacaoBanco, antiga: Transacao, nova: Transacao, userId: string) {
+  await renomearEstornos(tx, antiga, nova, userId);
+
   if (mudaImpacto(antiga, nova)) {
     await reverterImpacto(tx, antiga, userId);
     await aplicarImpacto(tx, nova, userId);
@@ -176,8 +217,15 @@ export async function atualizarImpacto(tx: TransacaoBanco, antiga: Transacao, no
   }
 }
 
+/** Indica se alguma das transações tem estorno lançado. */
+export async function possuiEstorno(leitor: TransacaoBanco, userId: string, ids: string[]): Promise<boolean> {
+  if (!ids.length) return false;
+  const total = await leitor.$count(transacoes, and(eq(transacoes.userId, userId), inArray(transacoes.estornoDeId, ids)));
+  return total > 0;
+}
+
 export async function transacaoEmFaturaPaga(
-  tx: TransacaoBanco,
+  tx: LeitorBanco,
   userId: string,
   t: Pick<Transacao, "formaPagamento" | "cartaoId" | "data">,
 ): Promise<boolean> {

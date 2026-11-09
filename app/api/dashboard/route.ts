@@ -95,6 +95,18 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      // Estorno abate a despesa na fatura em que foi lançado
+      if (t.tipo === "estorno" && t.cartaoId) {
+        const cartao = cartoesMap.get(t.cartaoId);
+        if (cartao) {
+          const fatura = calcularFaturaDaTransacao(new Date(t.data), cartao.diaFechamento || 1);
+          if (fatura.mes === mes && fatura.ano === ano) {
+            despesas -= valor;
+            faturasPorCartao[t.cartaoId] = (faturasPorCartao[t.cartaoId] || 0) - valor;
+          }
+        }
+      }
+
       if (t.tipo === "saida") {
         if (t.formaPagamento !== "cartao" || !t.cartaoId) {
           // ✅ Não-cartão: só conta se a transação for do mês visualizado

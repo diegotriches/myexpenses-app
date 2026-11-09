@@ -192,7 +192,7 @@ export interface TransacaoRecenteItem {
   descricao: string | null;
   valor: number;
   data: Date | string;
-  tipo: "entrada" | "saida";
+  tipo: "entrada" | "saida" | "estorno";
   categoria: string | null;
   parcelado: boolean;
   parcelas: number | null;

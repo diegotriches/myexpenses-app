@@ -1,7 +1,8 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { CreditCard, Calendar, Tag, TrendingDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CreditCard, Calendar, Tag, TrendingDown, Undo2, Trash2 } from "lucide-react";
 import { TransacaoFatura } from "@/types/cartao";
 import { formatarDataCurta } from "@/utils/dateUtils";
 import { iconOptions } from "@/utils/iconOptions";
@@ -10,9 +11,11 @@ import { useHideValues } from "@/contexts/HideValuesContext";
 
 interface Props {
   transacao: TransacaoFatura;
+  onEstornar?: () => void;
+  onExcluirEstorno?: () => void;
 }
 
-export default function FaturaItem({ transacao }: Props) {
+export default function FaturaItem({ transacao, onEstornar, onExcluirEstorno }: Props) {
   const { data: categorias = [] } = useCategorias();
   const { mask } = useHideValues();
 
@@ -28,6 +31,7 @@ export default function FaturaItem({ transacao }: Props) {
       ? parseFloat(transacao.valor)
       : transacao.valor;
 
+  const isEstorno    = transacao.tipo === "estorno";
   const isParcelado  = transacao.parcelas && transacao.parcelas > 1;
   const valorParcela = valorNum;
 
@@ -62,7 +66,7 @@ export default function FaturaItem({ transacao }: Props) {
 
           <div className="flex flex-col gap-1 flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-gray-900 dark:text-white truncate">
+              <span className={`font-semibold truncate ${transacao.totalmenteEstornada ? "line-through text-gray-400 dark:text-gray-500" : "text-gray-900 dark:text-white"}`}>
                 {transacao.descricao || "Sem descrição"}
               </span>
               {isParcelado && (
@@ -96,11 +100,22 @@ export default function FaturaItem({ transacao }: Props) {
         {/* RIGHT */}
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           <div className="flex items-center gap-1">
-            <TrendingDown size={15} className="text-red-500 dark:text-red-400" />
-            <span className="font-bold text-base text-red-600 dark:text-red-400">
-              {fmt(valorParcela)}
+            {!isEstorno && <TrendingDown size={15} className="text-red-500 dark:text-red-400" />}
+            <span className={`font-bold text-base ${isEstorno ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+              {isEstorno ? "− " : ""}{fmt(valorParcela)}
             </span>
           </div>
+          {isEstorno && <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">Estorno</Badge>}
+          {!isEstorno && onEstornar && (
+            <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onEstornar}>
+              <Undo2 size={13} className="mr-1" />Estornar
+            </Button>
+          )}
+          {isEstorno && onExcluirEstorno && (
+            <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs text-red-600 dark:text-red-400" onClick={onExcluirEstorno}>
+              <Trash2 size={13} className="mr-1" />Excluir
+            </Button>
+          )}
           {isParcelado && (
             <span className="text-xs text-gray-400 dark:text-gray-500">
               {transacao.parcelas}x de {fmt(valorParcela)}

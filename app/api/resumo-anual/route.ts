@@ -78,6 +78,16 @@ export async function GET(req: NextRequest) {
           if (!maiorReceita || valor > Number(maiorReceita.valor)) maiorReceita = t;
         }
 
+        // Estorno abate a despesa no mês da fatura em que foi lançado
+        if (t.tipo === "estorno" && t.cartaoId) {
+          const cartao = cartoesMap.get(t.cartaoId);
+          if (cartao) {
+            const fatura = calcularFaturaDaTransacao(dataT, cartao.diaFechamento || 1);
+            if (fatura.ano === anoRef) meses[fatura.mes - 1].despesas -= valor;
+            if (metodoPagamentoMap.cartao) metodoPagamentoMap.cartao.total -= valor;
+          }
+        }
+
         if (t.tipo === "saida") {
           // Acumula método de pagamento
           const metodo = t.formaPagamento || "dinheiro";

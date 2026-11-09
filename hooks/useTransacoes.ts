@@ -3,6 +3,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { transacaoService } from "@/services/transacaoService";
+import type { EstornarDTO } from "@/services/transacaoService";
 import { usePeriodo } from "@/contexts/PeriodoContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -138,6 +139,32 @@ export function useAtualizarTransacao() {
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao atualizar transação", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useEstornoPrevia(id: string, valor: number, data: string) {
+  return useQuery({
+    queryKey: ["estorno-previa", id, valor, data],
+    queryFn:  () => transacaoService.previaEstorno(id, valor, data),
+    placeholderData: (anterior) => anterior,
+  });
+}
+
+export function useRegistrarEstorno() {
+  const queryClient = useQueryClient();
+  const { toast }   = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, ...dados }: EstornarDTO & { id: string }) => transacaoService.estornar(id, dados),
+    onSuccess: () => {
+      invalidarTudo(queryClient);
+      // Remove em vez de recalcular: a compra pode ter sido apagada pelo cancelamento
+      queryClient.removeQueries({ queryKey: ["estorno-previa"] });
+      toast({ title: "Estorno registrado!", description: "A fatura e o limite foram atualizados." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao estornar", description: error.message, variant: "destructive" });
     },
   });
 }

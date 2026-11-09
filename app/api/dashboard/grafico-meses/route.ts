@@ -53,6 +53,8 @@ export async function GET(req: NextRequest) {
           receitas += valor;
         } else if (t.tipo === "saida") {
           despesas += valor; // inclui cartão
+        } else if (t.tipo === "estorno") {
+          despesas -= valor;
         }
       });
 

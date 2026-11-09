@@ -6,7 +6,7 @@ import { getUserId } from "@/lib/auth";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { garantirDono } from "@/lib/garantirDono";
 import { ErroFinanceiro } from "@/lib/movimentacaoConta";
-import { buscarAntecipacaoBloqueante, reverterImpacto, transacaoEmFaturaPaga } from "@/lib/impactoTransacao";
+import { buscarAntecipacaoBloqueante, possuiEstorno, reverterImpacto, transacaoEmFaturaPaga } from "@/lib/impactoTransacao";
 import { aplicarImpactoRecorrencia } from "@/lib/aplicarImpacto";
 import { notificarImpactoRecorrencia } from "@/lib/notificarRecorrencia";
 
@@ -74,6 +74,9 @@ export async function POST(req: NextRequest) {
         if (!transacaoOrigem) throw new ErroFinanceiro("Transação de origem não encontrada", 404);
         if (transacaoOrigem.parcelado || transacaoOrigem.recorrente) {
           throw new ErroFinanceiro("Esta transação já é parcelada ou recorrente — não é possível convertê-la diretamente");
+        }
+        if (transacaoOrigem.tipo === "estorno" || await possuiEstorno(tx, userId, [transacaoOrigem.id])) {
+          throw new ErroFinanceiro("Compras com estorno e estornos não podem ser convertidos em recorrência.");
         }
         if (await transacaoEmFaturaPaga(tx, userId, transacaoOrigem)) {
           throw new ErroFinanceiro("Esta transação faz parte de uma fatura já paga. Estorne o pagamento antes de convertê-la.");

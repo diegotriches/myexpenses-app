@@ -409,6 +409,7 @@ export async function substituirDadosUsuario(userId: string, data: DadosBackup):
       cartaoId: cartaoOuNulo(l.cartaoId),
       estabelecimentoId: uuidOuNulo(l.estabelecimentoId),
       origemRecorrenciaId: uuidOuNulo(l.origemRecorrenciaId),
+      estornoDeId: uuidOuNulo(l.estornoDeId),
     }));
 
     for (const linha of data.faturas) {

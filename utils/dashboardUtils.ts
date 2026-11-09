@@ -183,7 +183,10 @@ export function agruparPorCategoria(
   transacoes: Transacao[],
   tipo?: 'entrada' | 'saida'
 ): CategoriaTotal[] {
-  const filtradas = tipo ? transacoes.filter(t => t.tipo === tipo) : transacoes;
+  // Estorno abate a despesa da categoria da compra
+  const filtradas = tipo
+    ? transacoes.filter(t => t.tipo === tipo || (tipo === 'saida' && t.tipo === 'estorno'))
+    : transacoes;
 
   const mapa: Record<string, { total: number; quantidade: number }> = {};
 
@@ -192,8 +195,8 @@ export function agruparPorCategoria(
     if (!mapa[cat]) {
       mapa[cat] = { total: 0, quantidade: 0 };
     }
-    mapa[cat].total += Number(t.valor);
-    mapa[cat].quantidade++;
+    mapa[cat].total += t.tipo === 'estorno' ? -Number(t.valor) : Number(t.valor);
+    if (t.tipo !== 'estorno') mapa[cat].quantidade++;
   });
 
   return Object.entries(mapa)
@@ -202,6 +205,7 @@ export function agruparPorCategoria(
       total: dados.total,
       quantidade: dados.quantidade,
     }))
+    .filter(c => c.total > 0)
     .sort((a, b) => b.total - a.total);
 }
 

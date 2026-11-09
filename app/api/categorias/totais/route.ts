@@ -75,6 +75,8 @@ export async function GET(req: Request) {
 
       if (row.tipo === "entrada") {
         existing.totalEntrada += Number(row.total);
+      } else if (row.tipo === "estorno") {
+        existing.totalSaida -= Number(row.total);
       } else {
         existing.totalSaida += Number(row.total);
       }

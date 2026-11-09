@@ -7,7 +7,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import { ErroFinanceiro } from "@/lib/movimentacaoConta";
-import { ajustarTotalFatura } from "@/lib/impactoTransacao";
+import { ajustarTotalFatura, possuiEstorno } from "@/lib/impactoTransacao";
 
 /**
  * POST /api/parcelamentos/[parcelamentoId]/antecipar
@@ -96,6 +96,10 @@ export async function POST(
 
     const resposta = await db.transaction(async (tx) => {
     // 1. Remove as N parcelas antecipadas de suas faturas futuras
+    if (await possuiEstorno(tx, userId, parcelasAntecipar.map((p) => p.id))) {
+      throw new ErroFinanceiro("Uma das parcelas tem estorno lançado. Exclua o estorno antes de antecipar.");
+    }
+
     // A fatura atual recebe o valor: se já foi paga, ele nunca seria cobrado
     const faturaDeHoje = calcularFaturaDaTransacao(hoje, diaFechamento);
     const [jaPaga] = await tx.select({ paga: faturas.paga }).from(faturas)

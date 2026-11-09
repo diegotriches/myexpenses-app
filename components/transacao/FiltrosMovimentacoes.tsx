@@ -16,7 +16,7 @@ import { Search, X, Filter } from "lucide-react";
 import { useEstabelecimentos } from "@/hooks/useEstabelecimentos";
 
 export interface FiltrosState {
-  tipo: "todas" | "entrada" | "saida";
+  tipo: "todas" | "entrada" | "saida" | "estorno";
   categoria: string;
   formaPagamento: string;
   estabelecimentoId: string;
@@ -138,6 +138,7 @@ export default function FiltrosMovimentacoes({
                   <SelectItem value="todas">Todas</SelectItem>
                   <SelectItem value="entrada">Receitas</SelectItem>
                   <SelectItem value="saida">Despesas</SelectItem>
+                  <SelectItem value="estorno">Estornos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -215,7 +216,7 @@ export default function FiltrosMovimentacoes({
             <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
               {filtros.tipo !== "todas" && (
                 <Badge variant="secondary" className="gap-1">
-                  Tipo: {filtros.tipo === "entrada" ? "Receitas" : "Despesas"}
+                  Tipo: {filtros.tipo === "entrada" ? "Receitas" : filtros.tipo === "estorno" ? "Estornos" : "Despesas"}
                   <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => updateFiltro("tipo", "todas")} />
                 </Badge>
               )}

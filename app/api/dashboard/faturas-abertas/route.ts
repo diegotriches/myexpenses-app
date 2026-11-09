@@ -1,4 +1,5 @@
 // src/app/api/dashboard/faturas-abertas/route.ts
+import { valorNaFatura } from "@/utils/faturaUtils";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { cartoes, faturas, transacoes } from "@/db/schema";
@@ -119,7 +120,7 @@ export async function GET() {
             faturaAtiva.mes, faturaAtiva.ano, diaFechamento
           );
           const transacoesFaturaAtiva = await db
-            .select({ valor: transacoes.valor })
+            .select({ valor: transacoes.valor, tipo: transacoes.tipo })
             .from(transacoes)
             .where(and(
               eq(transacoes.cartaoId, cartao.id),
@@ -128,7 +129,7 @@ export async function GET() {
               lte(transacoes.data, fim)
             ));
 
-          const total = transacoesFaturaAtiva.reduce((acc, t) => acc + Number(t.valor), 0);
+          const total = transacoesFaturaAtiva.reduce((acc, t) => acc + valorNaFatura(t), 0);
           if (total > 0) {
             faturaEscolhida = { mes: faturaAtiva.mes, ano: faturaAtiva.ano, total };
           }

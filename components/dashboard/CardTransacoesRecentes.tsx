@@ -59,7 +59,7 @@ export function CardTransacoesRecentes() {
         ) : (
           <ul className="space-y-2">
             {transacoes.map(t => {
-              const isReceita = t.tipo === 'entrada';
+              const isReceita = t.tipo === 'entrada' || t.tipo === 'estorno';
 
               return (
                 <li

@@ -10,6 +10,22 @@ import {
   ModoEdicao,
 } from "@/types/transacao";
 
+export interface PreviaEstorno {
+  parcelado: boolean;
+  valorCompra: number;
+  jaEstornado: number;
+  disponivel: number;
+  lancamentos: { mes: number; ano: number; valor: number; data: string }[];
+  cancelamento: { bloqueado: boolean; parcelasExcluidas: number; valorEstorno: number };
+}
+
+export interface EstornarDTO {
+  modo: "valor" | "cancelar";
+  valor?: number;
+  data: string;
+  motivo?: string;
+}
+
 export const transacaoService = {
   /**
    * Lista transações com filtros opcionais
@@ -152,6 +168,27 @@ export const transacaoService = {
    * @example
    * await transacaoService.remover("123", "unica");
    */
+  async previaEstorno(id: string, valor: number, data: string): Promise<PreviaEstorno> {
+    const params = new URLSearchParams({ data });
+    if (valor > 0) params.set("valor", valor.toFixed(2));
+    const res = await fetch(`/api/transacoes/${id}/estornar?${params}`);
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Erro ao calcular o estorno");
+    return json;
+  },
+
+  async estornar(id: string, dados: EstornarDTO): Promise<void> {
+    const res = await fetch(`/api/transacoes/${id}/estornar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dados),
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json.error || "Erro ao registrar o estorno");
+    }
+  },
+
   async remover(id: string, tipo?: ModoEdicao): Promise<void> {
     const searchParams = new URLSearchParams();
     if (tipo) searchParams.set("tipo", tipo);
