@@ -27,6 +27,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { AutoRedirectIfAuthenticated } from "@/components/auth/AutoRedirectIfAuthenticated";
+import { authService } from "@/services/authService";
+import { ErroApi } from "@/services/http";
 
 const registerSchema = z.object({
   name:     z.string().min(2, "O nome deve ter ao menos 2 caracteres"),
@@ -104,21 +106,7 @@ function RegisterForm() {
     // ✅ Usa isLoadingForm independente — não afeta o botão Google
     setIsLoadingForm(true);
     try {
-      const res = await fetch("/api/auth/register", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(values),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        toast({
-          title:       "Erro ao criar conta",
-          description: error.message || "Tente novamente mais tarde.",
-          variant:     "destructive",
-        });
-        return;
-      }
+      await authService.registrar(values);
 
       toast({
         title:       "Conta criada com sucesso!",
@@ -126,7 +114,12 @@ function RegisterForm() {
       });
 
       setTimeout(() => router.push("/login"), 1500);
-    } catch {
+    } catch (error) {
+      // A API explica o motivo (ex.: e-mail já cadastrado); sem resposta, é falha de conexão
+      if (error instanceof ErroApi) {
+        toast({ title: "Erro ao criar conta", description: error.message, variant: "destructive" });
+        return;
+      }
       toast({
         title:       "Erro inesperado",
         description: "Não foi possível criar sua conta. Tente novamente.",

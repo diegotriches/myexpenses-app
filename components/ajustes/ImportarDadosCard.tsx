@@ -8,6 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { dadosService } from "@/services/dadosService";
+import { mensagemDoErro } from "@/services/http";
+import type { ResultadoImportacao } from "@/types/backup";
 import {
   Upload,
   FileJson,
@@ -20,14 +23,9 @@ import {
 } from "lucide-react";
 
 interface ArquivoLido {
-  raw:        any;
+  raw:        unknown;
   filename:   string;
   statistics: Record<string, number>;
-}
-
-interface ResultadoImportacao {
-  resultados:     { modulo: string; importados: number }[];
-  totalImportado: number;
 }
 
 /**
@@ -85,14 +83,7 @@ export default function ImportarDadosCard() {
     setErro(null);
 
     try {
-      const res = await fetch("/api/import/processar", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ dados: arquivo.raw, confirmar: true }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Erro ao processar importação");
+      const json = await dadosService.processarImportacao(arquivo.raw);
 
       setResultado(json);
       toast.success("Importação concluída com sucesso!", {
@@ -101,9 +92,10 @@ export default function ImportarDadosCard() {
 
       // Restauração afeta praticamente todas as telas do app
       queryClient.invalidateQueries();
-    } catch (error: any) {
-      setErro(error.message);
-      toast.error("Erro ao importar dados", { description: error.message });
+    } catch (error) {
+      const mensagem = mensagemDoErro(error, "Verifique sua conexão e tente novamente.");
+      setErro(mensagem);
+      toast.error("Erro ao importar dados", { description: mensagem });
     } finally {
       setProcessando(false);
     }

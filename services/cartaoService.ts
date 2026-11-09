@@ -4,9 +4,15 @@ import {
   Cartao,
   CreateCartaoDTO,
   UpdateCartaoDTO,
+  GastosAnuaisCartoes,
 } from "@/types/cartao";
+import { requisicao } from "@/services/http";
 
 export const cartaoService = {
+  gastosAnuais(ano: number) {
+    return requisicao<GastosAnuaisCartoes>(`/api/cartoes/gastos-anuais?ano=${ano}`, undefined, "Erro ao carregar gastos anuais");
+  },
+
   /**
    * Lista todos os cartões do usuário autenticado
    */

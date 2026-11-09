@@ -15,6 +15,8 @@ import {
   Package,
 } from "lucide-react";
 import { toast } from "sonner";
+import { dadosService } from "@/services/dadosService";
+import { mensagemDoErro } from "@/services/http";
 
 /**
  * ✅ REESCRITO: simplificado para uma única ação de exportação completa.
@@ -34,16 +36,7 @@ export default function ExportarDadosCard() {
   async function handleExportar() {
     setExportando(true);
     try {
-      const res = await fetch("/api/export/meus-dados");
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Erro ao exportar dados" }));
-        throw new Error(err.error || "Erro ao exportar dados");
-      }
-
-      const blob = await res.blob();
-      const disposition = res.headers.get("Content-Disposition") || "";
-      const match = disposition.match(/filename="(.+)"/);
-      const filename = match?.[1] || `myexpenses-export-${Date.now()}.json`;
+      const { blob, nomeArquivo: filename } = await dadosService.exportarMeusDados();
 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -57,8 +50,8 @@ export default function ExportarDadosCard() {
       toast.success("Dados exportados com sucesso!", {
         description: `Arquivo: ${filename}`,
       });
-    } catch (error: any) {
-      toast.error("Erro ao exportar dados", { description: error.message });
+    } catch (error) {
+      toast.error("Erro ao exportar dados", { description: mensagemDoErro(error, "Verifique sua conexão e tente novamente.") });
     } finally {
       setExportando(false);
     }

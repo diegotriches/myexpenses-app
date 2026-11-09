@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { authService } from "@/services/authService";
+import { mensagemDoErro } from "@/services/http";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("E-mail inválido"),
@@ -44,37 +46,20 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
 
     try {
-      // ✅ CONECTADO COM API REAL
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        // Erro da API (400, 500, etc)
-        toast({
-          title: "Erro ao enviar email",
-          description: data.error || "Não foi possível enviar o email de recuperação. Tente novamente.",
-          variant: "destructive",
-        });
-        return;
-      }
+      await authService.solicitarRecuperacaoSenha(values.email);
 
       // ✅ SUCESSO - Sempre mostra mensagem genérica (segurança)
       setEmailSent(true);
 
       toast({
-        title: "Email enviado!",
+        title: "E-mail enviado!",
         description: "Verifique sua caixa de entrada para redefinir sua senha.",
       });
     } catch (error) {
-      console.error("Erro ao enviar email:", error);
+      console.error("Erro ao enviar e-mail:", error);
       toast({
-        title: "Erro ao enviar email",
-        description: "Não foi possível enviar o email de recuperação. Tente novamente.",
+        title: "Erro ao enviar e-mail",
+        description: mensagemDoErro(error, "Não foi possível enviar o e-mail de recuperação. Tente novamente."),
         variant: "destructive",
       });
     } finally {

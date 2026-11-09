@@ -24,6 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { authService } from "@/services/authService";
+import { ErroApi, mensagemDoErro } from "@/services/http";
 
 // Schema de validação com senha forte
 const resetPasswordSchema = z.object({
@@ -88,17 +90,16 @@ function ResetPasswordForm() {
       }
 
       try {
-        const res = await fetch(`/api/auth/verify-reset-token?token=${token}`);
-        const data = await res.json();
+        const data = await authService.validarTokenReset(token);
 
         if (data.valid) {
           setTokenValid(true);
-          setUserEmail(data.email);
+          setUserEmail(data.email ?? "");
         } else {
           setTokenError(data.error || "Token inválido");
         }
-      } catch {
-        setTokenError("Erro ao verificar token. Tente novamente.");
+      } catch (error) {
+        setTokenError(mensagemDoErro(error, "Erro ao verificar token. Tente novamente."));
       } finally {
         setIsVerifying(false);
       }
@@ -125,25 +126,7 @@ function ResetPasswordForm() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token,
-          password: values.password,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        toast({
-          title: "Erro ao redefinir senha",
-          description: data.error || "Tente novamente mais tarde.",
-          variant: "destructive",
-        });
-        return;
-      }
+      await authService.redefinirSenha(token ?? "", values.password);
 
       setSuccess(true);
 
@@ -153,7 +136,11 @@ function ResetPasswordForm() {
       });
 
       setTimeout(() => router.push("/login"), 3000);
-    } catch {
+    } catch (error) {
+      if (error instanceof ErroApi) {
+        toast({ title: "Erro ao redefinir senha", description: error.message, variant: "destructive" });
+        return;
+      }
       toast({
         title: "Erro inesperado",
         description: "Não foi possível redefinir sua senha. Tente novamente.",

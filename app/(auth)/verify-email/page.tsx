@@ -9,6 +9,8 @@ import { FiArrowLeft } from "react-icons/fi";
 import { Loader2, MailCheck, MailX, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { authService } from "@/services/authService";
+import { mensagemDoErro } from "@/services/http";
 
 // ── Conteúdo da página ────────────────────────────────────────────────────────
 
@@ -32,17 +34,11 @@ function VerifyEmailContent() {
     async function verificar() {
       setStatus("verifying");
       try {
-        const res = await fetch(`/api/auth/verify-email?token=${token}`);
-        const data = await res.json();
-        if (res.ok) {
-          setStatus("success");
-        } else {
-          setStatus("error");
-          setErrorMessage(data.error || "Token inválido ou expirado.");
-        }
-      } catch {
+        await authService.verificarEmail(token!);
+        setStatus("success");
+      } catch (error) {
         setStatus("error");
-        setErrorMessage("Erro de conexão. Tente novamente.");
+        setErrorMessage(mensagemDoErro(error, "Erro de conexão. Tente novamente."));
       }
     }
 
@@ -53,15 +49,11 @@ function VerifyEmailContent() {
     if (!email) return;
     setStatus("resending");
     try {
-      await fetch("/api/auth/resend-verification", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ email }),
-      });
+      await authService.reenviarVerificacao(email);
       setStatus("resent");
-    } catch {
+    } catch (error) {
       setStatus("error");
-      setErrorMessage("Erro ao reenviar. Tente novamente.");
+      setErrorMessage(mensagemDoErro(error, "Erro ao reenviar. Tente novamente."));
     }
   }
 

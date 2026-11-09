@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BsCashCoin } from "react-icons/bs";
 import { FiHome, FiMail, FiSend, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
+import { contatoService } from "@/services/contatoService";
 
 export default function ContatoPage() {
   const router = useRouter();
@@ -30,18 +31,8 @@ export default function ContatoPage() {
     setStatus("loading");
 
     try {
-      const response = await fetch("/api/contato", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      await contatoService.enviar(formData);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Erro ao enviar mensagem");
-      }
-      
       setStatus("success");
       setFormData({ nome: "", email: "", assunto: "", mensagem: "" });
       

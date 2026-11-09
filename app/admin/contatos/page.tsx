@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,96 +23,50 @@ import {
   FiExternalLink,
   FiAlertCircle,
 } from "react-icons/fi";
+import { useAtualizarContatoAdmin, useContatosAdmin, useExcluirContatoAdmin } from "@/hooks/useContatosAdmin";
+import { ErroApi } from "@/services/http";
+import type { Contato, EstatisticasContatos, StatusContato } from "@/types/contato";
 
-interface Contato {
-  id: string;
-  nome: string;
-  email: string;
-  assunto: string;
-  mensagem: string;
-  status: "pendente" | "em_andamento" | "resolvido" | "arquivado";
-  lido: boolean;
-  createdAt: string;
-  userId?: string;
-}
-
-interface Estatisticas {
-  pendentes: number;
-  emAndamento: number;
-  resolvidos: number;
-  arquivados: number;
-  naoLidos: number;
-}
+const ESTATISTICAS_VAZIAS: EstatisticasContatos = {
+  pendentes: 0,
+  emAndamento: 0,
+  resolvidos: 0,
+  arquivados: 0,
+  naoLidos: 0,
+};
 
 export default function AdminContatosPage() {
   const router = useRouter();
-  
-  const [contatos, setContatos] = useState<Contato[]>([]);
-  const [stats, setStats] = useState<Estatisticas>({
-    pendentes: 0,
-    emAndamento: 0,
-    resolvidos: 0,
-    arquivados: 0,
-    naoLidos: 0,
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Filtros
+
+  // Filtros; a busca só é aplicada no Enter ou em "Atualizar"
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [filtroAssunto, setFiltroAssunto] = useState("todos");
   const [filtroBusca, setFiltroBusca] = useState("");
+  const [buscaAplicada, setBuscaAplicada] = useState("");
 
-  // Carregar contatos
-  const carregarContatos = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const { data, isLoading: loading, error: erroConsulta, refetch } = useContatosAdmin({
+    status: filtroStatus,
+    assunto: filtroAssunto,
+    busca: buscaAplicada,
+  });
+  const contatos: Contato[] = data?.contatos ?? [];
+  const stats = data?.estatisticas ?? ESTATISTICAS_VAZIAS;
+  const error = erroConsulta instanceof ErroApi && erroConsulta.status === 403
+    ? "Acesso negado. Apenas administradores podem acessar esta página."
+    : erroConsulta ? erroConsulta.message || "Erro ao carregar contatos" : null;
 
-      const params = new URLSearchParams({
-        status: filtroStatus,
-        assunto: filtroAssunto,
-        ...(filtroBusca && { busca: filtroBusca }),
-      });
+  const atualizarContato = useAtualizarContatoAdmin();
+  const excluirContato = useExcluirContatoAdmin();
 
-      const response = await fetch(`/api/admin/contatos?${params}`);
-      
-      if (response.status === 403) {
-        setError("Acesso negado. Apenas administradores podem acessar esta página.");
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error("Erro ao carregar contatos");
-      }
-
-      const data = await response.json();
-      setContatos(data.contatos);
-      setStats(data.estatisticas);
-    } catch (err: any) {
-      console.error("Erro:", err);
-      setError(err.message || "Erro ao carregar contatos");
-    } finally {
-      setLoading(false);
-    }
+  const carregarContatos = () => {
+    if (filtroBusca === buscaAplicada) refetch();
+    else setBuscaAplicada(filtroBusca);
   };
 
-  useEffect(() => {
-    carregarContatos();
-  }, [filtroStatus, filtroAssunto]);
-
   // Atualizar status
-  const atualizarStatus = async (id: string, novoStatus: string) => {
+  const atualizarStatus = async (id: string, novoStatus: StatusContato) => {
     try {
-      const response = await fetch(`/api/admin/contatos/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: novoStatus }),
-      });
-
-      if (!response.ok) throw new Error();
-
-      carregarContatos();
+      await atualizarContato.mutateAsync({ id, status: novoStatus });
     } catch {
       alert("Erro ao atualizar status");
     }
@@ -121,15 +75,7 @@ export default function AdminContatosPage() {
   // Marcar como lido
   const marcarComoLido = async (id: string) => {
     try {
-      const response = await fetch(`/api/admin/contatos/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lido: true }),
-      });
-
-      if (!response.ok) throw new Error();
-
-      carregarContatos();
+      await atualizarContato.mutateAsync({ id, lido: true });
     } catch {
       alert("Erro ao marcar como lido");
     }
@@ -142,13 +88,7 @@ export default function AdminContatosPage() {
     }
 
     try {
-      const response = await fetch(`/api/admin/contatos/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) throw new Error();
-
-      carregarContatos();
+      await excluirContato.mutateAsync(id);
     } catch {
       alert("Erro ao excluir contato");
     }
@@ -289,7 +229,7 @@ export default function AdminContatosPage() {
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Nome, email ou mensagem..."
+                  placeholder="Nome, e-mail ou mensagem..."
                   value={filtroBusca}
                   onChange={(e) => setFiltroBusca(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && carregarContatos()}
@@ -413,7 +353,7 @@ export default function AdminContatosPage() {
 
               <Select
                 value={contato.status}
-                onValueChange={(valor) => atualizarStatus(contato.id, valor)}
+                onValueChange={(valor) => atualizarStatus(contato.id, valor as StatusContato)}
               >
                 <SelectTrigger className="w-[160px] h-9">
                   <SelectValue />

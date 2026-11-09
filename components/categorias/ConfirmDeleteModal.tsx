@@ -11,10 +11,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, Loader2, Trash2, X, ArrowRight } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Categoria } from "@/types/categoria";
 
-import { useRemoverCategoria } from "@/hooks/useCategorias";
+import { useRemoverCategoria, useUsoCategoria } from "@/hooks/useCategorias";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
@@ -24,13 +24,6 @@ interface Props {
 }
 
 // Resposta de GET /api/categorias/[id]/uso
-interface UsoCategoria {
-  transacoes: number;
-  recorrencias: number;
-  destinos: string[];
-  bloqueada: boolean;
-}
-
 export default function ConfirmDeleteModal({
   aberto,
   onClose,
@@ -44,19 +37,7 @@ export default function ConfirmDeleteModal({
 
   // ✅ NOVO: quantas movimentações serão movidas e para onde. Os hooks
   // ficam ANTES do `if (!categoria) return null` (regras de hooks do React).
-  const { data: uso, isLoading: carregandoUso } = useQuery<UsoCategoria>({
-    queryKey: ["uso-categoria", categoria?.id], // não pode começar com "categorias"
-    queryFn: async () => {
-      const res = await fetch(`/api/categorias/${categoria!.id}/uso`);
-      if (!res.ok) throw new Error("Erro ao verificar o uso da categoria");
-      return res.json();
-    },
-    enabled: aberto && !!categoria,
-    staleTime: 0,
-    gcTime: 0,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
+  const { data: uso, isLoading: carregandoUso } = useUsoCategoria(categoria?.id, aberto);
 
   const excluir = async () => {
     if (!categoria) return;

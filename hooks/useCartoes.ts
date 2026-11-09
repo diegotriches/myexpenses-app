@@ -140,3 +140,11 @@ export function useRemoverCartao() {
   });
 }
 
+/** Gastos do ano nos cartões de crédito; a chave é invalidada ao lançar, pagar ou estornar. */
+export function useGastosAnuaisCartoes(ano: number) {
+  return useQuery({
+    queryKey: ["cartoes-gastos-anuais", ano],
+    queryFn: () => cartaoService.gastosAnuais(ano),
+    staleTime: 1000 * 60 * 5,
+  });
+}

@@ -142,3 +142,25 @@ export function useRemoverCategoria(options: MutationOptions = {}) {
   });
 }
 
+/** Totais do ano por categoria; chave fora do prefixo "categorias" para não ser invalidada a cada edição. */
+export function useTotaisCategorias(ano: number, enabled = true) {
+  return useQuery({
+    queryKey: ["categorias-totais", ano],
+    queryFn: () => categoriaService.totais(ano),
+    enabled,
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+/** Uso da categoria antes de excluir; sempre consulta de novo ao abrir o modal. */
+export function useUsoCategoria(id: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["uso-categoria", id], // não pode começar com "categorias"
+    queryFn: () => categoriaService.uso(id!),
+    enabled: enabled && !!id,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+}

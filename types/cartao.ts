@@ -119,3 +119,30 @@ export interface TransacaoFatura {
 export type TipoCartao = "credito" | "debito";
 
 export type StatusFatura = "PAGA" | "EM_ABERTO" | "ATRASADA";
+
+// ── Gastos anuais (GET /api/cartoes/gastos-anuais) ──
+export interface GastosAnuaisPorMes {
+  mes: number;
+  label: string;
+  total: number;
+  pago: number;
+  pendente: number;
+}
+
+export interface GastosAnuaisPorCartao {
+  id: number;
+  nome: string;
+  empresa: string | null;
+  totalGasto: number;
+  totalPago: number;
+  totalPendente: number;
+}
+
+export interface GastosAnuaisCartoes {
+  ano: number;
+  totalGasto: number;
+  totalPago: number;
+  totalPendente: number;
+  porMes: GastosAnuaisPorMes[];
+  porCartao: GastosAnuaisPorCartao[];
+}

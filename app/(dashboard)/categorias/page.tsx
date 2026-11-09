@@ -2,7 +2,6 @@
 
 import { useState, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -39,25 +38,14 @@ import {
 import CategoriaCard from "@/components/categorias/CategoriaCard";
 import CategoriaFormModal from "@/components/categorias/CategoriaFormModal";
 import ConfirmDeleteModal from "@/components/categorias/ConfirmDeleteModal";
-import { Categoria } from "@/types/categoria";
+import { Categoria, TotalCategoria } from "@/types/categoria";
 import { iconOptions } from "@/utils/iconOptions";
-import { useCategorias } from "@/hooks/useCategorias";
+import { useCategorias, useTotaisCategorias } from "@/hooks/useCategorias";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarMoeda } from "@/utils/formatadores";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-interface TotalCategoria {
-  total: number;
-  totalEntrada: number;
-  totalSaida: number;
-  quantidade: number;
-}
-
-interface TotaisResponse {
-  ano: number;
-  totais: Record<string, TotalCategoria>;
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -240,16 +228,7 @@ export default function CategoriasPage() {
   const [categoriaEditando, setCategoriaEditando] = useState<Categoria | null>(null);
   const [categoriaExcluir, setCategoriaExcluir] = useState<Categoria | null>(null);
 
-  const { data: totaisData, isLoading: loadingTotais } = useQuery<TotaisResponse>({
-    queryKey: ["categorias-totais", anoSelecionado],
-    queryFn: async () => {
-      const res = await fetch(`/api/categorias/totais?ano=${anoSelecionado}`);
-      if (!res.ok) throw new Error("Erro ao carregar totais");
-      return res.json();
-    },
-    enabled: !loading && categorias.length > 0,
-    staleTime: 1000 * 60 * 5,
-  });
+  const { data: totaisData, isLoading: loadingTotais } = useTotaisCategorias(anoSelecionado, !loading && categorias.length > 0);
 
   // Extrato da categoria (página própria), já no ano selecionado nesta tela
   const abrirExtrato = (categoria: Categoria) => {

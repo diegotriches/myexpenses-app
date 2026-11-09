@@ -7,6 +7,11 @@ export interface BackupListItem {
   estatisticas: Record<string, number> | null;
 }
 
+export interface ResultadoImportacao {
+  resultados:     { modulo: string; importados: number }[];
+  totalImportado: number;
+}
+
 export interface RestaurarBackupResponse {
   message:  string;
   backupId: string;

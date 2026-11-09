@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useGastosAnuaisCartoes } from "@/hooks/useCartoes";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle2, Receipt, Gauge, Wallet } from "lucide-react";
@@ -35,15 +35,7 @@ export default function ResumoCartoes({ cartoes }: Props) {
   const anoAtual = new Date().getFullYear();
 
   // 1) Pago no ano — mesma queryKey do card de gastos anuais da dashboard
-  const gastos = useQuery<{ totalGasto: number; totalPago: number }>({
-    queryKey: ["cartoes-gastos-anuais", anoAtual],
-    queryFn: async () => {
-      const res = await fetch(`/api/cartoes/gastos-anuais?ano=${anoAtual}`);
-      if (!res.ok) throw new Error("Erro ao carregar gastos anuais");
-      return res.json();
-    },
-    staleTime: 1000 * 60 * 5,
-  });
+  const gastos = useGastosAnuaisCartoes(anoAtual);
 
   // 2) Faturas em aberto (fatura mais urgente de cada cartão de crédito ativo)
   const faturas = useFaturasAbertas();

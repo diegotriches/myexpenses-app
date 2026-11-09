@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useGastosAnuaisCartoes } from "@/hooks/useCartoes";
 import {
   ResponsiveContainer,
   BarChart,
@@ -15,32 +15,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CreditCard, Loader2, TrendingDown, CheckCircle2, Clock } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarMoeda } from "@/utils/formatadores";
-
-interface PorMes {
-  mes: number;
-  label: string;
-  total: number;
-  pago: number;
-  pendente: number;
-}
-
-interface PorCartao {
-  id: number;
-  nome: string;
-  empresa: string | null;
-  totalGasto: number;
-  totalPago: number;
-  totalPendente: number;
-}
-
-interface GastosAnuaisData {
-  ano: number;
-  totalGasto: number;
-  totalPago: number;
-  totalPendente: number;
-  porMes: PorMes[];
-  porCartao: PorCartao[];
-}
 
 interface Props {
   /** Ano exibido — controlado pelo seletor de ano do Dashboard */
@@ -78,15 +52,7 @@ export default function GastosAnuaisCard({ ano }: Props) {
   const { mask } = useHideValues();
 
   // Mesma queryKey usada na página de Cartões — compartilha o cache
-  const { data, isLoading, isError } = useQuery<GastosAnuaisData>({
-    queryKey: ["cartoes-gastos-anuais", ano],
-    queryFn: async () => {
-      const res = await fetch(`/api/cartoes/gastos-anuais?ano=${ano}`);
-      if (!res.ok) throw new Error("Erro ao carregar gastos anuais");
-      return res.json();
-    },
-    staleTime: 1000 * 60 * 5,
-  });
+  const { data, isLoading, isError } = useGastosAnuaisCartoes(ano);
 
   const semDados = !isLoading && !isError && (data?.totalGasto ?? 0) === 0;
 
