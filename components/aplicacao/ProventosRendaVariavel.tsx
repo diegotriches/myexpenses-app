@@ -24,11 +24,12 @@ import {
 } from "recharts";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import {
-  useProventosRv, useCriarProventoRv, useExcluirProventoRv, useImportarProventosRv,
+  useProventosRv, useCriarProventoRv, useExcluirProventoRv, useImportarProventosRv, useRendaVariavel,
 } from "@/hooks/useRendaVariavel";
 import type { Conta } from "@/types/conta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
-import { TICKER_REGEX, normalizarTicker } from "@/utils/rendaVariavelUtils";
+import { TICKER_REGEX, normalizarTicker, calcularPosicoes } from "@/utils/rendaVariavelUtils";
+import { posicaoEm } from "@/utils/eventosCorporativosUtils";
 import {
   TIPO_PROVENTO_LABEL, lerPlanilhaProventos, resumirProventos,
   type ProventoRv, type ResultadoLeitura, type TipoProvento,
@@ -51,6 +52,11 @@ const lerDecimal = (s: string): number => {
   return Number(t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t);
 };
 
+const OUTRO_TICKER = "__outro";
+
+const formatarPorUnidade = (valor: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(valor);
+
 const COR_TIPO: Record<TipoProvento, string> = {
   dividendo: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   jcp: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
@@ -68,6 +74,8 @@ const POR_PAGINA = 8;
 export default function ProventosRendaVariavel({ contas }: Props) {
   const { mask } = useHideValues();
   const { data: proventos = [], isLoading } = useProventosRv();
+  const { data: dadosCarteira } = useRendaVariavel();
+  const operacoes = useMemo(() => dadosCarteira?.operacoes ?? [], [dadosCarteira]);
   const criar = useCriarProventoRv();
   const excluir = useExcluirProventoRv();
   const importar = useImportarProventosRv();
@@ -87,6 +95,8 @@ export default function ProventosRendaVariavel({ contas }: Props) {
     tipo: "rendimento" as TipoProvento,
     data: hojeIso,
     quantidade: "",
+    ajustarQuantidade: false,
+    tickerManual: false,
     valor: "",
     contaId: contas[0]?.id ?? "",
     movimentar: true,
@@ -110,10 +120,30 @@ export default function ProventosRendaVariavel({ contas }: Props) {
     setModalOpen(true);
   };
 
+  // Ativos em carteira primeiro; os já vendidos também podem pagar provento
+  const opcoesTicker = useMemo(() => {
+    const posicoes = calcularPosicoes(operacoes);
+    return [...posicoes.filter((p) => p.quantidade > 0), ...posicoes.filter((p) => p.quantidade <= 0)];
+  }, [operacoes]);
+  const digitarTicker = form.tickerManual || opcoesTicker.length === 0;
+
+  const tickerValido = TICKER_REGEX.test(form.ticker);
+  const quantidadeNaData = useMemo(
+    () => (tickerValido ? posicaoEm(operacoes, form.ticker, form.data) : 0),
+    [operacoes, form.ticker, form.data, tickerValido],
+  );
+  // A quantidade vem da posição na data; só é digitada se precisar de ajuste
+  const quantidadeDigitada = form.ajustarQuantidade || quantidadeNaData === 0;
+  const quantidadeFinal = quantidadeDigitada ? (form.quantidade ? Number(form.quantidade) : undefined) : quantidadeNaData;
+
+  const valorPreview = lerDecimal(form.valor);
+  const unidade = opcoesTicker.find((p) => p.ticker === form.ticker)?.tipoAtivo === "fii" ? "cota" : "ação";
+  const plural = unidade === "cota" ? "cotas" : "ações";
+
   const confirmarProvento = async () => {
     setErro(null);
     const valor = lerDecimal(form.valor);
-    const qtd = form.quantidade ? Number(form.quantidade) : undefined;
+    const qtd = quantidadeFinal;
     if (!TICKER_REGEX.test(form.ticker)) return setErro("Informe um ticker válido (ex.: VALE3, RECT11).");
     if (!Number.isFinite(valor) || valor <= 0) return setErro("Informe o valor líquido recebido.");
     if (!form.data || form.data > hojeIso) return setErro("A data do pagamento não pode ser futura.");
@@ -344,14 +374,35 @@ export default function ProventosRendaVariavel({ contas }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="prov-ticker">Ticker</Label>
-                <Input
-                  id="prov-ticker"
-                  value={form.ticker}
-                  maxLength={7}
-                  placeholder="RECT11"
-                  autoCapitalize="characters"
-                  onChange={(e) => updateForm("ticker", e.target.value)}
-                />
+                {opcoesTicker.length > 0 && (
+                  <Select
+                    value={form.tickerManual ? OUTRO_TICKER : form.ticker || undefined}
+                    onValueChange={(v) => {
+                      updateForm("tickerManual", v === OUTRO_TICKER);
+                      updateForm("ticker", v === OUTRO_TICKER ? "" : v);
+                    }}
+                  >
+                    <SelectTrigger id="prov-ticker"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {opcoesTicker.map((p) => (
+                        <SelectItem key={p.ticker} value={p.ticker}>
+                          {p.ticker}{p.quantidade > 0 ? "" : " (vendido)"}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={OUTRO_TICKER}>Outro ticker</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                {digitarTicker && (
+                  <Input
+                    id={opcoesTicker.length > 0 ? "prov-ticker-manual" : "prov-ticker"}
+                    value={form.ticker}
+                    maxLength={7}
+                    placeholder="RECT11"
+                    autoCapitalize="characters"
+                    onChange={(e) => updateForm("ticker", e.target.value)}
+                  />
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Tipo</Label>
@@ -377,18 +428,19 @@ export default function ProventosRendaVariavel({ contas }: Props) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="prov-valor">Valor líquido (R$)</Label>
+              <InputMoeda
+                id="prov-valor"
+                placeholder="6,75"
+                value={form.valor}
+                onChange={(v) => updateForm("valor", v)}
+              />
+            </div>
+
+            {tickerValido && quantidadeDigitada && (
               <div className="space-y-1.5">
-                <Label htmlFor="prov-valor">Valor líquido (R$)</Label>
-                <InputMoeda
-                  id="prov-valor"
-                  placeholder="6,75"
-                  value={form.valor}
-                  onChange={(v) => updateForm("valor", v)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="prov-qtd">Quantidade (opcional)</Label>
+                <Label htmlFor="prov-qtd">Quantidade de {plural} que receberam o provento</Label>
                 <Input
                   id="prov-qtd"
                   inputMode="numeric"
@@ -397,7 +449,28 @@ export default function ProventosRendaVariavel({ contas }: Props) {
                   onChange={(e) => updateForm("quantidade", e.target.value.replace(/\D/g, ""))}
                 />
               </div>
-            </div>
+            )}
+
+            {valorPreview > 0 && !!quantidadeFinal && (
+              <p className="rounded-lg bg-gray-50 dark:bg-gray-800/50 px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
+                {mask(formatarMoeda(valorPreview))} ÷ {quantidadeFinal.toLocaleString("pt-BR")} {quantidadeFinal === 1 ? unidade : plural} em {fmtIso(form.data)} ={" "}
+                <strong className="text-gray-900 dark:text-white">{mask(formatarPorUnidade(valorPreview / quantidadeFinal))} por {unidade}</strong>
+              </p>
+            )}
+
+            {tickerValido && quantidadeNaData > 0 && (
+              <button
+                type="button"
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                onClick={() => {
+                  updateForm("quantidade", form.ajustarQuantidade ? "" : String(quantidadeNaData));
+                  updateForm("ajustarQuantidade", !form.ajustarQuantidade);
+                }}
+              >
+                {form.ajustarQuantidade ? `Usar a posição na data (${quantidadeNaData.toLocaleString("pt-BR")})` : "Ajustar quantidade"}
+              </button>
+            )}
+
             <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-start gap-1">
               <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
               Use o valor que caiu na conta (nos JCP, já descontado o IR retido na fonte).

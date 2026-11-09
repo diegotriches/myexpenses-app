@@ -39,7 +39,7 @@ import ProventosRendaVariavel from "@/components/aplicacao/ProventosRendaVariave
 import ImpostoRendaRendaVariavel from "@/components/aplicacao/ImpostoRendaRendaVariavel";
 import EventoCorporativoDialog from "@/components/aplicacao/EventoCorporativoDialog";
 import ImportarOperacoesDialog from "@/components/aplicacao/ImportarOperacoesDialog";
-import { EVENTO_LABEL } from "@/utils/rendaVariavelUtils";
+import { EVENTO_LABEL, calcularPosicoes } from "@/utils/rendaVariavelUtils";
 
 interface Props {
   contas: Conta[];
@@ -81,6 +81,7 @@ interface FormOperacao {
   data: string;
   quantidade: string;
   preco: string;
+  precoEditado: boolean; // digitado à mão: a cotação não o sobrescreve mais
   taxas: string;
   contaId: string;
   movimentar: boolean;
@@ -119,6 +120,13 @@ export default function RendaVariavel({ contas }: Props) {
   const [abertos, setAbertos] = useState<Set<string>>(new Set());
   const [verEncerrados, setVerEncerrados] = useState(false);
 
+  // Sugestão de preço: a cotação só faz sentido para uma operação de hoje
+  function precoSugerido(ticker: string, data: string): string {
+    if (data !== hojeIso) return "";
+    const cotacao = cotacoes.find((c) => c.ticker === ticker);
+    return cotacao ? cotacao.preco.toFixed(2) : "";
+  }
+
   // ── Nova operação ──────────────────────────────────────────────────────────
   const formVazio = (tipo: TipoOperacao = "compra", ticker = ""): FormOperacao => ({
     tipo,
@@ -127,7 +135,8 @@ export default function RendaVariavel({ contas }: Props) {
     tipoAtivoManual: false,
     data: hojeIso,
     quantidade: "",
-    preco: "",
+    preco: precoSugerido(normalizarTicker(ticker), hojeIso),
+    precoEditado: false,
     taxas: "",
     contaId: contas[0]?.id ?? "",
     movimentar: true,
@@ -161,6 +170,8 @@ export default function RendaVariavel({ contas }: Props) {
       if (k === "tipoAtivo") novo.tipoAtivoManual = true;
       // por padrão só movimenta o saldo quando a operação é de hoje
       if (k === "data") novo.movimentar = v === hojeIso;
+      if (k === "preco") novo.precoEditado = true;
+      if ((k === "ticker" || k === "data") && !f.precoEditado) novo.preco = precoSugerido(novo.ticker, novo.data);
       return novo;
     });
   };
@@ -174,6 +185,18 @@ export default function RendaVariavel({ contas }: Props) {
       : 0;
 
   const posicaoDoTicker = carteira.ativos.find((a) => a.ticker === form.ticker);
+  const cotacaoDoTicker = cotacoes.find((c) => c.ticker === form.ticker);
+
+  // Numa venda retroativa, o que vale é a posição daquele dia, não a de hoje
+  const posicaoNaData = useMemo(
+    () => calcularPosicoes(operacoes.filter((o) => o.ticker === form.ticker && o.data <= form.data))[0] ?? null,
+    [operacoes, form.ticker, form.data],
+  );
+  const quantidadeNaData = posicaoNaData?.quantidade ?? 0;
+  const resultadoEstimado =
+    form.tipo === "venda" && totalPrevisto > 0 && quantidadeNaData > 0
+      ? totalPrevisto - qtdNum * posicaoNaData!.precoMedio
+      : null;
 
   const confirmarOperacao = async () => {
     setErro(null);
@@ -573,11 +596,23 @@ export default function RendaVariavel({ contas }: Props) {
               </div>
             </div>
 
-            {form.tipo === "venda" && posicaoDoTicker && (
-              <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-start gap-1">
-                <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                Posição atual: {posicaoDoTicker.quantidade.toLocaleString("pt-BR")} un. · preço médio {formatarPreco(posicaoDoTicker.precoMedio)}.
-              </p>
+            {form.tipo === "venda" && TICKER_REGEX.test(form.ticker) && (
+              quantidadeNaData > 0 ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 px-3 py-2">
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Você tem <strong className="text-gray-900 dark:text-white">{quantidadeNaData.toLocaleString("pt-BR")}</strong> {form.ticker}
+                    {form.data < hojeIso ? ` em ${fmtIso(form.data)}` : ""} · preço médio {mask(formatarPreco(posicaoNaData!.precoMedio))}
+                  </p>
+                  <Button type="button" size="sm" variant="outline" className="flex-shrink-0" onClick={() => updateForm("quantidade", String(quantidadeNaData))}>
+                    Vender tudo
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1">
+                  <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  Você não tinha {form.ticker} nesta data.
+                </p>
+              )
             )}
 
             <div className="space-y-1.5">
@@ -626,12 +661,33 @@ export default function RendaVariavel({ contas }: Props) {
               </p>
             </div>
 
+            {cotacaoDoTicker && (
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-start gap-1 -mt-2">
+                <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                Cotação: {formatarPreco(cotacaoDoTicker.preco)} · atualizada em {fmtDataHora(cotacaoDoTicker.atualizadoEm)}. Ajuste para o preço real da operação.
+              </p>
+            )}
+
+            {form.tipo === "venda" && quantidadeNaData > 0 && qtdNum > quantidadeNaData && (
+              <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> A quantidade é maior que a sua posição.
+              </p>
+            )}
+
             {totalPrevisto > 0 && (
-              <div className="flex justify-between bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 text-sm">
-                <span className="text-gray-600 dark:text-gray-400">
-                  {form.tipo === "compra" ? "Total a pagar" : "Total a receber"}
-                </span>
-                <span className="font-bold text-gray-900 dark:text-white">{formatarMoeda(totalPrevisto)}</span>
+              <div className="space-y-1 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    {form.tipo === "compra" ? "Total a pagar" : "Total a receber"}
+                  </span>
+                  <span className="font-bold text-gray-900 dark:text-white">{formatarMoeda(totalPrevisto)}</span>
+                </div>
+                {resultadoEstimado !== null && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Resultado estimado</span>
+                    <span className={`font-semibold ${cor(resultadoEstimado)}`}>{mask(formatarMoeda(resultadoEstimado))}</span>
+                  </div>
+                )}
               </div>
             )}
 
