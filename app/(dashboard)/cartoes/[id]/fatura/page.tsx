@@ -6,14 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import {
   ArrowLeft,
   DollarSign,
@@ -27,7 +20,6 @@ import {
   Info,
   Zap,
   RotateCcw,
-  AlertTriangle,
 } from "lucide-react";
 
 import {
@@ -649,56 +641,42 @@ export default function FaturaPage() {
       />
 
       {/* ✅ NOVO: modal cancelar pagamento */}
-      <Dialog open={modalCancelarPgto} onOpenChange={setModalCancelarPgto}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
-              <AlertTriangle size={18} />
-              Cancelar pagamento
-            </DialogTitle>
-            <DialogDescription>
-              O valor será estornado para a conta utilizada no pagamento e a
-              fatura voltará ao status <strong>Em Aberto</strong>.
-            </DialogDescription>
-          </DialogHeader>
-          {dadosFatura && (
-            <div className="py-2">
-              <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-1.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Fatura:</span>
-                  <span className="font-medium">
-                    {meses[mesFinal]} {anoFinal}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Valor:</span>
-                  <span className="font-semibold">
-                    {formatarMoeda(totalFatura)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Pago em:</span>
-                  <span>{dadosFatura.dataPagamento ?? "—"}</span>
-                </div>
+      <ConfirmDialog
+        aberto={modalCancelarPgto}
+        onFechar={() => setModalCancelarPgto(false)}
+        titulo="Cancelar pagamento"
+        descricao={<>O valor será estornado para a conta utilizada no pagamento e a fatura voltará ao status <strong>Em Aberto</strong>.</>}
+        onConfirmar={handleCancelarPagamento}
+        textoConfirmar="Confirmar cancelamento"
+        textoCarregando="Cancelando..."
+        textoCancelar="Voltar"
+        iconeConfirmar={<RotateCcw size={14} className="mr-2" />}
+        carregando={cancelarPagamento.isPending}
+        className="max-w-sm"
+      >
+        {dadosFatura && (
+          <div className="py-2">
+            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Fatura:</span>
+                <span className="font-medium">
+                  {meses[mesFinal]} {anoFinal}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Valor:</span>
+                <span className="font-semibold">
+                  {formatarMoeda(totalFatura)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Pago em:</span>
+                <span>{dadosFatura.dataPagamento ?? "—"}</span>
               </div>
             </div>
-          )}
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setModalCancelarPgto(false)}
-            >
-              Voltar
-            </Button>
-            <Button variant="destructive" onClick={handleCancelarPagamento} disabled={cancelarPagamento.isPending}>
-              {cancelarPagamento.isPending
-                ? <Loader2 size={14} className="mr-2 animate-spin" />
-                : <RotateCcw size={14} className="mr-2" />}
-              Confirmar cancelamento
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

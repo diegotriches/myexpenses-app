@@ -1,13 +1,7 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { Estabelecimento } from "@/types/estabelecimento";
 
 interface Props {
@@ -28,65 +22,40 @@ export default function ConfirmDeleteEstabelecimentoModal({
   const temTransacoes = (estabelecimento?.totalTransacoes ?? 0) > 0;
 
   return (
-    <Dialog open={aberto} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-md dark:bg-gray-900 dark:border-gray-800">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-            <AlertTriangle size={20} className="text-red-500" />
-            Excluir estabelecimento
-          </DialogTitle>
-        </DialogHeader>
+    <ConfirmDialog
+      aberto={aberto}
+      onFechar={onClose}
+      titulo="Excluir estabelecimento"
+      onConfirmar={onConfirmar}
+      carregando={loading}
+    >
+      <div className="space-y-4 py-2">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Tem certeza que deseja excluir{" "}
+          <span className="font-semibold text-gray-900 dark:text-white">
+            &quot;{estabelecimento?.nome}&quot;
+          </span>
+          ? Esta ação não pode ser desfeita.
+        </p>
 
-        <div className="space-y-4 py-2">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Tem certeza que deseja excluir{" "}
-            <span className="font-semibold text-gray-900 dark:text-white">
-              &quot;{estabelecimento?.nome}&quot;
-            </span>
-            ? Esta ação não pode ser desfeita.
-          </p>
-
-          {/* Aviso quando há transações vinculadas */}
-          {temTransacoes && (
-            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start gap-2">
-              <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-amber-800 dark:text-amber-200">
-                <p className="font-medium mb-0.5">
-                  {estabelecimento?.totalTransacoes}{" "}
-                  {estabelecimento?.totalTransacoes === 1
-                    ? "transação vinculada"
-                    : "transações vinculadas"}
-                </p>
-                <p className="text-xs text-amber-700 dark:text-amber-300">
-                  As transações serão mantidas, mas deixarão de estar associadas a este estabelecimento.
-                </p>
-              </div>
+        {/* Aviso quando há transações vinculadas */}
+        {temTransacoes && (
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start gap-2">
+            <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-800 dark:text-amber-200">
+              <p className="font-medium mb-0.5">
+                {estabelecimento?.totalTransacoes}{" "}
+                {estabelecimento?.totalTransacoes === 1
+                  ? "transação vinculada"
+                  : "transações vinculadas"}
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                As transações serão mantidas, mas deixarão de estar associadas a este estabelecimento.
+              </p>
             </div>
-          )}
-        </div>
-
-        <div className="flex gap-3 pt-2">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1"
-          >
-            Cancelar
-          </Button>
-          <Button
-            onClick={onConfirmar}
-            disabled={loading}
-            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-          >
-            {loading ? (
-              <><Loader2 size={16} className="mr-2 animate-spin" />Excluindo...</>
-            ) : (
-              "Excluir"
-            )}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+          </div>
+        )}
+      </div>
+    </ConfirmDialog>
   );
 }

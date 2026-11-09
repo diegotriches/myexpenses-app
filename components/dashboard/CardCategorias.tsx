@@ -1,57 +1,85 @@
-// src/components/dashboard/CardCategoriasDespesa.tsx
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { categoriasDespesa } from '@/utils/dashboardUtils';
-import { TrendingDown } from 'lucide-react';
-import { useMemo } from 'react';
-import { useTransacoesAno } from '@/hooks/useTransacoes';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { useHideValues } from '@/contexts/HideValuesContext';
-import { formatarMoeda } from "@/utils/formatadores";
+import { useMemo } from "react";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { TrendingDown, TrendingUp } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { categoriasDespesa, categoriasReceita } from "@/utils/dashboardUtils";
+import { useTransacoesAno } from "@/hooks/useTransacoes";
 import { useMoeda } from "@/hooks/useMoeda";
 
-const CORES_DESPESA = [
-  '#ef4444', '#f97316', '#eab308',
-  '#a855f7', '#ec4899',
-];
+const CONFIG = {
+  despesa: {
+    agrupar: categoriasDespesa,
+    cores: ["#ef4444", "#f97316", "#eab308", "#a855f7", "#ec4899"],
+    Icone: TrendingDown,
+    corIcone: "text-red-600 dark:text-red-400",
+    titulo: "Categorias com Maior Despesa",
+    nomePlural: "despesas",
+    vazio: "Nenhuma despesa encontrada",
+  },
+  receita: {
+    agrupar: categoriasReceita,
+    cores: ["#22c55e", "#16a34a", "#4ade80", "#14b8a6", "#06b6d4"],
+    Icone: TrendingUp,
+    corIcone: "text-green-600 dark:text-green-400",
+    titulo: "Categorias com Maior Receita",
+    nomePlural: "receitas",
+    vazio: "Nenhuma receita encontrada",
+  },
+} as const;
 
-interface CardCategoriasDespesaProps {
-  ano: number;
+// type (e não interface) para o Recharts aceitar como dado do gráfico
+type ItemGrafico = {
+  name: string;
+  value: number;
+  porcentagem: number;
+  cor: string;
+};
+
+interface PropsTooltip {
+  active?: boolean;
+  payload?: ReadonlyArray<{ name?: string | number; payload?: ItemGrafico }>;
 }
 
-export function CardCategoriasDespesa({ ano }: CardCategoriasDespesaProps) {
+interface Props {
+  ano: number;
+  tipo: keyof typeof CONFIG;
+}
+
+/** Ranking das 5 categorias com mais valor no ano, em despesas ou em receitas. */
+export function CardCategorias({ ano, tipo }: Props) {
+  const config = CONFIG[tipo];
+  const { Icone } = config;
   const { data: transacoes = [], isLoading } = useTransacoesAno(ano);
-  const { hidden } = useHideValues();
+  const fmt = useMoeda();
 
-  const categorias = useMemo(() => categoriasDespesa(transacoes), [transacoes]);
+  const categorias = useMemo(() => config.agrupar(transacoes), [config, transacoes]);
 
-  const totalDespesas = useMemo(
+  const total = useMemo(
     () => categorias.reduce((acc, c) => acc + c.total, 0),
     [categorias]
   );
 
-  const fmt = useMoeda();
-
-  const chartData = useMemo(() =>
+  const chartData = useMemo<ItemGrafico[]>(() =>
     categorias.slice(0, 5).map((c, i) => ({
-      name:           c.categoria,
-      value:          c.total,
-      porcentagem:    totalDespesas > 0 ? (c.total / totalDespesas) * 100 : 0,
-      totalFormatado: formatarMoeda(c.total),
-      cor:            CORES_DESPESA[i % CORES_DESPESA.length],
+      name:        c.categoria,
+      value:       c.total,
+      porcentagem: total > 0 ? (c.total / total) * 100 : 0,
+      cor:         config.cores[i % config.cores.length],
     })),
-    [categorias, totalDespesas]
+    [categorias, total, config]
   );
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
+  const renderTooltip = ({ active, payload }: PropsTooltip) => {
+    const item = payload?.[0];
+    if (!active || !item?.payload) return null;
     return (
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shadow-lg text-xs">
-        <p className="font-semibold text-gray-800 dark:text-gray-200">{payload[0].name}</p>
+        <p className="font-semibold text-gray-800 dark:text-gray-200">{item.name}</p>
         <p className="text-gray-600 dark:text-gray-400">
-          {hidden ? "••••••" : payload[0].payload.totalFormatado} ({payload[0].payload.porcentagem.toFixed(1)}%)
+          {fmt(item.payload.value)} ({item.payload.porcentagem.toFixed(1)}%)
         </p>
       </div>
     );
@@ -72,17 +100,17 @@ export function CardCategoriasDespesa({ ano }: CardCategoriasDespesaProps) {
     <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-          <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400" />
-          Categorias com Maior Despesa
+          <Icone className={`w-5 h-5 ${config.corIcone}`} />
+          {config.titulo}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {categorias.length === 0 ? (
           <div className="text-center py-8">
-            <TrendingDown className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma despesa encontrada</p>
+            <Icone className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">{config.vazio}</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              As despesas aparecerão aqui quando você registrá-las
+              As {config.nomePlural} aparecerão aqui quando você registrá-las
             </p>
           </div>
         ) : (
@@ -97,7 +125,7 @@ export function CardCategoriasDespesa({ ano }: CardCategoriasDespesaProps) {
                         <Cell key={index} fill={entry.cor} />
                       ))}
                     </Pie>
-                    <Tooltip content={CustomTooltip} />
+                    <Tooltip content={renderTooltip} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -105,8 +133,8 @@ export function CardCategoriasDespesa({ ano }: CardCategoriasDespesaProps) {
 
             <div className="space-y-2.5">
               {categorias.slice(0, 5).map((c, index) => {
-                const porcentagem = totalDespesas > 0 ? (c.total / totalDespesas) * 100 : 0;
-                const cor = CORES_DESPESA[index % CORES_DESPESA.length];
+                const porcentagem = total > 0 ? (c.total / total) * 100 : 0;
+                const cor = config.cores[index % config.cores.length];
 
                 return (
                   <div
@@ -125,7 +153,7 @@ export function CardCategoriasDespesa({ ano }: CardCategoriasDespesaProps) {
                         <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                           {c.categoria}
                         </span>
-                        <span className="text-sm font-bold text-red-600 dark:text-red-400 ml-2 whitespace-nowrap">
+                        <span className={`text-sm font-bold ${config.corIcone} ml-2 whitespace-nowrap`}>
                           {fmt(c.total)}
                         </span>
                       </div>
@@ -143,7 +171,7 @@ export function CardCategoriasDespesa({ ano }: CardCategoriasDespesaProps) {
                       </div>
 
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {c.quantidade} lançamento{c.quantidade !== 1 ? 's' : ''}
+                        {c.quantidade} lançamento{c.quantidade !== 1 ? "s" : ""}
                       </p>
                     </div>
                   </div>
@@ -152,14 +180,14 @@ export function CardCategoriasDespesa({ ano }: CardCategoriasDespesaProps) {
 
               {categorias.length > 5 && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 text-center pt-1">
-                  + {categorias.length - 5} categoria{categorias.length - 5 !== 1 ? 's' : ''} com despesas
+                  + {categorias.length - 5} categoria{categorias.length - 5 !== 1 ? "s" : ""} com {config.nomePlural}
                 </p>
               )}
 
               <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total em despesas:</span>
-                <span className="text-base font-bold text-red-600 dark:text-red-400">
-                  {fmt(totalDespesas)}
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total em {config.nomePlural}:</span>
+                <span className={`text-base font-bold ${config.corIcone}`}>
+                  {fmt(total)}
                 </span>
               </div>
             </div>

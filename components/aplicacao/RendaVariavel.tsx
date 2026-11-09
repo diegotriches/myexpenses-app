@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
@@ -839,27 +840,22 @@ export default function RendaVariavel({ contas }: Props) {
       </Dialog>
 
       {/* ── Confirmar exclusão ──────────────────────────────────────────── */}
-      <Dialog open={!!excluirAlvo} onOpenChange={(open) => { if (!open) setExcluirAlvo(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Excluir operação?</DialogTitle>
-            <DialogDescription>
-              {excluirAlvo &&
-                `${excluirAlvo.tipo === "compra" ? "Compra" : "Venda"} de ${excluirAlvo.quantidade} ${excluirAlvo.ticker} em ${fmtIso(excluirAlvo.data)}. `}
-              {excluirAlvo?.movimentouConta
-                ? "O valor será devolvido ao saldo da conta e removido do extrato. "
-                : ""}
-              O preço médio e a posição serão recalculados.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setExcluirAlvo(null)}>Cancelar</Button>
-            <Button onClick={confirmarExclusao} disabled={excluir.isPending} className="bg-red-600 hover:bg-red-700 text-white">
-              {excluir.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        aberto={!!excluirAlvo}
+        onFechar={() => setExcluirAlvo(null)}
+        titulo="Excluir operação?"
+        descricao={<>
+          {excluirAlvo &&
+            `${excluirAlvo.tipo === "compra" ? "Compra" : "Venda"} de ${excluirAlvo.quantidade} ${excluirAlvo.ticker} em ${fmtIso(excluirAlvo.data)}. `}
+          {excluirAlvo?.movimentouConta
+            ? "O valor será devolvido ao saldo da conta e removido do extrato. "
+            : ""}
+          O preço médio e a posição serão recalculados.
+        </>}
+        onConfirmar={confirmarExclusao}
+        carregando={excluir.isPending}
+        className="max-w-sm"
+      />
     </div>
   );
 }

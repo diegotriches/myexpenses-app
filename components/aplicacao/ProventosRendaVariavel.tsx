@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
@@ -610,23 +611,18 @@ export default function ProventosRendaVariavel({ contas }: Props) {
       </Dialog>
 
       {/* ── Confirmar exclusão ──────────────────────────────────────────── */}
-      <Dialog open={!!excluirAlvo} onOpenChange={(open) => { if (!open) setExcluirAlvo(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Excluir provento?</DialogTitle>
-            <DialogDescription>
-              {excluirAlvo && `${TIPO_PROVENTO_LABEL[excluirAlvo.tipo]} de ${excluirAlvo.ticker} em ${fmtIso(excluirAlvo.data)}. `}
-              {excluirAlvo?.movimentouConta ? "O valor será tirado do saldo da conta e do extrato." : ""}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setExcluirAlvo(null)}>Cancelar</Button>
-            <Button onClick={confirmarExclusao} disabled={excluir.isPending} className="bg-red-600 hover:bg-red-700 text-white">
-              {excluir.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        aberto={!!excluirAlvo}
+        onFechar={() => setExcluirAlvo(null)}
+        titulo="Excluir provento?"
+        descricao={<>
+          {excluirAlvo && `${TIPO_PROVENTO_LABEL[excluirAlvo.tipo]} de ${excluirAlvo.ticker} em ${fmtIso(excluirAlvo.data)}. `}
+          {excluirAlvo?.movimentouConta ? "O valor será tirado do saldo da conta e do extrato." : ""}
+        </>}
+        onConfirmar={confirmarExclusao}
+        carregando={excluir.isPending}
+        className="max-w-sm"
+      />
     </div>
   );
 }

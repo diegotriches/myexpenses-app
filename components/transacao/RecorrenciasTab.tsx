@@ -11,16 +11,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import {
   ArrowUpCircle, ArrowDownCircle, Pause, Play, Trash2, Pencil,
   Repeat, Calendar, Loader2, CreditCard, Wallet, AlertCircle,
@@ -319,29 +310,21 @@ export default function RecorrenciasTab({ contas, cartoes }: Props) {
         })}
       </div>
 
-      <AlertDialog open={!!recorrenciaCancelar} onOpenChange={(open) => { if (!open) setRecorrenciaCancelar(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancelar recorrência</AlertDialogTitle>
-            <AlertDialogDescription>
-              Nenhuma nova ocorrência de &quot;{recorrenciaCancelar?.descricao || "esta recorrência"}&quot; será gerada
-              a partir de agora. As transações já criadas por ela permanecem no seu histórico normalmente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Voltar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (recorrenciaCancelar) cancelar.mutate(recorrenciaCancelar.id);
-                setRecorrenciaCancelar(null);
-              }}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Cancelar recorrência
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        aberto={!!recorrenciaCancelar}
+        onFechar={() => setRecorrenciaCancelar(null)}
+        titulo="Cancelar recorrência"
+        descricao={<>
+          Nenhuma nova ocorrência de &quot;{recorrenciaCancelar?.descricao || "esta recorrência"}&quot; será gerada
+          a partir de agora. As transações já criadas por ela permanecem no seu histórico normalmente.
+        </>}
+        onConfirmar={() => {
+          if (recorrenciaCancelar) cancelar.mutate(recorrenciaCancelar.id);
+          setRecorrenciaCancelar(null);
+        }}
+        textoConfirmar="Cancelar recorrência"
+        textoCancelar="Voltar"
+      />
 
       {/* ✅ NOVO: modal de edição — valor, dia do mês e forma de pagamento.
           As mudanças valem só para as próximas gerações do cron; ocorrências

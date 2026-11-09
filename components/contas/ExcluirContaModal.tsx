@@ -1,14 +1,8 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Archive, Loader2 } from "lucide-react";
+import { Archive, Loader2 } from "lucide-react";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { useUsoConta } from "@/hooks/useContas";
 import { Conta } from "@/types/conta";
 import { useHideValues } from "@/contexts/HideValuesContext";
@@ -56,18 +50,17 @@ export default function ExcluirContaModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v && !ocupado) onClose(); }}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
-            </div>
-            <DialogTitle className="text-red-600 dark:text-red-400">
-              Remover conta &quot;{conta?.nome}&quot;
-            </DialogTitle>
-          </div>
-        </DialogHeader>
+    <ConfirmDialog
+      aberto={open}
+      onFechar={onClose}
+      titulo={<>Remover conta &quot;{conta?.nome}&quot;</>}
+      onConfirmar={onExcluir}
+      textoConfirmar="Excluir definitivamente"
+      carregando={loadingExcluir}
+      bloqueado={loadingArquivar}
+      confirmarDesabilitado={isLoading}
+      className="max-w-lg"
+    >
 
         <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
           {/* Opção 1 — arquivar */}
@@ -126,16 +119,6 @@ export default function ExcluirContaModal({
             <p className="font-medium">Esta ação não pode ser desfeita.</p>
           </div>
         </div>
-
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose} disabled={ocupado}>
-            Cancelar
-          </Button>
-          <Button variant="destructive" onClick={onExcluir} disabled={ocupado || isLoading}>
-            {loadingExcluir ? "Excluindo..." : "Excluir definitivamente"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </ConfirmDialog>
   );
 }

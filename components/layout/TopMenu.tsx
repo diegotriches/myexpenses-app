@@ -15,16 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import PeriodoSelector      from "@/components/layout/PeriodoSelector";
 import CalculadoraModal     from "@/components/common/CalculadoraModal";
 import NotasPanel           from "@/components/common/NotasPanel";
@@ -260,22 +251,14 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
       {/* Painel de notas */}
       <NotasPanel open={notasPanelOpen} onOpenChange={setNotasPanelOpen} />
 
-      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Saída</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja sair da sua conta? Você precisará fazer login novamente para acessar o sistema.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleLogout} className="bg-red-600 hover:bg-red-700">
-              Sair
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        aberto={showLogoutDialog}
+        onFechar={() => setShowLogoutDialog(false)}
+        titulo="Confirmar Saída"
+        descricao="Tem certeza que deseja sair da sua conta? Você precisará fazer login novamente para acessar o sistema."
+        onConfirmar={handleLogout}
+        textoConfirmar="Sair"
+      />
     </>
   );
 };

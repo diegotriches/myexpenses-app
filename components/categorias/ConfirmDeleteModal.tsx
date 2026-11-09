@@ -1,16 +1,8 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, Loader2, Trash2, X, ArrowRight } from "lucide-react";
+import { AlertTriangle, Loader2, Trash2, ArrowRight } from "lucide-react";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { Categoria } from "@/types/categoria";
 
@@ -23,7 +15,6 @@ interface Props {
   categoria: Categoria | null;
 }
 
-// Resposta de GET /api/categorias/[id]/uso
 export default function ConfirmDeleteModal({
   aberto,
   onClose,
@@ -63,15 +54,9 @@ export default function ConfirmDeleteModal({
       }
 
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       // Toast de erro vem automaticamente do hook
       console.error("Erro ao excluir:", err);
-    }
-  };
-
-  const handleClose = () => {
-    if (!loading) {
-      onClose();
     }
   };
 
@@ -80,17 +65,18 @@ export default function ConfirmDeleteModal({
   const semUso = !!uso && uso.transacoes === 0 && uso.recorrencias === 0;
 
   return (
-    <Dialog open={aberto} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[440px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <AlertTriangle className="text-red-600 dark:text-red-400" size={24} />
-            Confirmar Exclusão
-          </DialogTitle>
-          <DialogDescription>
-            Esta ação não pode ser desfeita
-          </DialogDescription>
-        </DialogHeader>
+    <ConfirmDialog
+      aberto={aberto}
+      onFechar={onClose}
+      titulo="Confirmar Exclusão"
+      descricao="Esta ação não pode ser desfeita"
+      onConfirmar={excluir}
+      textoConfirmar="Excluir Categoria"
+      iconeConfirmar={<Trash2 size={16} className="mr-2" />}
+      carregando={loading}
+      confirmarDesabilitado={carregandoUso || !!uso?.bloqueada}
+      className="sm:max-w-[440px]"
+    >
 
         <div className="space-y-4 py-4">
           {/* Aviso */}
@@ -146,35 +132,6 @@ export default function ConfirmDeleteModal({
             <p className="text-xs">Esta ação é permanente e irreversível.</p>
           </div>
         </div>
-
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            onClick={handleClose}
-            disabled={loading}
-          >
-            <X size={16} className="mr-2" />
-            Cancelar
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={excluir}
-            disabled={loading || carregandoUso || !!uso?.bloqueada}
-          >
-            {loading ? (
-              <>
-                <Loader2 size={16} className="mr-2 animate-spin" />
-                Excluindo...
-              </>
-            ) : (
-              <>
-                <Trash2 size={16} className="mr-2" />
-                Excluir Categoria
-              </>
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </ConfirmDialog>
   );
 }

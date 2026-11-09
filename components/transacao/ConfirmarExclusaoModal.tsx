@@ -1,14 +1,7 @@
 import { useState } from "react";
 
 import { Transacao } from "@/types/transacao";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Loader2 } from "lucide-react";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 
 type TipoExclusao = "unica" | "todas_parcelas" | "toda_recorrencia";
 
@@ -17,7 +10,7 @@ interface Props {
   onClose: () => void;
   transacao: Transacao | null;
   onConfirmar: (tipo: TipoExclusao) => void;
-  loading?: boolean; // ✅ NOVO - Recebe loading do pai
+  loading?: boolean;
 }
 
 export default function ConfirmarExclusaoModal({
@@ -25,7 +18,7 @@ export default function ConfirmarExclusaoModal({
   onClose,
   transacao,
   onConfirmar,
-  loading = false, // ✅ NOVO - Default false
+  loading = false,
 }: Props) {
   const isParcelada = !!transacao?.parcelamentoId;
   const isRecorrente = !!transacao?.recorrenciaId;
@@ -46,123 +39,62 @@ export default function ConfirmarExclusaoModal({
     setTipoExclusao("unica");
   }
 
+  // Opções de alcance da exclusão (parcelas ou recorrência)
+  const opcoes: { valor: TipoExclusao; rotulo: string }[] = isTransferencia
+    ? []
+    : isParcelada
+      ? [{ valor: "unica", rotulo: "Somente esta parcela" }, { valor: "todas_parcelas", rotulo: "Todas as parcelas" }]
+      : isRecorrente
+        ? [{ valor: "unica", rotulo: "Somente esta ocorrência" }, { valor: "toda_recorrencia", rotulo: "Toda a recorrência" }]
+        : [];
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>
-            {isTransferencia ? "Excluir Transferência" : "Excluir Movimentação"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <p className="text-gray-700 dark:text-gray-300 mb-3">
-          {isTransferencia ? (
-            <>
-              Tem certeza que deseja excluir esta transferência?
-              <br />
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                A movimentação de saída e a de entrada serão removidas.
-              </span>
-            </>
-          ) : (
-            <>
-              Tem certeza que deseja excluir:
-              <br />
-              <strong className="text-gray-900 dark:text-white">
-                {transacao?.descricao || "(Sem descrição)"}
-              </strong>
-              ?
-            </>
-          )}
-        </p>
-
-        {!isTransferencia && (
+    <ConfirmDialog
+      aberto={open}
+      onFechar={onClose}
+      titulo={isTransferencia ? "Excluir Transferência" : "Excluir Movimentação"}
+      onConfirmar={() => onConfirmar(isTransferencia ? "unica" : tipoExclusao)}
+      carregando={loading}
+      confirmarDesabilitado={!transacao || (!isTransferencia && !tipoValido)}
+      className="max-w-sm"
+    >
+      <p className="text-gray-700 dark:text-gray-300">
+        {isTransferencia ? (
           <>
-            {isParcelada ? (
-              <div className="space-y-2 mb-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={tipoExclusao === "unica"}
-                    onChange={() => setTipoExclusao("unica")}
-                    disabled={loading}
-                    className="cursor-pointer"
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">
-                    Somente esta parcela
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={tipoExclusao === "todas_parcelas"}
-                    onChange={() => setTipoExclusao("todas_parcelas")}
-                    disabled={loading}
-                    className="cursor-pointer"
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">
-                    Todas as parcelas
-                  </span>
-                </label>
-              </div>
-            ) : isRecorrente ? (
-              <div className="space-y-2 mb-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={tipoExclusao === "unica"}
-                    onChange={() => setTipoExclusao("unica")}
-                    disabled={loading}
-                    className="cursor-pointer"
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">
-                    Somente esta ocorrência
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={tipoExclusao === "toda_recorrencia"}
-                    onChange={() => setTipoExclusao("toda_recorrencia")}
-                    disabled={loading}
-                    className="cursor-pointer"
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">
-                    Toda a recorrência
-                  </span>
-                </label>
-              </div>
-            ) : null}
+            Tem certeza que deseja excluir esta transferência?
+            <br />
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              A movimentação de saída e a de entrada serão removidas.
+            </span>
+          </>
+        ) : (
+          <>
+            Tem certeza que deseja excluir:
+            <br />
+            <strong className="text-gray-900 dark:text-white">
+              {transacao?.descricao || "(Sem descrição)"}
+            </strong>
+            ?
           </>
         )}
+      </p>
 
-        <div className="flex justify-end gap-3 mt-4">
-          <Button 
-            variant="outline" 
-            onClick={onClose}
-            disabled={loading}
-          >
-            Cancelar
-          </Button>
-
-          <Button
-            className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
-            disabled={!transacao || (!isTransferencia && !tipoValido) || loading}
-            onClick={() => onConfirmar(isTransferencia ? "unica" : tipoExclusao)}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Excluindo...
-              </>
-            ) : (
-              "Excluir"
-            )}
-          </Button>
+      {opcoes.length > 0 && (
+        <div className="space-y-2">
+          {opcoes.map((o) => (
+            <label key={o.valor} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                checked={tipoExclusao === o.valor}
+                onChange={() => setTipoExclusao(o.valor)}
+                disabled={loading}
+                className="cursor-pointer"
+              />
+              <span className="text-gray-700 dark:text-gray-300">{o.rotulo}</span>
+            </label>
+          ))}
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+    </ConfirmDialog>
   );
 }

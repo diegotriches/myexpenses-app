@@ -18,8 +18,7 @@ import { CardParcelados } from '@/components/dashboard/CardParcelados';
 import { CardRecorrentes } from '@/components/dashboard/CardRecorrente';
 import { CardMaioresGastos } from '@/components/dashboard/CardMaioresGastos';
 import { CardCategoriasLancamentos } from '@/components/dashboard/CardCategoriasLancamentos';
-import { CardCategoriasReceita } from '@/components/dashboard/CardCategoriasReceita';
-import { CardCategoriasDespesa } from '@/components/dashboard/CardCategoriasDespesa';
+import { CardCategorias } from '@/components/dashboard/CardCategorias';
 import { CardValores } from '@/components/dashboard/CardValores';
 import GastosAnuaisCard from '@/components/cartoes/GastosAnuaisCard';
 import { CardSaldoHistorico } from '@/components/dashboard/CardSaldoHistorico';
@@ -357,8 +356,8 @@ export default function Dashboard() {
             <RotuloSecao titulo="Ano" detalhe={String(anoDashboard)} />
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               <div className="[&>*]:h-full"><CardCategoriasLancamentos ano={anoDashboard} /></div>
-              <div className="[&>*]:h-full"><CardCategoriasReceita ano={anoDashboard} /></div>
-              <div className="md:col-span-2 xl:col-span-1 [&>*]:h-full"><CardCategoriasDespesa ano={anoDashboard} /></div>
+              <div className="[&>*]:h-full"><CardCategorias ano={anoDashboard} tipo="receita" /></div>
+              <div className="md:col-span-2 xl:col-span-1 [&>*]:h-full"><CardCategorias ano={anoDashboard} tipo="despesa" /></div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="[&>*]:h-full"><CardMaioresGastos ano={anoDashboard} /></div>
