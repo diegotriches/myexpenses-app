@@ -27,6 +27,7 @@ import {
 import type { CreateRecorrenciaDTO } from "@/types/recorrencia";
 
 import { formatarDataParaInput } from "@/utils/dateUtils";
+import { useTransacoesTodas } from "@/hooks/useTransacoes";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { buildTransacoesFromForm } from "@/lib/buildTransacoesFromForm";
 // ✅ NOVO: builder separado para o payload de recorrência
@@ -111,6 +112,16 @@ export default function FormMovimentacaoModal({
 }: Props) {
   const isEdit = Boolean(transacaoEdicao);
   const [form,   setForm]   = useState<FormState>(novoForm);
+  const { data: todasTransacoes = [] } = useTransacoesTodas();
+
+  // As parcelas podem ter valores diferentes: o total é a soma, não valor × quantidade
+  const totalParcelamento = useMemo(() => {
+    if (modoEdicao !== "todas_parcelas" || !transacaoEdicao?.parcelamentoId) return null;
+    const grupo = todasTransacoes.filter((t) => t.parcelamentoId === transacaoEdicao.parcelamentoId);
+    if (!grupo.length) return null;
+    return Number(grupo.reduce((soma, t) => soma + Number(t.valor), 0).toFixed(2));
+  }, [modoEdicao, transacaoEdicao, todasTransacoes]);
+
   const [errors, setErrors] = useState<FormErrors>({});
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -225,9 +236,11 @@ export default function FormMovimentacaoModal({
     }
 
     const valorFormulario =
-      modoEdicao === "todas_parcelas" && transacaoEdicao.parcelado && transacaoEdicao.parcelas
-        ? Number(transacaoEdicao.valor) * transacaoEdicao.parcelas
-        : Number(transacaoEdicao.valor ?? "");
+      totalParcelamento ?? (
+        modoEdicao === "todas_parcelas" && transacaoEdicao.parcelado && transacaoEdicao.parcelas
+          ? Number(transacaoEdicao.valor) * transacaoEdicao.parcelas
+          : Number(transacaoEdicao.valor ?? "")
+      );
 
     const dataFormatada = formatarDataParaInput(transacaoEdicao.data);
 
@@ -255,7 +268,7 @@ export default function FormMovimentacaoModal({
       estabelecimentoId: transacaoEdicao.estabelecimentoId ?? "",
     });
     setErrors({});
-  }, [transacaoEdicao, open, modoEdicao]);
+  }, [transacaoEdicao, open, modoEdicao, totalParcelamento]);
 
   const validateForm = (): FormErrors => {
     const erros: FormErrors = {};

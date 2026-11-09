@@ -5,6 +5,8 @@ import { db } from "@/db";
 import { antecipacoesParcela, transacoes, faturas } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
+import { ErroFinanceiro } from "@/lib/movimentacaoConta";
+import { ajustarTotalFatura } from "@/lib/impactoTransacao";
 
 /**
  * POST /api/antecipacoes/[antecipacaoId]/desfazer
@@ -57,86 +59,88 @@ export async function POST(
       );
     }
 
-    // 1. ✅ NOVO: se foi mesclada, restaura o valor original da parcela em
-    // vez de apagar a linha inteira; senão, remove a transação sintética
-    if (antecipacao.valorOriginalTransacaoMesclada !== null) {
-      await db.update(transacoes)
-        .set({ valor: antecipacao.valorOriginalTransacaoMesclada, updatedAt: new Date() })
-        .where(and(eq(transacoes.id, antecipacao.transacaoSinteticaId), eq(transacoes.userId, userId)));
-      // Nota: a descrição não é revertida ao texto original — o sufixo
-      // "(+ antecipação de N parcela(s))" permanece. Não é um problema
-      // funcional, só um detalhe cosmético que pode ser editado manualmente.
-    } else {
-      await db.delete(transacoes)
-        .where(and(eq(transacoes.id, antecipacao.transacaoSinteticaId), eq(transacoes.userId, userId)));
-    }
-
-    // 2. Reverte a fatura atual (total e limiteExtraAoPagar)
-    const valorComDesconto = Number(antecipacao.valorComDesconto);
-    const desconto = Number(antecipacao.desconto);
-    const novoTotalFaturaAtual = Number(faturaAtual.total) - valorComDesconto;
-
-    if (novoTotalFaturaAtual <= 0) {
-      await db.delete(faturas).where(eq(faturas.id, faturaAtual.id));
-    } else {
-      await db.update(faturas).set({
-        total: novoTotalFaturaAtual.toFixed(2),
-        limiteExtraAoPagar: Math.max(0, Number(faturaAtual.limiteExtraAoPagar ?? 0) - desconto).toFixed(2),
-        updatedAt: new Date(),
-      }).where(eq(faturas.id, faturaAtual.id));
-    }
-
-    // 3. Recria as parcelas removidas, devolvendo o valor às faturas futuras
     const parcelasRemovidas = antecipacao.parcelasRemovidas as Array<{
       parcelaAtual: number | null; valor: string; data: string;
       descricao: string | null; categoria: string | null;
       estabelecimentoId: string | null; mes: number; ano: number;
     }>;
 
-    for (const p of parcelasRemovidas) {
-      await db.insert(transacoes).values({
-        userId,
-        tipo: "saida",
-        valor: p.valor,
-        data: new Date(p.data),
-        descricao: p.descricao,
-        categoria: p.categoria,
-        formaPagamento: "cartao",
-        cartaoId: antecipacao.cartaoId,
-        estabelecimentoId: p.estabelecimentoId,
-        parcelado: true,
-        parcelas: antecipacao.totalParcelasOriginal,
-        parcelaAtual: p.parcelaAtual,
-        parcelamentoId: antecipacao.parcelamentoId,
-      });
+    await db.transaction(async (tx) => {
+      // Sair primeiro impede desfazer duas vezes e tira a dependência da fatura
+      const removida = await tx.delete(antecipacoesParcela)
+        .where(and(eq(antecipacoesParcela.id, antecipacaoId), eq(antecipacoesParcela.userId, userId)))
+        .returning({ id: antecipacoesParcela.id });
+      if (!removida.length) throw new ErroFinanceiro("Antecipação não encontrada", 404);
 
-      const [faturaFutura] = await db.select().from(faturas)
-        .where(and(eq(faturas.cartaoId, antecipacao.cartaoId), eq(faturas.userId, userId), eq(faturas.mes, p.mes), eq(faturas.ano, p.ano)))
-        .limit(1);
+      const [atual] = await tx.select().from(faturas)
+        .where(eq(faturas.id, faturaAtual.id)).limit(1).for("update");
+      if (!atual || atual.paga) throw new ErroFinanceiro("Não é possível desfazer — a fatura atual já foi paga");
 
-      const valorParcela = Number(p.valor);
-      if (faturaFutura) {
-        await db.update(faturas)
-          .set({ total: (Number(faturaFutura.total) + valorParcela).toFixed(2), updatedAt: new Date() })
-          .where(eq(faturas.id, faturaFutura.id));
+      // Mesclada: restaura o valor da parcela, que continua existindo no ciclo.
+      // A descrição mantém o sufixo da antecipação e pode ser editada à mão.
+      if (antecipacao.valorOriginalTransacaoMesclada !== null) {
+        await tx.update(transacoes)
+          .set({ valor: antecipacao.valorOriginalTransacaoMesclada, updatedAt: new Date() })
+          .where(and(eq(transacoes.id, antecipacao.transacaoSinteticaId), eq(transacoes.userId, userId)));
       } else {
-        await db.insert(faturas).values({
-          userId, cartaoId: antecipacao.cartaoId, mes: p.mes, ano: p.ano,
-          total: valorParcela.toFixed(2), paga: false,
-        });
+        await tx.delete(transacoes)
+          .where(and(eq(transacoes.id, antecipacao.transacaoSinteticaId), eq(transacoes.userId, userId)));
       }
-    }
 
-    // 4. Restaura o total de parcelas declarado em todas as linhas restantes
-    await db.update(transacoes)
-      .set({ parcelas: antecipacao.totalParcelasOriginal, updatedAt: new Date() })
-      .where(and(eq(transacoes.parcelamentoId, antecipacao.parcelamentoId), eq(transacoes.userId, userId)));
+      await ajustarTotalFatura(
+        tx,
+        atual,
+        Number(atual.total) - Number(antecipacao.valorComDesconto),
+        Math.max(0, Number(atual.limiteExtraAoPagar ?? 0) - Number(antecipacao.desconto)),
+      );
 
-    // 5. Remove o registro de auditoria — a antecipação foi desfeita
-    await db.delete(antecipacoesParcela).where(eq(antecipacoesParcela.id, antecipacaoId));
+      // Recria as parcelas removidas, devolvendo o valor às faturas futuras
+      for (const p of parcelasRemovidas) {
+        await tx.insert(transacoes).values({
+          userId,
+          tipo: "saida",
+          valor: p.valor,
+          data: new Date(p.data),
+          descricao: p.descricao,
+          categoria: p.categoria,
+          formaPagamento: "cartao",
+          cartaoId: antecipacao.cartaoId,
+          estabelecimentoId: p.estabelecimentoId,
+          parcelado: true,
+          parcelas: antecipacao.totalParcelasOriginal,
+          parcelaAtual: p.parcelaAtual,
+          parcelamentoId: antecipacao.parcelamentoId,
+        });
+
+        const [faturaFutura] = await tx.select().from(faturas)
+          .where(and(eq(faturas.cartaoId, antecipacao.cartaoId), eq(faturas.userId, userId), eq(faturas.mes, p.mes), eq(faturas.ano, p.ano)))
+          .limit(1)
+          .for("update");
+
+        if (faturaFutura?.paga) throw new ErroFinanceiro("Uma das faturas futuras já foi paga. Estorne o pagamento antes de desfazer.");
+
+        const valorParcela = Number(p.valor);
+        if (faturaFutura) {
+          await tx.update(faturas)
+            .set({ total: (Number(faturaFutura.total) + valorParcela).toFixed(2), updatedAt: new Date() })
+            .where(eq(faturas.id, faturaFutura.id));
+        } else {
+          await tx.insert(faturas).values({
+            userId, cartaoId: antecipacao.cartaoId, mes: p.mes, ano: p.ano,
+            total: valorParcela.toFixed(2), paga: false,
+          });
+        }
+      }
+
+      // Restaura o total de parcelas declarado em todas as linhas
+      await tx.update(transacoes)
+        .set({ parcelas: antecipacao.totalParcelasOriginal, updatedAt: new Date() })
+        .where(and(eq(transacoes.parcelamentoId, antecipacao.parcelamentoId), eq(transacoes.userId, userId)));
+    });
 
     return NextResponse.json({ sucesso: true, parcelasRestauradas: parcelasRemovidas.length });
   } catch (error: any) {
+    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Erro ao desfazer antecipação:", error);
     return NextResponse.json({ error: error.message || "Erro ao desfazer antecipação" }, { status: 500 });
   }

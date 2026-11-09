@@ -6,6 +6,8 @@ import { transacoes, cartoes, faturas, antecipacoesParcela } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
+import { ErroFinanceiro } from "@/lib/movimentacaoConta";
+import { ajustarTotalFatura } from "@/lib/impactoTransacao";
 
 /**
  * POST /api/parcelamentos/[parcelamentoId]/antecipar
@@ -84,12 +86,23 @@ export async function POST(
     const parcelasAntecipar = parcelasFuturas.slice(0, quantidadeParcelas);
     const idsAntecipados = new Set(parcelasAntecipar.map((p) => p.id));
 
-    const [cartao] = await db.select().from(cartoes).where(eq(cartoes.id, representante.cartaoId)).limit(1);
+    const [cartao] = await db.select().from(cartoes)
+      .where(and(eq(cartoes.id, representante.cartaoId), eq(cartoes.userId, userId))).limit(1);
     if (!cartao) return NextResponse.json({ error: "Cartão não encontrado" }, { status: 404 });
 
     const diaFechamento = cartao.diaFechamento || 1;
 
+    const cartaoIdAntecipacao = representante.cartaoId;
+
+    const resposta = await db.transaction(async (tx) => {
     // 1. Remove as N parcelas antecipadas de suas faturas futuras
+    // A fatura atual recebe o valor: se já foi paga, ele nunca seria cobrado
+    const faturaDeHoje = calcularFaturaDaTransacao(hoje, diaFechamento);
+    const [jaPaga] = await tx.select({ paga: faturas.paga }).from(faturas)
+      .where(and(eq(faturas.cartaoId, cartaoIdAntecipacao), eq(faturas.userId, userId), eq(faturas.mes, faturaDeHoje.mes), eq(faturas.ano, faturaDeHoje.ano)))
+      .limit(1);
+    if (jaPaga?.paga) throw new ErroFinanceiro("A fatura atual já está paga. Não é possível lançar a antecipação nela.");
+
     let valorFaceAntecipado = 0;
     const snapshotParcelasRemovidas: Array<{
       parcelaAtual: number | null; valor: string; data: string;
@@ -114,36 +127,31 @@ export async function POST(
         ano: anoFatura,
       });
 
-      const [faturaFutura] = await db.select().from(faturas)
-        .where(and(eq(faturas.cartaoId, representante.cartaoId), eq(faturas.userId, userId), eq(faturas.mes, mesFatura), eq(faturas.ano, anoFatura)))
-        .limit(1);
+      const [faturaFutura] = await tx.select().from(faturas)
+        .where(and(eq(faturas.cartaoId, cartaoIdAntecipacao), eq(faturas.userId, userId), eq(faturas.mes, mesFatura), eq(faturas.ano, anoFatura)))
+        .limit(1)
+        .for("update");
 
-      if (faturaFutura) {
-        const novoTotal = Number(faturaFutura.total) - valor;
-        if (novoTotal <= 0) {
-          await db.delete(faturas).where(eq(faturas.id, faturaFutura.id));
-        } else {
-          await db.update(faturas).set({ total: novoTotal.toFixed(2), updatedAt: new Date() }).where(eq(faturas.id, faturaFutura.id));
-        }
-      }
+      if (faturaFutura?.paga) throw new ErroFinanceiro("Uma das parcelas está em uma fatura já paga. Estorne o pagamento antes de antecipar.");
+      if (faturaFutura) await ajustarTotalFatura(tx, faturaFutura, Number(faturaFutura.total) - valor);
 
-      await db.delete(transacoes).where(and(eq(transacoes.id, parcela.id), eq(transacoes.userId, userId)));
+      await tx.delete(transacoes).where(and(eq(transacoes.id, parcela.id), eq(transacoes.userId, userId)));
     }
 
     // 2. Determina a fatura atual — a partir de HOJE, não de nenhuma
     // parcela específica
     const { mes: mesAtual, ano: anoAtual } = calcularFaturaDaTransacao(hoje, diaFechamento);
 
-    let [faturaAtual] = await db.select().from(faturas)
-      .where(and(eq(faturas.cartaoId, representante.cartaoId), eq(faturas.userId, userId), eq(faturas.mes, mesAtual), eq(faturas.ano, anoAtual)))
+    let [faturaAtual] = await tx.select().from(faturas)
+      .where(and(eq(faturas.cartaoId, cartaoIdAntecipacao), eq(faturas.userId, userId), eq(faturas.mes, mesAtual), eq(faturas.ano, anoAtual)))
       .limit(1);
 
     const valorComDesconto = Math.max(0, valorFaceAntecipado - desconto);
 
     if (!faturaAtual) {
-      [faturaAtual] = await db.insert(faturas).values({
+      [faturaAtual] = await tx.insert(faturas).values({
         userId,
-        cartaoId: representante.cartaoId,
+        cartaoId: cartaoIdAntecipacao,
         mes: mesAtual,
         ano: anoAtual,
         total: valorComDesconto.toFixed(2),
@@ -151,7 +159,7 @@ export async function POST(
         paga: false,
       }).returning();
     } else {
-      await db.update(faturas).set({
+      await tx.update(faturas).set({
         total: (Number(faturaAtual.total) + valorComDesconto).toFixed(2),
         limiteExtraAoPagar: (Number(faturaAtual.limiteExtraAoPagar ?? 0) + desconto).toFixed(2),
         updatedAt: new Date(),
@@ -181,7 +189,7 @@ export async function POST(
       // de criar uma linha nova
       valorOriginalTransacaoMesclada = transacaoParaMerge.valor;
       const novoValor = Number(transacaoParaMerge.valor) + valorComDesconto;
-      const [atualizada] = await db.update(transacoes)
+      const [atualizada] = await tx.update(transacoes)
         .set({
           valor: novoValor.toFixed(2),
           descricao: `${transacaoParaMerge.descricao || representante.descricao || "Compra parcelada"} (+ antecipação de ${quantidadeParcelas} parcela(s))`,
@@ -193,7 +201,7 @@ export async function POST(
     } else {
       // Sem candidata — cria uma transação própria pra representar o
       // valor antecipado (mesmo comportamento de antes)
-      const [nova] = await db.insert(transacoes).values({
+      const [nova] = await tx.insert(transacoes).values({
         userId,
         tipo: "saida",
         valor: valorComDesconto.toFixed(2),
@@ -201,7 +209,7 @@ export async function POST(
         descricao: `${representante.descricao || "Compra parcelada"} — antecipação de ${quantidadeParcelas} parcela(s)`,
         categoria: representante.categoria,
         formaPagamento: "cartao",
-        cartaoId: representante.cartaoId,
+        cartaoId: cartaoIdAntecipacao,
         estabelecimentoId: representante.estabelecimentoId,
         parcelado: false,
         recorrente: false,
@@ -212,16 +220,16 @@ export async function POST(
     // 4. Atualiza o total de parcelas declarado nas linhas remanescentes
     const totalOriginal = representante.parcelas ?? todasParcelas.length;
     const novoTotal = totalOriginal - quantidadeParcelas;
-    await db.update(transacoes)
+    await tx.update(transacoes)
       .set({ parcelas: novoTotal, updatedAt: new Date() })
       .where(and(eq(transacoes.parcelamentoId, parcelamentoId), eq(transacoes.userId, userId)));
 
     // 5. Grava o registro de auditoria — permite desfazer a antecipação
     // enquanto a fatura atual não tiver sido paga
-    const [antecipacao] = await db.insert(antecipacoesParcela).values({
+    const [antecipacao] = await tx.insert(antecipacoesParcela).values({
       userId,
       parcelamentoId,
-      cartaoId: representante.cartaoId,
+      cartaoId: cartaoIdAntecipacao,
       faturaAtualId: faturaAtual.id,
       transacaoSinteticaId,
       valorOriginalTransacaoMesclada,
@@ -233,7 +241,7 @@ export async function POST(
       parcelasRemovidas: snapshotParcelasRemovidas,
     }).returning();
 
-    return NextResponse.json({
+    return {
       antecipacaoId: antecipacao.id,
       quantidadeAntecipada: quantidadeParcelas,
       valorFaceAntecipado,
@@ -242,8 +250,12 @@ export async function POST(
       mesclada: !!transacaoParaMerge,
       faturaAtual: { mes: mesAtual, ano: anoAtual },
       novoTotalParcelas: novoTotal,
+    };
     });
+
+    return NextResponse.json(resposta);
   } catch (error: any) {
+    if (error instanceof ErroFinanceiro) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Erro ao antecipar parcelas:", error);
     return NextResponse.json({ error: error.message || "Erro ao antecipar parcelas" }, { status: 500 });
   }

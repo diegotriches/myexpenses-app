@@ -286,3 +286,14 @@ export function formatarNomeFaturaAbreviado(mes: number, ano: number): string {
   ];
   return `${meses[mes - 1]}/${ano.toString().slice(-2)}`;
 }
+
+/**
+ * Divide um total em centavos em N partes iguais, sem perder centavo:
+ * R$ 100,00 em 3 = 33,34 + 33,33 + 33,33. A soma é sempre exatamente o total.
+ */
+export function distribuirValor(totalCentavos: number, partes: number): string[] {
+  if (partes <= 0) return [];
+  const base = Math.floor(totalCentavos / partes);
+  const sobra = totalCentavos - base * partes;
+  return Array.from({ length: partes }, (_, i) => ((base + (i < sobra ? 1 : 0)) / 100).toFixed(2));
+}
