@@ -39,7 +39,8 @@ import ProventosRendaVariavel from "@/components/aplicacao/ProventosRendaVariave
 import ImpostoRendaRendaVariavel from "@/components/aplicacao/ImpostoRendaRendaVariavel";
 import EventoCorporativoDialog from "@/components/aplicacao/EventoCorporativoDialog";
 import ImportarOperacoesDialog from "@/components/aplicacao/ImportarOperacoesDialog";
-import { EVENTO_LABEL, calcularPosicoes } from "@/utils/rendaVariavelUtils";
+import { EVENTO_LABEL, calcularPosicoes, dataEncerramento, encerramentoRecente } from "@/utils/rendaVariavelUtils";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface Props {
   contas: Conta[];
@@ -76,6 +77,7 @@ const COR_TIPO: Record<TipoAtivo, string> = {
 interface FormOperacao {
   tipo: TipoOperacao;
   ticker: string;
+  tickerFixo: boolean; // aberto pelo card do ativo: o ticker não muda
   tipoAtivo: TipoAtivo;
   tipoAtivoManual: boolean;
   data: string;
@@ -120,6 +122,29 @@ export default function RendaVariavel({ contas }: Props) {
   const [abertos, setAbertos] = useState<Set<string>>(new Set());
   const [verEncerrados, setVerEncerrados] = useState(false);
 
+  const encerradosRecentes = useMemo(
+    () => carteira.encerrados.filter((p) => encerramentoRecente(p, hojeIso)),
+    [carteira.encerrados, hojeIso],
+  );
+
+  // Encerradas há mais tempo, por ano da última venda (mais recente primeiro)
+  const historicoPorAno = useMemo(() => {
+    const grupos = new Map<string, PosicaoAtivo[]>();
+    for (const p of carteira.encerrados) {
+      if (encerramentoRecente(p, hojeIso)) continue;
+      const ano = dataEncerramento(p)?.slice(0, 4) ?? "Sem venda registrada";
+      grupos.set(ano, [...(grupos.get(ano) ?? []), p]);
+    }
+    return Array.from(grupos.entries())
+      .sort(([a], [b]) => (a < b ? 1 : -1))
+      .map(([ano, posicoes]) => ({
+        ano,
+        posicoes,
+        resultado: posicoes.reduce((s, p) => s + p.resultadoRealizado, 0),
+      }));
+  }, [carteira.encerrados, hojeIso]);
+  const totalHistorico = historicoPorAno.reduce((s, g) => s + g.posicoes.length, 0);
+
   // Sugestão de preço: a cotação só faz sentido para uma operação de hoje
   function precoSugerido(ticker: string, data: string): string {
     if (data !== hojeIso) return "";
@@ -131,6 +156,7 @@ export default function RendaVariavel({ contas }: Props) {
   const formVazio = (tipo: TipoOperacao = "compra", ticker = ""): FormOperacao => ({
     tipo,
     ticker,
+    tickerFixo: !!ticker,
     tipoAtivo: tipoDoTicker(ticker),
     tipoAtivoManual: false,
     data: hojeIso,
@@ -186,6 +212,12 @@ export default function RendaVariavel({ contas }: Props) {
 
   const posicaoDoTicker = carteira.ativos.find((a) => a.ticker === form.ticker);
   const cotacaoDoTicker = cotacoes.find((c) => c.ticker === form.ticker);
+
+  // Na venda só faz sentido escolher o que havia em carteira na data informada
+  const tickersParaVenda = useMemo(
+    () => calcularPosicoes(operacoes.filter((o) => o.data <= form.data)).filter((p) => p.quantidade > 0),
+    [operacoes, form.data],
+  );
 
   // Numa venda retroativa, o que vale é a posição daquele dia, não a de hoje
   const posicaoNaData = useMemo(
@@ -503,29 +535,56 @@ export default function RendaVariavel({ contas }: Props) {
         </div>
       ) : (
         <>
-          {carteira.ativos.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-              {carteira.ativos.map((a) => <CartaoAtivo key={a.ticker} a={a} />)}
-            </div>
-          )}
+          <Tabs defaultValue="carteira" className="space-y-4">
+            {totalHistorico > 0 && (
+              <TabsList>
+                <TabsTrigger value="carteira">Carteira</TabsTrigger>
+                <TabsTrigger value="historico">Histórico ({totalHistorico})</TabsTrigger>
+              </TabsList>
+            )}
 
-          {carteira.encerrados.length > 0 && (
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => setVerEncerrados((v) => !v)}
-                className="flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              >
-                {verEncerrados ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                Posições encerradas ({carteira.encerrados.length})
-              </button>
-              {verEncerrados && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-                  {carteira.encerrados.map((p) => <CartaoEncerrado key={p.ticker} p={p} />)}
+            <TabsContent value="carteira" className="space-y-4">
+              {carteira.ativos.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                  {carteira.ativos.map((a) => <CartaoAtivo key={a.ticker} a={a} />)}
                 </div>
               )}
-            </div>
-          )}
+
+              {encerradosRecentes.length > 0 && (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setVerEncerrados((v) => !v)}
+                    className="flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                  >
+                    {verEncerrados ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    Encerradas nos últimos 6 meses ({encerradosRecentes.length})
+                  </button>
+                  {verEncerrados && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                      {encerradosRecentes.map((p) => <CartaoEncerrado key={p.ticker} p={p} />)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="historico" className="space-y-6">
+              {historicoPorAno.map((g) => (
+                <div key={g.ano} className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{g.ano}</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Resultado realizado: <span className={`font-medium ${cor(g.resultado)}`}>{mask(formatarMoeda(g.resultado))}</span>
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                    {g.posicoes.map((p) => <CartaoEncerrado key={p.ticker} p={p} />)}
+                  </div>
+                </div>
+              ))}
+            </TabsContent>
+          </Tabs>
         </>
       )}
 
@@ -570,14 +629,33 @@ export default function RendaVariavel({ contas }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="rv-ticker">Ticker</Label>
-                <Input
-                  id="rv-ticker"
-                  value={form.ticker}
-                  maxLength={7}
-                  placeholder="PETR4"
-                  autoCapitalize="characters"
-                  onChange={(e) => updateForm("ticker", e.target.value)}
-                />
+                {form.tickerFixo ? (
+                  <Input id="rv-ticker" value={form.ticker} disabled />
+                ) : form.tipo === "venda" ? (
+                  <Select
+                    value={tickersParaVenda.some((p) => p.ticker === form.ticker) ? form.ticker : undefined}
+                    onValueChange={(v) => updateForm("ticker", v)}
+                    disabled={tickersParaVenda.length === 0}
+                  >
+                    <SelectTrigger id="rv-ticker">
+                      <SelectValue placeholder={tickersParaVenda.length ? "Selecione" : "Sem posição nesta data"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tickersParaVenda.map((p) => (
+                        <SelectItem key={p.ticker} value={p.ticker}>{p.ticker}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id="rv-ticker"
+                    value={form.ticker}
+                    maxLength={7}
+                    placeholder="PETR4"
+                    autoCapitalize="characters"
+                    onChange={(e) => updateForm("ticker", e.target.value)}
+                  />
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Tipo de ativo</Label>

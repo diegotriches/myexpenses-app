@@ -28,7 +28,7 @@ import {
 } from "@/hooks/useRendaVariavel";
 import type { Conta } from "@/types/conta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
-import { TICKER_REGEX, normalizarTicker, calcularPosicoes } from "@/utils/rendaVariavelUtils";
+import { TICKER_REGEX, normalizarTicker, calcularPosicoes, encerramentoRecente } from "@/utils/rendaVariavelUtils";
 import { posicaoEm } from "@/utils/eventosCorporativosUtils";
 import {
   TIPO_PROVENTO_LABEL, lerPlanilhaProventos, resumirProventos,
@@ -120,11 +120,14 @@ export default function ProventosRendaVariavel({ contas }: Props) {
     setModalOpen(true);
   };
 
-  // Ativos em carteira primeiro; os já vendidos também podem pagar provento
+  // Em carteira primeiro; encerrados recentes ainda podem pagar provento, os demais usam "Outro ticker"
   const opcoesTicker = useMemo(() => {
     const posicoes = calcularPosicoes(operacoes);
-    return [...posicoes.filter((p) => p.quantidade > 0), ...posicoes.filter((p) => p.quantidade <= 0)];
-  }, [operacoes]);
+    return [
+      ...posicoes.filter((p) => p.quantidade > 0),
+      ...posicoes.filter((p) => p.quantidade <= 0 && encerramentoRecente(p, hojeIso)),
+    ];
+  }, [operacoes, hojeIso]);
   const digitarTicker = form.tickerManual || opcoesTicker.length === 0;
 
   const tickerValido = TICKER_REGEX.test(form.ticker);

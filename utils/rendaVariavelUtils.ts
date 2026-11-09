@@ -9,6 +9,8 @@
 //  - Ordem dentro do mesmo dia: compras antes das vendas (permite day trade
 //    e evita "venda sem saldo" quando as duas ocorrem no mesmo pregão).
 
+import { adicionarMeses } from "./dateUtils";
+
 export type TipoAtivo = "acao" | "fii" | "etf" | "bdr";
 export type TipoOperacao = "compra" | "venda";
 
@@ -275,6 +277,22 @@ export function calcularPosicoes(ops: OperacaoApuravel[]): PosicaoAtivo[] {
   }
 
   return posicoes.sort((a, b) => (a.ticker < b.ticker ? -1 : 1));
+}
+
+// Por quanto tempo uma posição encerrada segue em destaque. Cobre com folga o
+// intervalo entre a data-com e o pagamento de um provento.
+export const MESES_ENCERRAMENTO_RECENTE = 6;
+
+/** Data da última venda da posição (null se saiu da carteira sem venda). */
+export function dataEncerramento(p: Pick<PosicaoAtivo, "vendas">): string | null {
+  return p.vendas.length ? p.vendas[p.vendas.length - 1].data : null;
+}
+
+export function encerramentoRecente(p: Pick<PosicaoAtivo, "vendas">, hoje: string): boolean {
+  const data = dataEncerramento(p);
+  if (!data) return false;
+  const limite = adicionarMeses(new Date(`${hoje}T00:00:00Z`), -MESES_ENCERRAMENTO_RECENTE).toISOString().slice(0, 10);
+  return data >= limite;
 }
 
 export interface ErroSequencia {
