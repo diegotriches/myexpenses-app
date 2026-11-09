@@ -2,43 +2,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import {
-  users,
-  contas,
-  cartoes,
-  transacoes,
-  categorias,
-  faturas,
-  extratoConta,
-  notificacoes,
-  preferenciasNotificacao,
-  preferences,
-  estabelecimentos,
-  transferencias,
-  notas,
-  adiantamentosFatura,
-  aplicacoes,
-  aportesAplicacao,
-  resgatesAplicacao,
-  backupsUsuario,
-} from "@/db/schema";
-import { eq, asc, inArray } from "drizzle-orm";
-import type {
-  ExportMetadata,
-  ExportStatistics,
-  ExportData,
-} from "@/types/export";
+import { users, notificacoes, preferences, backupsUsuario } from "@/db/schema";
+import { eq, asc } from "drizzle-orm";
+import { formatarBytes, gerarArquivoBackup, type ArquivoBackup } from "@/lib/backupDados";
 import type { BackupFrequencia } from "@/types/preferences";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-}
 
 /**
  * Decide se o usuário deve receber backup hoje baseado na frequência configurada.
@@ -91,166 +60,20 @@ function deveGerarBackupHoje(
   }
 }
 
-// ── Geração do snapshot ───────────────────────────────────────────────────────
-
-async function gerarSnapshot(
-  userId: string,
-  userData: { name: string | null; email: string },
-): Promise<{
-  json: string;
-  data: ExportData & Record<string, any>;
-  statistics: ExportStatistics & Record<string, any>;
-}> {
-  const [
-    contasData,
-    cartoesData,
-    transacoesData,
-    categoriasData,
-    faturasData,
-    extratoData,
-    notificacoesData,
-    preferenciasNotifData,
-    preferencesData,
-    estabelecimentosData,
-    transferenciasData,
-    notasData,
-    adiantamentosData,
-    aplicacoesData,
-  ] = await Promise.all([
-    db.select().from(contas).where(eq(contas.userId, userId)),
-    db.select().from(cartoes).where(eq(cartoes.userId, userId)),
-    db.select().from(transacoes).where(eq(transacoes.userId, userId)),
-    db.select().from(categorias).where(eq(categorias.userId, userId)),
-    db.select().from(faturas).where(eq(faturas.userId, userId)),
-    db.select().from(extratoConta).where(eq(extratoConta.userId, userId)),
-    db.select().from(notificacoes).where(eq(notificacoes.userId, userId)),
-    db
-      .select()
-      .from(preferenciasNotificacao)
-      .where(eq(preferenciasNotificacao.userId, userId)),
-    db.select().from(preferences).where(eq(preferences.userId, userId)),
-    db
-      .select()
-      .from(estabelecimentos)
-      .where(eq(estabelecimentos.userId, userId)),
-    db.select().from(transferencias).where(eq(transferencias.userId, userId)),
-    db.select().from(notas).where(eq(notas.userId, userId)),
-    db
-      .select()
-      .from(adiantamentosFatura)
-      .where(eq(adiantamentosFatura.userId, userId)),
-    db.select().from(aplicacoes).where(eq(aplicacoes.userId, userId)),
-  ]);
-
-  // Aportes e resgates não têm userId — são buscados pelas aplicações do usuário
-  const idsAplicacoes = aplicacoesData.map((a) => a.id);
-  const [aportesData, resgatesAplicacaoData] =
-    idsAplicacoes.length > 0
-      ? await Promise.all([
-          db
-            .select()
-            .from(aportesAplicacao)
-            .where(inArray(aportesAplicacao.aplicacaoId, idsAplicacoes)),
-          db
-            .select()
-            .from(resgatesAplicacao)
-            .where(inArray(resgatesAplicacao.aplicacaoId, idsAplicacoes)),
-        ])
-      : [[], []];
-
-  const data: ExportData & Record<string, any> = {
-    categorias: categoriasData,
-    contas: contasData,
-    cartoes: cartoesData,
-    transacoes: transacoesData,
-    faturas: faturasData.map((f) => ({
-      ...f,
-      mesReferencia: f.mes,
-      anoReferencia: f.ano,
-    })),
-    extrato: extratoData,
-    notificacoes: notificacoesData,
-    preferencias: preferenciasNotifData,
-    estabelecimentos: estabelecimentosData,
-    transferencias: transferenciasData,
-    notas: notasData,
-    adiantamentos: adiantamentosData,
-    aplicacoes: aplicacoesData,
-    aportesAplicacao: aportesData,
-    resgatesAplicacao: resgatesAplicacaoData,
-  };
-
-  if (preferencesData.length > 0) data.preferences = preferencesData[0];
-
-  const statistics: ExportStatistics & Record<string, any> = {
-    categorias: categoriasData.length,
-    contas: contasData.length,
-    cartoes: cartoesData.length,
-    transacoes: transacoesData.length,
-    faturas: faturasData.length,
-    extrato: extratoData.length,
-    notificacoes: notificacoesData.length,
-    preferencias: preferenciasNotifData.length,
-    estabelecimentos: estabelecimentosData.length,
-    transferencias: transferenciasData.length,
-    notas: notasData.length,
-    adiantamentos: adiantamentosData.length,
-    aplicacoes: aplicacoesData.length,
-    aportesAplicacao: aportesData.length,
-    resgatesAplicacao: resgatesAplicacaoData.length,
-    tamanhoBytes: 0,
-    tamanhoFormatado: "",
-  };
-
-  const metadata: ExportMetadata = {
-    version: "2.0.0",
-    exportDate: new Date().toISOString(),
-    userId,
-    userName: userData.name || "Usuário",
-    userEmail: userData.email,
-    tipo: "completo",
-    formato: "json",
-    encrypted: false,
-    appName: "MyExpenses",
-    appVersion: "1.0.0",
-    appUrl: process.env.NEXT_PUBLIC_APP_URL || "",
-  };
-
-  const exportFile = {
-    metadata,
-    statistics,
-    data,
-    origem: "cron-automatico" as const,
-  };
-  const json = JSON.stringify(exportFile);
-  const tamanho = Buffer.byteLength(json, "utf-8");
-
-  statistics.tamanhoBytes = tamanho;
-  statistics.tamanhoFormatado = formatBytes(tamanho);
-
-  return {
-    json: JSON.stringify({
-      metadata,
-      statistics,
-      data,
-      origem: "cron-automatico",
-    }),
-    data,
-    statistics,
-  };
-}
-
 // ── Persistência ──────────────────────────────────────────────────────────────
 
 async function salvarBackup(
   userId: string,
-  data: ExportData,
-  statistics: ExportStatistics,
-  tamanhoBytes: number,
+  arquivo: ArquivoBackup,
 ): Promise<string> {
   const [registro] = await db
     .insert(backupsUsuario)
-    .values({ userId, dados: data, tamanhoBytes, estatisticas: statistics })
+    .values({
+      userId,
+      dados: arquivo,
+      tamanhoBytes: arquivo.statistics.tamanhoBytes,
+      estatisticas: arquivo.statistics,
+    })
     .returning({ id: backupsUsuario.id });
 
   return registro.id;
@@ -295,7 +118,7 @@ async function criarNotificacao(
       : "Erro no backup automático";
   const mensagem =
     status === "sucesso"
-      ? `Seus dados foram salvos automaticamente (${formatBytes(detalhes?.tamanho || 0)}). Acesse Configurações > Backups para ver o histórico.`
+      ? `Seus dados foram salvos automaticamente (${formatarBytes(detalhes?.tamanho || 0)}). Acesse Configurações > Backups para ver o histórico.`
       : `Não foi possível realizar o backup: ${detalhes?.erro || "Erro desconhecido"}.`;
 
   await db.insert(notificacoes).values({
@@ -392,17 +215,13 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      const { data, statistics } = await gerarSnapshot(usuario.id, {
+      const arquivo = await gerarArquivoBackup(usuario.id, {
         name: usuario.name,
         email: usuario.email,
       });
+      const { statistics } = arquivo;
 
-      const backupId = await salvarBackup(
-        usuario.id,
-        data,
-        statistics,
-        statistics.tamanhoBytes,
-      );
+      const backupId = await salvarBackup(usuario.id, arquivo);
       await limparBackupsAntigos(usuario.id, quantidadeMaxima);
       await atualizarUltimoBackup(usuario.id);
       await criarNotificacao(usuario.id, "sucesso", {
@@ -411,7 +230,7 @@ export async function GET(req: NextRequest) {
 
       const duracao = Date.now() - inicioUsuario;
       console.log(
-        `[Cron Backup] ✅ ${usuario.email} — ${frequencia} — ${formatBytes(statistics.tamanhoBytes)} (${duracao}ms)`,
+        `[Cron Backup] ✅ ${usuario.email} — ${frequencia} — ${formatarBytes(statistics.tamanhoBytes)} (${duracao}ms)`,
       );
 
       resultados.push({
