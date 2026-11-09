@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 import { Transacao } from "@/types/transacao";
 import { Button } from "@/components/ui/button";
@@ -38,9 +38,13 @@ export default function ConfirmarExclusaoModal({
     (isParcelada && tipoExclusao === "todas_parcelas") ||
     (isRecorrente && tipoExclusao === "toda_recorrencia");
 
-  useEffect(() => {
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [transacao];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
     setTipoExclusao("unica");
-  }, [transacao]);
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>

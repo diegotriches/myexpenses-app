@@ -63,7 +63,7 @@ export default function ExcluirContaModal({
               <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
             </div>
             <DialogTitle className="text-red-600 dark:text-red-400">
-              Remover conta "{conta?.nome}"
+              Remover conta &quot;{conta?.nome}&quot;
             </DialogTitle>
           </div>
         </DialogHeader>

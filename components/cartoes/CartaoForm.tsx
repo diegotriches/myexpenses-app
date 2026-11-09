@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -49,7 +49,11 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
   const [erros,                setErros]                = useState<Record<string, string>>({});
   const [camposTocados,        setCamposTocados]        = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [initialValues];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
     if (initialValues) {
       const limiteInicial = initialValues.limite
         ? Math.round(Number(initialValues.limite) * 100).toString() : "";
@@ -64,7 +68,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
       });
       setLimitDigitos(limiteInicial);
     }
-  }, [initialValues]);
+  }
 
   function formatarValorCalculadora(digitos: string): string {
     if (!digitos) return "R$ 0,00";
@@ -140,7 +144,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
   const bandeiraSelecionada = bandeiraOptions.find((b) => b.value === form.bandeira);
   const temErros            = Object.keys(erros).length > 0;
 
-  const ErroCampo = ({ campo }: { campo: string }) =>
+  const renderErroCampo = ({ campo }: { campo: string }) =>
     camposTocados[campo] && erros[campo] ? (
       <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
         <AlertCircle className="h-3 w-3 flex-shrink-0" />{erros[campo]}
@@ -148,7 +152,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
     ) : null;
 
   // Botão picker reutilizável (banco e bandeira)
-  const PickerButton = ({
+  const renderPickerButton = ({
     campo, label, imgSrc, imgAlt, fallbackIcon: FallbackIcon,
     placeholder, onClick,
   }: {
@@ -177,7 +181,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
         </div>
         <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0" />
       </button>
-      <ErroCampo campo={campo} />
+      {renderErroCampo({ campo: campo })}
     </div>
   );
 
@@ -236,7 +240,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
             onBlur={() => setCamposTocados((p) => ({ ...p, nome: true }))}
             className={camposTocados.nome && erros.nome ? "border-red-500 dark:border-red-500" : ""}
           />
-          <ErroCampo campo="nome" />
+          {renderErroCampo({ campo: "nome" })}
         </div>
 
         {form.tipo === "credito" && (
@@ -251,7 +255,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
               onBlur={() => setCamposTocados((p) => ({ ...p, limite: true }))}
               className={`font-semibold ${camposTocados.limite && erros.limite ? "border-red-500 dark:border-red-500" : ""}`}
             />
-            <ErroCampo campo="limite" />
+            {renderErroCampo({ campo: "limite" })}
           </div>
         )}
       </div>
@@ -262,29 +266,29 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
           <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
             Banco Emissor <span className="text-red-500">*</span>
           </label>
-          <PickerButton
-            campo="empresa"
-            label={empresaSelecionada?.label}
-            imgSrc={empresaSelecionada?.imgSrc}
-            imgAlt={empresaSelecionada?.label}
-            fallbackIcon={Building2}
-            placeholder="Selecionar banco"
-            onClick={() => setEmpresaPickerAberto(true)}
-          />
+          {renderPickerButton({
+            campo: "empresa",
+            label: empresaSelecionada?.label,
+            imgSrc: empresaSelecionada?.imgSrc,
+            imgAlt: empresaSelecionada?.label,
+            fallbackIcon: Building2,
+            placeholder: "Selecionar banco",
+            onClick: () => setEmpresaPickerAberto(true),
+          })}
         </div>
         <div>
           <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
             Bandeira <span className="text-red-500">*</span>
           </label>
-          <PickerButton
-            campo="bandeira"
-            label={bandeiraSelecionada?.label}
-            imgSrc={bandeiraSelecionada?.imgSrc}
-            imgAlt={bandeiraSelecionada?.label}
-            fallbackIcon={CreditCard}
-            placeholder="Selecionar bandeira"
-            onClick={() => setBandeiraPickerAberto(true)}
-          />
+          {renderPickerButton({
+            campo: "bandeira",
+            label: bandeiraSelecionada?.label,
+            imgSrc: bandeiraSelecionada?.imgSrc,
+            imgAlt: bandeiraSelecionada?.label,
+            fallbackIcon: CreditCard,
+            placeholder: "Selecionar bandeira",
+            onClick: () => setBandeiraPickerAberto(true),
+          })}
         </div>
       </div>
 
@@ -329,7 +333,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
               )}
             </SelectContent>
           </Select>
-          <ErroCampo campo="contaVinculadaId" />
+          {renderErroCampo({ campo: "contaVinculadaId" })}
           <Alert className="mt-2 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
             <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertDescription className="text-blue-800 dark:text-blue-300 text-xs">

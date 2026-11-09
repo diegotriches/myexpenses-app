@@ -35,13 +35,13 @@ export function PeriodoProvider({ children }: { children: ReactNode }) {
   const navegarMes = useCallback((mes: number) => {
     onNavegacaoRef.current?.();
     setMesSelecionado(mes);
-  }, []);
+  }, [setMesSelecionado]);
 
   // Chamado pelo PeriodoSelector ao mudar ano manualmente
   const navegarAno = useCallback((ano: number) => {
     onNavegacaoRef.current?.();
     setAnoSelecionado(ano);
-  }, []);
+  }, [setAnoSelecionado]);
 
   return (
     <PeriodoContext.Provider

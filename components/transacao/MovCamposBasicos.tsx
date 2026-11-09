@@ -3,7 +3,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar, DollarSign, FileText, TrendingUp, TrendingDown } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface Props {
   form: {
@@ -27,14 +27,9 @@ const formatadorMoeda = new Intl.NumberFormat("pt-BR", {
 });
 
 export default function MovCamposBasicos({ form, update, campo, disabled, error }: Props) {
-  const [valorDigitos, setValorDigitos] = useState("");
-
-  useEffect(() => {
-    if (campo === "valor" && form.valor) {
-      const valorEmCentavos = Math.round(parseFloat(form.valor) * 100);
-      setValorDigitos(valorEmCentavos.toString());
-    }
-  }, []);
+  const [valorDigitos, setValorDigitos] = useState(() =>
+    campo === "valor" && form.valor ? Math.round(parseFloat(form.valor) * 100).toString() : "",
+  );
 
   const formatarValorCalculadora = (digitos: string): string => {
     if (!digitos) return "0,00";

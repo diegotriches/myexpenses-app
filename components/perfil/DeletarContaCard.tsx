@@ -56,13 +56,19 @@ function DeletarContaInner({ usuario }: Props) {
   // Após signIn("google", { callbackUrl: "/perfil?confirmar_exclusao=true" }),
   // o NextAuth redireciona de volta com esse parâmetro — abrimos o modal
   // automaticamente para o usuário confirmar e finalizar a exclusão.
-  useEffect(() => {
-    if (searchParams.get("confirmar_exclusao") === "true") {
+  const confirmarExclusao = searchParams.get("confirmar_exclusao") === "true";
+  const [confirmarAnterior, setConfirmarAnterior] = useState(false);
+  if (confirmarExclusao !== confirmarAnterior) {
+    setConfirmarAnterior(confirmarExclusao);
+    if (confirmarExclusao) {
       setDialogOpen(true);
       setOauthReautenticado(true);
-      router.replace("/perfil", { scroll: false });
     }
-  }, [searchParams, router]);
+  }
+
+  useEffect(() => {
+    if (confirmarExclusao) router.replace("/perfil", { scroll: false });
+  }, [confirmarExclusao, router]);
 
   // Usuário OAuth = não tem senha cadastrada
   const isOAuth = !usuario.hasPassword;
@@ -267,7 +273,7 @@ function DeletarContaInner({ usuario }: Props) {
             {/* Confirmação de texto — igual para os dois fluxos */}
             <div className="space-y-2">
               <Label htmlFor="confirmacao" className="flex items-center gap-1">
-                Digite "DELETE" para confirmar
+                Digite &quot;DELETE&quot; para confirmar
                 <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -280,7 +286,7 @@ function DeletarContaInner({ usuario }: Props) {
                 className="border-red-200 focus:border-red-500 font-mono"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Digite exatamente "DELETE" em letras maiúsculas
+                Digite exatamente &quot;DELETE&quot; em letras maiúsculas
               </p>
             </div>
 

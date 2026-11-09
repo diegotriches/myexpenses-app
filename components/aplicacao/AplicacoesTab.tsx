@@ -232,7 +232,7 @@ export default function AplicacoesTab({ contas }: Props) {
 
   // Preview — mesma função (FIFO por lote) que o servidor usa, sobre os
   // valores CONFIRMADOS pelo BCB (é isso que o resgate de fato considera)
-  const previewResgate = useMemo(() => {
+  const previewResgate = (() => {
     if (!resgateAlvo) return null;
     const lotes = lotesDe(resgateAlvo);
     const disponivel = lotes.reduce((s, l) => s + l.valorAtual, 0);
@@ -240,7 +240,7 @@ export default function AplicacoesTab({ contas }: Props) {
     const bruto = resgateModo === "total" ? disponivel : (isNaN(valorDigitado) ? 0 : valorDigitado);
     if (bruto <= 0) return { disponivel, bruto: 0, r: null as null | ReturnType<typeof simularResgateFifo> };
     return { disponivel, bruto, r: simularResgateFifo(lotes, bruto, hojeIso, resgateAlvo.tributacao) };
-  }, [resgateAlvo, resgateModo, resgateForm.valor, hojeIso]);
+  })();
 
   async function confirmarResgate() {
     if (!resgateAlvo || !previewResgate) return;

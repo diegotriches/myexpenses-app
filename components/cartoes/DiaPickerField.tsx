@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import {
   Popover,
   PopoverContent,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 interface Props {
   label: string;
@@ -38,15 +39,7 @@ export function DiaPickerField({
   obrigatorio = false,
 }: Props) {
   const [aberto, setAberto] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
-    setIsMobile(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
+  const isMobile = useMediaQuery("(max-width: 639px)");
 
   const temErro = tocado && !!erro;
   const valorFormatado = value ? `Dia ${value}` : "Selecionar dia";

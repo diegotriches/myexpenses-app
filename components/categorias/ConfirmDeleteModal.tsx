@@ -117,7 +117,7 @@ export default function ConfirmDeleteModal({
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               Tem certeza que deseja excluir a categoria{" "}
-              <strong className="font-semibold">"{categoria.nome}"</strong>?
+              <strong className="font-semibold">&quot;{categoria.nome}&quot;</strong>?
             </AlertDescription>
           </Alert>
 
@@ -158,8 +158,8 @@ export default function ConfirmDeleteModal({
               </>
             ) : (
               <p className="text-xs">
-                As movimentações desta categoria serão movidas para "Outras despesas"
-                ou "Outras receitas", conforme o tipo.
+                As movimentações desta categoria serão movidas para &quot;Outras despesas&quot;
+                ou &quot;Outras receitas&quot;, conforme o tipo.
               </p>
             )}
             <p className="text-xs">Esta ação é permanente e irreversível.</p>

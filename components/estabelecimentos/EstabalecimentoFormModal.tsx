@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -47,7 +47,11 @@ export default function EstabelecimentoFormModal({
   const [errors,      setErrors]      = useState<Record<string, string>>({});
 
   // Preenche o form ao abrir para edição
-  useEffect(() => {
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [aberto, estabelecimento];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
     if (aberto) {
       if (estabelecimento) {
         setNome(estabelecimento.nome);
@@ -62,7 +66,7 @@ export default function EstabelecimentoFormModal({
       setCategoriaIcone("Todos");
       setErrors({});
     }
-  }, [aberto, estabelecimento]);
+  }
 
   // Ícones filtrados por categoria + busca
   const iconesFiltrados = useMemo(() => {

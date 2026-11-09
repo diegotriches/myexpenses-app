@@ -1,7 +1,8 @@
 // src/components/layout/TopMenu.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useMounted } from "@/hooks/useMounted";
 import { useTheme } from "next-themes";
 import { signOut } from "next-auth/react";
 import { BsList, BsChevronLeft, BsCalculatorFill } from "react-icons/bs";
@@ -37,13 +38,12 @@ interface TopMenuProps {
 
 const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
   const { setTheme, resolvedTheme } = useTheme();
-  const [mounted,           setMounted]           = useState(false);
+  const mounted = useMounted();
   const [calculadoraOpen,   setCalculadoraOpen]   = useState(false);
   const [notasPanelOpen,    setNotasPanelOpen]    = useState(false);
   const [showLogoutDialog,  setShowLogoutDialog]  = useState(false);
   const { hidden, toggle: toggleHide } = useHideValues();
 
-  useEffect(() => { setMounted(true); }, []);
 
   const alternarModo = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");

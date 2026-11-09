@@ -1,7 +1,7 @@
 // src/components/perfil/EditarDadosCard.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,10 +28,14 @@ export default function EditarDadosCard({ usuario }: Props) {
   // React Query Mutation
   const atualizarProfile = useAtualizarProfile();
 
-  useEffect(() => {
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [usuario];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
     setForm({ name: usuario.name, email: usuario.email });
     setUsuarioOriginal({ name: usuario.name, email: usuario.email });
-  }, [usuario]);
+  }
 
   // Verifica se houve alterações
   const temAlteracoes = () => {

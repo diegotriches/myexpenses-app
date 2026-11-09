@@ -186,7 +186,7 @@ export default function CartoesPage() {
     </div>
   );
 
-  const EmptyState = () => (
+  const renderEmptyState = () => (
     <div className="text-center py-16 bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
       <CreditCard className="text-gray-300 dark:text-gray-600 mx-auto mb-4" size={64} />
       <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -381,7 +381,7 @@ export default function CartoesPage() {
       )}
 
       {/* Empty */}
-      {!loading && !error && cartoes.length === 0 && <EmptyState />}
+      {!loading && !error && cartoes.length === 0 && renderEmptyState()}
 
       {/* Modais */}
       <CartaoFormModal

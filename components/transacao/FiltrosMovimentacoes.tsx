@@ -238,7 +238,7 @@ export default function FiltrosMovimentacoes({
               )}
               {filtros.busca && (
                 <Badge variant="secondary" className="gap-1">
-                  Busca: "{filtros.busca}"
+                  Busca: &quot;{filtros.busca}&quot;
                   <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => updateFiltro("busca", "")} />
                 </Badge>
               )}

@@ -21,7 +21,7 @@ export default function PerfilPage() {
   const [abaAtiva, setAbaAtiva] = useState("dados");
 
   // Skeleton Loading
-  const SkeletonCard = () => (
+  const renderSkeletonCard = () => (
     <Card>
       <CardHeader>
         <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2 animate-pulse" />
@@ -50,7 +50,7 @@ export default function PerfilPage() {
           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse" />
         </div>
         <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        <SkeletonCard />
+        {renderSkeletonCard()}
       </div>
     );
   }

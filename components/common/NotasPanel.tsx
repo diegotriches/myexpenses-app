@@ -9,6 +9,7 @@ import {
   Maximize2, Minimize2, GripHorizontal, Minus,
 } from "lucide-react";
 import { useNotas, useCriarNota, useAtualizarNota, useExcluirNota } from "@/hooks/useNotas";
+import { useMounted } from "@/hooks/useMounted";
 import type { Nota, CorNota } from "@/types/nota";
 import { COR_CONFIG } from "@/types/nota";
 
@@ -207,7 +208,8 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
   const criarNota = useCriarNota();
 
   // Carrega layout salvo apenas no client (evita mismatch de hidratação)
-  useEffect(() => {
+  const montado = useMounted();
+  if (montado && !hidratado) {
     const saved = loadLayout();
     // No mobile, se não há posição salva, pré-calcula top/left para evitar
     // salto no primeiro drag (que usa left/top, não bottom/right)
@@ -219,7 +221,7 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
     }
     setLayout(saved);
     setHidratado(true);
-  }, []);
+  }
 
   // Persiste layout sempre que mudar (debounced via ref simples)
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -246,12 +248,15 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
   }, [notaEditando, onOpenChange]);
 
   // Reseta nota editando ao fechar
-  useEffect(() => {
+  const [openAnterior, setOpenAnterior] = useState(open);
+  if (open !== openAnterior) {
+    setOpenAnterior(open);
     if (!open) setNotaEditando(null);
-  }, [open]);
+  }
 
   // ── Arrastar (desktop) ──────────────────────────────────────────────────────
   const dragStateRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const [arrastando, setArrastando] = useState(false);
 
   function handleDragStart(e: React.MouseEvent) {
     if (isMobile) return;
@@ -264,6 +269,7 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
     const origY = layout.y ?? rect.top;
 
     dragStateRef.current = { startX: e.clientX, startY: e.clientY, origX, origY };
+    setArrastando(true);
 
     function onMove(ev: MouseEvent) {
       if (!dragStateRef.current) return;
@@ -279,6 +285,7 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
 
     function onUp() {
       dragStateRef.current = null;
+    setArrastando(false);
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       setLayout((current) => { saveLayout(current); return current; });
@@ -393,7 +400,6 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
     touchDragOffset.current = null;
     setLayout((current) => { saveLayout(current); return current; });
     document.removeEventListener("touchmove", onTouchMovePanel);
-    document.removeEventListener("touchend",  onTouchEndPanel);
   }, [onTouchMovePanel]);
 
   function handleTouchDragStart(e: React.TouchEvent) {
@@ -410,7 +416,7 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
       y: t.clientY - origY,
     };
     document.addEventListener("touchmove", onTouchMovePanel, { passive: false });
-    document.addEventListener("touchend",  onTouchEndPanel);
+    document.addEventListener("touchend",  onTouchEndPanel, { once: true });
   }
 
   // ── Estilo dinâmico do painel ────────────────────────────────────────────────
@@ -471,7 +477,7 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
         className={`fixed z-40 rounded-2xl shadow-2xl overflow-hidden
           border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900
           ${open ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-95 pointer-events-none"}
-          ${!isMobile && !dragStateRef.current ? "transition-[opacity,transform] duration-300" : ""}`}
+          ${!isMobile && !arrastando ? "transition-[opacity,transform] duration-300" : ""}`}
         style={getPanelStyle()}
       >
         {notaEditando ? (

@@ -1,7 +1,7 @@
 // src/hooks/useMediaQuery.ts
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 /**
  * Hook para detectar breakpoints de forma reativa
@@ -10,30 +10,14 @@ import { useEffect, useState } from "react";
  * const isTablet = useMediaQuery("(min-width: 769px) and (max-width: 1024px)");
  */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
+  const assinar = useCallback((aoMudar: () => void) => {
     const media = window.matchMedia(query);
-    
-    // Define valor inicial
-    setMatches(media.matches);
-
-    // Handler para mudanças
-    const listener = (e: MediaQueryListEvent) => {
-      setMatches(e.matches);
-    };
-
-    // Adiciona listener
-    media.addEventListener("change", listener);
-
-    // Cleanup
-    return () => media.removeEventListener("change", listener);
+    media.addEventListener("change", aoMudar);
+    return () => media.removeEventListener("change", aoMudar);
   }, [query]);
 
   // Retorna false durante SSR/hidratação para evitar mismatch
-  return mounted ? matches : false;
+  return useSyncExternalStore(assinar, () => window.matchMedia(query).matches, () => false);
 }
 
 /**

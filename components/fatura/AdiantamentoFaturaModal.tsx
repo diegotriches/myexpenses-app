@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -67,14 +67,18 @@ export default function AdiantamentoFaturaModal({
   const [erro,       setErro]       = useState<string | null>(null);
 
   // Reset ao abrir
-  useEffect(() => {
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [aberto, totalFatura];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
     if (aberto) {
       setContaId("");
       setValorStr(totalFatura.toFixed(2).replace(".", ","));
       setDescricao("");
       setErro(null);
     }
-  }, [aberto, totalFatura]);
+  }
 
   const valorNum = useMemo(() => {
     const raw = valorStr.replace(",", ".").replace(/[^\d.]/g, "");

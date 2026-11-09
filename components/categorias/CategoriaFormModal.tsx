@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -56,7 +56,11 @@ export default function CategoriaFormModal({
 
   const loading = criarCategoria.isPending || atualizarCategoria.isPending;
 
-  useEffect(() => {
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [categoria, aberto];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
     if (aberto) {
       if (categoria) {
         setNome(categoria.nome);
@@ -72,7 +76,7 @@ export default function CategoriaFormModal({
       // ✅ FIX: Tipo já tem valor padrão, marcar como touched
       setTouched({ tipo: true });
     }
-  }, [categoria, aberto]);
+  }
 
   const validarCampo = (campo: "nome" | "tipo", valor: string): string | undefined => {
     if (campo === "nome") {

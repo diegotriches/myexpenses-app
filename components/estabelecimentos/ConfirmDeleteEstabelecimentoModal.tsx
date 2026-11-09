@@ -41,7 +41,7 @@ export default function ConfirmDeleteEstabelecimentoModal({
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Tem certeza que deseja excluir{" "}
             <span className="font-semibold text-gray-900 dark:text-white">
-              "{estabelecimento?.nome}"
+              &quot;{estabelecimento?.nome}&quot;
             </span>
             ? Esta ação não pode ser desfeita.
           </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { BsCashCoin } from "react-icons/bs";
@@ -21,15 +21,12 @@ import {
 } from "react-icons/fi";
 import { AutoRedirectIfAuthenticated } from "@/components/auth/AutoRedirectIfAuthenticated";
 import HeroDemo from "@/components/landing/HeroDemo";
+import { useMounted } from "@/hooks/useMounted";
 
 export default function LandingPage() {
   const [techStackOpen, setTechStackOpen] = useState(false);
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useMounted();
 
   return (
     <AutoRedirectIfAuthenticated

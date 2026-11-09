@@ -104,7 +104,7 @@ export default function MovimentacaoLinha({
   const valorExibido   = mask(valorFormatado);
 
   // ── Célula Conta/Cartão ───────────────────────────────────────────────────
-  const ContaOuCartaoCell = () => {
+  const renderContaOuCartaoCell = () => {
     if (isTransferencia) return <span className="text-gray-400 dark:text-gray-600">—</span>;
     if (mov.formaPagamento === "cartao") {
       if (!cartao) return <span className="text-gray-500 dark:text-gray-400">Cartão</span>;
@@ -132,7 +132,7 @@ export default function MovimentacaoLinha({
   };
 
   // ── Bloco Conta/Cartão mobile ─────────────────────────────────────────────
-  const ContaOuCartaoBlock = () => {
+  const renderContaOuCartaoBlock = () => {
     if (isTransferencia) return null;
     if (mov.formaPagamento === "cartao" && cartao) {
       const logoSrc = empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc;
@@ -166,7 +166,7 @@ export default function MovimentacaoLinha({
 
   // ✅ NOVO: menu de ações — os dois itens ficam desabilitados quando
   // `bloqueada`, com um aviso explicando o motivo em vez do menu normal
-  const AcoesMenu = () => (
+  const renderAcoesMenu = () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
@@ -236,7 +236,7 @@ export default function MovimentacaoLinha({
                 {isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}
               </h3>
             </div>
-            <AcoesMenu />
+            {renderAcoesMenu()}
           </div>
 
           <div className={`text-2xl font-bold mb-3 ${mov.tipo === "entrada" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
@@ -276,7 +276,7 @@ export default function MovimentacaoLinha({
                 </div>
               </div>
             )}
-            <ContaOuCartaoBlock />
+            {renderContaOuCartaoBlock()}
 
             {estabelecimento && (
               <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-700">
@@ -373,7 +373,7 @@ export default function MovimentacaoLinha({
         )}
       </td>
       <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-        <ContaOuCartaoCell />
+        {renderContaOuCartaoCell()}
       </td>
 
       <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
@@ -391,7 +391,7 @@ export default function MovimentacaoLinha({
       </td>
 
       <td className="px-3 py-3 text-center">
-        <AcoesMenu />
+        {renderAcoesMenu()}
       </td>
     </tr>
   );

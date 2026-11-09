@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Transacao } from "@/types/transacao";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,14 +31,18 @@ export default function ConfirmarEdicaoModal({
 
   const [tipoEdicao, setTipoEdicao] = useState<TipoEdicao>("unica");
 
-  useEffect(() => {
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [transacao, isParcelada];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
     // ✅ Para parceladas, força sempre "todas_parcelas" — único modo disponível
     if (isParcelada) {
       setTipoEdicao("todas_parcelas");
     } else {
       setTipoEdicao("unica");
     }
-  }, [transacao, isParcelada]);
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>

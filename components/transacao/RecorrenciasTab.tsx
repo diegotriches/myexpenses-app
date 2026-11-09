@@ -2,7 +2,7 @@
 
 // src/components/transacao/RecorrenciasTab.tsx
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -74,8 +74,12 @@ export default function RecorrenciasTab({ contas, cartoes }: Props) {
     setFormEdicao((f) => ({ ...f, [key]: value }));
   };
 
-  useEffect(() => {
-    if (!recorrenciaEditar) return;
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [recorrenciaEditar];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
+    if (recorrenciaEditar) {
     setFormEdicao({
       tipo: recorrenciaEditar.tipo,
       valor: recorrenciaEditar.valor,
@@ -85,7 +89,8 @@ export default function RecorrenciasTab({ contas, cartoes }: Props) {
       cartaoId: recorrenciaEditar.cartaoId ? String(recorrenciaEditar.cartaoId) : "",
     });
     setErroEdicao(null);
-  }, [recorrenciaEditar]);
+    }
+  }
 
   // Mesma regra do modal de criação: receita não pode ser no cartão
   const opcoesFormaPagamentoEdicao = useMemo(
@@ -194,7 +199,7 @@ export default function RecorrenciasTab({ contas, cartoes }: Props) {
           Nenhuma recorrência ativa
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto px-4">
-          Para criar uma, abra "Nova Movimentação" e escolha "Recorrente" como tipo de pagamento.
+          Para criar uma, abra &quot;Nova Movimentação&quot; e escolha &quot;Recorrente&quot; como tipo de pagamento.
         </p>
       </div>
     );
@@ -319,7 +324,7 @@ export default function RecorrenciasTab({ contas, cartoes }: Props) {
           <AlertDialogHeader>
             <AlertDialogTitle>Cancelar recorrência</AlertDialogTitle>
             <AlertDialogDescription>
-              Nenhuma nova ocorrência de "{recorrenciaCancelar?.descricao || "esta recorrência"}" será gerada
+              Nenhuma nova ocorrência de &quot;{recorrenciaCancelar?.descricao || "esta recorrência"}&quot; será gerada
               a partir de agora. As transações já criadas por ela permanecem no seu histórico normalmente.
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -1,7 +1,8 @@
 // src/contexts/HideValuesContext.tsx
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useSyncExternalStore, ReactNode } from "react";
+import { useMounted } from "@/hooks/useMounted";
 
 interface HideValuesContextType {
   hidden: boolean;
@@ -16,23 +17,24 @@ const HideValuesContext = createContext<HideValuesContextType>({
   mask: (v) => v,
 });
 
-export function HideValuesProvider({ children }: { children: ReactNode }) {
-  const [hidden, setHidden] = useState(false);
-  const [mounted, setMounted] = useState(false);
+const CHAVE_STORAGE = "hideValues";
+const ouvintes = new Set<() => void>();
 
-  // Lê preferência salva ao montar
-  useEffect(() => {
-    const saved = localStorage.getItem("hideValues");
-    if (saved === "true") setHidden(true);
-    setMounted(true);
-  }, []);
+function assinarHidden(aoMudar: () => void) {
+  ouvintes.add(aoMudar);
+  return () => { ouvintes.delete(aoMudar); };
+}
+
+const lerHidden = () => localStorage.getItem(CHAVE_STORAGE) === "true";
+
+export function HideValuesProvider({ children }: { children: ReactNode }) {
+  // A preferência salva é a fonte da verdade; no SSR vale false
+  const hidden = useSyncExternalStore(assinarHidden, lerHidden, () => false);
+  const mounted = useMounted();
 
   const toggle = () => {
-    setHidden((prev) => {
-      const next = !prev;
-      localStorage.setItem("hideValues", String(next));
-      return next;
-    });
+    localStorage.setItem(CHAVE_STORAGE, String(!lerHidden()));
+    ouvintes.forEach((avisar) => avisar());
   };
 
   const mask = (value: string) => (hidden ? "••••••" : value);

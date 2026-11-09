@@ -176,7 +176,7 @@ export default function ContasPage() {
   };
 
   // Empty State Component
-  const EmptyState = () => (
+  const renderEmptyState = () => (
     <div className="text-center py-16 bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
       <BsBank className="text-6xl text-gray-300 dark:text-gray-600 mx-auto mb-4" />
       <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -331,7 +331,7 @@ export default function ContasPage() {
           <p className="text-sm text-red-500 dark:text-red-400">{error.message}</p>
         </div>
       ) : contas.length === 0 ? (
-        <EmptyState />
+        renderEmptyState()
       ) : contasDaAba.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
           <BsBank className="text-4xl text-gray-300 dark:text-gray-600 mx-auto mb-3" />

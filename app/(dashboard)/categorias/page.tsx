@@ -299,7 +299,7 @@ export default function CategoriasPage() {
     </div>
   );
 
-  const EmptyState = ({ tipo }: { tipo: "entrada" | "saida" }) => (
+  const renderEmptyState = ({ tipo }: { tipo: "entrada" | "saida" }) => (
     <div className="col-span-full text-center py-12 md:py-16 bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
       <Tag className="mx-auto mb-4 text-gray-300 dark:text-gray-600" size={48} />
       <h3 className="text-lg md:text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -315,7 +315,7 @@ export default function CategoriasPage() {
     </div>
   );
 
-  const ErrorState = () => (
+  const renderErrorState = () => (
     <div className="text-center py-12 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
       <AlertCircle className="mx-auto mb-4 text-red-500" size={48} />
       <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">Erro ao carregar categorias</h3>
@@ -444,7 +444,7 @@ export default function CategoriasPage() {
                   </p>
                 </div>
               ) : (
-                <EmptyState tipo={aba} />
+                renderEmptyState({ tipo: aba })
               )
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -480,8 +480,8 @@ export default function CategoriasPage() {
         </div>
       )}
 
-      {!loading && error && <ErrorState />}
-      {!loading && !error && categorias.length === 0 && <EmptyState tipo={aba} />}
+      {!loading && error && renderErrorState()}
+      {!loading && !error && categorias.length === 0 && renderEmptyState({ tipo: aba })}
 
       {/* ✅ Bottom Sheet — mobile */}
       <Sheet open={!!categoriaSheet} onOpenChange={(open) => { if (!open) setCategoriaSheet(null); }}>

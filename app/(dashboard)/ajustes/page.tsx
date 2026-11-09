@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -59,11 +59,15 @@ function AjustesContent() {
 
   // Atualiza a aba ativa se o usuário navegar para a página já aberta
   // com um ?tab= diferente (ex: clicar em outra notificação)
-  useEffect(() => {
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [tabParam];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
     if (tabParam && TABS_VALIDAS.includes(tabParam as TabValida)) {
       setActiveTab(tabParam as TabValida);
     }
-  }, [tabParam]);
+  }
 
   if (loading) {
     return (

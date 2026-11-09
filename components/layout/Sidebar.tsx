@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useProfile } from "@/hooks/useProfile";
@@ -46,7 +46,13 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
 
   const isExpanded = !isCollapsed || isHovered;
 
-  useEffect(() => { setMobileOpen(false); }, [pathname]);
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [pathname];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
+    setMobileOpen(false);
+  }
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === href;
@@ -222,7 +228,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     return cardContent;
   };
 
-  const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
+  const renderSidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
     <>
       {/* Logo */}
       <div className="mb-8">
@@ -312,7 +318,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         onMouseEnter={() => isCollapsed && setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <SidebarContent isMobile={false} />
+        {renderSidebarContent({ isMobile: false })}
       </nav>
 
       {/* Mobile Sidebar */}
@@ -353,7 +359,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
                 if (swipeDistance > 50) setMobileOpen(false);
               }}
             >
-              <SidebarContent isMobile={true} />
+              {renderSidebarContent({ isMobile: true })}
             </div>
           </SheetContent>
         </Sheet>

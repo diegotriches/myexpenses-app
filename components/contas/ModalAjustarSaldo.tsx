@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -39,13 +39,17 @@ export default function ModalAjustarSaldo({ open, onClose, conta }: Props) {
   const ajustarSaldo = useAjustarSaldo();
 
   // Reset ao abrir/fechar
-  useEffect(() => {
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [open];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
     if (open) {
       setValor("");
       setDescricao("");
       setErro(null);
     }
-  }, [open]);
+  }
 
   if (!conta) return null;
 

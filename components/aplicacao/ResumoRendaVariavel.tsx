@@ -37,13 +37,13 @@ export default function ResumoRendaVariavel() {
   const sinal = r.resultadoNaoRealizadoPct >= 0 ? "+" : "";
   const NaoRealizadoIcon = r.resultadoNaoRealizado >= 0 ? TrendingUp : TrendingDown;
 
-  const Carregando = () => (
+  const renderCarregando = () => (
     <>
       <Skeleton className="h-4 w-20 md:h-6 md:w-32 mb-1.5" />
       <Skeleton className="h-2 w-12 md:h-3 md:w-20" />
     </>
   );
-  const Erro = () => <p className="text-xs text-red-500">Erro ao carregar</p>;
+  const renderErro = () => <p className="text-xs text-red-500">Erro ao carregar</p>;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
@@ -54,7 +54,7 @@ export default function ResumoRendaVariavel() {
           <LineChart className="h-3 w-3 md:h-4 md:w-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
         </CardHeader>
         <CardContent className={CONTENT}>
-          {isLoading ? <Carregando /> : isError ? <Erro /> : (
+          {isLoading ? renderCarregando() : isError ? renderErro() : (
             <>
               <div className={`${VALOR} text-emerald-600 dark:text-emerald-400`}>
                 {mask(formatarMoeda(r.valorMercado))}
@@ -78,7 +78,7 @@ export default function ResumoRendaVariavel() {
           <Banknote className="h-3 w-3 md:h-4 md:w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
         </CardHeader>
         <CardContent className={CONTENT}>
-          {isLoading ? <Carregando /> : isError ? <Erro /> : (
+          {isLoading ? renderCarregando() : isError ? renderErro() : (
             <>
               <div className={`${VALOR} text-gray-900 dark:text-white`}>
                 {mask(formatarMoeda(r.custoTotal))}
@@ -96,7 +96,7 @@ export default function ResumoRendaVariavel() {
           <NaoRealizadoIcon className={`h-3 w-3 md:h-4 md:w-4 flex-shrink-0 ${cor(r.resultadoNaoRealizado)}`} />
         </CardHeader>
         <CardContent className={CONTENT}>
-          {isLoading ? <Carregando /> : isError ? <Erro /> : (
+          {isLoading ? renderCarregando() : isError ? renderErro() : (
             <>
               <div className={`${VALOR} ${cor(r.resultadoNaoRealizado)}`}>
                 {mask(formatarMoeda(r.resultadoNaoRealizado))}
@@ -116,7 +116,7 @@ export default function ResumoRendaVariavel() {
           <Coins className="h-3 w-3 md:h-4 md:w-4 text-orange-600 dark:text-orange-400 flex-shrink-0" />
         </CardHeader>
         <CardContent className={CONTENT}>
-          {isLoading ? <Carregando /> : isError ? <Erro /> : (
+          {isLoading ? renderCarregando() : isError ? renderErro() : (
             <>
               <div className={`${VALOR} ${cor(r.resultadoRealizado)}`}>
                 {mask(formatarMoeda(r.resultadoRealizado))}

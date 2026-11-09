@@ -230,7 +230,7 @@ export default function TransacoesPage() {
     }
   }
 
-  const EmptyStateNoConta = () => (
+  const renderEmptyStateNoConta = () => (
     <div className="text-center py-12 md:py-16 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border-2 border-dashed border-yellow-300 dark:border-yellow-700">
       <div className="flex justify-center mb-4">
         <div className="relative">
@@ -291,7 +291,7 @@ export default function TransacoesPage() {
       )}
 
       {!temContasAtivas ? (
-        <EmptyStateNoConta />
+        renderEmptyStateNoConta()
       ) : (
         <Tabs defaultValue="movimentacoes" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3 max-w-xl">

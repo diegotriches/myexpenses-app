@@ -252,7 +252,7 @@ export default function EstabelecimentosPage() {
     </div>
   );
 
-  const EmptyState = () => (
+  const renderEmptyState = () => (
     <div className="col-span-full text-center py-16 bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700">
       <Store className="mx-auto mb-4 text-gray-300 dark:text-gray-600" size={56} />
       <h3 className="text-lg md:text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -272,7 +272,7 @@ export default function EstabelecimentosPage() {
     </div>
   );
 
-  const ErrorState = () => (
+  const renderErrorState = () => (
     <div className="text-center py-12 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
       <AlertCircle className="mx-auto mb-4 text-red-500" size={48} />
       <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
@@ -357,9 +357,9 @@ export default function EstabelecimentosPage() {
           {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : error ? (
-        <ErrorState />
+        renderErrorState()
       ) : estabelecimentos.length === 0 ? (
-        <EmptyState />
+        renderEmptyState()
       ) : estabelecimentosFiltrados.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-lg">
           <Search className="mx-auto mb-3 text-gray-300 dark:text-gray-600" size={48} />

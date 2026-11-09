@@ -177,7 +177,7 @@ export function CardGraficoMeses({ ano }: CardGraficoMesesProps) {
                   tickFormatter={(v) => hidden ? "••••" : `R$ ${(v / 1000).toFixed(0)}k`}
                   width={60}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={CustomTooltip} />
                 <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} iconType="circle" iconSize={10} />
                 <Bar dataKey="Receitas" fill={colors.receitas} radius={[4,4,0,0]} maxBarSize={40} />
                 <Bar dataKey="Despesas" fill={colors.despesas} radius={[4,4,0,0]} maxBarSize={40} />
@@ -195,7 +195,7 @@ export function CardGraficoMeses({ ano }: CardGraficoMesesProps) {
                   tickFormatter={(v) => hidden ? "•••" : `${(v / 1000).toFixed(0)}k`}
                   width={40}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={CustomTooltip} />
                 <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} iconType="circle" iconSize={8} />
                 <Bar dataKey="Receitas" fill={colors.receitas} radius={[4,4,0,0]} maxBarSize={30} />
                 <Bar dataKey="Despesas" fill={colors.despesas} radius={[4,4,0,0]} maxBarSize={30} />

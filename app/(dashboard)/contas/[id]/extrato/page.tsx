@@ -175,7 +175,7 @@ export default function ExtratoContaPage() {
     );
   };
 
-  const ThOrdenavel = ({
+  const renderThOrdenavel = ({
     coluna, label, className,
   }: { coluna: ColunaOrdenacao; label: string; className?: string }) => (
     <th
@@ -367,7 +367,7 @@ export default function ExtratoContaPage() {
                 </colgroup>
                 <thead className="bg-gray-50 dark:bg-gray-900">
                   <tr>
-                    <ThOrdenavel coluna="data"  label="Data"    className="text-left"  />
+                    {renderThOrdenavel({ coluna: "data", label: "Data", className: "text-left" })}
                     <th className="text-left p-3 font-medium text-gray-900 dark:text-white">Descrição</th>
                     <th className="text-center p-3 font-medium text-gray-900 dark:text-white">
                       <span className="inline-flex items-center gap-1">
@@ -384,9 +384,9 @@ export default function ExtratoContaPage() {
                         </TooltipProvider>
                       </span>
                     </th>
-                    <ThOrdenavel coluna="valor" label="Entrada" className="text-right" />
-                    <ThOrdenavel coluna="valor" label="Saída"   className="text-right" />
-                    <ThOrdenavel coluna="saldo" label="Saldo"   className="text-right" />
+                    {renderThOrdenavel({ coluna: "valor", label: "Entrada", className: "text-right" })}
+                    {renderThOrdenavel({ coluna: "valor", label: "Saída", className: "text-right" })}
+                    {renderThOrdenavel({ coluna: "saldo", label: "Saldo", className: "text-right" })}
                   </tr>
                 </thead>
                 <tbody>

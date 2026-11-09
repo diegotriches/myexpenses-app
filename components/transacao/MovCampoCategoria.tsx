@@ -1,5 +1,6 @@
 "use client";
 
+import { createElement } from "react";
 import { useCategorias } from "@/hooks/useCategorias";
 import {
   Select,
@@ -102,7 +103,7 @@ export default function MovCampoCategoria({ form, update, error }: Props) {
 
       <div className="flex items-center gap-4">
         <div className={`w-13 h-13 rounded-xl bg-gradient-to-br ${gradiente} flex items-center justify-center shadow-md flex-shrink-0`}>
-          {Icon ? <Icon size={28} className="text-white" /> : <Tag size={28} className="text-white" />}
+          {Icon ? createElement(Icon, { size: 28, className: "text-white" }) : <Tag size={28} className="text-white" />}
         </div>
 
         <div className="flex-1 space-y-1">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Conta } from "@/types/conta";
 import { useCriarTransferencia } from "@/hooks/useTransferencias";
 import {
@@ -74,10 +74,14 @@ export function ModalTransferencia({
     setData(new Date().toISOString().substring(0, 10));
   };
 
-  useEffect(() => {
-    if (!open) { resetForm(); return; }
-    if (contaOrigemInicialId) setContaOrigemId(contaOrigemInicialId);
-  }, [open, contaOrigemInicialId]);
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [open, contaOrigemInicialId];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
+    if (!open) { resetForm(); }
+    else if (contaOrigemInicialId) setContaOrigemId(contaOrigemInicialId);
+  }
 
   const formularioValido =
     contaOrigemId &&

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -53,7 +53,11 @@ export default function ContaModal({
   // ✅ Input calculadora - armazena os dígitos digitados
   const [digitosValor, setDigitosValor] = useState<string>("");
 
-  useEffect(() => {
+  // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
+  const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
+  const depsAtuais: readonly unknown[] = [contaInicial, open, isEdit];
+  if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
+    setDepsAnteriores(depsAtuais);
     if (open) {
       const dadosIniciais = contaInicial ?? defaultForm;
       setForm({
@@ -71,7 +75,7 @@ export default function ContaModal({
       
       setErrors({});
     }
-  }, [contaInicial, open, isEdit]);
+  }
 
   // ✅ Formata valor para exibição (123 → "1,23" | 12345 → "123,45")
   const formatarValorCalculadora = (digitos: string): string => {
@@ -213,7 +217,7 @@ export default function ContaModal({
                   Saldo Inicial não pode ser alterado
                 </AlertTitle>
                 <AlertDescription className="text-[11px] text-blue-800 dark:text-blue-300 mt-1">
-                  Use o botão "Ajustar Saldo" no card da conta para correções.
+                  Use o botão &quot;Ajustar Saldo&quot; no card da conta para correções.
                 </AlertDescription>
               </Alert>
             )}
@@ -331,7 +335,7 @@ export default function ContaModal({
               <div className="mt-2">
                 <Textarea
                   id="observacoes"
-                  value={form.observacoes}
+                  value={form.observacoes ?? ""}
                   onChange={(e) => handleChange("observacoes", e.target.value)}
                   placeholder="Informações adicionais sobre a conta..."
                   className="resize-none h-20 text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"

@@ -98,7 +98,7 @@ export function CardCategoriasReceita({ ano }: CardCategoriasReceitaProps) {
                         <Cell key={index} fill={entry.cor} />
                       ))}
                     </Pie>
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={CustomTooltip} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>

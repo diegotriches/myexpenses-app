@@ -409,7 +409,7 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
           <DialogHeader>
             <DialogTitle>Antecipar parcelas</DialogTitle>
             <DialogDescription>
-              Quita as últimas parcelas de "{parcelamentoAntecipar?.representante.descricao || "esta compra"}" agora,
+              Quita as últimas parcelas de &quot;{parcelamentoAntecipar?.representante.descricao || "esta compra"}&quot; agora,
               removendo-as das faturas futuras.
             </DialogDescription>
           </DialogHeader>

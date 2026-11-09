@@ -88,21 +88,15 @@ export default function ImpostoRendaRendaVariavel() {
   const resumoAno = anos.find((a) => a.ano === ano);
 
   const ateDeclaracao = `${ano}-12-31`;
-  const bens = useMemo(
-    () => (ateDeclaracao <= hoje ? bensEDireitosEm(operacoes, ateDeclaracao) : []),
-    [operacoes, ateDeclaracao, hoje],
-  );
+  const bens = ateDeclaracao <= hoje ? bensEDireitosEm(operacoes, ateDeclaracao) : [];
   const proventosAno = useMemo(() => {
     const t: Record<TipoProvento, number> = { dividendo: 0, jcp: 0, rendimento: 0 };
     (proventos ?? []).filter((p) => p.data.startsWith(String(ano))).forEach((p) => { t[p.tipo] += p.valorLiquido; });
     return t;
   }, [proventos, ano]);
 
-  const anosDisponiveis = useMemo(() => {
-    const s = new Set<number>(anos.map((a) => a.ano));
-    s.add(Number(hoje.slice(0, 4)));
-    return Array.from(s).sort((a, b) => b - a);
-  }, [anos, hoje]);
+  const anosDisponiveis = Array.from(new Set<number>([...anos.map((a) => a.ano), Number(hoje.slice(0, 4))]))
+    .sort((a, b) => b - a);
 
   // ── Configuração ─────────────────────────────────────────────────────────
   const [cfgOpen, setCfgOpen] = useState(false);

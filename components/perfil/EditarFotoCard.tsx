@@ -40,10 +40,6 @@ export default function EditarFotoCard({ usuario }: Props) {
     };
   }, [preview]);
 
-  useEffect(() => {
-    cancelarEdicao();
-  }, [usuario]);
-
   // Validação de arquivo
   const validarArquivo = (file: File): string | null => {
     const maxSize = 5 * 1024 * 1024; // 5MB
@@ -134,6 +130,10 @@ export default function EditarFotoCard({ usuario }: Props) {
       inputRef.current.value = "";
     }
   };
+
+  useEffect(() => {
+    cancelarEdicao();
+  }, [usuario]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();

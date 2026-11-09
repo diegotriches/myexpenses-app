@@ -83,14 +83,14 @@ export default function ResumoCartoes({ cartoes }: Props) {
         ? { borda: "border-l-amber-500 dark:border-l-amber-600", texto: "text-amber-600 dark:text-amber-400" }
         : { borda: "border-l-purple-500 dark:border-l-purple-600", texto: "text-purple-600 dark:text-purple-400" };
 
-  const Carregando = () => (
+  const renderCarregando = () => (
     <>
       <Skeleton className="h-4 w-20 md:h-6 md:w-32 mb-1.5" />
       <Skeleton className="h-2 w-12 md:h-3 md:w-20" />
     </>
   );
 
-  const Erro = () => <p className="text-xs text-red-500">Erro ao carregar</p>;
+  const renderErro = () => <p className="text-xs text-red-500">Erro ao carregar</p>;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
@@ -101,7 +101,7 @@ export default function ResumoCartoes({ cartoes }: Props) {
           <CheckCircle2 className="h-3 w-3 md:h-4 md:w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
         </CardHeader>
         <CardContent className={CONTENT}>
-          {gastos.isLoading ? <Carregando /> : gastos.isError ? <Erro /> : (
+          {gastos.isLoading ? renderCarregando() : gastos.isError ? renderErro() : (
             <>
               <div className={`${VALOR} text-green-600 dark:text-green-400`}>
                 {fmt(gastos.data?.totalPago ?? 0)}
@@ -119,7 +119,7 @@ export default function ResumoCartoes({ cartoes }: Props) {
           <Receipt className={`h-3 w-3 md:h-4 md:w-4 flex-shrink-0 ${emAberto.atrasadas > 0 ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}`} />
         </CardHeader>
         <CardContent className={CONTENT}>
-          {faturas.isLoading ? <Carregando /> : faturas.isError ? <Erro /> : (
+          {faturas.isLoading ? renderCarregando() : faturas.isError ? renderErro() : (
             <>
               <div className={`${VALOR} ${emAberto.atrasadas > 0 ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}`}>
                 {fmt(emAberto.total)}

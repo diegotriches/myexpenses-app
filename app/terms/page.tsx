@@ -67,10 +67,10 @@ export default function TermsPage() {
                 2. Definições
               </h2>
               <ul className="space-y-2 text-gray-700 dark:text-gray-300">
-                <li><strong>"Serviço"</strong>: Refere-se ao aplicativo MyExpenses e todas as suas funcionalidades.</li>
-                <li><strong>"Usuário"</strong>: Qualquer pessoa que acessa e utiliza o Serviço.</li>
-                <li><strong>"Conta"</strong>: Registro criado pelo Usuário para acessar o Serviço.</li>
-                <li><strong>"Dados"</strong>: Informações financeiras e pessoais fornecidas pelo Usuário.</li>
+                <li><strong>&quot;Serviço&quot;</strong>: Refere-se ao aplicativo MyExpenses e todas as suas funcionalidades.</li>
+                <li><strong>&quot;Usuário&quot;</strong>: Qualquer pessoa que acessa e utiliza o Serviço.</li>
+                <li><strong>&quot;Conta&quot;</strong>: Registro criado pelo Usuário para acessar o Serviço.</li>
+                <li><strong>&quot;Dados&quot;</strong>: Informações financeiras e pessoais fornecidas pelo Usuário.</li>
               </ul>
             </section>
 
@@ -141,7 +141,7 @@ export default function TermsPage() {
                 7. Limitação de Responsabilidade
               </h2>
               <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                O MyExpenses é fornecido "como está". Não garantimos que o Serviço será ininterrupto, seguro ou livre de erros. Não somos responsáveis por:
+                O MyExpenses é fornecido &quot;como está&quot;. Não garantimos que o Serviço será ininterrupto, seguro ou livre de erros. Não somos responsáveis por:
               </p>
               <ul className="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300 mt-4">
                 <li>Perda de dados ou informações</li>
