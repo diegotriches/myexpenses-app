@@ -9,7 +9,7 @@ import type { BackupFrequencia } from "@/types/preferences";
 
 const FREQUENCIAS_VALIDAS: BackupFrequencia[] = ["diario", "semanal", "mensal"];
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const userId = await getUserId();
     if (!userId) {
@@ -211,7 +211,7 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-export async function DELETE(req: NextRequest) {
+export async function DELETE() {
   try {
     const userId = await getUserId();
     if (!userId) {

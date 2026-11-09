@@ -3,7 +3,11 @@
 
 import React from "react";
 import {
-  Document, Page, Text, View, StyleSheet, Font,
+  Document,
+  Page,
+  Text,
+  View,
+  StyleSheet,
 } from "@react-pdf/renderer";
 import type { ResumoAnualData } from "@/hooks/useResumoAnual";
 
@@ -292,7 +296,7 @@ export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
         {data.categorias.length > 0 && (
           <>
             <Text style={s.sectionTitle}>Top Categorias de Despesa</Text>
-            {data.categorias.map((cat, i) => (
+            {data.categorias.map((cat) => (
               <View key={cat.categoria} style={s.catRow}>
                 <Text style={{ width: "30%", fontSize: 8, color: "#374151" }}>{cat.categoria}</Text>
                 <View style={s.barBg}>

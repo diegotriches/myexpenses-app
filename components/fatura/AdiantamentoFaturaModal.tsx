@@ -27,7 +27,6 @@ import {
   CheckCircle,
   AlertCircle,
   Wallet,
-  CreditCard,
   Info,
   Zap,
 } from "lucide-react";

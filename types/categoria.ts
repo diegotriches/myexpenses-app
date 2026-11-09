@@ -31,8 +31,3 @@ export interface AtualizarCategoriaDTO {
   icone?: string;
 }
 
-/**
- * Tipos auxiliares
- */
-export type TipoCategoria = "entrada" | "saida" | "ambos";
-export type OrdenacaoCategoria = "nome" | "mais-usadas" | "menos-usadas";

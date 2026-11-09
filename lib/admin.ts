@@ -45,36 +45,3 @@ export async function verificarAdmin(): Promise<string> {
   return userId;
 }
 
-/**
- * Verifica se usuário atual é admin (versão booleana)
- * Não lança erro, apenas retorna true/false
- */
-export async function isAdmin(): Promise<boolean> {
-  try {
-    await verificarAdmin();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Busca dados completos do admin atual
- */
-export async function getAdminData() {
-  const userId = await verificarAdmin();
-  
-  const [admin] = await db
-    .select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: users.role,
-      createdAt: users.createdAt,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  return admin;
-}

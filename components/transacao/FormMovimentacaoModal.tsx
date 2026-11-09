@@ -21,7 +21,6 @@ import { Switch } from "@/components/ui/switch";
 
 import {
   Transacao,
-  CreateTransacaoDTO,
   UpdateTransacaoDTO,
 } from "@/types/transacao";
 import type { CreateRecorrenciaDTO } from "@/types/recorrencia";

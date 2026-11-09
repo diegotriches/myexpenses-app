@@ -1,6 +1,6 @@
 // src/app/api/notificacoes/marcar-todas-lidas/route.ts
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { notificacoes } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -10,7 +10,7 @@ import { getUserId } from "@/lib/auth";
  * PUT /api/notificacoes/marcar-todas-lidas
  * Marca todas as notificações não lidas do usuário como lidas
  */
-export async function PUT(req: NextRequest) {
+export async function PUT() {
   try {
     const userId = await getUserId();
     if (!userId) {

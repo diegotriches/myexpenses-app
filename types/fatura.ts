@@ -53,36 +53,6 @@ export interface PagarFaturaDTO {
   dataPagamento?: string;
 }
 
-export interface CreateFaturaDTO {
-  cartaoId: number;
-  mes: number;
-  ano: number;
-  total: number;
-}
-
-export interface UpdateFaturaDTO {
-  total?: number;
-  paga?: boolean;
-  dataPagamento?: string | null;
-  contaPagamentoId?: string | null;
-}
-
-export interface FiltrosFatura {
-  cartaoId?: number;
-  mes?: number;
-  ano?: number;
-  paga?: boolean;
-  limit?: number;
-  offset?: number;
-}
-
-export interface ListaFaturasResponse {
-  faturas: FaturaResumo[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
 // ========================================
 // TIPOS: Adiantamento de Fatura
 // ========================================

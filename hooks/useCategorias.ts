@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { categoriaService } from "@/services/categoriaService";
 import { useToast } from "@/hooks/use-toast";
 
-import type { Categoria, CriarCategoriaDTO, AtualizarCategoriaDTO } from "@/types/categoria";
+import type { CriarCategoriaDTO, AtualizarCategoriaDTO } from "@/types/categoria";
 
 /**
  * Query Keys para categorias
@@ -29,29 +29,6 @@ export function useCategorias() {
 }
 
 /**
- * Hook para listar categorias por tipo (com cache)
- */
-export function useCategoriasPorTipo(tipo: "entrada" | "saida") {
-  return useQuery({
-    queryKey: categoriasKeys.byTipo(tipo),
-    queryFn: () => categoriaService.listarPorTipo(tipo),
-    staleTime: 10 * 60 * 1000,
-  });
-}
-
-/**
- * Hook para buscar categoria por ID (com cache)
- */
-export function useCategoria(id: string) {
-  return useQuery({
-    queryKey: categoriasKeys.byId(id),
-    queryFn: () => categoriaService.buscarPorId(id),
-    enabled: !!id, // Só executa se ID existir
-    staleTime: 10 * 60 * 1000,
-  });
-}
-
-/**
  * Opções para controlar toast nas mutations
  */
 interface MutationOptions {
@@ -70,7 +47,7 @@ export function useCriarCategoria(options: MutationOptions = {}) {
 
   return useMutation({
     mutationFn: (dados: CriarCategoriaDTO) => categoriaService.criar(dados),
-    onSuccess: (data) => {
+    onSuccess: () => {
       // Invalida cache de categorias
       queryClient.invalidateQueries({ queryKey: categoriasKeys.all });
       
@@ -161,17 +138,3 @@ export function useRemoverCategoria(options: MutationOptions = {}) {
   });
 }
 
-/**
- * Hook auxiliar para pré-carregar categoria (útil para hover/prefetch)
- */
-export function usePrefetchCategoria() {
-  const queryClient = useQueryClient();
-  
-  return (id: string) => {
-    queryClient.prefetchQuery({
-      queryKey: categoriasKeys.byId(id),
-      queryFn: () => categoriaService.buscarPorId(id),
-      staleTime: 10 * 60 * 1000,
-    });
-  };
-}

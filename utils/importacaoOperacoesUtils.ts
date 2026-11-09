@@ -100,9 +100,9 @@ export function lerPlanilhaOperacoes(linhas: unknown[][]): LeituraOperacoes {
 
   const idx: Record<string, number> = {};
   (linhas[cab] ?? []).forEach((c, i) => { idx[semAcento(texto(c))] = i; });
-  const [cES, cData, cMov, cProd, cInst, cQtd, cPreco, cValor] = [
+  const [cES, cData, cMov, cProd, cInst, cQtd, cValor] = [
     idx["entrada/saida"], idx["data"], idx["movimentacao"], idx["produto"],
-    idx["instituicao"], idx["quantidade"], idx["preco unitario"], idx["valor da operacao"],
+    idx["instituicao"], idx["quantidade"], idx["valor da operacao"],
   ];
   if ([cES, cData, cMov, cProd, cQtd].some((c) => c === undefined))
     return { ...vazio, erro: "Colunas esperadas não encontradas. Esta é a planilha \"Movimentação\" da B3?" };
@@ -221,11 +221,6 @@ export function sugerirTipoAtivoPorNome(ticker: string, nome: string): TipoAtivo
   if (/imob|\bfii\b|\bfof\b|fundo|fdo|recebiv|properties|logist|shopping/.test(n)) return "fii";
   if (/s\.a|s\/a|companhia|\bcia\b|centrais|saneamen|participa/.test(n)) return "acao"; // units
   return "fii";
-}
-
-export interface SaldoTicker {
-  ticker: string;
-  saldo: number;
 }
 
 export function saldoPorTicker(ops: OperacaoRv[], ate?: string): Map<string, number> {

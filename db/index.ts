@@ -17,8 +17,6 @@ if (typeof WebSocket === 'undefined') {
 // ============================================================================
 
 interface DatabaseConfig {
-  maxRetries: number;
-  retryDelay: number;
   connectionTimeout: number;
   poolSize: number;
 }
@@ -37,8 +35,6 @@ type DrizzleDB = ReturnType<typeof drizzle<typeof schema>>;
 // ============================================================================
 
 const config: DatabaseConfig = {
-  maxRetries: 3,
-  retryDelay: 1000, // 1 segundo
   connectionTimeout: 10000, // 10 segundos
   poolSize: 10, // Máximo de conexões simultâneas
 };
@@ -92,156 +88,6 @@ function validateDatabaseUrl(url: string | undefined): string {
 }
 
 // ============================================================================
-// FUNÇÃO DE CONEXÃO COM RETRY
-// ============================================================================
-
-/**
- * Tenta conectar ao banco de dados com retry automático
- */
-async function connectWithRetry(
-  url: string,
-  attempt: number = 1
-): Promise<Pool> {
-  try {
-    logger.info(`Tentativa ${attempt}/${config.maxRetries} de conexão (neon-serverless)...`);
-
-    // Criar Pool de conexões Neon Serverless (suporta transações)
-    const pool = new Pool({
-      connectionString: url,
-      max: config.poolSize,
-      idleTimeoutMillis: 30000, // 30 segundos
-      connectionTimeoutMillis: config.connectionTimeout,
-    });
-
-    // Teste de conexão simples
-    const client = await pool.connect();
-    await client.query('SELECT 1');
-    client.release();
-
-    logger.info("✅ Conexão estabelecida com sucesso! (Transações habilitadas)");
-    return pool;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
-    logger.error(`Falha na tentativa ${attempt}:`, errorMessage);
-
-    // Se atingiu o limite de tentativas, lançar erro
-    if (attempt >= config.maxRetries) {
-      logger.error("❌ Todas as tentativas de conexão falharam");
-      throw new Error(
-        `❌ Falha ao conectar ao banco de dados após ${config.maxRetries} tentativas.\n` +
-          `Último erro: ${errorMessage}\n` +
-          `Verifique:\n` +
-          `1. Se a DATABASE_URL está correta\n` +
-          `2. Se o banco de dados está acessível\n` +
-          `3. Se as credenciais estão válidas\n` +
-          `4. Se a porta WebSocket está aberta (transações)`
-      );
-    }
-
-    // Aguardar antes de tentar novamente (exponential backoff)
-    const delay = config.retryDelay * attempt;
-    logger.warn(`⏳ Aguardando ${delay}ms antes da próxima tentativa...`);
-    await new Promise((resolve) => setTimeout(resolve, delay));
-
-    // Tentar novamente
-    return connectWithRetry(url, attempt + 1);
-  }
-}
-
-// ============================================================================
-// INICIALIZAÇÃO
-// ============================================================================
-
-/**
- * Inicializa a conexão com o banco de dados
- */
-async function initializeDatabase(): Promise<DrizzleDB> {
-  try {
-    // 1. Validar DATABASE_URL
-    const databaseUrl = validateDatabaseUrl(process.env.DATABASE_URL);
-
-    // 2. Conectar com retry
-    const pool = await connectWithRetry(databaseUrl);
-
-    // 3. Inicializar Drizzle com o schema
-    const db = drizzle(pool, { schema });
-
-    // 4. Log de sucesso
-    logger.info("🚀 Drizzle ORM inicializado com neon-serverless (transações habilitadas)");
-
-    return db;
-  } catch (error) {
-    logger.error("Falha crítica na inicialização do banco de dados");
-    throw error;
-  }
-}
-
-// ============================================================================
-// SINGLETON PATTERN
-// ============================================================================
-
-let dbInstance: DrizzleDB | null = null;
-let initPromise: Promise<DrizzleDB> | null = null;
-let poolInstance: Pool | null = null;
-
-/**
- * Versão assíncrona - garante que o banco está inicializado
- * USE ESTA em API Routes e Server Components
- */
-export async function getDb(): Promise<DrizzleDB> {
-  if (dbInstance) {
-    return dbInstance;
-  }
-
-  if (!initPromise) {
-    initPromise = initializeDatabase().then((db) => {
-      dbInstance = db;
-      return db;
-    });
-  }
-
-  return initPromise;
-}
-
-// ============================================================================
-// HEALTH CHECK
-// ============================================================================
-
-/**
- * Verifica se a conexão com o banco está saudável
- */
-export async function healthCheck(): Promise<boolean> {
-  try {
-    const db = await getDb();
-    // Query simples para verificar conexão
-    if (poolInstance) {
-      const client = await poolInstance.connect();
-      await client.query('SELECT 1');
-      client.release();
-      logger.info("✅ Health check passou");
-      return true;
-    }
-    return false;
-  } catch (error) {
-    logger.error("❌ Health check falhou:", error);
-    return false;
-  }
-}
-
-/**
- * Fecha o pool de conexões (útil em testes ou shutdown graceful)
- */
-export async function closePool(): Promise<void> {
-  if (poolInstance) {
-    await poolInstance.end();
-    poolInstance = null;
-    dbInstance = null;
-    initPromise = null;
-    logger.info("🔌 Pool de conexões fechado");
-  }
-}
-
-// ============================================================================
 // EXPORT COMPATÍVEL COM CÓDIGO EXISTENTE (SÍNCRONO)
 // ============================================================================
 
@@ -249,7 +95,7 @@ export async function closePool(): Promise<void> {
 const databaseUrl = validateDatabaseUrl(process.env.DATABASE_URL);
 
 // Criar Pool síncrono (para compatibilidade com código existente)
-poolInstance = new Pool({
+const poolInstance = new Pool({
   connectionString: databaseUrl,
   max: config.poolSize,
   idleTimeoutMillis: 30000,

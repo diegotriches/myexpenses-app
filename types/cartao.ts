@@ -113,37 +113,6 @@ export interface TransacaoFatura {
 // ========================================
 // HELPER: Converter string para number
 // ========================================
-export function cartaoLimiteAsNumber(cartao: Cartao): {
-  limite: number;
-  limiteDisponivel: number;
-  emUso: number;
-} {
-  return {
-    limite: Number(cartao.limite) || 0,
-    limiteDisponivel: Number(cartao.limiteDisponivel) || 0,
-    emUso: Number(cartao.emUso) || 0,
-  };
-}
-
-/**
- * Helper para formatar limite como moeda
- */
-export function formatarLimite(cartao: Cartao): {
-  limite: string;
-  disponivel: string;
-  usado: string;
-  percentualUsado: number;
-} {
-  const { limite, limiteDisponivel, emUso } = cartaoLimiteAsNumber(cartao);
-  
-  return {
-    limite: limite.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    disponivel: limiteDisponivel.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    usado: emUso.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    percentualUsado: limite > 0 ? (emUso / limite) * 100 : 0,
-  };
-}
-
 // ========================================
 // TIPOS AUXILIARES
 // ========================================

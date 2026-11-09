@@ -149,68 +149,6 @@ export function usePagarFatura() {
 }
 
 /**
- * Hook para estornar pagamento de fatura
- *
- * @example
- * const estornarPagamento = useEstornarPagamento();
- * await estornarPagamento.mutateAsync({
- *   cartaoId: 1,
- *   ano: 2026,
- *   mes: 1
- * });
- */
-export function useEstornarPagamento() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
-    mutationFn: async ({
-      cartaoId,
-      ano,
-      mes,
-    }: {
-      cartaoId: number | string;
-      ano: number;
-      mes: number;
-    }) => {
-      return faturaService.estornarPagamento(cartaoId, ano, mes);
-    },
-    onSuccess: (_, variables) => {
-      // Invalida fatura específica
-      queryClient.invalidateQueries({
-        queryKey: faturasKeys.byCartao(
-          variables.cartaoId,
-          variables.ano,
-          variables.mes,
-        ),
-      });
-
-      // Invalida lista de cartões (limite disponível mudou)
-      queryClient.invalidateQueries({ queryKey: ["cartoes"] });
-
-      // Invalida contas (saldo foi devolvido)
-      queryClient.invalidateQueries({ queryKey: ["contas"] });
-
-      // Invalida dashboard e extrato
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["extrato"] });
-
-      toast({
-        title: "Pagamento estornado!",
-        description: "O estorno foi registrado com sucesso.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro ao estornar pagamento",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-}
-
-/**
  * Hook genérico para buscar qualquer fatura (menos usado)
  * Útil para casos onde você precisa buscar uma fatura sob demanda
  *

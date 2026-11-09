@@ -31,8 +31,6 @@ export default function PeriodoSelector() {
   const {
     mesSelecionado,
     anoSelecionado,
-    setMesSelecionado,
-    setAnoSelecionado,
     navegarMes,
     navegarAno,
   } = usePeriodo();

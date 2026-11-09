@@ -3,7 +3,7 @@ import { valorNaFatura } from "@/utils/faturaUtils";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { cartoes, faturas, transacoes } from "@/db/schema";
-import { eq, and, gte, lte, lte as lteAlias, asc } from "drizzle-orm";
+import { eq, and, gte, lte, asc } from "drizzle-orm";
 import { getUserIdOrRedirect } from "@/lib/auth/session";
 import { calcularPeriodoFatura, calcularDataVencimento } from "@/utils/faturaUtils";
 
@@ -47,9 +47,7 @@ export async function GET() {
     const userId = await getUserIdOrRedirect();
 
     const hoje     = new Date();
-    const mesAtual = hoje.getMonth() + 1; // 1-indexed
-    const anoAtual = hoje.getFullYear();
-
+// 1-indexed
     const cartoesAtivos = await db
       .select()
       .from(cartoes)

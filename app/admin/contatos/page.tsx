@@ -113,7 +113,7 @@ export default function AdminContatosPage() {
       if (!response.ok) throw new Error();
 
       carregarContatos();
-    } catch (err) {
+    } catch {
       alert("Erro ao atualizar status");
     }
   };
@@ -130,7 +130,7 @@ export default function AdminContatosPage() {
       if (!response.ok) throw new Error();
 
       carregarContatos();
-    } catch (err) {
+    } catch {
       alert("Erro ao marcar como lido");
     }
   };
@@ -149,7 +149,7 @@ export default function AdminContatosPage() {
       if (!response.ok) throw new Error();
 
       carregarContatos();
-    } catch (err) {
+    } catch {
       alert("Erro ao excluir contato");
     }
   };

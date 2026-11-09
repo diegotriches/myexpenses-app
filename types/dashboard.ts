@@ -4,7 +4,6 @@
 // TIPOS: Dashboard
 // ========================================
 
-export type CondicaoPagamento = 'dinheiro' | 'pix' | 'cartao';
 export type FormaPagamento = 'aVista' | 'parcelado' | 'recorrente';
 
 /**
@@ -50,23 +49,6 @@ export interface DadosGraficoMeses {
   receitas: number;
   despesas: number;
   balanco: number;
-}
-
-/**
- * Totais de faturas
- */
-export interface DashboardFaturas {
-  totalFaturas: number;
-  totalPago: number;
-  totalAberto: number;
-}
-
-/**
- * Valores recebidos e a pagar
- */
-export interface DashboardValores {
-  recebidos: number;
-  aPagar: number;
 }
 
 /**
@@ -214,9 +196,6 @@ export interface TransacoesRecentesResponse {
 
 // ⚠️ GraficoMesesResponse mantido por compatibilidade, mas não é mais usado ativamente
 // Pode ser removido futuramente se não houver outras referências
-/** @deprecated Use DadosGraficoMeses[] diretamente */
-export type GraficoMesesResponse = DadosGraficoMeses[];
-
 /**
  * Tipo de resposta de transações recorrentes
  */
@@ -246,47 +225,3 @@ export function formatarMoeda(valor: number): string {
   }).format(valor);
 }
 
-/**
- * Formata mês do gráfico (YYYY-MM → MMM/YYYY)
- */
-export function formatarMesGrafico(mes: string): string {
-  try {
-    const [ano, mesNum] = mes.split('-');
-    const data = new Date(Number(ano), Number(mesNum) - 1);
-    return data.toLocaleDateString('pt-BR', {
-      month: 'short',
-      year: 'numeric',
-    }).replace('.', '');
-  } catch {
-    return mes;
-  }
-}
-
-/**
- * Calcula percentual de uma parte em relação ao total
- */
-export function calcularPercentual(parte: number, total: number): number {
-  if (total === 0) return 0;
-  return (parte / total) * 100;
-}
-
-/**
- * Valida filtros de extrato
- */
-export function validarFiltrosExtrato(
-  filtros: Partial<FiltrosExtrato>
-): { valido: boolean; erro?: string } {
-  if (!filtros.ano || !filtros.mes) {
-    return { valido: false, erro: "Ano e mês são obrigatórios" };
-  }
-
-  if (filtros.mes < 1 || filtros.mes > 12) {
-    return { valido: false, erro: "Mês deve estar entre 1 e 12" };
-  }
-
-  if (filtros.ano < 2000 || filtros.ano > 2100) {
-    return { valido: false, erro: "Ano inválido" };
-  }
-
-  return { valido: true };
-}

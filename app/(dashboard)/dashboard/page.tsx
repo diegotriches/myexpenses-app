@@ -102,8 +102,7 @@ export default function Dashboard() {
   const [anoDashboard, setAnoDashboard] = useState<number>(() => new Date().getFullYear());
 
   // ── Tabs com transição automática ──────────────────────────────────────
-  const TABS = ['overview', 'analytics'] as const;
-  type TabValue = typeof TABS[number];
+  type TabValue = 'overview' | 'analytics';
   const TAB_DURATION = 8000;
 
   const [activeTab, setActiveTab] = useState<TabValue>('overview');

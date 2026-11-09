@@ -63,31 +63,4 @@ export const faturaService = {
     return res.json();
   },
 
-  /**
-   * Estorna o pagamento de uma fatura
-   * 
-   * @param cartaoId - ID do cartão
-   * @param ano - Ano da fatura
-   * @param mes - Mês da fatura (1-12)
-   * @returns Dados atualizados da fatura
-   */
-  async estornarPagamento(
-    cartaoId: number | string,
-    ano: number,
-    mes: number
-  ): Promise<FaturaDetalhada> {
-    const res = await fetch(
-      `/api/cartoes/${cartaoId}/fatura?ano=${ano}&mes=${mes}`,
-      {
-        method: "DELETE",
-      }
-    );
-    
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ error: "Erro ao estornar pagamento" }));
-      throw new Error(error.error || error.message || "Erro ao estornar pagamento");
-    }
-    
-    return res.json();
-  },
 };

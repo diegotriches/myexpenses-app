@@ -52,25 +52,6 @@ export function useGraficoMeses(ano: number) {
   });
 }
 
-export function useExtratoDashboard(filters: FiltrosExtrato) {
-  return useQuery({
-    queryKey: dashboardKeys.extrato(filters),
-    queryFn: () => dashboardService.buscarExtrato(filters),
-    enabled: !!(filters.ano && filters.mes),
-    staleTime: 3 * 60 * 1000,
-  });
-}
-
-export function useDashboardResumoRapido() {
-  const { mesSelecionado, anoSelecionado } = usePeriodo();
-  return useQuery({
-    queryKey: dashboardKeys.resumoRapido(mesSelecionado + 1, anoSelecionado),
-    queryFn: () =>
-      dashboardService.buscarResumoRapido(mesSelecionado + 1, anoSelecionado),
-    staleTime: 2 * 60 * 1000,
-  });
-}
-
 export function useCondicoesPagamento(ano: number) {
   return useQuery({
     queryKey: dashboardKeys.condicoesPagamento(ano),

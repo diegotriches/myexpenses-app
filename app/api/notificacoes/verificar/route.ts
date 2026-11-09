@@ -1,6 +1,6 @@
 // src/app/api/notificacoes/verificar/route.ts
 import { calcularLimiteDisponivel } from "@/lib/limiteCartao";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { notificacoes, cartoes, faturas, preferenciasNotificacao, users } from "@/db/schema";
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
@@ -43,7 +43,7 @@ async function jaNotificouRecentemente(
 
 // ── Route ─────────────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     const userId = await getUserId();
     if (!userId) {

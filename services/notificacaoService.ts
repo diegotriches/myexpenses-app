@@ -1,10 +1,8 @@
 // src/services/notificacaoService.ts
 
-import type { 
-  Notificacao, 
-  CriarNotificacaoDTO, 
+import type {
+  Notificacao,
   NotificacoesResponse,
-  PreferenciasNotificacao 
 } from "@/types/notificacao";
 
 const API_URL = "/api/notificacoes";
@@ -37,19 +35,6 @@ export const notificacaoService = {
   },
 
   /**
-   * Cria nova notificação (usado internamente pela API)
-   * POST /api/notificacoes
-   */
-  async criar(dados: CriarNotificacaoDTO): Promise<Notificacao> {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dados),
-    });
-    return handleResponse<Notificacao>(res);
-  },
-
-  /**
    * Marca notificação como lida
    * PUT /api/notificacoes/[id]/lida
    */
@@ -72,28 +57,6 @@ export const notificacaoService = {
   },
 
   // ==================== PREFERÊNCIAS ====================
-
-  /**
-   * Busca preferências de notificação do usuário
-   * GET /api/notificacoes/preferencias
-   */
-  async buscarPreferencias(): Promise<PreferenciasNotificacao> {
-    const res = await fetch(`${API_URL}/preferencias`);
-    return handleResponse<PreferenciasNotificacao>(res);
-  },
-
-  /**
-   * Atualiza preferências de notificação
-   * PUT /api/notificacoes/preferencias
-   */
-  async atualizarPreferencias(dados: Partial<PreferenciasNotificacao>): Promise<PreferenciasNotificacao> {
-    const res = await fetch(`${API_URL}/preferencias`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dados),
-    });
-    return handleResponse<PreferenciasNotificacao>(res);
-  },
 
   // ==================== VERIFICAÇÃO ====================
 

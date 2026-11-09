@@ -90,32 +90,3 @@ export function useAtualizarPreferences() {
 // HOOK: useDeletarPreferences - Deletar preferências
 // ========================================
 
-export function useDeletarPreferences() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
-    mutationFn: () => preferencesService.deletar(),
-
-    onSuccess: () => {
-      // Refetch para buscar valores padrão do backend
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.preferences,
-        refetchType: 'active' // Força refetch imediato se a query estiver ativa
-      });
-
-      toast({
-        title: "Preferências resetadas",
-        description: "Suas configurações foram restauradas ao padrão.",
-      });
-    },
-
-    onError: (error: Error) => {
-      toast({
-        title: "Erro ao resetar preferências",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-}

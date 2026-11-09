@@ -1,12 +1,12 @@
 // src/app/api/users/me/route.ts
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { getUserId } from "@/lib/auth";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const userId = await getUserId();
 

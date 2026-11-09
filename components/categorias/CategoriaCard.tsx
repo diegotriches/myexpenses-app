@@ -62,12 +62,6 @@ export default function CategoriaCard({
     return "from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700";
   };
 
-  const getTipoIcon = () => {
-    if (categoria.tipo === "entrada") return <TrendingUp size={12} className="mr-1" />;
-    if (categoria.tipo === "saida")   return <TrendingDown size={12} className="mr-1" />;
-    return <Tag size={12} className="mr-1" />;
-  };
-
   const temMovimentacao = totalEntrada > 0 || totalSaida > 0;
 
   // Ao clicar no card: em mobile delega para o pai; em desktop faz flip

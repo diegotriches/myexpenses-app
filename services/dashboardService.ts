@@ -1,10 +1,7 @@
 // src/services/dashboardService.ts
 import type {
-  DashboardResumo,
   DashboardResponse,
   DadosGraficoMeses,
-  ExtratoResponse,
-  FiltrosExtrato,
   CondicoesPagamento,
   FormasPagamento,
   Recorrente,
@@ -34,21 +31,6 @@ class DashboardService {
   }
 
   /**
-   * Busca apenas totais (receitas/despesas/saldo)
-   * Mais rápido que buscarResumo() quando não precisa de detalhes
-   */
-  async buscarResumoRapido(mes: number, ano: number): Promise<DashboardResumo> {
-    const res = await fetch(
-      `${this.baseURL}/resumo-rapido?mes=${mes}&ano=${ano}`,
-    );
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao buscar resumo rápido");
-    }
-    return res.json();
-  }
-
-  /**
    * Busca dados do gráfico de meses (receitas/despesas ao longo do ano)
    *
    * @param ano - Ano do gráfico (janeiro até o mês atual no ano vigente)
@@ -58,31 +40,6 @@ class DashboardService {
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || "Erro ao buscar gráfico");
-    }
-    return res.json();
-  }
-
-  /**
-   * Busca extrato consolidado com filtros
-   *
-   * @param filters - Filtros obrigatórios (ano, mes) e opcionais
-   */
-  async buscarExtrato(filters: FiltrosExtrato): Promise<ExtratoResponse> {
-    const params = new URLSearchParams({
-      ano: String(filters.ano),
-      mes: String(filters.mes),
-    });
-
-    if (filters.contaId) params.append("contaId", filters.contaId);
-    if (filters.tipo) params.append("tipo", filters.tipo);
-    if (filters.origem) params.append("origem", filters.origem);
-    if (filters.dataInicio) params.append("dataInicio", filters.dataInicio);
-    if (filters.dataFim) params.append("dataFim", filters.dataFim);
-
-    const res = await fetch(`${this.baseURL}/extrato?${params.toString()}`);
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Erro ao buscar extrato");
     }
     return res.json();
   }

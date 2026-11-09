@@ -1,8 +1,8 @@
 // src/app/api/estabelecimentos/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { estabelecimentos, transacoes } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { estabelecimentos } from "@/db/schema";
+import { sql } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 
 /**

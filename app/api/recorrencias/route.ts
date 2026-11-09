@@ -10,7 +10,7 @@ import { buscarAntecipacaoBloqueante, possuiEstorno, reverterImpacto, transacaoE
 import { aplicarImpactoRecorrencia } from "@/lib/aplicarImpacto";
 import { notificarImpactoRecorrencia } from "@/lib/notificarRecorrencia";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 

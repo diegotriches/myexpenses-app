@@ -65,7 +65,6 @@ export const config = {
     "/api/dashboard/:path*",
     "/api/estabelecimentos/:path*",
     "/api/export/:path*",
-    "/api/extrato/:path*",
     "/api/import/:path*",
     "/api/notas/:path*",
     "/api/notificacoes/:path*",

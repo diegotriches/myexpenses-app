@@ -78,7 +78,7 @@ export function validatePassword(password: string): PasswordValidationResult {
   }
 
   // Verificar cada regra em ordem
-  for (const [ruleName, rule] of Object.entries(PASSWORD_RULES)) {
+  for (const rule of Object.values(PASSWORD_RULES)) {
     if (!rule.test(password)) {
       return {
         valid: false,

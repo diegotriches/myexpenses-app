@@ -1,6 +1,6 @@
 // src/app/api/antecipacoes/route.ts
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { antecipacoesParcela, faturas } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -14,7 +14,7 @@ import { getUserId } from "@/lib/auth";
  * antecipados (sem parcelas futuras restantes) ainda precisam continuar
  * visíveis, já que a antecipação pode ser desfeita.
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 

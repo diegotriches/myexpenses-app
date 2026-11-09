@@ -35,10 +35,6 @@ export interface AtualizarPreferenciasDTO {
   backupDiaMes?: number;
 }
 
-export type TemaType = "light" | "dark" | "system";
-export type FormatoDataType = "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD";
-export type InicioSemanaType = "domingo" | "segunda";
-
 export interface MessageResponse {
   message: string;
 }

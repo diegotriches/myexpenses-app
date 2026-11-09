@@ -75,7 +75,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Criar a conta (sem transação, pois neon-http não suporta)
+    // 1. Criar a conta
     const [novaConta] = await db
       .insert(contas)
       .values({

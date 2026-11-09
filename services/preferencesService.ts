@@ -3,7 +3,6 @@
 import type {
   Preferencias,
   AtualizarPreferenciasDTO,
-  MessageResponse,
 } from "@/types/preferences";
 
 const API_URL = "/api/preferences";
@@ -39,18 +38,4 @@ export const preferencesService = {
     return res.json();
   },
 
-  /**
-   * Deleta preferências do usuário (restaura padrão)
-   * DELETE /api/preferences
-   */
-  async deletar(): Promise<MessageResponse> {
-    const res = await fetch(API_URL, {
-      method: "DELETE",
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.message || "Erro ao deletar preferências");
-    }
-    return res.json();
-  },
 };

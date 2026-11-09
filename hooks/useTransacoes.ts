@@ -8,11 +8,9 @@ import { usePeriodo } from "@/contexts/PeriodoContext";
 import { useToast } from "@/hooks/use-toast";
 
 import type {
-  Transacao,
   CreateTransacaoDTO,
   UpdateTransacaoDTO,
   FiltrosTransacao,
-  CreateTransacaoCartaoDTO,
   ModoEdicao,
 } from "@/types/transacao";
 
@@ -29,14 +27,6 @@ export function useTransacoesTodas() {
   return useQuery({
     queryKey: transacoesKeys.todas(),
     queryFn:  () => transacaoService.listarTodas(),
-    staleTime: 2 * 60 * 1000,
-  });
-}
-
-export function useTransacoesPeriodo(periodoMeses: 3 | 6 | 12) {
-  return useQuery({
-    queryKey: transacoesKeys.periodo(periodoMeses),
-    queryFn:  () => transacaoService.listarPorPeriodo(periodoMeses),
     staleTime: 2 * 60 * 1000,
   });
 }
@@ -73,27 +63,6 @@ export function useTransacoes() {
   });
 }
 
-export function useTransacoesComFiltros(filtros: FiltrosTransacao) {
-  return useQuery({
-    queryKey: transacoesKeys.filtered(filtros),
-    queryFn:  () => transacaoService.listar(filtros),
-    staleTime: 2 * 60 * 1000,
-    enabled: !!(
-      filtros.ano || filtros.mes || filtros.tipo || filtros.categoria ||
-      filtros.formaPagamento || filtros.contaId || filtros.cartaoId || filtros.busca
-    ),
-  });
-}
-
-export function useTransacao(id: string) {
-  return useQuery({
-    queryKey: transacoesKeys.byId(id),
-    queryFn:  () => transacaoService.buscarPorId(id),
-    enabled:  !!id,
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
 export function useCriarTransacao() {
   const queryClient = useQueryClient();
   const { toast }   = useToast();
@@ -106,22 +75,6 @@ export function useCriarTransacao() {
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao criar transação", description: error.message, variant: "destructive" });
-    },
-  });
-}
-
-export function useCriarTransacaoCartao() {
-  const queryClient = useQueryClient();
-  const { toast }   = useToast();
-
-  return useMutation({
-    mutationFn: (dados: CreateTransacaoCartaoDTO) => transacaoService.criarNoCartao(dados),
-    onSuccess: (data) => {
-      invalidarTudo(queryClient);
-      toast({ title: "Compra registrada!", description: data.message || "A transação foi registrada no cartão." });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Erro ao registrar compra", description: error.message, variant: "destructive" });
     },
   });
 }

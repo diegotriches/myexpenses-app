@@ -71,14 +71,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
     const data = await req.json();
 
     // ✅ NOVO: Bloquear edição de campos sensíveis
-    const {
-      createdAt,
-      updatedAt,
-      userId: _userId,
-      saldoAtual, // ⚠️ BLOQUEADO: Não pode ser editado diretamente
-      id: _id, // Remover id do payload se vier
-      ...payload
-    } = data;
+    // Do payload só são lidos os campos editáveis, listados abaixo
+    const { saldoAtual, ...payload } = data;
 
     // ✅ NOVO: Validação explícita
     if (saldoAtual !== undefined) {

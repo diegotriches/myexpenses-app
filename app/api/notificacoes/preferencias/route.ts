@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import type { PreferenciasNotificacao } from "@/types/notificacao";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const userId = await getUserId();
     if (!userId) {

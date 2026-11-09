@@ -97,7 +97,7 @@ function ResetPasswordForm() {
         } else {
           setTokenError(data.error || "Token inválido");
         }
-      } catch (error) {
+      } catch {
         setTokenError("Erro ao verificar token. Tente novamente.");
       } finally {
         setIsVerifying(false);
@@ -153,7 +153,7 @@ function ResetPasswordForm() {
       });
 
       setTimeout(() => router.push("/login"), 3000);
-    } catch (err) {
+    } catch {
       toast({
         title: "Erro inesperado",
         description: "Não foi possível redefinir sua senha. Tente novamente.",

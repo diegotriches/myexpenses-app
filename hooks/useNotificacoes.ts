@@ -4,7 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { notificacaoService } from "@/services/notificacaoService";
 import { useToast } from "@/hooks/use-toast";
-import type { Notificacao, PreferenciasNotificacao } from "@/types/notificacao";
+import type { Notificacao } from "@/types/notificacao";
 
 // ========================================
 // QUERY KEYS
@@ -137,42 +137,7 @@ export function useVerificarNotificacoes() {
 // HOOK: usePreferenciasNotificacao
 // ========================================
 
-export function usePreferenciasNotificacao() {
-  return useQuery({
-    queryKey: QUERY_KEYS.preferencias,
-    queryFn: () => notificacaoService.buscarPreferencias(),
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    retry: 1,
-  });
-}
-
 // ========================================
 // HOOK: useAtualizarPreferenciasNotificacao
 // ========================================
 
-export function useAtualizarPreferenciasNotificacao() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
-    mutationFn: (dados: Partial<PreferenciasNotificacao>) =>
-      notificacaoService.atualizarPreferencias(dados),
-
-    onSuccess: (data) => {
-      queryClient.setQueryData(QUERY_KEYS.preferencias, data);
-      toast({
-        title: "Preferências atualizadas!",
-        description: "Suas preferências foram salvas com sucesso.",
-      });
-    },
-
-    onError: (error: Error) => {
-      toast({
-        title: "Erro ao atualizar preferências",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-}

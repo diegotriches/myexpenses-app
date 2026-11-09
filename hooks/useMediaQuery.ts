@@ -27,24 +27,3 @@ export function useIsMobile() {
   return useMediaQuery("(max-width: 768px)");
 }
 
-export function useIsTablet() {
-  return useMediaQuery("(min-width: 769px) and (max-width: 1024px)");
-}
-
-export function useIsDesktop() {
-  return useMediaQuery("(min-width: 1025px)");
-}
-
-/**
- * Hook que retorna o breakpoint atual
- */
-export function useBreakpoint() {
-  const isMobile = useIsMobile();
-  const isTablet = useIsTablet();
-  const isDesktop = useIsDesktop();
-
-  if (isMobile) return "mobile";
-  if (isTablet) return "tablet";
-  if (isDesktop) return "desktop";
-  return "mobile"; // fallback
-}

@@ -245,25 +245,6 @@ export const transacaoService = {
   },
 
   /**
-   * Lista transações dos últimos N meses a partir de hoje
-   * Usado pelos cards do dashboard com filtro de período (3/6/12 meses)
-   */
-  async listarPorPeriodo(periodoMeses: number): Promise<Transacao[]> {
-    const res = await fetch(`/api/transacoes?periodoMeses=${periodoMeses}`);
-
-    if (!res.ok) {
-      const error = await res
-        .json()
-        .catch(() => ({ error: "Erro ao listar transações" }));
-      throw new Error(
-        error.error || error.message || "Erro ao listar transações",
-      );
-    }
-
-    return res.json();
-  },
-
-  /**
    * Lista as transações de um ano inteiro: de janeiro até o mês atual no ano
    * vigente, de janeiro a dezembro nos anos passados.
    * Usado pelos cards de categorias do dashboard (seletor de ano).
