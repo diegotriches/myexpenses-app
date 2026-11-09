@@ -1,5 +1,3 @@
-// src/app/api/preferences/route.ts
-
 import { db } from "@/db";
 import { preferences } from "@/db/schema";
 import { NextRequest, NextResponse } from "next/server";

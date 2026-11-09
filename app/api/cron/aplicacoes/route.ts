@@ -1,5 +1,3 @@
-// src/app/api/cron/aplicacoes/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { aplicacoes, notificacoes } from "@/db/schema";

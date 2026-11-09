@@ -1,5 +1,3 @@
-// src/app/api/antecipacoes/route.ts
-
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { antecipacoesParcela, faturas } from "@/db/schema";

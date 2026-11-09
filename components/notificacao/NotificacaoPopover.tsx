@@ -1,4 +1,3 @@
-// src/components/notificacao/NotificacaoPopover.tsx
 "use client";
 
 import { useState, useEffect } from "react";

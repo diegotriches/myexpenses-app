@@ -1,5 +1,3 @@
-// src/services/transferenciaService.ts
-
 import {
   Transferencia,
   CreateTransferenciaDTO,

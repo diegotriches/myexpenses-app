@@ -1,4 +1,3 @@
-// src/services/profileService.ts
 // Substitua o arquivo completo
 
 import type {

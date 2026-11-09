@@ -1,4 +1,3 @@
-// src/app/api/notas/[id]/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { notas } from "@/db/schema";

@@ -1,5 +1,3 @@
-// src/services/recorrenciaService.ts
-
 import type {
   Recorrencia,
   CreateRecorrenciaDTO,

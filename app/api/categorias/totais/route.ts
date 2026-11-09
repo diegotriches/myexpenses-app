@@ -1,4 +1,3 @@
-// src/app/api/categorias/totais/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, categorias } from "@/db/schema";

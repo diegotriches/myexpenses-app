@@ -1,4 +1,3 @@
-// src/app/api/dashboard/faturas-abertas/route.ts
 import { valorNaFatura } from "@/utils/faturaUtils";
 import { NextResponse } from "next/server";
 import { db } from "@/db";

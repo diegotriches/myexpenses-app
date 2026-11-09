@@ -1,5 +1,3 @@
-// src/app/api/import/processar/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 import { substituirDadosUsuario, validarArquivoBackup } from "@/lib/backupDados";

@@ -1,5 +1,3 @@
-// src/lib/buildCreateRecorrenciaFromForm.ts
-
 import type { CreateRecorrenciaDTO } from "@/types/recorrencia";
 import { FormMovimentacao } from "./buildTransacoesFromForm";
 import { normalizeDate } from "./utils";

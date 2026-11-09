@@ -1,5 +1,3 @@
-// src/types/estabelecimento.ts
-
 // ========================================
 // TIPOS: Estabelecimentos
 // ========================================

@@ -1,5 +1,3 @@
-// src/types/preferences.ts
-
 export type BackupFrequencia = "diario" | "semanal" | "mensal" | "desativado";
 
 export interface Preferencias {

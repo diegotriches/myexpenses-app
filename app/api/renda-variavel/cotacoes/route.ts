@@ -1,4 +1,3 @@
-// src/app/api/renda-variavel/cotacoes/route.ts
 //
 // Cotação MANUAL de um ticker (etapa 1). Na etapa 2 o cron passa a atualizar
 // automaticamente e esta rota vira só um "override" pontual.

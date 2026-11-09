@@ -1,4 +1,3 @@
-// src/services/dashboardService.ts
 import type {
   DashboardResponse,
   DadosGraficoMeses,

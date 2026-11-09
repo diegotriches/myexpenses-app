@@ -1,5 +1,3 @@
-// src/services/rendaVariavelService.ts
-
 import type { CotacaoRv, EventoOperacao, OperacaoRv, TipoAtivo, TipoOperacao } from "@/utils/rendaVariavelUtils";
 import type { ConfigIr } from "@/utils/irRendaVariavelUtils";
 import type { ProventoImportavel, ProventoRv, TipoProvento } from "@/utils/proventosUtils";

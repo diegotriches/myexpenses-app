@@ -1,4 +1,3 @@
-// src/app/(protected)/notificacoes/page.tsx
 "use client";
 
 import { useState } from "react";

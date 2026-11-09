@@ -1,4 +1,3 @@
-// src/hooks/useCategorias.ts
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

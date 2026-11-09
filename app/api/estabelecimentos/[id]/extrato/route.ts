@@ -1,4 +1,3 @@
-// src/app/api/estabelecimentos/[id]/extrato/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { estabelecimentos, transacoes, contas, cartoes } from "@/db/schema";

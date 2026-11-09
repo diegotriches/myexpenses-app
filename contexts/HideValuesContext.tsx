@@ -1,4 +1,3 @@
-// src/contexts/HideValuesContext.tsx
 "use client";
 
 import { createContext, useContext, useSyncExternalStore, ReactNode } from "react";

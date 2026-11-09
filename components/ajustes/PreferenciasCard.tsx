@@ -1,4 +1,3 @@
-// src/components/ajustes/PreferenciasCard.tsx
 "use client";
 
 import { useState } from "react";

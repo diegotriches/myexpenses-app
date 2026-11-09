@@ -1,5 +1,3 @@
-// src/app/api/notificacoes/[id]/lida/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { notificacoes } from "@/db/schema";

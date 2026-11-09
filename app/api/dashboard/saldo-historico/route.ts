@@ -1,4 +1,3 @@
-// src/app/api/dashboard/saldo-historico/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { extratoConta, contas } from "@/db/schema";

@@ -1,4 +1,3 @@
-// src/app/api/backups/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { backupsUsuario } from "@/db/schema";

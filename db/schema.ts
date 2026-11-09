@@ -1,4 +1,3 @@
-// src/db/schema.ts
 import {
   pgTable, primaryKey,
   serial,

@@ -1,5 +1,3 @@
-// src/app/api/contas/[id]/ajustar-saldo/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { contas, extratoConta } from "@/db/schema";

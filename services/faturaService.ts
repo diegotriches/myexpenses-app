@@ -1,5 +1,3 @@
-// src/services/faturaService.ts
-
 import { FaturaDetalhada, PagarFaturaDTO } from "@/types/fatura";
 
 export const faturaService = {

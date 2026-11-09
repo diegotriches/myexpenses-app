@@ -1,5 +1,3 @@
-// src/app/api/renda-variavel/proventos/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { proventosRv, contas } from "@/db/schema";

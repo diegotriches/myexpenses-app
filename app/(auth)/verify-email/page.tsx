@@ -1,4 +1,3 @@
-// src/app/(auth)/verify-email/page.tsx
 "use client";
 
 import { useEffect, useState, Suspense } from "react";

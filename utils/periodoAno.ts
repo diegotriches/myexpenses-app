@@ -1,4 +1,3 @@
-// src/utils/periodoAno.ts
 //
 // Regra única do período "ano" usado pelo dashboard (cliente e servidor):
 //   • ano vigente  → de 1º de janeiro até o FIM DO MÊS ATUAL

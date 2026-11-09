@@ -1,5 +1,3 @@
-// src/services/categoriaService.ts
-
 import { Categoria, CriarCategoriaDTO, AtualizarCategoriaDTO, TotaisCategoriasResponse, UsoCategoria } from "@/types/categoria";
 import { requisicao } from "@/services/http";
 

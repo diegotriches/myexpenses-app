@@ -1,4 +1,3 @@
-// src/app/api/cartoes/[id]/fatura/adiantamento/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { adiantamentosFatura, faturas, contas, cartoes } from "@/db/schema";

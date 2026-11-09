@@ -1,4 +1,3 @@
-// src/components/perfil/EditarDadosCard.tsx
 "use client";
 
 import { useState } from "react";

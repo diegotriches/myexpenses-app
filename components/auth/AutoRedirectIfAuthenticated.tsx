@@ -1,6 +1,5 @@
 "use client";
 
-// src/components/auth/AutoRedirectIfAuthenticated.tsx
 //
 // Componente reutilizável: verifica se existe uma sessão autenticada e,
 // se houver, redireciona automaticamente para `redirectTo` (padrão:

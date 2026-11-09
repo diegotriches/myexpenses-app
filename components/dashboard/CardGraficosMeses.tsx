@@ -1,4 +1,3 @@
-// src/components/dashboard/CardGraficosMeses.tsx
 "use client";
 
 import { useMemo } from 'react';

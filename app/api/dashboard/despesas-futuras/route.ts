@@ -1,4 +1,3 @@
-// src/app/api/dashboard/despesas-futuras/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, cartoes, faturas } from "@/db/schema";

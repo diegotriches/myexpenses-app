@@ -1,4 +1,3 @@
-// src/hooks/useNotificacoes.ts
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

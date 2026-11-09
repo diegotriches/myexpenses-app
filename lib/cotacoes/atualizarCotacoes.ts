@@ -1,4 +1,3 @@
-// src/lib/cotacoes/atualizarCotacoes.ts
 //
 // Busca cotações na brapi (https://brapi.dev) e grava em cotacoes_rv.
 // Plano gratuito: 1 ticker por requisição, 1 requisição simultânea e 15.000

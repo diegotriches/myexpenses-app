@@ -1,4 +1,3 @@
-// src/utils/eventosCorporativosUtils.ts
 //
 // Cálculo dos eventos corporativos a partir da posição na data do evento.
 // Usado na prévia (navegador) e na gravação (servidor), para os dois darem o mesmo número.

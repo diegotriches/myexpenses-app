@@ -1,5 +1,3 @@
-// src/types/profile.ts
-
 /**
  * Interface do Usuário (completa)
  */

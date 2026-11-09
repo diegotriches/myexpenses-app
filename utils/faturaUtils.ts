@@ -1,5 +1,3 @@
-// src/utils/faturaUtils.ts
-
 import type { Fatura, StatusFatura } from "@/types/fatura";
 
 // ========================================

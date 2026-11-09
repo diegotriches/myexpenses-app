@@ -1,4 +1,3 @@
-// src/app/api/dashboard/transacoes-recentes/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes } from "@/db/schema";

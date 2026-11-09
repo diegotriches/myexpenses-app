@@ -1,5 +1,3 @@
-// src/app/api/users/me/route.ts
-
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";

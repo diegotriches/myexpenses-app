@@ -1,5 +1,3 @@
-// src/app/api/cron/backup/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, notificacoes, preferences, backupsUsuario } from "@/db/schema";

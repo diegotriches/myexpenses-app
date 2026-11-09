@@ -1,5 +1,3 @@
-// src/services/transacaoService.ts
-
 import {
   Transacao,
   CreateTransacaoDTO,

@@ -1,5 +1,3 @@
-// src/types/nota.ts
-
 export type CorNota = "yellow" | "blue" | "green" | "red" | "purple" | "gray";
 
 export interface Nota {

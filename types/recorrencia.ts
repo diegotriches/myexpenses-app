@@ -1,5 +1,3 @@
-// src/types/recorrencia.ts
-
 export interface Recorrencia {
   id: string;
   userId: string;

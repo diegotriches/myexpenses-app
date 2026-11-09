@@ -1,4 +1,3 @@
-// src/app/api/aplicacoes/[id]/recalcular/route.ts
 //
 // Força o recálculo completo da aplicação (busca no BCB o que faltar e
 // refaz rendimento/IR por lote). Útil logo após importar o histórico ou

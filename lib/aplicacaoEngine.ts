@@ -1,4 +1,3 @@
-// src/lib/aplicacaoEngine.ts
 //
 // Lógica de servidor das Aplicações: busca de taxas no BCB, recálculo
 // completo (replay) de uma aplicação e execução de resgates. Usado pelo

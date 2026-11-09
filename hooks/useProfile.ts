@@ -1,5 +1,3 @@
-// src/hooks/useProfile.ts
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { profileService } from "@/services/profileService";

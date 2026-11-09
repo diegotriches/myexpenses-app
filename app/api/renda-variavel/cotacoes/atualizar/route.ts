@@ -1,4 +1,3 @@
-// src/app/api/renda-variavel/cotacoes/atualizar/route.ts
 //
 // Atualiza (na brapi) as cotações dos ativos que o usuário tem em carteira.
 // Chamada automaticamente ao abrir a aba Renda variável e pelo botão

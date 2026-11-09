@@ -1,5 +1,3 @@
-// src/services/cartaoService.ts
-
 import {
   Cartao,
   CreateCartaoDTO,

@@ -1,5 +1,3 @@
-// src/utils/dashboardUtils.ts
-
 import { Transacao } from "@/types/transacao";
 import type {
   CondicoesPagamento,

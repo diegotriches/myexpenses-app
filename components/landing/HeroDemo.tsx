@@ -1,6 +1,5 @@
 "use client";
 
-// src/components/landing/HeroDemo.tsx
 //
 // Showcase de vídeo em destaque no Hero da landing — moldura de "janela
 // de app" com um seletor pra alternar entre demos (Dashboard / Nova

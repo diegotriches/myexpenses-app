@@ -1,4 +1,3 @@
-// src/app/api/dashboard/recorrentes/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 import { db } from "@/db";

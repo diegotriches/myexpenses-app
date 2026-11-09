@@ -1,4 +1,3 @@
-// src/utils/importacaoOperacoesUtils.ts
 //
 // Leitura da planilha "Movimentação" da B3 (Área do Investidor) para importar
 // operações de renda variável:

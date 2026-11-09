@@ -1,4 +1,3 @@
-// src/app/api/aplicacoes/[id]/resgatar/route.ts
 //
 // Body (JSON, opcional):
 //   { "total": true }            → resgata tudo (padrão se não vier body)

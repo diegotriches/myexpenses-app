@@ -1,5 +1,3 @@
-// src/app/api/export/meus-dados/route.ts
-
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";

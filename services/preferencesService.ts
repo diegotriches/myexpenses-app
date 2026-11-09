@@ -1,5 +1,3 @@
-// src/services/preferencesService.ts
-
 import type {
   Preferencias,
   AtualizarPreferenciasDTO,

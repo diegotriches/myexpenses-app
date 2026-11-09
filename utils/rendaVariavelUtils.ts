@@ -1,4 +1,3 @@
-// src/utils/rendaVariavelUtils.ts
 //
 // Regras de cálculo da renda variável (ações, FIIs, ETFs e BDRs).
 //  - Posição e preço médio são SEMPRE recalculados a partir das operações.

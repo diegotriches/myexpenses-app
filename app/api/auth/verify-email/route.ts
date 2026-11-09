@@ -1,4 +1,3 @@
-// src/app/api/auth/verify-email/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, verificationTokens } from "@/db/schema";

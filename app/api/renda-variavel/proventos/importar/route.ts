@@ -1,4 +1,3 @@
-// src/app/api/renda-variavel/proventos/importar/route.ts
 //
 // Recebe os proventos já lidos da planilha da B3 (a leitura do XLSX é feita no
 // navegador) e grava só os que ainda não existem — a chave única

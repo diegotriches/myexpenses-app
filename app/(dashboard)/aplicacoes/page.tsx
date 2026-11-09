@@ -1,7 +1,5 @@
 "use client";
 
-// src/app/(dashboard)/aplicacoes/page.tsx
-
 import { useState } from "react";
 import { TrendingUp } from "lucide-react";
 import { useContas } from "@/hooks/useContas";

@@ -1,4 +1,3 @@
-// src/lib/recorrencias/aplicarImpacto.ts
 //
 // Aplica o impacto financeiro de UMA ocorrência de recorrência (saldo da
 // conta, fatura + limite do cartão de crédito, ou conta vinculada do cartão

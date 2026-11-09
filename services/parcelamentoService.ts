@@ -1,5 +1,3 @@
-// src/services/parcelamentoService.ts
-
 export interface AntecipacaoResultado {
   antecipacaoId: string;
   quantidadeAntecipada: number;

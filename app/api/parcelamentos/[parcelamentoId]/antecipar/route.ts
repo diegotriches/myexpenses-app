@@ -1,5 +1,3 @@
-// src/app/api/parcelamentos/[parcelamentoId]/antecipar/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, cartoes, faturas, antecipacoesParcela } from "@/db/schema";

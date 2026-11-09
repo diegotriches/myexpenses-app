@@ -1,4 +1,3 @@
-// src/app/api/notificacoes/verificar/route.ts
 import { calcularLimiteDisponivel } from "@/lib/limiteCartao";
 import { NextResponse } from "next/server";
 import { db } from "@/db";

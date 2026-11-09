@@ -1,4 +1,3 @@
-// src/app/api/estabelecimentos/[id]/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { estabelecimentos } from "@/db/schema";

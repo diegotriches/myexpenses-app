@@ -1,5 +1,3 @@
-// src/types/conta.ts
-
 /**
  * Interface principal de Conta
  */

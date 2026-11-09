@@ -1,4 +1,3 @@
-// src/utils/irRendaVariavelUtils.ts
 //
 // Apuração mensal do imposto de renda sobre renda variável (ações, FIIs, ETFs, BDRs).
 //

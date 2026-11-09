@@ -1,5 +1,3 @@
-// src/app/api/notificacoes/preferencias/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { preferenciasNotificacao } from "@/db/schema";

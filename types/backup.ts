@@ -1,5 +1,3 @@
-// src/types/backup.ts
-
 export interface BackupListItem {
   id:           string;
   createdAt:    string;

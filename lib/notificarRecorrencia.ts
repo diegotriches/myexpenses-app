@@ -1,4 +1,3 @@
-// src/lib/recorrencias/notificarRecorrencia.ts
 //
 // Cria as notificações geradas pelo cron de recorrências. Nenhuma função
 // aqui lança erro: se a notificação falhar, a transação já gerada não é

@@ -1,5 +1,3 @@
-// src/types/notificacao.ts
-
 export type TipoNotificacao = 
   | "FATURA_PROXIMA_VENCIMENTO"
   | "FATURA_VENCIDA"

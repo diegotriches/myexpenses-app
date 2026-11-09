@@ -1,4 +1,3 @@
-// src/app/api/cron/cotacoes/route.ts
 //
 // Roda uma vez por dia útil, depois do fechamento do pregão, e grava o preço
 // de fechamento de todos os ativos em carteira (de todos os usuários).

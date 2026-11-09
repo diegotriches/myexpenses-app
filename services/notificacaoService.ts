@@ -1,5 +1,3 @@
-// src/services/notificacaoService.ts
-
 import type {
   Notificacao,
   NotificacoesResponse,

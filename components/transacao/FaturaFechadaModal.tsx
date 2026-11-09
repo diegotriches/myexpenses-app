@@ -1,4 +1,3 @@
-// src/components/transacao/FaturaFechadaModal.tsx
 import {
   Dialog,
   DialogContent,

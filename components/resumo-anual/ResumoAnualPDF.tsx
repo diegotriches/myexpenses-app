@@ -1,4 +1,3 @@
-// src/components/resumo-anual/ResumoAnualPDF.tsx
 // Importado dinamicamente via import() — não renderiza no servidor
 
 import React from "react";

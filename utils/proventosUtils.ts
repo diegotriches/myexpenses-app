@@ -1,4 +1,3 @@
-// src/utils/proventosUtils.ts
 //
 // Proventos de renda variável (dividendos, JCP e rendimentos de FII) e leitura
 // das planilhas da B3 (Área do Investidor):

@@ -1,4 +1,3 @@
-// src/app/api/renda-variavel/ir/darf/route.ts
 //
 // Marca (ou desmarca) DARFs como pagos. Não movimenta conta: é só controle.
 

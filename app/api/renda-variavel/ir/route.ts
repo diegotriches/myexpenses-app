@@ -1,5 +1,3 @@
-// src/app/api/renda-variavel/ir/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { irConfigRv, irDarfRv } from "@/db/schema";

@@ -1,5 +1,3 @@
-// src/components/ajustes/ExportarDadosCard.tsx
-
 "use client";
 
 import { useState } from "react";

@@ -1,4 +1,3 @@
-// src/utils/aplicacaoUtils.ts
 //
 // Função pura, sem dependência de banco/Node — pode ser importada tanto
 // nas rotas de API (servidor) quanto nos componentes (client), garantindo

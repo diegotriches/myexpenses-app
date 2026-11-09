@@ -1,5 +1,3 @@
-// src/types/categoria.ts
-
 /**
  * Interface principal de Categoria
  */

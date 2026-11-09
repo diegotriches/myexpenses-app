@@ -1,5 +1,3 @@
-// src/utils/dateUtils.ts
-
 /**
  * Formata data para exibição sem problemas de timezone
  * 

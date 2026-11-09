@@ -1,5 +1,3 @@
-// src/components/ajustes/ImportarDadosCard.tsx
-
 "use client";
 
 import { useState, useRef, ChangeEvent } from "react";

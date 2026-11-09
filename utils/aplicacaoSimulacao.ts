@@ -1,4 +1,3 @@
-// src/utils/aplicacaoSimulacao.ts
 //
 // Funções PURAS (sem banco, sem Node) — importáveis tanto no servidor
 // (cron, rotas) quanto no navegador (preview de resgate, estimativas).

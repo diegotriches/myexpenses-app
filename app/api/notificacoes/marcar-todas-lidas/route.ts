@@ -1,5 +1,3 @@
-// src/app/api/notificacoes/marcar-todas-lidas/route.ts
-
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { notificacoes } from "@/db/schema";

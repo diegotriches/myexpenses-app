@@ -1,5 +1,3 @@
-// src/lib/email.ts
-
 import nodemailer from "nodemailer";
 
 // ========================================

@@ -1,4 +1,3 @@
-// src/components/fatura/AlertaFaturasPendentes.tsx
 "use client";
 
 import { useRouter } from "next/navigation";

@@ -1,5 +1,3 @@
-// src/services/aplicacaoService.ts
-
 export interface AporteAplicacao {
   id: string;
   aplicacaoId: string;

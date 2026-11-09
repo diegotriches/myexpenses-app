@@ -1,4 +1,3 @@
-// src/app/api/renda-variavel/operacoes/importar/route.ts
 //
 // Recebe as operações já lidas/filtradas da planilha "Movimentação" da B3 (a
 // leitura é feita no navegador). Grava só as que ainda não existem (chave em

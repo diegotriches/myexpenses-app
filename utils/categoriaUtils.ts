@@ -1,4 +1,3 @@
-// src/utils/categoriaUtils.ts
 //
 // Regras compartilhadas entre DELETE /api/categorias/[id] e
 // GET /api/categorias/[id]/uso — as duas precisam concordar sobre o que

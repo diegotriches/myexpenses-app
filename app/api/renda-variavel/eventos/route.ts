@@ -1,4 +1,3 @@
-// src/app/api/renda-variavel/eventos/route.ts
 //
 // Eventos corporativos:
 //  - desdobramento / grupamento / bonificação: a quantidade é calculada aqui, a

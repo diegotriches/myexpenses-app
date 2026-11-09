@@ -1,6 +1,5 @@
 "use client";
 
-// src/components/dashboard/SeletorAno.tsx
 //
 // Seletor de ano compartilhado pelas abas do dashboard (Visão Geral / Análises).
 // Componente "burro": só recebe o valor e o callback. O ano vigente é o limite

@@ -1,5 +1,3 @@
-// src/types/fatura.ts
-
 import { TransacaoFatura } from "./cartao";
 
 // ========================================

@@ -1,7 +1,5 @@
 "use client";
 
-// src/components/aplicacao/RendaVariavel.tsx
-
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

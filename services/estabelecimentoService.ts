@@ -1,4 +1,3 @@
-// src/services/estabelecimentoService.ts
 import type {
   Estabelecimento,
   CreateEstabelecimentoDTO,

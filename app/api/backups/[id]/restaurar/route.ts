@@ -1,4 +1,3 @@
-// src/app/api/backups/[id]/restaurar/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { backupsUsuario, notificacoes } from "@/db/schema";

@@ -1,5 +1,3 @@
-// src/services/contaService.ts
-
 import { 
   Conta, 
   CreateContaDTO, 

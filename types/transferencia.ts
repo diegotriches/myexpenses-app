@@ -1,5 +1,3 @@
-// src/types/transferencia.ts
-
 // ========================================
 // TIPOS: Transferência entre Contas
 // ========================================

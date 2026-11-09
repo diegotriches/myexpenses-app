@@ -1,4 +1,3 @@
-// src/lib/cotacoes/mercado.ts
 //
 // Regras de "quando vale a pena buscar cotação nova". Evita gastar a cota da
 // API (plano gratuito: 15.000 requisições/mês) com dados que não mudaram:

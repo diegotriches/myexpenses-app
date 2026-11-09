@@ -1,5 +1,3 @@
-// src/app/api/antecipacoes/[antecipacaoId]/desfazer/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { antecipacoesParcela, transacoes, faturas } from "@/db/schema";
