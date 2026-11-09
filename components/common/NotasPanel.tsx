@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useNotas, useCriarNota, useAtualizarNota, useExcluirNota } from "@/hooks/useNotas";
 import { useMounted } from "@/hooks/useMounted";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import type { Nota, CorNota } from "@/types/nota";
 import { COR_CONFIG } from "@/types/nota";
 
@@ -60,17 +61,6 @@ function saveLayout(layout: PanelLayout) {
   } catch {
     // localStorage indisponível (modo privado etc.) — ignora silenciosamente
   }
-}
-
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-  return isMobile;
 }
 
 // ── Modo edição ───────────────────────────────────────────────────────────────
@@ -201,7 +191,7 @@ export default function NotasPanel({ open, onOpenChange }: NotasPanelProps) {
   const [hidratado,    setHidratado]    = useState(false);
   const [minimizado,   setMinimizado]   = useState(false);
 
-  const isMobile = useIsMobile();
+  const isMobile = useMediaQuery("(max-width: 767px)");
   const panelRef = useRef<HTMLDivElement>(null);
 
   const { data: notas = [], isLoading } = useNotas();

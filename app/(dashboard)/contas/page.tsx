@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -193,7 +193,7 @@ export default function ContasPage() {
   );
 
   // Skeleton Loading
-  const SkeletonCard = () => (
+  const renderSkeletonCard = () => (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 animate-pulse bg-white dark:bg-gray-800">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg" />
@@ -322,7 +322,7 @@ export default function ContasPage() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
+            <Fragment key={i}>{renderSkeletonCard()}</Fragment>
           ))}
         </div>
       ) : error ? (

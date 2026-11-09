@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useState, useRef } from 'react';
+import { Fragment, useMemo, useEffect, useState, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 
 import { useDashboard, useDespesasFuturas } from '@/hooks/useDashboard';
@@ -189,7 +189,7 @@ export default function Dashboard() {
   const isLoading = loadingDashboard || loadingContas || loadingCartoes || loadingDespesasFuturas;
 
   // Mesmo layout e altura do CardResumo (4 cards)
-  const ResumoSkeleton = () => (
+  const renderResumoSkeleton = () => (
     <Card className="border-l-4 border-l-gray-200 dark:border-l-gray-700 dark:bg-gray-900 dark:border-gray-800 overflow-hidden !py-0 !gap-0">
       <CardHeader className="flex flex-row items-center justify-between !px-3 !pt-3 !pb-1 md:!px-4 md:!pt-5 md:!pb-1.5">
         <Skeleton className="h-2.5 w-14 md:h-3.5 md:w-24" />
@@ -241,7 +241,7 @@ export default function Dashboard() {
         <RotuloSecao titulo="Resumo do mês" detalhe={rotuloMes} />
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
-            {[...Array(4)].map((_, i) => <ResumoSkeleton key={i} />)}
+            {[...Array(4)].map((_, i) => <Fragment key={i}>{renderResumoSkeleton()}</Fragment>)}
           </div>
         ) : (
           <CardResumo

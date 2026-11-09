@@ -1,7 +1,7 @@
 "use client";
 
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { Conta } from "@/types/conta";
 import { useCriarTransferencia } from "@/hooks/useTransferencias";
 import {
@@ -112,7 +112,7 @@ export function ModalTransferencia({
 
   // ── Item de conta reutilizável nos dois selects ───────────────────────────
   // ✅ CORRIGIDO: flex com min-w-0 + truncate no nome evita overflow
-  const ContaSelectItem = ({ conta }: { conta: Conta }) => (
+  const renderContaSelectItem = ({ conta }: { conta: Conta }) => (
     <SelectItem
       key={conta.id}
       value={conta.id}
@@ -178,7 +178,7 @@ export function ModalTransferencia({
                       Nenhuma conta cadastrada
                     </div>
                   ) : (
-                    contasAtivas.map((conta) => <ContaSelectItem key={conta.id} conta={conta} />)
+                    contasAtivas.map((conta) => <Fragment key={conta.id}>{renderContaSelectItem({ conta })}</Fragment>)
                   )}
                 </SelectContent>
               </Select>
@@ -211,7 +211,7 @@ export function ModalTransferencia({
                 >
                   {contasAtivas
                     .filter((c) => c.id !== contaOrigemId)
-                    .map((conta) => <ContaSelectItem key={conta.id} conta={conta} />)
+                    .map((conta) => <Fragment key={conta.id}>{renderContaSelectItem({ conta })}</Fragment>)
                   }
                 </SelectContent>
               </Select>

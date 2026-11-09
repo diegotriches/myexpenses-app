@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -240,7 +240,7 @@ export default function EstabelecimentosPage() {
 
   // ── Sub-componentes ──────────────────────────────────────────────────────
 
-  const SkeletonCard = () => (
+  const renderSkeletonCard = () => (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 animate-pulse">
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-xl flex-shrink-0" />
@@ -354,7 +354,7 @@ export default function EstabelecimentosPage() {
       {/* Conteúdo principal */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+          {Array.from({ length: 8 }).map((_, i) => <Fragment key={i}>{renderSkeletonCard()}</Fragment>)}
         </div>
       ) : error ? (
         renderErrorState()

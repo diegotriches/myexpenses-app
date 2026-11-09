@@ -131,9 +131,15 @@ export default function EditarFotoCard({ usuario }: Props) {
     }
   };
 
-  useEffect(() => {
-    cancelarEdicao();
-  }, [usuario]);
+  // Usuário atualizado descarta a edição em andamento (durante o render, sem efeito);
+  // a URL do preview é revogada pelo efeito de limpeza acima
+  const [usuarioAnterior, setUsuarioAnterior] = useState(usuario);
+  if (usuario !== usuarioAnterior) {
+    setUsuarioAnterior(usuario);
+    setPreview(null);
+    setNovaFoto(null);
+    setErro(null);
+  }
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();

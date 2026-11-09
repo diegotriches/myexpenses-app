@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 
 import MovCamposBasicos from "@/components/transacao/MovCamposBasicos";
 import MovCampoCategoria from "@/components/transacao/MovCampoCategoria";
@@ -186,11 +186,9 @@ export default function FormMovimentacaoModal({
 
   // Se o usuário tinha escolhido "Parcelado" e muda a forma de pagamento
   // pra algo diferente de cartão, reverte automaticamente pra "à vista"
-  useEffect(() => {
-    if (form.parcelado && form.formaPagamento !== "cartao") {
-      update("parcelado", false);
-    }
-  }, [form.formaPagamento, form.parcelado]);
+  if (form.parcelado && form.formaPagamento !== "cartao") {
+    setForm((prev) => ({ ...prev, parcelado: false }));
+  }
 
   const bloqueiaCampos = useMemo(() => {
     if (!transacaoEdicao || !modoEdicao) return {};
@@ -204,7 +202,7 @@ export default function FormMovimentacaoModal({
       parcelas:      false,
       repeticoes:    false,
     };
-  }, [transacaoEdicao, modoEdicao]);
+  }, [isEdit, transacaoEdicao, modoEdicao]);
 
   // ✅ NOVO: identifica a conversão "à vista → recorrente" durante a edição
   // — esse caso não usa mais PUT /api/transacoes/[id] (que gerava N linhas
@@ -233,12 +231,21 @@ export default function FormMovimentacaoModal({
     return Number(transacaoEdicao.valor);
   }, [isEdit, transacaoEdicao, modoEdicao]);
 
-  useEffect(() => {
-    if (!transacaoEdicao) {
-      setForm(novoForm());
-      setErrors({});
-      return;
-    }
+  // Preenche o formulário ao abrir ou trocar a transação em edição (durante o render, sem efeito)
+  const chaveFormulario = { transacaoEdicao, open, modoEdicao, totalParcelamento };
+  const [chaveAnterior, setChaveAnterior] = useState<typeof chaveFormulario | null>(null);
+  const formularioMudou = !chaveAnterior
+    || chaveAnterior.transacaoEdicao !== transacaoEdicao
+    || chaveAnterior.open !== open
+    || chaveAnterior.modoEdicao !== modoEdicao
+    || chaveAnterior.totalParcelamento !== totalParcelamento;
+
+  if (formularioMudou && !transacaoEdicao) {
+    setChaveAnterior(chaveFormulario);
+    setForm(novoForm());
+    setErrors({});
+  } else if (formularioMudou && transacaoEdicao) {
+    setChaveAnterior(chaveFormulario);
 
     const valorFormulario =
       totalParcelamento ?? (
@@ -273,7 +280,7 @@ export default function FormMovimentacaoModal({
       estabelecimentoId: transacaoEdicao.estabelecimentoId ?? "",
     });
     setErrors({});
-  }, [transacaoEdicao, open, modoEdicao, totalParcelamento]);
+  }
 
   const validateForm = (): FormErrors => {
     const erros: FormErrors = {};

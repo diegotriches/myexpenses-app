@@ -98,16 +98,21 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
   }
 
   function validarCampo(field: string, value: any) {
-    const e = { ...erros };
+    // Mensagem do campo, ou null quando válido; campos sem regra não mexem nos erros
+    let mensagem: string | null;
     switch (field) {
-      case "nome":             !value?.trim() ? (e.nome = "Nome é obrigatório") : delete e.nome; break;
-      case "empresa":          !value ? (e.empresa = "Selecione o banco emissor") : delete e.empresa; break;
-      case "bandeira":         !value ? (e.bandeira = "Selecione a bandeira") : delete e.bandeira; break;
-      case "contaVinculadaId": form.tipo === "debito" && (!value || value === "none") ? (e.contaVinculadaId = "Conta vinculada obrigatória") : delete e.contaVinculadaId; break;
-      case "limite":           form.tipo === "credito" && (!Number.isFinite(Number(value)) || Number(value) <= 0) ? (e.limite = "Informe um limite válido") : delete e.limite; break;
-      case "diaFechamento":    form.tipo === "credito" && !value ? (e.diaFechamento = "Informe o dia de fechamento") : delete e.diaFechamento; break;
-      case "diaVencimento":    form.tipo === "credito" && !value ? (e.diaVencimento = "Informe o dia de vencimento") : delete e.diaVencimento; break;
+      case "nome":             mensagem = !value?.trim() ? "Nome é obrigatório" : null; break;
+      case "empresa":          mensagem = !value ? "Selecione o banco emissor" : null; break;
+      case "bandeira":         mensagem = !value ? "Selecione a bandeira" : null; break;
+      case "contaVinculadaId": mensagem = form.tipo === "debito" && (!value || value === "none") ? "Conta vinculada obrigatória" : null; break;
+      case "limite":           mensagem = form.tipo === "credito" && (!Number.isFinite(Number(value)) || Number(value) <= 0) ? "Informe um limite válido" : null; break;
+      case "diaFechamento":    mensagem = form.tipo === "credito" && !value ? "Informe o dia de fechamento" : null; break;
+      case "diaVencimento":    mensagem = form.tipo === "credito" && !value ? "Informe o dia de vencimento" : null; break;
+      default: return;
     }
+    const e = { ...erros };
+    if (mensagem) e[field] = mensagem;
+    else delete e[field];
     setErros(e);
   }
 

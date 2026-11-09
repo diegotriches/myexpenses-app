@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Button } from "@/components/ui/button";
 import { Copy, Trash2, Check, Minus, X, GripHorizontal, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -68,17 +69,6 @@ function aplicarSnap(pos: Pos, alturaJanela: number): Pos {
   return { x, y };
 }
 
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-  return isMobile;
-}
-
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModalProps) {
@@ -91,25 +81,22 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
   const [copiado,    setCopiado]    = useState(false);
   const [arrastando, setArrastando] = useState(false);
 
-  const isMobile    = useIsMobile();
+  const isMobile    = useMediaQuery("(max-width: 767px)");
   const janelRef    = useRef<HTMLDivElement>(null);
   const dragOffset  = useRef<Pos>({ x: 0, y: 0 });
   const posRef      = useRef<Pos>(pos);
   posRef.current    = pos;
 
-  // Inicializa posição + fullscreen ao montar / abrir
-  useEffect(() => {
+  // Inicializa posição + fullscreen ao abrir (durante o render, sem efeito)
+  const [abertoAntes, setAbertoAntes] = useState(false);
+  if (open !== abertoAntes && typeof window !== "undefined") {
+    setAbertoAntes(open);
     if (open) {
       const saved = carregarEstado();
-      if (saved) {
-        setPos(saved.pos);
-        setFullscreen(saved.fullscreen);
-      } else {
-        setPos(posicaoInicial());
-        setFullscreen(false);
-      }
+      setPos(saved ? saved.pos : posicaoInicial());
+      setFullscreen(saved ? saved.fullscreen : false);
     }
-  }, [open]);
+  }
 
   // ─── Toggle fullscreen (mobile) ────────────────────────────────────────────
   function toggleFullscreen() {
@@ -302,7 +289,7 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
   }
 
   // ─── Botão da calculadora ──────────────────────────────────────────────────
-  const BotaoCalc = ({
+  const renderBotaoCalc = ({
     value, variant = "default", span = 1,
   }: {
     value: string;
@@ -414,27 +401,27 @@ export default function CalculadoraModal({ open, onOpenChange }: CalculadoraModa
             "grid grid-cols-4 gap-1.5 mb-3",
             isMobile && fullscreen && "flex-1"
           )}>
-            <BotaoCalc value="AC" variant="clear" />
-            <BotaoCalc value="(" variant="operator" />
-            <BotaoCalc value=")" variant="operator" />
-            <BotaoCalc value="⌫" variant="operator" />
-            <BotaoCalc value="7" />
-            <BotaoCalc value="8" />
-            <BotaoCalc value="9" />
-            <BotaoCalc value="/" variant="operator" />
-            <BotaoCalc value="4" />
-            <BotaoCalc value="5" />
-            <BotaoCalc value="6" />
-            <BotaoCalc value="*" variant="operator" />
-            <BotaoCalc value="1" />
-            <BotaoCalc value="2" />
-            <BotaoCalc value="3" />
-            <BotaoCalc value="-" variant="operator" />
-            <BotaoCalc value="0" />
-            <BotaoCalc value="." />
-            <BotaoCalc value="%" variant="operator" />
-            <BotaoCalc value="+" variant="operator" />
-            <BotaoCalc value="=" variant="equals" span={4} />
+            {renderBotaoCalc({ value: "AC", variant: "clear" })}
+            {renderBotaoCalc({ value: "(", variant: "operator" })}
+            {renderBotaoCalc({ value: ")", variant: "operator" })}
+            {renderBotaoCalc({ value: "⌫", variant: "operator" })}
+            {renderBotaoCalc({ value: "7" })}
+            {renderBotaoCalc({ value: "8" })}
+            {renderBotaoCalc({ value: "9" })}
+            {renderBotaoCalc({ value: "/", variant: "operator" })}
+            {renderBotaoCalc({ value: "4" })}
+            {renderBotaoCalc({ value: "5" })}
+            {renderBotaoCalc({ value: "6" })}
+            {renderBotaoCalc({ value: "*", variant: "operator" })}
+            {renderBotaoCalc({ value: "1" })}
+            {renderBotaoCalc({ value: "2" })}
+            {renderBotaoCalc({ value: "3" })}
+            {renderBotaoCalc({ value: "-", variant: "operator" })}
+            {renderBotaoCalc({ value: "0" })}
+            {renderBotaoCalc({ value: "." })}
+            {renderBotaoCalc({ value: "%", variant: "operator" })}
+            {renderBotaoCalc({ value: "+", variant: "operator" })}
+            {renderBotaoCalc({ value: "=", variant: "equals", span: 4 })}
           </div>
 
           {/* Histórico */}

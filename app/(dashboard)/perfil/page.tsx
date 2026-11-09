@@ -9,7 +9,7 @@ import EditarFotoCard from "@/components/perfil/EditarFotoCard";
 import AlterarSenhaCard from "@/components/perfil/AlterarSenhaCard";
 import DeletarContaCard from "@/components/perfil/DeletarContaCard";
 import { useProfile } from "@/hooks/useProfile";
-import { User, Image, Lock, Trash2, AlertCircle, UserCircle } from "lucide-react";
+import { User, Image as ImageIcon, Lock, Trash2, AlertCircle, UserCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
@@ -120,7 +120,7 @@ if (!usuario) {
             value="foto"
             className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white cursor-pointer"
           >
-            <Image size={16} />
+            <ImageIcon size={16} />
             <span>Foto</span>
           </TabsTrigger>
           
@@ -165,7 +165,7 @@ if (!usuario) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Image size={20} className="text-blue-600 dark:text-blue-400" />
+                <ImageIcon size={20} className="text-blue-600 dark:text-blue-400" />
                 Foto de Perfil
               </CardTitle>
               <CardDescription>

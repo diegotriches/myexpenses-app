@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -166,7 +166,7 @@ export default function CartoesPage() {
   const abrirFatura = (cartaoId: number) => router.push(`/cartoes/${cartaoId}/fatura`);
 
   // ── Sub-componentes ───────────────────────────────────────────────────────
-  const SkeletonCard = () => (
+  const renderSkeletonCard = () => (
     <div className="border rounded-lg p-6 animate-pulse space-y-4 bg-white dark:bg-gray-800">
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-3 flex-1">
@@ -367,7 +367,7 @@ export default function CartoesPage() {
       {/* Loading */}
       {loading && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+          {Array.from({ length: 4 }).map((_, i) => <Fragment key={i}>{renderSkeletonCard()}</Fragment>)}
         </div>
       )}
 

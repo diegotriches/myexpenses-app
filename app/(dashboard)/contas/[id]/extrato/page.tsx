@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -110,7 +110,7 @@ export default function ExtratoContaPage() {
 
   const { data: extratoData, isLoading: loading, error } = useExtratoConta(contaId, filtrosQuery);
 
-  const extratoBase = extratoData?.movimentacoes ?? [];
+  const extratoBase = useMemo(() => extratoData?.movimentacoes ?? [], [extratoData]);
   const resumo      = extratoData?.resumo;
   const contaNome   = extratoData?.conta?.nome ?? "";
 
@@ -155,7 +155,7 @@ export default function ExtratoContaPage() {
   const fmt = (valor: number) => mask(formatarMoeda(valor));
 
   // Badge de origem com tooltip informando como corrigir
-  const OrigemBadge = ({ origem }: { origem: string }) => {
+  const renderOrigemBadge = ({ origem }: { origem: string }) => {
     const info = ORIGEM_INFO[origem] ?? { label: origem, variant: "outline" as const, dica: "" };
     return (
       <TooltipProvider delayDuration={200}>
@@ -192,7 +192,7 @@ export default function ExtratoContaPage() {
   );
 
   // Card mobile
-  const MovimentacaoCard = ({ item }: { item: MovimentacaoExtrato }) => (
+  const renderMovimentacaoCard = ({ item }: { item: MovimentacaoExtrato }) => (
     <Card className={`hover:shadow-md transition-shadow dark:border-gray-700 ${
       item.tipo === "entrada"
         ? "bg-green-50/40 dark:bg-green-950/10 border-green-200 dark:border-green-900"
@@ -202,7 +202,7 @@ export default function ExtratoContaPage() {
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <OrigemBadge origem={item.origem} />
+              {renderOrigemBadge({ origem: item.origem })}
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {formatarDataParaExibicao(item.data)}
               </span>
@@ -348,7 +348,7 @@ export default function ExtratoContaPage() {
       {/* Mobile: Cards */}
       {!loading && !error && extratoPagina.length > 0 && (
         <div className="md:hidden space-y-3">
-          {extratoPagina.map((item) => <MovimentacaoCard key={item.id} item={item} />)}
+          {extratoPagina.map((item) => <Fragment key={item.id}>{renderMovimentacaoCard({ item })}</Fragment>)}
         </div>
       )}
 
@@ -407,7 +407,7 @@ export default function ExtratoContaPage() {
                         <div className="truncate" title={item.descricao}>{item.descricao}</div>
                       </td>
                       <td className="p-3 text-center">
-                        <OrigemBadge origem={item.origem} />
+                        {renderOrigemBadge({ origem: item.origem })}
                       </td>
                       <td className="p-3 text-right font-medium text-green-600 dark:text-green-400 whitespace-nowrap">
                         {item.tipo === "entrada" && `+ ${fmt(item.valor)}`}

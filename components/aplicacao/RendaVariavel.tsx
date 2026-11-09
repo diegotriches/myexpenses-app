@@ -2,7 +2,7 @@
 
 // src/components/aplicacao/RendaVariavel.tsx
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -306,7 +306,7 @@ export default function RendaVariavel({ contas }: Props) {
   const sinal = (v: number) => (v >= 0 ? "+" : "");
 
   // ── Lista de operações de um ticker ───────────────────────────────────────
-  const ListaOperacoes = ({ ticker }: { ticker: string }) => {
+  const renderListaOperacoes = ({ ticker }: { ticker: string }) => {
     const lista = operacoes
       .filter((o) => o.ticker === ticker)
       .sort((a, b) => (a.data === b.data ? (a.createdAt < b.createdAt ? 1 : -1) : a.data < b.data ? 1 : -1));
@@ -352,7 +352,7 @@ export default function RendaVariavel({ contas }: Props) {
   };
 
   // ── Card de ativo aberto ──────────────────────────────────────────────────
-  const CartaoAtivo = ({ a }: { a: AtivoCarteira }) => {
+  const renderCartaoAtivo = ({ a }: { a: AtivoCarteira }) => {
     const aberto = abertos.has(a.ticker);
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
@@ -446,13 +446,13 @@ export default function RendaVariavel({ contas }: Props) {
             {aberto ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             {aberto ? "Ocultar operações" : "Ver operações"}
           </button>
-          {aberto && <ListaOperacoes ticker={a.ticker} />}
+          {aberto && renderListaOperacoes({ ticker: a.ticker })}
         </CardContent>
       </Card>
     );
   };
 
-  const CartaoEncerrado = ({ p }: { p: PosicaoAtivo }) => {
+  const renderCartaoEncerrado = ({ p }: { p: PosicaoAtivo }) => {
     const aberto = abertos.has(p.ticker);
     return (
       <Card className="dark:bg-gray-900 dark:border-gray-800">
@@ -477,7 +477,7 @@ export default function RendaVariavel({ contas }: Props) {
             {aberto ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             {aberto ? "Ocultar operações" : "Ver operações"}
           </button>
-          {aberto && <ListaOperacoes ticker={p.ticker} />}
+          {aberto && renderListaOperacoes({ ticker: p.ticker })}
         </CardContent>
       </Card>
     );
@@ -546,7 +546,7 @@ export default function RendaVariavel({ contas }: Props) {
             <TabsContent value="carteira" className="space-y-4">
               {carteira.ativos.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                  {carteira.ativos.map((a) => <CartaoAtivo key={a.ticker} a={a} />)}
+                  {carteira.ativos.map((a) => <Fragment key={a.ticker}>{renderCartaoAtivo({ a })}</Fragment>)}
                 </div>
               )}
 
@@ -562,7 +562,7 @@ export default function RendaVariavel({ contas }: Props) {
                   </button>
                   {verEncerrados && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-                      {encerradosRecentes.map((p) => <CartaoEncerrado key={p.ticker} p={p} />)}
+                      {encerradosRecentes.map((p) => <Fragment key={p.ticker}>{renderCartaoEncerrado({ p })}</Fragment>)}
                     </div>
                   )}
                 </div>
@@ -579,7 +579,7 @@ export default function RendaVariavel({ contas }: Props) {
                     </p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-                    {g.posicoes.map((p) => <CartaoEncerrado key={p.ticker} p={p} />)}
+                    {g.posicoes.map((p) => <Fragment key={p.ticker}>{renderCartaoEncerrado({ p })}</Fragment>)}
                   </div>
                 </div>
               ))}

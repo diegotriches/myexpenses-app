@@ -2,7 +2,7 @@
 
 // src/components/contas/AplicacoesTab.tsx
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -94,7 +94,7 @@ export default function AplicacoesTab({ contas }: Props) {
   const [erroResgate, setErroResgate] = useState<string | null>(null);
   const updateResgate = (key: string, value: any) => setResgateForm((f) => ({ ...f, [key]: value }));
 
-  const nomeConta = (contaId: string) => contas.find((c) => c.id === contaId)?.nome ?? "Conta";
+  const nomeConta = useCallback((contaId: string) => contas.find((c) => c.id === contaId)?.nome ?? "Conta", [contas]);
 
   const hoje = useMemo(() => new Date(), []);
 
@@ -114,7 +114,7 @@ export default function AplicacoesTab({ contas }: Props) {
       nomeConta: nomeConta(contaId),
       aplicacoes: lista,
     }));
-  }, [aplicacoesFiltradas, contas]);
+  }, [aplicacoesFiltradas, nomeConta]);
 
   // Lotes (aportes) no formato das funções puras
   const lotesDe = (a: Aplicacao): LoteEstado[] =>

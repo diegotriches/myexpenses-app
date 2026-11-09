@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, Fragment } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useProfile } from "@/hooks/useProfile";
@@ -90,7 +90,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     },
   ];
 
-  const NavLink = ({
+  const renderNavLink = ({
     href,
     icon: Icon,
     label,
@@ -139,7 +139,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     return content;
   };
 
-  const UserProfileCard = ({ isMobile = false }: { isMobile?: boolean }) => {
+  const renderUserProfileCard = ({ isMobile = false }: { isMobile?: boolean }) => {
     const getInitials = () => {
       if (userData?.name) {
         return userData.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
@@ -262,7 +262,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
             </p>
             <div className="flex flex-col gap-1">
               {group.links.map((link) => (
-                <NavLink key={link.href} {...link} isMobile={isMobile} />
+                <Fragment key={link.href}>{renderNavLink({ ...link, isMobile })}</Fragment>
               ))}
             </div>
           </div>
@@ -279,17 +279,17 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           >
             Análise
           </p>
-          <NavLink href="/resumo-anual" icon={MdOutlineAutoGraph} label="Resumo Anual" isMobile={isMobile} />
+          {renderNavLink({ href: "/resumo-anual", icon: MdOutlineAutoGraph, label: "Resumo Anual", isMobile })}
 
           <div className="border-t border-blue-600 dark:border-slate-700 my-2" />
 
-          <NavLink href="/ajustes" icon={BsFillGearFill} label="Ajustes" isMobile={isMobile} />
+          {renderNavLink({ href: "/ajustes", icon: BsFillGearFill, label: "Ajustes", isMobile })}
         </div>
       </div>
 
       {/* User Profile Card */}
       <div className="mt-4">
-        <UserProfileCard isMobile={isMobile} />
+        {renderUserProfileCard({ isMobile })}
       </div>
     </>
   );

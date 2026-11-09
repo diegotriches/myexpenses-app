@@ -1,7 +1,7 @@
 // src/components/ajustes/PreferenciasCard.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -37,10 +37,13 @@ export default function PreferenciasCard({ preferencias }: Props) {
 
   const atualizarPreferencias = useAtualizarPreferences();
 
-  useEffect(() => {
+  // Novas preferências vindas do servidor substituem o formulário (durante o render, sem efeito)
+  const [preferenciasRecebidas, setPreferenciasRecebidas] = useState(preferencias);
+  if (preferencias !== preferenciasRecebidas) {
+    setPreferenciasRecebidas(preferencias);
     setForm(preferencias);
     setPreferenciasOriginais(preferencias);
-  }, [preferencias]);
+  }
 
   const temAlteracoes = () =>
     JSON.stringify(form) !== JSON.stringify(preferenciasOriginais);
