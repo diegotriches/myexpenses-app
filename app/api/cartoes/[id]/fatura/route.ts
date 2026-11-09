@@ -1,4 +1,5 @@
 // app/api/cartoes/[id]/fatura/route.ts
+import { calcularLimiteDisponivel } from "@/lib/limiteCartao";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, faturas, contas, cartoes, notificacoes, adiantamentosFatura } from "@/db/schema";
@@ -140,7 +141,7 @@ export async function GET(
         id:              cartao.id,
         nome:            cartao.nome,
         limite:          Number(cartao.limite),
-        limiteDisponivel: Number(cartao.limiteDisponivel),
+        limiteDisponivel: Math.max(0, await calcularLimiteDisponivel(db, cartao, userId)),
         diaFechamento:   cartao.diaFechamento,
         diaVencimento:   cartao.diaVencimento,
       },
@@ -302,9 +303,7 @@ export async function POST(
       cartao: {
         id: cartao.id, nome: cartao.nome,
         limite:           Number(cartao.limite),
-        // ✅ CORRIGIDO: era "+ valorAPagar" — não refletia o limite extra
-        // liberado por antecipações com desconto embutidas nesta fatura
-        limiteDisponivel: Number(cartao.limiteDisponivel) + valorLiberado,
+        limiteDisponivel: Math.max(0, await calcularLimiteDisponivel(db, cartao, userId)),
         diaFechamento:    cartao.diaFechamento,
         diaVencimento:    cartao.diaVencimento,
       },
@@ -428,9 +427,7 @@ export async function DELETE(
       cartao: {
         id: cartao.id, nome: cartao.nome,
         limite:           Number(cartao.limite),
-        // ✅ CORRIGIDO: era "- totalFatura" — precisa reverter também o
-        // limite extra liberado pelas antecipações embutidas nesta fatura
-        limiteDisponivel: Number(cartao.limiteDisponivel) - valorAReverter,
+        limiteDisponivel: Math.max(0, await calcularLimiteDisponivel(db, cartao, userId)),
         diaFechamento:    cartao.diaFechamento,
         diaVencimento:    cartao.diaVencimento,
       },

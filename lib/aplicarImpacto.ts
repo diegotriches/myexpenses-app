@@ -11,7 +11,8 @@
 
 import { cartoes, faturas } from "@/db/schema";
 import { movimentarConta, type TransacaoBanco } from "@/lib/movimentacaoConta";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
+import { calcularLimiteDisponivel } from "@/lib/limiteCartao";
 import {
   calcularFaturaDaTransacao,
   proximaFaturaAberta,
@@ -51,8 +52,6 @@ interface DadosExtrato {
   data: string; // YYYY-MM-DD
   descricao: string;
 }
-
-const arredondar = (n: number) => Math.round(n * 100) / 100;
 
 async function ajustarSaldoConta(
   tx: TransacaoBanco,
@@ -170,11 +169,12 @@ export async function aplicarImpactoRecorrencia(
         });
       }
 
-      const novoLimite = arredondar(Number(cartao.limiteDisponivel) - valor);
       await tx
         .update(cartoes)
-        .set({ limiteDisponivel: novoLimite.toFixed(2) })
+        .set({ limiteDisponivel: sql`CAST(${cartoes.limiteDisponivel} AS NUMERIC) - ${valor}` })
         .where(eq(cartoes.id, cartaoId));
+
+      const novoLimite = await calcularLimiteDisponivel(tx, cartao, userId);
 
       if (novoLimite < 0) {
         return {

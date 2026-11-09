@@ -1,4 +1,5 @@
 // app/api/transacoes/route.ts
+import { calcularLimiteDisponivel } from "@/lib/limiteCartao";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transacoes, contas, cartoes, faturas } from "@/db/schema";
@@ -138,7 +139,7 @@ export async function POST(req: NextRequest) {
 
       if (trans.cartaoId) {
         [cartao] = await tx.select().from(cartoes)
-          .where(and(eq(cartoes.id, Number(trans.cartaoId)), eq(cartoes.userId, userId))).limit(1);
+          .where(and(eq(cartoes.id, Number(trans.cartaoId)), eq(cartoes.userId, userId))).limit(1).for("update");
         if (!cartao)       throw new ErroFinanceiro("Cartão não encontrado", 404);
         if (!cartao.ativo) throw new ErroFinanceiro("Cartão inativo", 400);
 
@@ -156,7 +157,8 @@ export async function POST(req: NextRequest) {
         }
 
         if (cartao.tipo === "credito" && trans.tipo === "saida") {
-          if (Number(cartao.limiteDisponivel) < valorNum)
+          // Dentro da transação: já enxerga as parcelas anteriores desta mesma compra
+          if (await calcularLimiteDisponivel(tx, cartao, userId) < valorNum)
             throw new ErroFinanceiro("Limite insuficiente no cartão de crédito", 400);
 
           // Bloqueia só se a fatura daquela data já estiver PAGA

@@ -1,4 +1,5 @@
 // app/api/cartoes/[id]/route.ts
+import { calcularLimiteDisponivel } from "@/lib/limiteCartao";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { cartoes, contas } from "@/db/schema";
@@ -40,7 +41,8 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(cartao);
+    const limiteDisponivel = await calcularLimiteDisponivel(db, cartao, userId);
+    return NextResponse.json({ ...cartao, limiteDisponivel: limiteDisponivel.toFixed(2) });
   } catch (error) {
     console.error("Erro ao buscar cartão:", error);
     const message = error instanceof Error ? error.message : "Erro ao buscar cartão";

@@ -1,4 +1,5 @@
 // src/app/api/notificacoes/verificar/route.ts
+import { calcularLimiteDisponivel } from "@/lib/limiteCartao";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { notificacoes, cartoes, faturas, preferenciasNotificacao, users } from "@/db/schema";
@@ -142,7 +143,7 @@ export async function POST(req: NextRequest) {
 
       for (const cartao of cartoesUsuario) {
         const limite         = Number(cartao.limite);
-        const disponivel     = Number(cartao.limiteDisponivel);
+        const disponivel     = await calcularLimiteDisponivel(db, cartao, userId);
         const percentualUsado = ((limite - disponivel) / limite) * 100;
         const metadataLimite  = { cartaoId: String(cartao.id) };
 

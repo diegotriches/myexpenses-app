@@ -1,4 +1,5 @@
 // app/api/transacoes/cartoes/route.ts
+import { calcularLimiteDisponivel } from "@/lib/limiteCartao";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { cartoes, faturas, transacoes } from "@/db/schema";
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const limiteDisponivel = Number(cartao.limiteDisponivel);
+    const limiteDisponivel = await calcularLimiteDisponivel(db, cartao, userId);
 
     if (limiteDisponivel < valorTotal) {
       return NextResponse.json(

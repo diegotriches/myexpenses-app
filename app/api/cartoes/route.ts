@@ -1,4 +1,5 @@
 // app/api/cartoes/route.ts
+import { calcularLimiteUsado } from "@/lib/limiteCartao";
 import { db } from "@/db";
 import { cartoes, faturas, contas } from "@/db/schema";
 import { NextResponse } from "next/server";
@@ -33,25 +34,9 @@ export async function GET() {
         const limite = Number(cartao.limite ?? 0);
 
         // ── Limite usado: soma das faturas não pagas ────────────────────────
-        let limiteUsado = 0;
-
-        if (cartao.tipo === "credito") {
-          const faturasNaoPagas = await db
-            .select()
-            .from(faturas)
-            .where(
-              and(
-                eq(faturas.cartaoId, cartao.id),
-                eq(faturas.userId, userId),
-                eq(faturas.paga, false)
-              )
-            );
-
-          limiteUsado = faturasNaoPagas.reduce(
-            (acc, f) => acc + Number(f.total),
-            0
-          );
-        }
+        const limiteUsado = cartao.tipo === "credito"
+          ? await calcularLimiteUsado(db, cartao.id, userId)
+          : 0;
 
         const limiteDisponivel = Math.max(0, limite - limiteUsado);
 
