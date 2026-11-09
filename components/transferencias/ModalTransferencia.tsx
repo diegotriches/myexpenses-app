@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowRightLeft, ArrowRight } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface ModalTransferenciaProps {
   open: boolean;
@@ -107,8 +108,6 @@ export function ModalTransferencia({
   };
 
   // Helper: formata saldo da conta
-  const formatarSaldo = (saldo: number | string) =>
-    Number(saldo).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   // ── Item de conta reutilizável nos dois selects ───────────────────────────
   // ✅ CORRIGIDO: flex com min-w-0 + truncate no nome evita overflow
@@ -125,7 +124,7 @@ export function ModalTransferencia({
             ? "text-green-600 dark:text-green-400"
             : "text-red-600 dark:text-red-400"
         }`}>
-          {mask(formatarSaldo(conta.saldoAtual))}
+          {mask(formatarMoeda(conta.saldoAtual))}
         </span>
       </div>
     </SelectItem>
@@ -302,7 +301,7 @@ export function ModalTransferencia({
                 <div className="flex justify-between items-center">
                   <span>Valor:</span>
                   <span className="font-bold text-base">
-                    {formatarSaldo(valorNumerico)}
+                    {formatarMoeda(valorNumerico)}
                   </span>
                 </div>
               </div>

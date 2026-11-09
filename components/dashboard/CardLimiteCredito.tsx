@@ -9,7 +9,7 @@ import { useFaturasAbertas } from "@/hooks/useDashboard";
 import { CreditCard, ChevronLeft, ChevronRight, Receipt, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useHideValues } from "@/contexts/HideValuesContext";
+import { useMoeda } from "@/hooks/useMoeda";
 
 function corUtilizacao(percentual: number) {
   if (percentual >= 80) return {
@@ -34,12 +34,8 @@ export function CardLimiteCredito() {
   const { data: cartoes = [], isLoading: loadingCartoes } = useCartoes();
   const { data: faturasAbertas = [], isLoading: loadingFaturas } = useFaturasAbertas();
   const [indice, setIndice] = useState(0);
-  const { mask } = useHideValues();
 
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
-
-  const fmt = (valor: number) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   const isLoading = loadingCartoes || loadingFaturas;
 

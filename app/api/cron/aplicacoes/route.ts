@@ -6,11 +6,9 @@ import { aplicacoes, notificacoes } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { recalcularAplicacao, executarResgate } from "@/lib/aplicacaoEngine";
+import { formatarMoeda } from "@/utils/formatadores";
 
 const paraDataIso = (d: Date) => d.toISOString().split("T")[0];
-
-const moeda = (v: number) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -74,10 +72,10 @@ export async function GET(req: NextRequest) {
       try {
         const detalheIr =
           aplicacao.tributacao === "isento"
-            ? `Rendimento de ${moeda(detalhe.rendimentoBruto)} (isento de IR).`
+            ? `Rendimento de ${formatarMoeda(detalhe.rendimentoBruto)} (isento de IR).`
             : detalhe.impostoRetido > 0
-              ? `Rendimento bruto de ${moeda(detalhe.rendimentoBruto)} e IR retido de ${moeda(detalhe.impostoRetido)}.`
-              : `Rendimento de ${moeda(detalhe.rendimentoBruto)}.`;
+              ? `Rendimento bruto de ${formatarMoeda(detalhe.rendimentoBruto)} e IR retido de ${formatarMoeda(detalhe.impostoRetido)}.`
+              : `Rendimento de ${formatarMoeda(detalhe.rendimentoBruto)}.`;
 
         await db.insert(notificacoes).values({
           userId: aplicacao.userId,
@@ -86,7 +84,7 @@ export async function GET(req: NextRequest) {
           titulo: "Aplicação resgatada no vencimento",
           mensagem:
             `Sua aplicação "${aplicacao.descricao || "sem descrição"}" venceu e foi resgatada automaticamente. ` +
-            `${detalheIr} ${moeda(detalhe.valorLiquido)} já estão no saldo da conta ${detalhe.contaNome}.`,
+            `${detalheIr} ${formatarMoeda(detalhe.valorLiquido)} já estão no saldo da conta ${detalhe.contaNome}.`,
           link: "/aplicacoes",
           metadata: {
             aplicacaoId: aplicacao.id,

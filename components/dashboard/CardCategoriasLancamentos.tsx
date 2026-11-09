@@ -7,7 +7,7 @@ import { useMemo } from 'react';
 import { useTransacoesAno } from '@/hooks/useTransacoes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { useHideValues } from '@/contexts/HideValuesContext';
+import { useMoeda } from "@/hooks/useMoeda";
 
 const CORES_LANCAMENTOS = ['#3b82f6', '#6366f1', '#8b5cf6', '#0ea5e9', '#06b6d4'];
 
@@ -17,7 +17,6 @@ interface CardCategoriasLancamentosProps {
 
 export function CardCategoriasLancamentos({ ano }: CardCategoriasLancamentosProps) {
   const { data: transacoes = [], isLoading } = useTransacoesAno(ano);
-  const { mask } = useHideValues();
 
   const categorias = useMemo(() => agruparPorCategoria(transacoes), [transacoes]);
 
@@ -31,10 +30,7 @@ export function CardCategoriasLancamentos({ ano }: CardCategoriasLancamentosProp
     [categorias]
   );
 
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
-
-  const fmt = (valor: number) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   const chartData = useMemo(() =>
     categorias.slice(0, 5).map((c, i) => ({

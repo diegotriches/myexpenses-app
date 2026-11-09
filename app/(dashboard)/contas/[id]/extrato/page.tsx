@@ -20,8 +20,8 @@ import {
 import FiltrosExtrato, { FiltrosExtratoState } from "@/components/extrato/FiltrosExtrato";
 import { useExtratoConta } from "@/hooks/useContas";
 import type { MovimentacaoExtrato } from "@/types/conta";
-import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarDataParaExibicao } from "@/utils/dateUtils";
+import { useMoeda } from "@/hooks/useMoeda";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const ITENS_POR_PAGINA = 20;
@@ -86,7 +86,6 @@ export default function ExtratoContaPage() {
   const params   = useParams();
   const router   = useRouter();
   const contaId  = params?.id as string;
-  const { mask } = useHideValues();
 
   const [pagina,    setPagina]    = useState(1);
   const [ordenacao, setOrdenacao] = useState<EstadoOrdenacao>({ coluna: null, direcao: null });
@@ -149,10 +148,7 @@ export default function ExtratoContaPage() {
     });
   };
 
-  const formatarMoeda = (valor: number) =>
-    valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-  const fmt = (valor: number) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   // Badge de origem com tooltip informando como corrigir
   const renderOrigemBadge = ({ origem }: { origem: string }) => {

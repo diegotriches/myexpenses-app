@@ -39,6 +39,7 @@ import MovCampoFormaPagamento from "@/components/transacao/MovCampoFormaPagament
 import MovCampoConta from "@/components/transacao/MovCampoConta";
 import MovCampoCartao from "@/components/transacao/MovCampoCartao";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Props {
   contas: Conta[];
@@ -139,9 +140,6 @@ export default function RecorrenciasTab({ contas, cartoes }: Props) {
       setErroEdicao(err instanceof Error ? err.message : "Erro ao salvar alterações");
     }
   }
-
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
   // ✅ Terminadas naturalmente (bateram o limite de repetições) somem da
   // lista após o fim do mês em que geraram a última ocorrência. Pausadas

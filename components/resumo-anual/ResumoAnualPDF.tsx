@@ -10,11 +10,9 @@ import {
   StyleSheet,
 } from "@react-pdf/renderer";
 import type { ResumoAnualData } from "@/hooks/useResumoAnual";
+import { formatarMoeda } from "@/utils/formatadores";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-const fmt = (v: number) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const MESES = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -196,7 +194,7 @@ export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
           ].map(({ label, value, diff, pos }) => (
             <View key={label} style={s.kpiBox}>
               <Text style={s.kpiLabel}>{label}</Text>
-              <Text style={s.kpiValue}>{fmt(value)}</Text>
+              <Text style={s.kpiValue}>{formatarMoeda(value)}</Text>
               {diff !== null && (
                 <Text style={[s.kpiDiff, (diff > 0) === pos ? s.kpiPos : s.kpiNeg]}>
                   {diff > 0 ? "▲" : "▼"} {Math.abs(diff)}% vs {anoAnterior}
@@ -215,7 +213,7 @@ export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
                 <View style={s.destBox}>
                   <Text style={s.destLabel}>Melhor Mês</Text>
                   <Text style={s.destValue}>{nomeMes(data.melhorMes.mes)}</Text>
-                  <Text style={[s.destSub, s.green]}>{fmt(data.melhorMes.saldo)}</Text>
+                  <Text style={[s.destSub, s.green]}>{formatarMoeda(data.melhorMes.saldo)}</Text>
                 </View>
               )}
               {data.piorMes && (
@@ -223,15 +221,15 @@ export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
                   <Text style={s.destLabel}>Mês Mais Difícil</Text>
                   <Text style={s.destValue}>{nomeMes(data.piorMes.mes)}</Text>
                   <Text style={[s.destSub, data.piorMes.saldo >= 0 ? s.green : s.red]}>
-                    {fmt(data.piorMes.saldo)}
+                    {formatarMoeda(data.piorMes.saldo)}
                   </Text>
                 </View>
               )}
               <View style={s.destBox}>
                 <Text style={s.destLabel}>Média Mensal Receitas</Text>
-                <Text style={[s.destValue, s.green]}>{fmt(data.mediaMensal.receitas)}</Text>
+                <Text style={[s.destValue, s.green]}>{formatarMoeda(data.mediaMensal.receitas)}</Text>
                 <Text style={s.destLabel}>Média Mensal Despesas</Text>
-                <Text style={[s.destValue, s.red]}>{fmt(data.mediaMensal.despesas)}</Text>
+                <Text style={[s.destValue, s.red]}>{formatarMoeda(data.mediaMensal.despesas)}</Text>
               </View>
               {data.maiorDespesa && (
                 <View style={s.destBox}>
@@ -239,7 +237,7 @@ export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
                   <Text style={s.destValue}>
                     {(data.maiorDespesa.descricao || "Sem descrição").slice(0, 28)}
                   </Text>
-                  <Text style={[s.destSub, s.red]}>{fmt(Number(data.maiorDespesa.valor))}</Text>
+                  <Text style={[s.destSub, s.red]}>{formatarMoeda(Number(data.maiorDespesa.valor))}</Text>
                   {data.maiorDespesa.categoria && (
                     <Text style={s.destSub}>{data.maiorDespesa.categoria}</Text>
                   )}
@@ -261,18 +259,18 @@ export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
           {data.meses.map((m, i) => (
             <View key={m.mes} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]}>
               <Text style={s.colMes}>{MESES[m.mes - 1]}</Text>
-              <Text style={[s.colNum, s.green]}>{fmt(m.receitas)}</Text>
-              <Text style={[s.colNum, s.red]}>{fmt(m.despesas)}</Text>
-              <Text style={[s.colNum, m.saldo >= 0 ? s.blue : s.red]}>{fmt(m.saldo)}</Text>
+              <Text style={[s.colNum, s.green]}>{formatarMoeda(m.receitas)}</Text>
+              <Text style={[s.colNum, s.red]}>{formatarMoeda(m.despesas)}</Text>
+              <Text style={[s.colNum, m.saldo >= 0 ? s.blue : s.red]}>{formatarMoeda(m.saldo)}</Text>
             </View>
           ))}
           {/* Totais */}
           <View style={[s.tableRow, { backgroundColor: "#eff6ff" }]}>
             <Text style={[s.colMes, { fontFamily: "Helvetica-Bold" }]}>TOTAL</Text>
-            <Text style={[s.colNum, s.green, { fontFamily: "Helvetica-Bold" }]}>{fmt(totais.receitas)}</Text>
-            <Text style={[s.colNum, s.red,   { fontFamily: "Helvetica-Bold" }]}>{fmt(totais.despesas)}</Text>
+            <Text style={[s.colNum, s.green, { fontFamily: "Helvetica-Bold" }]}>{formatarMoeda(totais.receitas)}</Text>
+            <Text style={[s.colNum, s.red,   { fontFamily: "Helvetica-Bold" }]}>{formatarMoeda(totais.despesas)}</Text>
             <Text style={[s.colNum, totais.saldo >= 0 ? s.blue : s.red, { fontFamily: "Helvetica-Bold" }]}>
-              {fmt(totais.saldo)}
+              {formatarMoeda(totais.saldo)}
             </Text>
           </View>
         </View>
@@ -306,7 +304,7 @@ export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
                   {cat.percentual}%
                 </Text>
                 <Text style={{ width: "20%", textAlign: "right", fontSize: 8, fontFamily: "Helvetica-Bold", color: "#111827" }}>
-                  {fmt(cat.total)}
+                  {formatarMoeda(cat.total)}
                 </Text>
               </View>
             ))}
@@ -335,8 +333,8 @@ export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
             return (
               <View key={m.mes} style={[s.compRow, i % 2 === 1 ? s.tableRowAlt : {}]}>
                 <Text style={s.colCompMes}>{MESES[m.mes - 1]}</Text>
-                <Text style={[s.colCompNum, { color: "#6b7280" }]}>{fmt(ant)}</Text>
-                <Text style={[s.colCompNum, s.red]}>{fmt(atu)}</Text>
+                <Text style={[s.colCompNum, { color: "#6b7280" }]}>{formatarMoeda(ant)}</Text>
+                <Text style={[s.colCompNum, s.red]}>{formatarMoeda(atu)}</Text>
                 <Text style={[
                   s.colCompDiff,
                   pct === null ? {} : pct <= 0 ? s.green : s.red,

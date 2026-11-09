@@ -12,6 +12,7 @@ import { AlertTriangle, Archive, Loader2 } from "lucide-react";
 import { useUsoConta } from "@/hooks/useContas";
 import { Conta } from "@/types/conta";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Props {
   open: boolean;
@@ -24,8 +25,6 @@ interface Props {
 }
 
 const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
-const moeda = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 export default function ExcluirContaModal({
   open,
@@ -113,13 +112,13 @@ export default function ExcluirContaModal({
 
                 {uso.aplicacoesAtivas > 0 && (
                   <p className="rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 p-2">
-                    Há {plural(uso.aplicacoesAtivas, "aplicação ativa", "aplicações ativas")} ({mask(moeda(uso.valorAplicado))}).
+                    Há {plural(uso.aplicacoesAtivas, "aplicação ativa", "aplicações ativas")} ({mask(formatarMoeda(uso.valorAplicado))}).
                     Resgate antes de excluir, senão esse valor deixa de aparecer no app.
                   </p>
                 )}
                 {uso.saldoAtual !== 0 && (
                   <p className="rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 p-2">
-                    O saldo atual da conta é {mask(moeda(uso.saldoAtual))} e deixará de entrar no patrimônio.
+                    O saldo atual da conta é {mask(formatarMoeda(uso.saldoAtual))} e deixará de entrar no patrimônio.
                   </p>
                 )}
               </>

@@ -35,15 +35,13 @@ import {
 import MovCampoConta from "@/components/transacao/MovCampoConta";
 import MovCamposBasicos from "@/components/transacao/MovCamposBasicos";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Props {
   contas: Conta[];
 }
 
 const INDEXADOR_LABEL: Record<string, string> = { cdi: "CDI", selic: "Selic" };
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
 // Datas "YYYY-MM-DD" (ou timestamps ISO) -> dd/mm/aaaa SEM passar por fuso
 const fmtIso = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");

@@ -16,9 +16,7 @@ import {
   type LoteEstado,
 } from "@/utils/aplicacaoSimulacao";
 import { resumirCarteira } from "@/utils/rendaVariavelUtils";
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+import { formatarMoeda } from "@/utils/formatadores";
 
 const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
 

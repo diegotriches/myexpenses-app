@@ -22,6 +22,7 @@ import { filtrarParceladas } from "@/utils/dashboardUtils";
 import type { Transacao } from "@/types/transacao";
 import type { AntecipacaoRegistro } from "@/services/parcelamentoService";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Props {
   onEditar: (mov: Transacao) => void;
@@ -107,9 +108,6 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
   const [quantidade, setQuantidade] = useState("1");
   const [desconto, setDesconto] = useState("");
   const [erroAntecipacao, setErroAntecipacao] = useState<string | null>(null);
-
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
   const formatarData = (data: string | Date) => {
     const date = typeof data === "string" ? new Date(data) : data;

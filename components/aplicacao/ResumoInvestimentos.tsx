@@ -13,9 +13,7 @@ import {
   estimarLiquidoTotal,
   type LoteEstado,
 } from "@/utils/aplicacaoSimulacao";
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+import { formatarMoeda } from "@/utils/formatadores";
 
 const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
 

@@ -7,9 +7,7 @@ import { LineChart, Banknote, TrendingUp, TrendingDown, Coins } from "lucide-rea
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { useRendaVariavel } from "@/hooks/useRendaVariavel";
 import { resumirCarteira } from "@/utils/rendaVariavelUtils";
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+import { formatarMoeda } from "@/utils/formatadores";
 
 const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
 

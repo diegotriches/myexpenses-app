@@ -43,6 +43,7 @@ import { Categoria } from "@/types/categoria";
 import { iconOptions } from "@/utils/iconOptions";
 import { useCategorias } from "@/hooks/useCategorias";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -62,9 +63,6 @@ interface TotaisResponse {
 
 const ANO_ATUAL = new Date().getFullYear();
 const ANOS_DISPONIVEIS = Array.from({ length: 6 }, (_, i) => ANO_ATUAL - i);
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
 // ─── Bottom Sheet — conteúdo dos detalhes mobile ─────────────────────────────
 

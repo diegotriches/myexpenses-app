@@ -15,14 +15,12 @@ import { useHideValues } from "@/contexts/HideValuesContext";
 import { useEstornoPrevia, useRegistrarEstorno } from "@/hooks/useTransacoes";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import type { TransacaoFatura } from "@/types/cartao";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Props {
   compra: TransacaoFatura;
   onClose: () => void;
 }
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
 const formatarData = (iso: string) => iso.split("-").reverse().join("/");
 const mesAno = (mes: number, ano: number) => `${String(mes).padStart(2, "0")}/${ano}`;

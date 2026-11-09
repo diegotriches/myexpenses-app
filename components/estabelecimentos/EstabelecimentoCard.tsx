@@ -22,6 +22,7 @@ import {
 import { iconOptions } from "@/utils/iconOptions";
 import { Estabelecimento } from "@/types/estabelecimento";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 type Props = {
   estabelecimento: Estabelecimento;
@@ -32,9 +33,6 @@ type Props = {
   // Mobile: ao clicar no card em tela pequena, delega para o pai abrir o bottom sheet
   onMobileSelect?: () => void;
 };
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
 export default function EstabelecimentoCard({
   estabelecimento,

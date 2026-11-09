@@ -42,6 +42,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { iconOptions } from "@/utils/iconOptions";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -86,9 +87,6 @@ const ANO_ATUAL = new Date().getFullYear();
 const ANO_MIN = ANO_ATUAL - 5;
 const ANO_MAX = ANO_ATUAL + 1;
 const POR_PAGINA = 50;
-
-const formatarMoeda = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 const formatarCompacto = (v: number) =>
   Math.abs(v) >= 1000 ? `R$ ${(v / 1000).toFixed(1)}k` : formatarMoeda(v);

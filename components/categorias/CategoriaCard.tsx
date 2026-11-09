@@ -22,6 +22,7 @@ import {
 import { iconOptions } from "@/utils/iconOptions";
 import { Categoria } from "@/types/categoria";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 type Props = {
   categoria: Categoria;
@@ -36,9 +37,6 @@ type Props = {
   // Abre o extrato (página) da categoria
   onVerExtrato?: () => void;
 };
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
 export default function CategoriaCard({
   categoria,

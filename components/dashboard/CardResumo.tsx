@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import type { DashboardResumo } from '@/types/dashboard';
-import { useHideValues } from '@/contexts/HideValuesContext';
+import { useMoeda } from "@/hooks/useMoeda";
 
 interface Props {
   resumo: DashboardResumo;
@@ -18,12 +18,8 @@ interface Props {
 }
 
 export function CardResumo({ resumo, despesasFuturas }: Props) {
-  const { mask } = useHideValues();
 
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
-
-  const fmt = (valor: number) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">

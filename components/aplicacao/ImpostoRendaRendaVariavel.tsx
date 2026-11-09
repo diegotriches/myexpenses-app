@@ -29,9 +29,8 @@ import {
   CONFIG_IR_PADRAO, apurarVendas, apurarMeses, resumirAnos, bensEDireitosEm,
   type ConfigIr, type MesIr, type OperacaoIr,
 } from "@/utils/irRendaVariavelUtils";
+import { formatarMoeda } from "@/utils/formatadores";
 
-const formatarMoeda = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 const fmtIso = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const nomeMes = (c: string) => `${MESES[Number(c.slice(5, 7)) - 1]}/${c.slice(0, 4)}`;

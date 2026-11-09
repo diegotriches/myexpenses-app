@@ -12,7 +12,7 @@ import {
 import { useRecorrentes } from "@/hooks/useDashboard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMemo } from "react";
-import { useHideValues } from "@/contexts/HideValuesContext";
+import { useMoeda } from "@/hooks/useMoeda";
 
 interface CardRecorrentesProps {
   ano: number;
@@ -20,15 +20,8 @@ interface CardRecorrentesProps {
 
 export function CardRecorrentes({ ano }: CardRecorrentesProps) {
   const { data: transacoes, isLoading, error } = useRecorrentes(ano);
-  const { mask } = useHideValues();
 
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(valor);
-
-  const fmt = (valor: number) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   const recorrenciasAgrupadas = useMemo(() => {
     if (!transacoes || transacoes.length === 0) return [];

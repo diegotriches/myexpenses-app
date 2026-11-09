@@ -41,13 +41,11 @@ import EventoCorporativoDialog from "@/components/aplicacao/EventoCorporativoDia
 import ImportarOperacoesDialog from "@/components/aplicacao/ImportarOperacoesDialog";
 import { EVENTO_LABEL, calcularPosicoes, dataEncerramento, encerramentoRecente } from "@/utils/rendaVariavelUtils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Props {
   contas: Conta[];
 }
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
 const formatarPreco = (valor: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(valor);

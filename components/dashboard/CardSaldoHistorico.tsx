@@ -26,6 +26,8 @@ import {
   type LoteEstado,
   type TaxaDia,
 } from "@/utils/aplicacaoSimulacao";
+import { formatarMoeda } from "@/utils/formatadores";
+import { useMoeda } from "@/hooks/useMoeda";
 
 const PERIODOS = [
   { label: "3m", value: "3" },
@@ -44,10 +46,6 @@ function formatarMes(mes: string) {
   } catch {
     return mes;
   }
-}
-
-function formatarMoeda(valor: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 }
 
 function formatarMoedaCurta(valor: number) {
@@ -156,7 +154,7 @@ export function CardSaldoHistorico() {
   const aplicacoesQuery = useAplicacoes();
   const { hidden, mask } = useHideValues();
 
-  const fmt = (v: number) => mask(formatarMoeda(v));
+  const fmt = useMoeda();
   const erroAplicacoes = aplicacoesQuery.isError;
   const carregando = loadingHistorico || aplicacoesQuery.isLoading;
 

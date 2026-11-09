@@ -4,11 +4,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ArrowUpCircle, ArrowDownCircle, Calendar, Clock } from 'lucide-react';
 import { useTransacoesRecentes } from '@/hooks/useDashboard';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useHideValues } from '@/contexts/HideValuesContext';
+import { useMoeda } from "@/hooks/useMoeda";
 
 export function CardTransacoesRecentes() {
   const { data, isLoading } = useTransacoesRecentes(5);
-  const { mask } = useHideValues();
 
   const transacoes = data?.transacoes ?? [];
 
@@ -21,10 +20,7 @@ export function CardTransacoesRecentes() {
     });
   };
 
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
-
-  const fmt = (valor: number) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   if (isLoading) {
     return (

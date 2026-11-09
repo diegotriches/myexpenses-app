@@ -27,6 +27,7 @@ import {
   sugerirTipoAtivoPorNome, paraOperacaoRv, saldoPorTicker,
   type LeituraOperacoes, type OperacaoImportavel,
 } from "@/utils/importacaoOperacoesUtils";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Props {
   open: boolean;
@@ -35,8 +36,6 @@ interface Props {
 }
 
 const fmtIso = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
-const formatarMoeda = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 async function lerArquivo(file: File) {
   const XLSX = await import("xlsx");

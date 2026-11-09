@@ -5,16 +5,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle2, Receipt, Gauge, Wallet } from "lucide-react";
-import { useHideValues } from "@/contexts/HideValuesContext";
 import { useFaturasAbertas } from "@/hooks/useDashboard";
 import type { Cartao } from "@/types/cartao";
+import { useMoeda } from "@/hooks/useMoeda";
 
 interface Props {
   cartoes: Cartao[];
 }
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
 const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
 
@@ -33,8 +30,7 @@ const VALOR = "text-base md:text-2xl font-bold leading-none md:leading-normal !m
 const SUB = "text-[9px] md:text-xs text-gray-500 dark:text-gray-400 leading-none md:leading-normal mt-0.5 md:mt-1.5 truncate";
 
 export default function ResumoCartoes({ cartoes }: Props) {
-  const { mask } = useHideValues();
-  const fmt = (v: number) => mask(formatarMoeda(v));
+  const fmt = useMoeda();
 
   const anoAtual = new Date().getFullYear();
 

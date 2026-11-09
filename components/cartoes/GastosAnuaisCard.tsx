@@ -14,6 +14,7 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CreditCard, Loader2, TrendingDown, CheckCircle2, Clock } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface PorMes {
   mes: number;
@@ -45,9 +46,6 @@ interface Props {
   /** Ano exibido — controlado pelo seletor de ano do Dashboard */
   ano: number;
 }
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
 const formatarCompacto = (valor: number) => {
   if (valor >= 1_000_000) return `R$${(valor / 1_000_000).toFixed(1)}M`;

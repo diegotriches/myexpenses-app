@@ -123,17 +123,3 @@ export function categoriasReceita(transacoes: Transacao[]): CategoriaTotal[] {
 export function categoriasDespesa(transacoes: Transacao[]): CategoriaTotal[] {
   return agruparPorCategoria(transacoes, 'saida');
 }
-
-/**
- * Formata valor para moeda brasileira
- * 
- * @param valor - Valor numérico
- * @returns String formatada (ex: "R$ 1.500,00")
- */
-export function formatarMoeda(valor: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(valor);
-}
-

@@ -49,7 +49,8 @@ import AdiantamentoFaturaModal from "@/components/fatura/AdiantamentoFaturaModal
 import AdiantamentosLista from "@/components/fatura/AdiantamentosLista";
 import AlertaFaturasPendentes from "@/components/fatura/AlertaFaturasPendentes";
 import { usePeriodo } from "@/contexts/PeriodoContext";
-import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
+import { useMoeda } from "@/hooks/useMoeda";
 
 const meses = [
   "Janeiro",
@@ -114,7 +115,6 @@ export default function FaturaPage() {
     setAnoSelecionado,
     registrarOnNavegacao,
   } = usePeriodo();
-  const { mask } = useHideValues();
   const { id } = params as { id: string };
 
   const mesUrl =
@@ -287,12 +287,7 @@ export default function FaturaPage() {
     }
   };
 
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(valor);
-  const fmt = (valor: number) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   if (!id) {
     return (

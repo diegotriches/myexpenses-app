@@ -8,6 +8,8 @@ import { TrendingUp, TrendingDown, DollarSign, Loader2, AlertCircle } from 'luci
 import { useGraficoMeses } from '@/hooks/useDashboard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useHideValues } from '@/contexts/HideValuesContext';
+import { formatarMoeda } from "@/utils/formatadores";
+import { useMoeda } from "@/hooks/useMoeda";
 
 type DadosGrafico = {
   mes: string;
@@ -35,13 +37,10 @@ export function CardGraficoMeses({ ano }: CardGraficoMesesProps) {
   const { data: dados, isLoading, error } = useGraficoMeses(ano);
   const { hidden, mask } = useHideValues();
 
-  const formatarMoeda = (value: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 }).format(value);
-
   const formatarMoedaCurta = (value: number) =>
     value >= 1000 ? `R$ ${(value / 1000).toFixed(1)}k` : formatarMoeda(value);
 
-  const fmt  = (v: number) => mask(formatarMoeda(v));
+  const fmt  = useMoeda();
   const fmtC = (v: number) => mask(formatarMoedaCurta(v));
 
   const totais = useMemo(() => {

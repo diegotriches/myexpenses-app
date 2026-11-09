@@ -13,6 +13,7 @@ import { TrendingUp, TrendingDown, Wallet, AlertCircle } from "lucide-react";
 import { empresaOptions } from "@/utils/cartaoOptions";
 import Image from "next/image";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Props {
   form: {
@@ -60,9 +61,6 @@ export default function MovCampoConta({
   })();
 
   const saldoProjetado = contaSelecionada ? saldoAtual + impactoLiquido : null;
-
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
   const getBancoImg = (banco?: string | null) => {
     if (!banco) return null;

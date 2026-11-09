@@ -38,6 +38,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Conta {
   id: string;
@@ -85,12 +86,6 @@ export default function PagarFaturaModal({
   }
 
   // Formatação monetária
-  const formatarMoeda = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor);
-  };
 
   // ✅ Verifica se conta tem saldo suficiente (suporta string)
   const contaSelecionada = contas.find(c => c.id === contaId);

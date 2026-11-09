@@ -7,7 +7,7 @@ import { TransacaoFatura } from "@/types/cartao";
 import { formatarDataCurta } from "@/utils/dateUtils";
 import { iconOptions } from "@/utils/iconOptions";
 import { useCategorias } from "@/hooks/useCategorias";
-import { useHideValues } from "@/contexts/HideValuesContext";
+import { useMoeda } from "@/hooks/useMoeda";
 
 interface Props {
   transacao: TransacaoFatura;
@@ -17,14 +17,8 @@ interface Props {
 
 export default function FaturaItem({ transacao, onEstornar, onExcluirEstorno }: Props) {
   const { data: categorias = [] } = useCategorias();
-  const { mask } = useHideValues();
 
-  const formatarMoeda = (valor: number | string) => {
-    const v = typeof valor === "string" ? parseFloat(valor) : valor;
-    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-  };
-
-  const fmt = (valor: number | string) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   const valorNum =
     typeof transacao.valor === "string"

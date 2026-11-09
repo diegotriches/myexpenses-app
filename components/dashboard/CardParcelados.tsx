@@ -7,16 +7,12 @@ import { useMemo } from 'react';
 import { useTransacoesTodas } from '@/hooks/useTransacoes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Transacao } from '@/types/transacao';
-import { useHideValues } from '@/contexts/HideValuesContext';
+import { useMoeda } from "@/hooks/useMoeda";
 
 export function CardParcelados() {
   const { data: transacoes = [], isLoading } = useTransacoesTodas();
-  const { mask } = useHideValues();
 
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
-
-  const fmt = (valor: number) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   const formatarData = (data: string | Date) => {
     const date = typeof data === 'string' ? new Date(data) : data;

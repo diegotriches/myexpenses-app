@@ -13,6 +13,7 @@ import { TrendingDown } from "lucide-react";
 import { empresaOptions } from "@/utils/cartaoOptions";
 import { CreditCard, AlertCircle, Wallet } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Props {
   form: {
@@ -71,9 +72,6 @@ export default function MovCampoCartao({
   const contaVinculada = cartaoSelecionado?.tipo === "debito" && cartaoSelecionado.contaVinculadaId
     ? contas.find((c) => c.id === cartaoSelecionado.contaVinculadaId) ?? null
     : null;
-
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
   if (isLoading && !hideSelect) {
     return (

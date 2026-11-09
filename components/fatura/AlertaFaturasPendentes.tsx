@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, ChevronRight, Loader2 } from "lucide-react";
 import type { FaturaPendente } from "@/hooks/useFaturasPendentes";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 const meses = [
   "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
@@ -39,9 +40,6 @@ export default function AlertaFaturasPendentes({
 }: Props) {
   const { mask } = useHideValues();
   const router = useRouter();
-
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
   const handleVerFatura = (pendente: FaturaPendente) => {
     if (onVerFatura) {

@@ -9,6 +9,8 @@ import { useTransacoesAno } from '@/hooks/useTransacoes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useHideValues } from '@/contexts/HideValuesContext';
+import { formatarMoeda } from "@/utils/formatadores";
+import { useMoeda } from "@/hooks/useMoeda";
 
 const CORES_RECEITA = [
   '#22c55e', '#16a34a', '#4ade80',
@@ -21,7 +23,7 @@ interface CardCategoriasReceitaProps {
 
 export function CardCategoriasReceita({ ano }: CardCategoriasReceitaProps) {
   const { data: transacoes = [], isLoading } = useTransacoesAno(ano);
-  const { hidden, mask } = useHideValues();
+  const { hidden } = useHideValues();
 
   const categorias = useMemo(() => categoriasReceita(transacoes), [transacoes]);
 
@@ -30,10 +32,7 @@ export function CardCategoriasReceita({ ano }: CardCategoriasReceitaProps) {
     [categorias]
   );
 
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
-
-  const fmt = (valor: number) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   const chartData = useMemo(() =>
     categorias.slice(0, 5).map((c, i) => ({

@@ -26,6 +26,7 @@ import { useContas } from "@/hooks/useContas";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Props {
   adiantamentos:      AdiantamentoFatura[];
@@ -36,9 +37,6 @@ interface Props {
   onCancelar:         (adiantamentoId: string) => Promise<void>;
   cancelando?:        boolean;
 }
-
-const formatarMoeda = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 export default function AdiantamentosLista({
   adiantamentos,

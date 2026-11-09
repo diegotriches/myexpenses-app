@@ -35,13 +35,11 @@ import {
   type ProventoRv, type ResultadoLeitura, type TipoProvento,
 } from "@/utils/proventosUtils";
 import MovCampoConta from "@/components/transacao/MovCampoConta";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Props {
   contas: Conta[];
 }
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
 const fmtIso = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 

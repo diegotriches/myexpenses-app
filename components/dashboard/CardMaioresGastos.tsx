@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { AlertTriangle, Calendar, Tag } from "lucide-react";
 import { useMaioresGastos } from "@/hooks/useDashboard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useHideValues } from "@/contexts/HideValuesContext";
+import { useMoeda } from "@/hooks/useMoeda";
 
 interface CardMaioresGastosProps {
   ano: number;
@@ -12,19 +12,12 @@ interface CardMaioresGastosProps {
 
 export function CardMaioresGastos({ ano }: CardMaioresGastosProps) {
   const { data, isLoading } = useMaioresGastos(ano, 5);
-  const { mask } = useHideValues();
 
   const gastos = data?.gastos ?? [];
   const total = data?.total ?? 0;
   const media = data?.media ?? 0;
 
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(valor);
-
-  const fmt = (valor: number) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   const formatarData = (data: string | Date) => {
     const date = typeof data === "string" ? new Date(data) : data;

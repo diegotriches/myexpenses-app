@@ -25,6 +25,7 @@ import {
 import { Conta } from "@/types/conta";
 import { useAjustarSaldo } from "@/hooks/useContas";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
 
 interface Props {
   open: boolean;
@@ -56,12 +57,6 @@ export default function ModalAjustarSaldo({ open, onClose, conta }: Props) {
   if (!conta) return null;
 
   // Formata moeda
-  const formatarMoeda = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor);
-  };
 
   // Calcula novo saldo
   const valorNumerico = parseFloat(valor) || 0;

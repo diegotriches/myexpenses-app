@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, X, Filter } from "lucide-react";
 import { useEstabelecimentos } from "@/hooks/useEstabelecimentos";
+import { formatarMoeda } from "@/utils/formatadores";
 
 export interface FiltrosState {
   tipo: "todas" | "entrada" | "saida" | "estorno";
@@ -77,10 +78,8 @@ export default function FiltrosMovimentacoes({
     return count;
   };
 
-  const formatarMoeda = (valor: string) => {
-    if (!valor) return "";
-    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(parseFloat(valor));
-  };
+  // Campo vazio fica vazio, em vez de "R$ 0,00"
+  const formatarFiltro = (valor: string) => (valor ? formatarMoeda(valor) : "");
 
   const nomeEstabelecimentoSelecionado =
     estabelecimentos.find((e) => e.id === filtros.estabelecimentoId)?.nome ?? "";
@@ -248,10 +247,10 @@ export default function FiltrosMovimentacoes({
                 <Badge variant="secondary" className="gap-1">
                   Valor:{" "}
                   {filtros.valorMin && filtros.valorMax
-                    ? `${formatarMoeda(filtros.valorMin)} até ${formatarMoeda(filtros.valorMax)}`
+                    ? `${formatarFiltro(filtros.valorMin)} até ${formatarFiltro(filtros.valorMax)}`
                     : filtros.valorMin
-                    ? `a partir de ${formatarMoeda(filtros.valorMin)}`
-                    : `até ${formatarMoeda(filtros.valorMax)}`}
+                    ? `a partir de ${formatarFiltro(filtros.valorMin)}`
+                    : `até ${formatarFiltro(filtros.valorMax)}`}
                   <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => onFiltrosChange({ ...filtros, valorMin: "", valorMax: "" })} />
                 </Badge>
               )}

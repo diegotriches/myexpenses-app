@@ -36,6 +36,8 @@ import { useRouter } from "next/navigation";
 import { empresaOptions, bandeiraOptions } from "@/utils/cartaoOptions";
 import { useContas } from "@/hooks/useContas";
 import { useHideValues } from "@/contexts/HideValuesContext";
+import { formatarMoeda } from "@/utils/formatadores";
+import { useMoeda } from "@/hooks/useMoeda";
 
 interface Props {
   cartao: Cartao;
@@ -68,16 +70,13 @@ export default function CartaoItem({
   const empresaImg  = getImgFromOption(empresaOptions,  cartao.empresa  ?? "");
   const bandeiraImg = getImgFromOption(bandeiraOptions, cartao.bandeira);
 
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
-
   const formatarMoedaCompacta = (valor: number) => {
     if (valor >= 1000000) return `R$ ${(valor / 1000000).toFixed(1)} mi`;
     if (valor >= 10000)   return `R$ ${(valor / 1000).toFixed(1)} mil`;
     return formatarMoeda(valor);
   };
 
-  const fmt  = (valor: number) => mask(formatarMoeda(valor));
+  const fmt  = useMoeda();
   const fmtC = (valor: number) => mask(formatarMoedaCompacta(valor));
 
   const limiteTotal      = Number(cartao.limite)           || 0;

@@ -8,11 +8,7 @@ import { db } from "@/db";
 import { notificacoes, preferenciasNotificacao } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import type { AlertaImpacto } from "./aplicarImpacto";
-
-const moeda = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-    v,
-  );
+import { formatarMoeda } from "@/utils/formatadores";
 
 // Respeita as preferências do usuário; sem registro = tudo ligado
 async function preferenciaAtiva(
@@ -60,7 +56,7 @@ export async function notificarImpactoRecorrencia(
         tipo: "RECORRENCIA_SALDO_NEGATIVO",
         severidade: "error",
         titulo: "Recorrência deixou a conta negativa",
-        mensagem: `A recorrência "${nome}" (${moeda(p.valor)}) foi lançada em ${p.dataTexto} e deixou ${origem} com saldo de ${moeda(alerta.saldoApos)}.`,
+        mensagem: `A recorrência "${nome}" (${formatarMoeda(p.valor)}) foi lançada em ${p.dataTexto} e deixou ${origem} com saldo de ${formatarMoeda(alerta.saldoApos)}.`,
         link: "/contas",
         metadata: {
           recorrenciaId: p.recorrenciaId,
@@ -81,7 +77,7 @@ export async function notificarImpactoRecorrencia(
       tipo: "RECORRENCIA_LIMITE_EXCEDIDO",
       severidade: "error",
       titulo: "Recorrência excedeu o limite do cartão",
-      mensagem: `A recorrência "${nome}" (${moeda(p.valor)}) foi lançada em ${p.dataTexto} e o cartão "${alerta.cartaoNome}" ficou com limite disponível de ${moeda(alerta.limiteDisponivelApos)}.`,
+      mensagem: `A recorrência "${nome}" (${formatarMoeda(p.valor)}) foi lançada em ${p.dataTexto} e o cartão "${alerta.cartaoNome}" ficou com limite disponível de ${formatarMoeda(alerta.limiteDisponivelApos)}.`,
       link: "/cartoes",
       metadata: {
         recorrenciaId: p.recorrenciaId,
@@ -116,7 +112,7 @@ export async function notificarErroRecorrencia(p: ErroParams): Promise<void> {
       tipo: "RECORRENCIA_ERRO",
       severidade: "error",
       titulo: "Não foi possível gerar uma recorrência",
-      mensagem: `A recorrência "${nome}" (${moeda(p.valor)}) não pôde ser gerada em ${p.dataTexto}. Confira os dados dela e lance a movimentação manualmente, se necessário.`,
+      mensagem: `A recorrência "${nome}" (${formatarMoeda(p.valor)}) não pôde ser gerada em ${p.dataTexto}. Confira os dados dela e lance a movimentação manualmente, se necessário.`,
       link: "/transacoes",
       metadata: {
         recorrenciaId: p.recorrenciaId,

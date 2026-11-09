@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { CheckCircle2, Clock, TrendingUp, CalendarDays } from "lucide-react";
 import { useValoresPeriodo } from "@/hooks/useDashboard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useHideValues } from "@/contexts/HideValuesContext";
+import { useMoeda } from "@/hooks/useMoeda";
 
 interface CardValoresProps {
   ano: number;
@@ -12,20 +12,13 @@ interface CardValoresProps {
 
 export function CardValores({ ano }: CardValoresProps) {
   const { data, isLoading } = useValoresPeriodo(ano);
-  const { mask } = useHideValues();
 
   const recebidos = data?.recebidos ?? 0;
   const aReceber = data?.aReceber ?? 0;
   const aPagar = data?.aPagar ?? 0;
   const projecao = data?.projecao ?? 0;
 
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(valor);
-
-  const fmt = (valor: number) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   if (isLoading) {
     return (

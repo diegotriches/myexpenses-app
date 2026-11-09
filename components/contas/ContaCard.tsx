@@ -31,7 +31,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { useHideValues } from "@/contexts/HideValuesContext";
+import { useMoeda } from "@/hooks/useMoeda";
 
 interface Props {
   conta: Conta;
@@ -58,16 +58,12 @@ export default function ContaCard({
   const [menuOpen, setMenuOpen] = useState(false);
   // ✅ NOVO: qual botão está em hover (desktop)
   const [botaoHover, setBotaoHover] = useState<BotaoAtivo>(null);
-  const { mask } = useHideValues();
 
   const bancoImagem = conta.banco
     ? `/contas/${conta.banco.toLowerCase()}.png`
     : null;
 
-  const formatarMoeda = (valor: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
-
-  const fmt = (valor: number) => mask(formatarMoeda(valor));
+  const fmt = useMoeda();
 
   const getCorSaldo = () => {
     if (conta.saldoAtual > 0) return "text-green-600 dark:text-green-400";

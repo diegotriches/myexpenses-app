@@ -38,9 +38,7 @@ import {
   useAtualizarEstabelecimento,
   useRemoverEstabelecimento,
 } from "@/hooks/useEstabelecimentos";
-
-const formatarMoeda = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+import { formatarMoeda } from "@/utils/formatadores";
 
 // ─── Bottom Sheet — detalhes no mobile ───────────────────────────────────────
 
