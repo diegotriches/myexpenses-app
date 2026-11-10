@@ -20,14 +20,14 @@ const DEMOS: { key: DemoKey; label: string; icon: typeof LayoutDashboard; src: s
     label: "Dashboard",
     icon: LayoutDashboard,
     src: "/videos/demo-dashboard.mp4",
-    poster: "/videos/demo-dashboard-poster.png",
+    poster: "/videos/demo-dashboard-poster.jpg",
   },
   {
     key: "movimentacao",
     label: "Nova Movimentação",
     icon: PlusCircle,
     src: "/videos/demo-movimentacao.mp4",
-    poster: "/videos/demo-movimentacao-poster.png",
+    poster: "/videos/demo-movimentacao-poster.jpg",
   },
 ];
 
