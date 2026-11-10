@@ -50,14 +50,22 @@ async function buscarFatura(leitor: LeitorBanco, userId: string, cartaoId: numbe
   return fatura;
 }
 
-async function proximaFaturaNaoPaga(leitor: LeitorBanco, userId: string, cartaoId: number, mes: number, ano: number) {
+/** A fatura do mês informado ou, se estiver paga, a próxima não paga (também usada pelas recorrências). */
+export async function proximaFaturaNaoPaga(
+  leitor: LeitorBanco,
+  userId: string,
+  cartaoId: number,
+  mes: number,
+  ano: number,
+  mensagemSemFatura = "Não foi encontrada uma fatura em aberto para lançar o estorno.",
+) {
   let atual = { mes, ano };
   for (let i = 0; i < 36; i++) {
     const fatura = await buscarFatura(leitor, userId, cartaoId, atual.mes, atual.ano);
     if (!fatura?.paga) return { ...atual, fatura };
     atual = mesSeguinte(atual.mes, atual.ano);
   }
-  throw new ErroFinanceiro("Não foi encontrada uma fatura em aberto para lançar o estorno.");
+  throw new ErroFinanceiro(mensagemSemFatura);
 }
 
 /**

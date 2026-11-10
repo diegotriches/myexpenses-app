@@ -8,14 +8,12 @@
 // O impacto é aplicado normalmente (saldo pode ficar negativo, limite pode
 // ficar negativo) e a função devolve um "alerta" para o chamador notificar.
 
-import { cartoes, faturas } from "@/db/schema";
+import { cartoes, faturas, transacoes } from "@/db/schema";
 import { movimentarConta, type TransacaoBanco } from "@/lib/movimentacaoConta";
 import { eq, and, sql } from "drizzle-orm";
 import { calcularLimiteDisponivel } from "@/lib/limiteCartao";
-import {
-  calcularFaturaDaTransacao,
-  proximaFaturaAberta,
-} from "@/utils/faturaUtils";
+import { calcularFaturaDaTransacao, calcularPeriodoFatura } from "@/utils/faturaUtils";
+import { proximaFaturaNaoPaga } from "@/lib/estornoTransacao";
 
 export type AlertaImpacto =
   | {
@@ -122,18 +120,28 @@ export async function aplicarImpactoRecorrencia(
       );
     }
 
-    // Crédito: soma na fatura e reduz o limite disponível
+    // Crédito: soma na fatura e reduz o limite disponível.
+    // Entra na fatura da data ou, se ela já estiver paga, na próxima não paga.
+    // A fatura é definida pela data (listagem, total e reversão), então a
+    // ocorrência movida passa a ser datada no início do ciclo de destino.
     if (cartao.tipo === "credito") {
       const diaFechamento = cartao.diaFechamento || 1;
-      const { mes: mesCalc, ano: anoCalc } = calcularFaturaDaTransacao(
-        data,
-        diaFechamento,
+      const daData = calcularFaturaDaTransacao(data, diaFechamento);
+      const { mes: mesFatura, ano: anoFatura } = await proximaFaturaNaoPaga(
+        tx,
+        userId,
+        cartaoId,
+        daData.mes,
+        daData.ano,
+        "Não foi encontrada uma fatura em aberto para lançar a recorrência.",
       );
-      const { mes: mesFatura, ano: anoFatura } = proximaFaturaAberta(
-        mesCalc,
-        anoCalc,
-        diaFechamento,
-      );
+
+      if (mesFatura !== daData.mes || anoFatura !== daData.ano) {
+        await tx
+          .update(transacoes)
+          .set({ data: calcularPeriodoFatura(mesFatura, anoFatura, diaFechamento).inicio })
+          .where(and(eq(transacoes.id, p.transacaoId), eq(transacoes.userId, userId)));
+      }
 
       const [faturaExistente] = await tx
         .select()

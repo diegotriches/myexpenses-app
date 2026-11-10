@@ -226,40 +226,6 @@ export function validarAdicaoTransacao(
 }
 
 // ========================================
-// RESOLUÇÃO DE FATURA DISPONÍVEL
-// ========================================
-
-/**
- * Retorna a primeira fatura não fechada a partir de um mês/ano de referência.
- * Avança mês a mês até encontrar uma fatura que ainda pode receber transações.
- * Proteção contra loop infinito: máximo de 24 meses à frente.
- *
- * @example
- * // Fatura jan/2026 e fev/2026 fechadas, mar/2026 aberta
- * proximaFaturaAberta(1, 2026, 10) → { mes: 3, ano: 2026 }
- */
-export function proximaFaturaAberta(
-  mes: number,
-  ano: number,
-  diaFechamento: number
-): { mes: number; ano: number } {
-  let m = mes;
-  let a = ano;
-
-  for (let i = 0; i < 24; i++) {
-    if (!faturaEstaFechada(m, a, diaFechamento)) {
-      return { mes: m, ano: a };
-    }
-    // Avança um mês
-    if (m === 12) { m = 1; a += 1; }
-    else { m += 1; }
-  }
-
-  // Fallback improvável: retorna 24 meses à frente
-  return { mes: m, ano: a };
-}
-
-// ========================================
 // FORMATAÇÃO
 // ========================================
 
