@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,11 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Conta } from "@/types/conta";
 import { 
   Pencil, 
@@ -28,8 +22,6 @@ import {
   Power,
   PowerOff,
   DollarSign,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import { useMoeda } from "@/hooks/useMoeda";
 
@@ -43,9 +35,6 @@ interface Props {
   onAjustarSaldo?: (conta: Conta) => void;
 }
 
-// Identificador de cada botão desktop
-type BotaoAtivo = "ajustar" | "extrato" | "transferir" | null;
-
 export default function ContaCard({
   conta,
   onEditar,
@@ -55,10 +44,6 @@ export default function ContaCard({
   onToggleAtivo,
   onAjustarSaldo,
 }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  // ✅ NOVO: qual botão está em hover (desktop)
-  const [botaoHover, setBotaoHover] = useState<BotaoAtivo>(null);
-
   const bancoImagem = conta.banco
     ? `/contas/${conta.banco.toLowerCase()}.png`
     : null;
@@ -72,21 +57,6 @@ export default function ContaCard({
   };
 
   const IconeSaldo = conta.saldoAtual >= 0 ? TrendingUp : TrendingDown;
-
-  // ─── Helpers para classes dos botões desktop ──────────────────────────────
-  //
-  // Regra:
-  //   • Nenhum hover → todos os botões com flex-1 (iguais)
-  //   • Hover num botão → ele expande (flex: 2 + mostra texto), os outros encolhem (flex: 0 → largura mínima)
-  //
-  // Usamos inline styles para controlar `flex` dinamicamente, pois classes
-  // Tailwind com valores arbitrários dinâmicos não são purged corretamente.
-
-  function getFlexStyle(id: BotaoAtivo): React.CSSProperties {
-    if (botaoHover === null) return { flex: 1 };
-    if (botaoHover === id)   return { flex: 2 };
-    return { flex: 0, minWidth: 0, overflow: "hidden" };
-  }
 
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
@@ -178,114 +148,43 @@ export default function ContaCard({
           </span>
         </div>
 
-        {/* ✅ Botões Desktop — hover expansivo */}
-        <div
-          className="hidden md:flex items-center gap-2 w-full"
-          onMouseLeave={() => setBotaoHover(null)}
-        >
+        {/* Ações: ícone e texto sempre visíveis, em qualquer tela (antes o nome só aparecia no
+            hover do mouse, e no celular ficava atrás de "Mais Opções") */}
+        <div className="grid grid-cols-3 gap-2">
           {onAjustarSaldo && (
             <button
+              type="button"
               onClick={() => onAjustarSaldo(conta)}
-              onMouseEnter={() => setBotaoHover("ajustar")}
-              style={getFlexStyle("ajustar")}
-              className={[
-                // Base
-                "flex items-center justify-center gap-2 h-10 rounded-md border text-sm font-medium",
-                "bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 text-blue-700",
-                "hover:from-blue-100 hover:to-blue-200 hover:text-blue-800",
-                "dark:from-blue-950/30 dark:to-blue-900/30 dark:border-blue-800 dark:text-blue-400 dark:hover:text-blue-300",
-                "transition-all duration-300 ease-in-out shadow-sm hover:shadow-md overflow-hidden whitespace-nowrap",
-              ].join(" ")}
+              title="Ajustar saldo"
+              className="flex items-center justify-center gap-1.5 h-9 rounded-md border text-xs font-medium transition-colors bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/40"
             >
-              <DollarSign size={18} className="flex-shrink-0" />
-              {botaoHover === "ajustar" && (
-                <span className="truncate">Ajustar Saldo</span>
-              )}
+              <DollarSign size={15} className="flex-shrink-0" />
+              <span className="truncate">Ajustar</span>
             </button>
           )}
-
           {onExtrato && (
             <button
+              type="button"
               onClick={() => onExtrato(conta)}
-              onMouseEnter={() => setBotaoHover("extrato")}
-              style={getFlexStyle("extrato")}
-              className={[
-                "flex items-center justify-center gap-2 h-10 rounded-md border text-sm font-medium",
-                "bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200 text-purple-700",
-                "hover:from-purple-100 hover:to-purple-200 hover:text-purple-800",
-                "dark:from-purple-950/30 dark:to-purple-900/30 dark:border-purple-800 dark:text-purple-400 dark:hover:text-purple-300",
-                "transition-all duration-300 ease-in-out shadow-sm hover:shadow-md overflow-hidden whitespace-nowrap",
-              ].join(" ")}
+              title="Ver extrato"
+              className="flex items-center justify-center gap-1.5 h-9 rounded-md border text-xs font-medium transition-colors bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 dark:bg-purple-950/30 dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/40"
             >
-              <FileText size={18} className="flex-shrink-0" />
-              {botaoHover === "extrato" && (
-                <span className="truncate">Ver Extrato</span>
-              )}
+              <FileText size={15} className="flex-shrink-0" />
+              <span className="truncate">Extrato</span>
             </button>
           )}
-
           {onTransferir && (
             <button
+              type="button"
               onClick={() => onTransferir(conta.id)}
-              onMouseEnter={() => setBotaoHover("transferir")}
-              style={getFlexStyle("transferir")}
-              className={[
-                "flex items-center justify-center gap-2 h-10 rounded-md border text-sm font-medium",
-                "bg-gradient-to-r from-green-50 to-green-100 border-green-200 text-green-700",
-                "hover:from-green-100 hover:to-green-200 hover:text-green-800",
-                "dark:from-green-950/30 dark:to-green-900/30 dark:border-green-800 dark:text-green-400 dark:hover:text-green-300",
-                "transition-all duration-300 ease-in-out shadow-sm hover:shadow-md overflow-hidden whitespace-nowrap",
-              ].join(" ")}
+              title="Nova transferência"
+              className="flex items-center justify-center gap-1.5 h-9 rounded-md border text-xs font-medium transition-colors bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-950/30 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/40"
             >
-              <Repeat size={18} className="flex-shrink-0" />
-              {botaoHover === "transferir" && (
-                <span className="truncate">Nova Transferência</span>
-              )}
+              <Repeat size={15} className="flex-shrink-0" />
+              <span className="truncate">Transferir</span>
             </button>
           )}
         </div>
-
-        {/* Botões Mobile — inalterados */}
-        <Collapsible open={menuOpen} onOpenChange={setMenuOpen} className="md:hidden">
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" className="w-full flex items-center justify-between">
-              <span className="text-sm font-medium">Mais Opções</span>
-              {menuOpen ? <ChevronUp size={16} className="ml-2" /> : <ChevronDown size={16} className="ml-2" />}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2 space-y-2">
-            {onAjustarSaldo && (
-              <Button
-                variant="outline" size="sm"
-                onClick={() => { onAjustarSaldo(conta); setMenuOpen(false); }}
-                className="w-full justify-start bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border-blue-200 text-blue-700 dark:from-blue-950/30 dark:to-blue-900/30 dark:border-blue-800 dark:text-blue-400"
-              >
-                <DollarSign size={16} className="mr-2" />
-                Ajustar Saldo
-              </Button>
-            )}
-            {onExtrato && (
-              <Button
-                variant="outline" size="sm"
-                onClick={() => { onExtrato(conta); setMenuOpen(false); }}
-                className="w-full justify-start bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 border-purple-200 text-purple-700 dark:from-purple-950/30 dark:to-purple-900/30 dark:border-purple-800 dark:text-purple-400"
-              >
-                <FileText size={16} className="mr-2" />
-                Ver Extrato
-              </Button>
-            )}
-            {onTransferir && (
-              <Button
-                variant="outline" size="sm"
-                onClick={() => { onTransferir(conta.id); setMenuOpen(false); }}
-                className="w-full justify-start bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 border-green-200 text-green-700 dark:from-green-950/30 dark:to-green-900/30 dark:border-green-800 dark:text-green-400"
-              >
-                <Repeat size={16} className="mr-2" />
-                Nova Transferência
-              </Button>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
       </CardContent>
     </Card>
   );

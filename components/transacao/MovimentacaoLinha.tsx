@@ -18,7 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useCategorias } from "@/hooks/useCategorias";
 import { useContas } from "@/hooks/useContas";
 import { formatarDataParaExibicao } from "@/utils/dateUtils";
-import { useHideValues } from "@/contexts/HideValuesContext";
+import { useMoeda } from "@/hooks/useMoeda";
 
 import {
   MoreVertical,
@@ -49,6 +49,9 @@ interface Props {
   // pendente (fatura ainda não paga) — bloqueia editar/excluir até o
   // usuário desfazer a antecipação na aba Parcelas
   bloqueada?: boolean;
+  // Tabela: false abaixo de 1536 px. Condição e Estabelecimento deixam de ser
+  // colunas e aparecem dentro de Pagamento e Descrição
+  colunasCompletas?: boolean;
 }
 
 const formaPagamentoConfig = {
@@ -68,10 +71,11 @@ export default function MovimentacaoLinha({
   onExcluir,
   viewMode = "table",
   bloqueada = false,
+  colunasCompletas = true,
 }: Props) {
   const { data: categorias = [] } = useCategorias();
   const { data: contas = [] }     = useContas();
-  const { mask } = useHideValues();
+  const fmt = useMoeda();
 
   const isTransferencia = !!mov.transferenciaId;
   const isEstorno       = mov.tipo === "estorno";
@@ -104,8 +108,9 @@ export default function MovimentacaoLinha({
   const FormaPagamentoIcon = formaPagamento?.icon;
   const CondicaoIcon       = condicao.icon;
 
-  const valorFormatado = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(mov.valor));
-  const valorExibido   = mask(valorFormatado);
+  const valorExibido = fmt(mov.valor);
+  const descricaoExibida = isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)";
+  const nomeContaOuCartao = isTransferencia ? null : mov.formaPagamento === "cartao" ? cartao?.nome ?? "Cartão" : contaAtual?.nome ?? null;
 
   // ── Célula Conta/Cartão ───────────────────────────────────────────────────
   const renderContaOuCartaoCell = () => {
@@ -133,39 +138,6 @@ export default function MovimentacaoLinha({
       );
     }
     return <span className="text-gray-400 dark:text-gray-600">—</span>;
-  };
-
-  // ── Bloco Conta/Cartão mobile ─────────────────────────────────────────────
-  const renderContaOuCartaoBlock = () => {
-    if (isTransferencia) return null;
-    if (mov.formaPagamento === "cartao" && cartao) {
-      const logoSrc = empresaOptions.find((e) => e.value === cartao.empresa)?.imgSrc;
-      return (
-        <div className="flex items-center justify-between">
-          <span className="text-gray-600 dark:text-gray-400">Cartão:</span>
-          <div className="flex items-center gap-2">
-            {logoSrc && <img src={logoSrc} alt={cartao.empresa} className="w-5 h-5 object-contain flex-shrink-0 rounded" />}
-            <span className="font-medium text-gray-900 dark:text-white truncate max-w-[150px]">{cartao.nome}</span>
-          </div>
-        </div>
-      );
-    }
-    if (contaAtual) {
-      const bancoLogoSrc = empresaOptions.find((e) => e.value === contaAtual.banco)?.imgSrc;
-      return (
-        <div className="flex items-center justify-between">
-          <span className="text-gray-600 dark:text-gray-400">Conta:</span>
-          <div className="flex items-center gap-2">
-            {bancoLogoSrc
-              ? <img src={bancoLogoSrc} alt={contaAtual.banco ?? ""} className="w-5 h-5 object-contain flex-shrink-0 rounded" />
-              : <Building2 className="w-4 h-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
-            }
-            <span className="font-medium text-gray-900 dark:text-white truncate max-w-[150px]">{contaAtual.nome}</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
   };
 
   // ✅ NOVO: menu de ações — os dois itens ficam desabilitados quando
@@ -207,98 +179,51 @@ export default function MovimentacaoLinha({
     </DropdownMenu>
   );
 
-  // ── MOBILE: card ──────────────────────────────────────────────────────────
+  // ── Celular: cartão compacto de duas linhas ───────────────────────────────
+  // Linha 1: descrição e valor. Linha 2: data, categoria, conta ou cartão,
+  // condição (quando não é à vista) e estabelecimento, mais o menu de ações.
   if (viewMode === "card") {
+    const detalhes = [
+      formatarDataParaExibicao(mov.data).slice(0, 5),
+      !isTransferencia ? mov.categoria : null,
+      nomeContaOuCartao,
+      !isTransferencia && condicao.label !== "À Vista" ? condicao.label : null,
+      estabelecimento?.nome ?? null,
+    ].filter(Boolean).join(" · ");
+    const IconeLinha = isTransferencia ? ArrowLeftRight : CategoriaIconComp ?? (creditoVisual ? ArrowUpCircle : ArrowDownCircle);
+    const cor = creditoVisual ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
+
     return (
-      <Card className={creditoVisual
-        ? "bg-green-50/30 dark:bg-green-950/10 border-green-200 dark:border-green-900"
-        : "bg-red-50/30 dark:bg-red-950/10 border-red-200 dark:border-red-900"
-      }>
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs text-gray-600 dark:text-gray-400">
-                  {formatarDataParaExibicao(mov.data)}
+      <Card className="py-0 gap-0 dark:bg-gray-900 dark:border-gray-800">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+              creditoVisual ? "bg-green-50 dark:bg-green-950/40" : "bg-red-50 dark:bg-red-950/40"
+            }`}>
+              <IconeLinha size={17} className={cor} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className={`text-sm font-medium truncate ${riscoEstornada || "text-gray-900 dark:text-white"}`} title={descricaoExibida}>
+                  {descricaoExibida}
+                </p>
+                <span className={`text-sm font-semibold whitespace-nowrap ${cor}`}>
+                  {creditoVisual ? "+" : "−"} {valorExibido}
                 </span>
-                {creditoVisual ? (
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
-                    <ArrowUpCircle className="w-3 h-3 mr-1" />{rotuloTipo}
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800">
-                    <ArrowDownCircle className="w-3 h-3 mr-1" />Despesa
-                  </Badge>
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {isEstorno && (
+                  <span className="text-[10px] font-medium px-1.5 rounded bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400">Estorno</span>
                 )}
                 {bloqueada && (
-                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
-                    <Lock className="w-3 h-3 mr-1" />Antecipada
-                  </Badge>
+                  <span className="text-[10px] font-medium px-1.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 inline-flex items-center gap-0.5">
+                    <Lock className="w-2.5 h-2.5" />Antecipada
+                  </span>
                 )}
+                <p className="flex-1 min-w-0 text-xs text-gray-500 dark:text-gray-400 truncate">{detalhes}</p>
               </div>
-              <h3 className={`font-semibold text-base line-clamp-2 ${riscoEstornada || "text-gray-900 dark:text-white"}`}>
-                {isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}
-              </h3>
             </div>
             {renderAcoesMenu()}
-          </div>
-
-          <div className={`text-2xl font-bold mb-3 ${creditoVisual ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-            {creditoVisual ? "+" : "-"} {valorExibido}
-          </div>
-
-          <div className="space-y-2 text-sm">
-            {!isTransferencia && (
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Categoria:</span>
-                <div className="flex items-center gap-2">
-                  {CategoriaIconComp && <CategoriaIconComp size={16} className={`flex-shrink-0 ${creditoVisual ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} />}
-                  <span className="font-medium text-gray-900 dark:text-white">{mov.categoria}</span>
-                </div>
-              </div>
-            )}
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Pagamento:</span>
-              {isTransferencia ? (
-                <div className="flex items-center gap-1.5">
-                  <ArrowLeftRight className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span className="font-medium text-blue-600 dark:text-blue-400">Transferência</span>
-                </div>
-              ) : FormaPagamentoIcon ? (
-                <div className="flex items-center gap-1.5">
-                  <FormaPagamentoIcon className={`w-4 h-4 ${formaPagamento.color}`} />
-                  <span className="font-medium text-gray-900 dark:text-white">{formaPagamento.label}</span>
-                </div>
-              ) : <span className="text-gray-400 dark:text-gray-600">—</span>}
-            </div>
-            {!isTransferencia && (
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Condição:</span>
-                <div className="flex items-center gap-1.5">
-                  <CondicaoIcon className={`w-4 h-4 ${condicao.color}`} />
-                  <span className="font-medium text-gray-900 dark:text-white">{condicao.label}</span>
-                </div>
-              </div>
-            )}
-            {renderContaOuCartaoBlock()}
-
-            {estabelecimento && (
-              <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-700">
-                <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                  <Store size={12} />
-                  Local:
-                </span>
-                <div className="flex items-center gap-1.5">
-                  {EstabIconComp
-                    ? <EstabIconComp size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                    : <Store size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                  }
-                  <span className="font-medium text-gray-900 dark:text-white truncate max-w-[150px]">
-                    {estabelecimento.nome}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -315,8 +240,15 @@ export default function MovimentacaoLinha({
       </td>
       <td className="px-3 py-3 text-sm text-gray-900 dark:text-gray-100 w-0 min-w-0" style={{ maxWidth: 0 }}>
         <div className="flex items-center gap-1.5">
-          <div className={`truncate ${riscoEstornada}`} title={isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}>
-            {isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)"}
+          <div className="min-w-0">
+            <div className={`truncate ${riscoEstornada}`} title={descricaoExibida}>
+              {descricaoExibida}
+            </div>
+            {!colunasCompletas && estabelecimento && (
+              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 truncate">
+                <Store size={11} className="flex-shrink-0" />{estabelecimento.nome}
+              </div>
+            )}
           </div>
           {bloqueada && (
             <span title={MOTIVO_BLOQUEIO} className="flex-shrink-0">
@@ -360,26 +292,36 @@ export default function MovimentacaoLinha({
             <span className="text-blue-600 dark:text-blue-400">Transferência</span>
           </div>
         ) : FormaPagamentoIcon ? (
-          <div className="flex items-center gap-1.5">
-            <FormaPagamentoIcon className={`w-4 h-4 flex-shrink-0 ${formaPagamento.color}`} />
-            <span>{formaPagamento.label}</span>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <FormaPagamentoIcon className={`w-4 h-4 flex-shrink-0 ${formaPagamento.color}`} />
+              <span>{formaPagamento.label}</span>
+            </div>
+            {!colunasCompletas && condicao.label !== "À Vista" && (
+              <div className={`flex items-center gap-1 text-xs ${condicao.color}`}>
+                <CondicaoIcon className="w-3 h-3 flex-shrink-0" />{condicao.label}
+              </div>
+            )}
           </div>
         ) : <span className="text-gray-400 dark:text-gray-600">—</span>}
       </td>
-      <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-        {isTransferencia ? (
-          <span className="text-gray-400 dark:text-gray-600">—</span>
-        ) : (
-          <div className="flex items-center gap-1.5">
-            <CondicaoIcon className={`w-4 h-4 flex-shrink-0 ${condicao.color}`} />
-            <span>{condicao.label}</span>
-          </div>
-        )}
-      </td>
+      {colunasCompletas && (
+        <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+          {isTransferencia ? (
+            <span className="text-gray-400 dark:text-gray-600">—</span>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <CondicaoIcon className={`w-4 h-4 flex-shrink-0 ${condicao.color}`} />
+              <span>{condicao.label}</span>
+            </div>
+          )}
+        </td>
+      )}
       <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
         {renderContaOuCartaoCell()}
       </td>
 
+      {colunasCompletas && (
       <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
         {estabelecimento ? (
           <div className="flex items-center gap-1.5 max-w-[110px]">
@@ -393,6 +335,7 @@ export default function MovimentacaoLinha({
           <span className="text-gray-400 dark:text-gray-600">—</span>
         )}
       </td>
+      )}
 
       <td className="px-3 py-3 text-center">
         {renderAcoesMenu()}

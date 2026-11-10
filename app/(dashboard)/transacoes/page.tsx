@@ -299,16 +299,16 @@ export default function TransacoesPage() {
       ) : (
         <Tabs defaultValue="movimentacoes" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3 max-w-xl">
-            <TabsTrigger value="movimentacoes" className="flex items-center gap-2">
-              <List className="w-4 h-4" />
+            <TabsTrigger value="movimentacoes" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+              <List className="w-4 h-4 hidden sm:block" />
               Movimentações
             </TabsTrigger>
-            <TabsTrigger value="parcelas" className="flex items-center gap-2">
-              <Layers className="w-4 h-4" />
+            <TabsTrigger value="parcelas" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+              <Layers className="w-4 h-4 hidden sm:block" />
               Parcelas
             </TabsTrigger>
-            <TabsTrigger value="recorrencias" className="flex items-center gap-2">
-              <Repeat className="w-4 h-4" />
+            <TabsTrigger value="recorrencias" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+              <Repeat className="w-4 h-4 hidden sm:block" />
               Recorrências
             </TabsTrigger>
           </TabsList>
