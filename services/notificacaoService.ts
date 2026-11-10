@@ -1,7 +1,9 @@
 import type {
   Notificacao,
   NotificacoesResponse,
+  PreferenciasNotificacao,
 } from "@/types/notificacao";
+import { comJson, requisicao } from "@/services/http";
 
 const API_URL = "/api/notificacoes";
 
@@ -67,6 +69,25 @@ export const notificacaoService = {
       method: "POST",
     });
     return handleResponse<{ message: string; criadas: number }>(res);
+  },
+
+  /**
+   * Preferências dos avisos automáticos (criadas com os padrões no primeiro acesso)
+   * GET /api/notificacoes/preferencias
+   */
+  obterPreferencias(): Promise<PreferenciasNotificacao> {
+    return requisicao<PreferenciasNotificacao>(`${API_URL}/preferencias`, undefined, "Erro ao carregar as preferências de notificação");
+  },
+
+  /**
+   * PUT /api/notificacoes/preferencias (só os campos enviados mudam)
+   */
+  salvarPreferencias(dados: Partial<PreferenciasNotificacao>): Promise<PreferenciasNotificacao> {
+    return requisicao<PreferenciasNotificacao>(
+      `${API_URL}/preferencias`,
+      comJson("PUT", dados),
+      "Erro ao salvar as preferências de notificação",
+    );
   },
 };
 

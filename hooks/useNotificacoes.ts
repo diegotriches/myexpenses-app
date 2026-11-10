@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { notificacaoService } from "@/services/notificacaoService";
 import { useToast } from "@/hooks/use-toast";
-import type { Notificacao, NotificacoesResponse } from "@/types/notificacao";
+import type { Notificacao, NotificacoesResponse, PreferenciasNotificacao } from "@/types/notificacao";
 
 // ========================================
 // QUERY KEYS
@@ -27,6 +27,41 @@ export function useNotificacoes(lidas?: boolean, limite?: number) {
     refetchInterval: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     retry: 1,
+  });
+}
+
+// ========================================
+// HOOKS: preferências dos avisos automáticos
+// ========================================
+
+export function usePreferenciasNotificacao() {
+  return useQuery({
+    queryKey: QUERY_KEYS.preferencias,
+    queryFn: () => notificacaoService.obterPreferencias(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Salva ao mudar (sem botão): aplica na hora e desfaz se a API recusar. */
+export function useSalvarPreferenciasNotificacao() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (dados: Partial<PreferenciasNotificacao>) => notificacaoService.salvarPreferencias(dados),
+    onMutate: async (dados) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.preferencias });
+      const anterior = queryClient.getQueryData<PreferenciasNotificacao>(QUERY_KEYS.preferencias);
+      if (anterior) queryClient.setQueryData<PreferenciasNotificacao>(QUERY_KEYS.preferencias, { ...anterior, ...dados });
+      return { anterior };
+    },
+    onError: (error: Error, _dados, contexto) => {
+      if (contexto?.anterior) queryClient.setQueryData(QUERY_KEYS.preferencias, contexto.anterior);
+      toast({ title: "Não foi possível salvar", description: error.message, variant: "destructive" });
+    },
+    onSuccess: (salvas) => {
+      queryClient.setQueryData(QUERY_KEYS.preferencias, salvas);
+    },
   });
 }
 

@@ -5,7 +5,7 @@ import { useMounted } from "@/hooks/useMounted";
 import { useTheme } from "next-themes";
 import { signOut } from "next-auth/react";
 import { BsList, BsChevronLeft, BsCalculatorFill } from "react-icons/bs";
-import { Sun, Moon, LogOut, MoreVertical, Eye, EyeOff, StickyNote } from "lucide-react";
+import { Sun, Moon, Monitor, LogOut, MoreVertical, Eye, EyeOff, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,6 +20,7 @@ import CalculadoraModal     from "@/components/common/CalculadoraModal";
 import NotasPanel           from "@/components/common/NotasPanel";
 import { NotificacaoPopover } from "@/components/notificacao/NotificacaoPopover";
 import { useHideValues }    from "@/contexts/HideValuesContext";
+import { proximoTema, rotuloAlternarTema } from "@/utils/tema";
 
 interface TopMenuProps {
   isCollapsed:   boolean;
@@ -27,7 +28,7 @@ interface TopMenuProps {
 }
 
 const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
-  const { setTheme, resolvedTheme } = useTheme();
+  const { setTheme, resolvedTheme, systemTheme } = useTheme();
   const mounted = useMounted();
   const [calculadoraOpen,   setCalculadoraOpen]   = useState(false);
   const [notasPanelOpen,    setNotasPanelOpen]    = useState(false);
@@ -35,8 +36,11 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
   const { hidden, toggle: toggleHide } = useHideValues();
 
 
+  // Alternar devolve ao tema do sistema quando o destino coincide com ele (utils/tema.ts)
+  const temaSeguinte = proximoTema(resolvedTheme, systemTheme);
+  const rotuloTema = rotuloAlternarTema(resolvedTheme, systemTheme);
   const alternarModo = () => {
-    setTheme(resolvedTheme === "dark" ? "light" : "dark");
+    setTheme(temaSeguinte);
   };
 
   const handleLogout = async () => {
@@ -148,10 +152,10 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
               variant="ghost" size="icon"
               onClick={alternarModo}
               className="hidden md:flex text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-800 touch-manipulation active:scale-95 transition-all duration-100 cursor-pointer"
-              title={resolvedTheme === "dark" ? "Modo claro" : "Modo escuro"}
-              aria-label={resolvedTheme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+              title={rotuloTema}
+              aria-label={rotuloTema}
             >
-              {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+              {temaSeguinte === "system" ? <Monitor size={20} /> : resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
             </Button>
 
             {/* Notificações - todas as telas */}
@@ -202,11 +206,14 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
                     onClick={alternarModo}
                     className="flex items-center gap-3 h-11 cursor-pointer dark:hover:bg-gray-700 dark:text-gray-200"
                   >
-                    {resolvedTheme === "dark" ? (
-                      <><Sun size={17} className="text-amber-500 flex-shrink-0" /><span>Modo Claro</span></>
+                    {temaSeguinte === "system" ? (
+                      <Monitor size={17} className="text-blue-500 flex-shrink-0" />
+                    ) : resolvedTheme === "dark" ? (
+                      <Sun size={17} className="text-amber-500 flex-shrink-0" />
                     ) : (
-                      <><Moon size={17} className="text-indigo-500 flex-shrink-0" /><span>Modo Escuro</span></>
+                      <Moon size={17} className="text-indigo-500 flex-shrink-0" />
                     )}
+                    <span>{rotuloTema}</span>
                   </DropdownMenuItem>
 
                   {/* Calculadora */}
