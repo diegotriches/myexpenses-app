@@ -801,7 +801,8 @@ export const operacoesRv = pgTable(
     tipo: text("tipo", { enum: ["compra", "venda"] }).notNull(),
     data: date("data").notNull(),
     quantidade: integer("quantidade").notNull(),
-    precoUnitario: numeric("preco_unitario", { precision: 14, scale: 4 }).notNull(),
+    // 10 casas: na importação o preço é valor ÷ quantidade, e 4 casas deixavam centavos de diferença no custo
+    precoUnitario: numeric("preco_unitario", { precision: 20, scale: 10 }).notNull(),
     // corretagem + emolumentos + taxa de liquidação etc. da operação (R$)
     taxas: numeric("taxas", { precision: 12, scale: 2 }).notNull().default("0"),
     // conta usada para pagar/receber (opcional quando é só registro histórico)

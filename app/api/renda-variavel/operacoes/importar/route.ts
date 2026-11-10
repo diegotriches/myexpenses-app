@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
             tipo: n.tipo,
             data: n.data,
             quantidade: n.quantidade,
-            precoUnitario: n.precoUnitario.toFixed(4),
+            precoUnitario: n.precoUnitario.toFixed(10),
             taxas: "0.00",
             contaId: null,
             movimentouConta: false,

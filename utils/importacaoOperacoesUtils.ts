@@ -176,7 +176,8 @@ export function lerPlanilhaOperacoes(linhas: unknown[][]): LeituraOperacoes {
       if (v === null || v <= 0) { ignorar("Linha inválida (ticker, data ou quantidade)"); continue; }
       tipo = credito ? "compra" : "venda";
       valor = r2(v);
-      preco = Math.round((valor / qtd) * 10000) / 10000;
+      // Sem arredondar a 4 casas: quantidade × preço precisa reproduzir o valor da planilha
+      preco = Number((valor / qtd).toFixed(10));
       dataLiq = data;
       dataNegocio = estimarDataNegocio(data);
       estimada = true;
