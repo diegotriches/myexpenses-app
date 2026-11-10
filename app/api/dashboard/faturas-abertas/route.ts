@@ -86,6 +86,8 @@ export async function GET() {
       // ── 2. Faturas atrasadas: abertas em meses ANTERIORES à fatura ativa ──
       const faturasAtrasadas = todasFaturas.filter((f) => {
         if (f.paga) return false;
+        // Zerada ou com crédito não tem o que pagar (o crédito migra pelo cron de faturas)
+        if (Number(f.total) <= 0) return false;
         // Anterior à fatura ativa
         if (f.ano < faturaAtiva.ano) return true;
         if (f.ano === faturaAtiva.ano && f.mes < faturaAtiva.mes) return true;
