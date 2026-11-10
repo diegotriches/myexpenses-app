@@ -25,6 +25,7 @@ export function CardMaioresGastos({ ano }: CardMaioresGastosProps) {
       day: "2-digit",
       month: "short",
       year: "numeric",
+      timeZone: "UTC", // data AAAA-MM-DD do banco: sem isso, mostra o dia anterior em Brasília
     });
   };
 

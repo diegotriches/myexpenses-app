@@ -15,6 +15,7 @@ import {
   reverterImpacto,
   transacaoEmFaturaPaga,
 } from "@/lib/impactoTransacao";
+import { formatarMoeda } from "@/utils/formatadores";
 
 type Transacao = typeof transacoes.$inferSelect;
 type Cartao = typeof cartoes.$inferSelect;
@@ -270,7 +271,7 @@ export async function estornarPorValor(tx: TransacaoBanco, e: EntradaEstorno) {
   }
   if (e.centavos <= 0) throw new ErroFinanceiro("Informe o valor do estorno.");
   if (e.centavos > contexto.centavosDisponiveis) {
-    throw new ErroFinanceiro(`O valor passa do disponível para estorno (R$ ${(contexto.centavosDisponiveis / 100).toFixed(2)}).`);
+    throw new ErroFinanceiro(`O valor passa do disponível para estorno (${formatarMoeda(contexto.centavosDisponiveis / 100)}).`);
   }
 
   return lancarEstorno(tx, {

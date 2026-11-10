@@ -7,6 +7,7 @@ import { getUserId } from "@/lib/auth";
 import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { respostaDeErro } from "@/lib/rota";
+import { formatarMoeda } from "@/utils/formatadores";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/cartoes/[id]/fatura/adiantamento?mes=M&ano=A
@@ -64,7 +65,7 @@ export async function POST(
 
     if (valorNum > saldoRestante)
       return NextResponse.json(
-        { error: `Valor excede o saldo restante da fatura (R$ ${saldoRestante.toFixed(2)})` },
+        { error: `Valor excede o saldo restante da fatura (${formatarMoeda(saldoRestante)})` },
         { status: 400 }
       );
 
@@ -96,7 +97,7 @@ export async function POST(
 
       const restante = Number(atual.total);
       if (valorNum > restante) {
-        throw new ErroFinanceiro(`Valor excede o saldo restante da fatura (R$ ${restante.toFixed(2)})`);
+        throw new ErroFinanceiro(`Valor excede o saldo restante da fatura (${formatarMoeda(restante)})`);
       }
 
       const [novo] = await tx

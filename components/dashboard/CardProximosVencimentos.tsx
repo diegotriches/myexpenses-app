@@ -55,10 +55,12 @@ export function CardProximosVencimentos() {
         {carregando ? (
           [...Array(3)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)
         ) : itens.length === 0 ? (
-          <div className="text-center py-8">
-            <CalendarClock className="w-10 h-10 text-gray-300 dark:text-gray-700 mx-auto mb-2" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Nada vence nos próximos {DIAS} dias</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Faturas de cartão e recorrências aparecem aqui.</p>
+          <div className="flex items-center gap-3 rounded-lg bg-gray-50 dark:bg-gray-800/40 px-3 py-3">
+            <CalendarClock className="w-6 h-6 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Nada vence nos próximos {DIAS} dias</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Faturas de cartão e recorrências aparecem aqui.</p>
+            </div>
           </div>
         ) : (
           <>

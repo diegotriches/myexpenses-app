@@ -16,7 +16,7 @@ export function CardParcelados() {
 
   const formatarData = (data: string | Date) => {
     const date = typeof data === 'string' ? new Date(data) : data;
-    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
   };
 
   const parceladas = useMemo(() => filtrarParceladas(transacoes), [transacoes]);

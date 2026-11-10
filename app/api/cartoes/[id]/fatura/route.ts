@@ -10,6 +10,7 @@ import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { calcularDataVencimento, valorNaFatura } from "@/utils/faturaUtils";
 import { respostaDeErro } from "@/lib/rota";
+import { formatarMoeda } from "@/utils/formatadores";
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 export async function GET(
@@ -263,7 +264,7 @@ export async function POST(
         tipo:       "FATURA_PAGA",
         severidade: "success",
         titulo:     `Fatura ${cartao.nome} paga com sucesso!`,
-        mensagem:   `Fatura de ${String(mes).padStart(2, "0")}/${ano} no valor de R$ ${valorAPagar.toFixed(2)} foi paga em ${dataPgto.toLocaleDateString("pt-BR")}.`,
+        mensagem:   `Fatura de ${String(mes).padStart(2, "0")}/${ano} no valor de ${formatarMoeda(valorAPagar)} foi paga em ${dataPgto.toLocaleDateString("pt-BR")}.`,
         link:       `/cartoes/${cartaoId}/fatura?mes=${mes}&ano=${ano}`,
         metadata:   { cartaoId: String(cartaoId), mes: String(mes), ano: String(ano), total: String(valorAPagar) },
       });

@@ -5,6 +5,7 @@ import { notificacoes, cartoes, faturas, preferenciasNotificacao, users } from "
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { respostaDeErro } from "@/lib/rota";
+import { formatarMoeda } from "@/utils/formatadores";
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
@@ -113,7 +114,7 @@ export async function POST() {
               await db.insert(notificacoes).values({
                 userId, tipo: "FATURA_VENCIDA", severidade: "error",
                 titulo:   `Fatura ${cartao.nome} vencida!`,
-                mensagem: `A fatura de ${fatura.mes}/${fatura.ano} está atrasada. Valor: R$ ${Number(fatura.total).toFixed(2)}`,
+                mensagem: `A fatura de ${fatura.mes}/${fatura.ano} está atrasada. Valor: ${formatarMoeda(Number(fatura.total))}`,
                 link: linkFatura, metadata: metadataFatura,
               });
               notificacoesCriadas++;
@@ -124,7 +125,7 @@ export async function POST() {
               await db.insert(notificacoes).values({
                 userId, tipo: "FATURA_PROXIMA_VENCIMENTO", severidade: "warning",
                 titulo:   `Fatura ${cartao.nome} vence em ${diasRestantes} ${diasRestantes === 1 ? "dia" : "dias"}`,
-                mensagem: `Vencimento: ${vencimento.toLocaleDateString("pt-BR")}. Valor: R$ ${Number(fatura.total).toFixed(2)}`,
+                mensagem: `Vencimento: ${vencimento.toLocaleDateString("pt-BR")}. Valor: ${formatarMoeda(Number(fatura.total))}`,
                 link: linkFatura, metadata: metadataFatura,
               });
               notificacoesCriadas++;
@@ -153,7 +154,7 @@ export async function POST() {
             await db.insert(notificacoes).values({
               userId, tipo: "LIMITE_CARTAO_95", severidade: "error",
               titulo:   `Limite do ${cartao.nome} quase esgotado!`,
-              mensagem: `${percentualUsado.toFixed(0)}% do limite usado. Disponível: R$ ${disponivel.toFixed(2)}`,
+              mensagem: `${percentualUsado.toFixed(0)}% do limite usado. Disponível: ${formatarMoeda(disponivel)}`,
               link: `/cartoes`,
               metadata: { ...metadataLimite, percentual: String(percentualUsado) },
             });
@@ -165,7 +166,7 @@ export async function POST() {
             await db.insert(notificacoes).values({
               userId, tipo: "LIMITE_CARTAO_80", severidade: "warning",
               titulo:   `Atenção ao limite do ${cartao.nome}`,
-              mensagem: `${percentualUsado.toFixed(0)}% do limite usado. Disponível: R$ ${disponivel.toFixed(2)}`,
+              mensagem: `${percentualUsado.toFixed(0)}% do limite usado. Disponível: ${formatarMoeda(disponivel)}`,
               link: `/cartoes`,
               metadata: { ...metadataLimite, percentual: String(percentualUsado) },
             });

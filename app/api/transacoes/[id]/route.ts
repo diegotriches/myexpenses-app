@@ -19,6 +19,7 @@ import { adicionarMeses } from "@/utils/dateUtils";
 import { distribuirValor } from "@/utils/faturaUtils";
 import { lerValorPositivo } from "@/lib/validators/financeiro";
 import { respostaDeErro } from "@/lib/rota";
+import { formatarMoeda } from "@/utils/formatadores";
 
 type Transacao = typeof transacoes.$inferSelect;
 type NovaTransacao = typeof transacoes.$inferInsert;
@@ -220,7 +221,7 @@ async function editarTodasParcelas({ tx, userId, json, camposBase }: Edicao) {
     throw new ErroFinanceiro("Todas as parcelas estão em faturas pagas: o valor total não pode ser alterado.");
   }
   if (abertas > 0 && centavosRestantes <= 0) {
-    throw new ErroFinanceiro(`O valor total deve ser maior que o já quitado em faturas pagas (R$ ${(centavosCongelados / 100).toFixed(2)}).`);
+    throw new ErroFinanceiro(`O valor total deve ser maior que o já quitado em faturas pagas (${formatarMoeda(centavosCongelados / 100)}).`);
   }
 
   const valoresAbertos = distribuirValor(centavosRestantes, abertas);

@@ -15,6 +15,7 @@ import {
 } from "@/utils/aplicacaoSimulacao";
 import type { Tributacao } from "@/utils/aplicacaoUtils";
 import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
+import { formatarMoeda } from "@/utils/formatadores";
 
 // Séries SGS do Banco Central — já retornam a taxa diária em %
 const SERIES_BCB = { cdi: 12, selic: 11 } as const;
@@ -314,7 +315,7 @@ export async function executarResgate(params: {
       valor: valorLiquido,
       data: hoje,
       descricao: impostoRetido > 0
-        ? `${rotulo} — ${ap.descricao || "Aplicação"} (IR retido: R$ ${impostoRetido.toFixed(2)})`
+        ? `${rotulo} — ${ap.descricao || "Aplicação"} (IR retido: ${formatarMoeda(impostoRetido)})`
         : `${rotulo} — ${ap.descricao || "Aplicação"}`,
       origem: "RESGATE_APLICACAO",
       referenciaId: ap.id,

@@ -5,20 +5,16 @@ import { ArrowUpCircle, ArrowDownCircle, Calendar, Clock } from 'lucide-react';
 import { useTransacoesRecentes } from '@/hooks/useDashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMoeda } from "@/hooks/useMoeda";
+import { formatarDataParaExibicao } from "@/utils/dateUtils";
 
 export function CardTransacoesRecentes() {
   const { data, isLoading } = useTransacoesRecentes(5);
 
   const transacoes = data?.transacoes ?? [];
 
-  const formatarData = (data: string | Date) => {
-    const date = typeof data === 'string' ? new Date(data) : data;
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
+  // "AAAA-MM-DD" do banco: new Date() leria como meia-noite UTC e mostraria o dia anterior em Brasília.
+  // Só dia e mês, para a linha caber no celular sem quebrar.
+  const formatarData = (data: string | Date) => formatarDataParaExibicao(data).slice(0, 5);
 
   const fmt = useMoeda();
 
@@ -80,9 +76,9 @@ export function CardTransacoesRecentes() {
                         {t.descricao || (isReceita ? 'Receita' : 'Despesa')}
                       </span>
 
-                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center gap-2 min-w-0 text-xs text-gray-500 dark:text-gray-400">
                         {t.data && (
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 whitespace-nowrap">
                             <Calendar className="w-3 h-3" />
                             {formatarData(t.data)}
                           </div>

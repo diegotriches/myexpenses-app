@@ -87,12 +87,12 @@ function KpiCard({
 
   return (
     <Card className="dark:bg-gray-800 dark:border-gray-700">
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">{titulo}</p>
-          <Icone className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+      <CardContent className="p-3 md:p-5">
+        <div className="flex items-center justify-between gap-2 mb-1.5 md:mb-3">
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 font-medium">{titulo}</p>
+          <Icone className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
         </div>
-        <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{mask(formatarMoeda(valor))}</p>
+        <p className="text-base sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-1 break-words">{mask(formatarMoeda(valor))}</p>
         {!neutro && (
           <p className={`text-xs flex items-center gap-1 ${cor}`}>
             {subindo ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
@@ -110,12 +110,12 @@ function KpiTaxa({ taxa, anterior, rotuloComparacao }: { taxa: number | null; an
   const diff = taxa !== null && anterior !== null ? taxa - anterior : null;
   return (
     <Card className="dark:bg-gray-800 dark:border-gray-700">
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Taxa de Poupança</p>
-          <PiggyBank className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+      <CardContent className="p-3 md:p-5">
+        <div className="flex items-center justify-between gap-2 mb-1.5 md:mb-3">
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 font-medium">Taxa de Poupança</p>
+          <PiggyBank className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
         </div>
-        <p className={`text-2xl font-bold mb-1 ${taxa !== null && taxa < 0 ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
+        <p className={`text-base sm:text-xl md:text-2xl font-bold mb-1 ${taxa !== null && taxa < 0 ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
           {taxa === null ? "—" : `${taxa}%`}
         </p>
         {diff !== null && diff !== 0 ? (
@@ -413,7 +413,7 @@ export default function ResumoAnualPage() {
       </div>
 
       {/* ── KPIs ───────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <KpiCard titulo="Total de Receitas" valor={data.totais.receitas} rotuloComparacao={rotuloComparacao}
           anterior={data.totaisAnteriores.receitas} icone={TrendingUp} corPositiva={true} />
         <KpiCard titulo="Total de Despesas" valor={data.totais.despesas} rotuloComparacao={rotuloComparacao}
@@ -424,11 +424,11 @@ export default function ResumoAnualPage() {
       </div>
 
       {/* ── Destaques ──────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
 
         {data.melhorMes && (
           <Card className="dark:bg-gray-800 dark:border-gray-700 border-green-200 dark:border-green-900">
-            <CardContent className="p-4">
+            <CardContent className="p-3 md:p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Award className="h-4 w-4 text-green-600 dark:text-green-400" />
                 <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Melhor Mês</p>
@@ -441,7 +441,7 @@ export default function ResumoAnualPage() {
 
         {data.piorMes && (
           <Card className="dark:bg-gray-800 dark:border-gray-700 border-red-200 dark:border-red-900">
-            <CardContent className="p-4">
+            <CardContent className="p-3 md:p-4">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-4 w-4 text-red-500 dark:text-red-400" />
                 <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Mês Mais Difícil</p>
@@ -455,7 +455,7 @@ export default function ResumoAnualPage() {
         )}
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Média Mensal</p>
@@ -469,7 +469,7 @@ export default function ResumoAnualPage() {
 
         {data.maiorDespesa && (
           <Card className="dark:bg-gray-800 dark:border-gray-700">
-            <CardContent className="p-4">
+            <CardContent className="p-3 md:p-4">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="h-4 w-4 text-orange-500 dark:text-orange-400" />
                 <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Maior Despesa</p>
