@@ -49,7 +49,7 @@ function AjustesContent() {
   }
 
   return (
-    <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-6">
+    <div className="page-container p-4 md:p-6 space-y-6">
       {/* Cabeçalho */}
       <div className="space-y-2">
         <div className="flex items-center gap-3">
@@ -157,7 +157,7 @@ export default function AjustesPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-6">
+        <div className="page-container p-4 md:p-6 space-y-6">
           <div className="space-y-2">
             <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 animate-pulse" />
             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse" />

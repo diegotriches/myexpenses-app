@@ -135,7 +135,7 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="max-w-[1200px] mx-auto p-6 space-y-6">
+    <div className="page-container p-4 md:p-6 space-y-6">
       {/* Header */}
       <div>
         <div className="flex items-center justify-between gap-2 mb-2">

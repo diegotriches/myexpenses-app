@@ -141,15 +141,21 @@ export function useMarcarTodasNotificacoesLidas() {
 // HOOK: useVerificarNotificacoes
 // ========================================
 
+/**
+ * Verifica e cria as notificações automáticas. Com `{ silencioso: true }` (a
+ * verificação ao abrir o app), só avisa quando surgir notificação nova; o clique
+ * em "Verificar novas" mostra o resultado sempre.
+ */
 export function useVerificarNotificacoes() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  return useMutation({
+  return useMutation<{ message: string; criadas: number }, Error, { silencioso?: boolean }>({
     mutationFn: () => notificacaoService.verificarNotificacoes(),
 
-    onSuccess: (data) => {
+    onSuccess: (data, opcoes) => {
       queryClient.invalidateQueries({ queryKey: ["notificacoes"] });
+      if (opcoes?.silencioso && data.criadas === 0) return;
       toast({
         title: "Notificações verificadas",
         description: data.criadas > 0
@@ -158,7 +164,8 @@ export function useVerificarNotificacoes() {
       });
     },
 
-    onError: (error: Error) => {
+    onError: (error: Error, opcoes) => {
+      if (opcoes?.silencioso) return;
       toast({
         title: "Erro ao verificar notificações",
         description: error.message,

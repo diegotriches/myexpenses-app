@@ -543,7 +543,7 @@ export default function RendaVariavel({ contas }: Props) {
 
             <TabsContent value="carteira" className="space-y-4">
               {carteira.ativos.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
                   {carteira.ativos.map((a) => <Fragment key={a.ticker}>{renderCartaoAtivo({ a })}</Fragment>)}
                 </div>
               )}
@@ -559,7 +559,7 @@ export default function RendaVariavel({ contas }: Props) {
                     Encerradas nos últimos 6 meses ({encerradosRecentes.length})
                   </button>
                   {verEncerrados && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                    <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3 items-start">
                       {encerradosRecentes.map((p) => <Fragment key={p.ticker}>{renderCartaoEncerrado({ p })}</Fragment>)}
                     </div>
                   )}
@@ -576,7 +576,7 @@ export default function RendaVariavel({ contas }: Props) {
                       Resultado realizado: <span className={`font-medium ${cor(g.resultado)}`}>{mask(formatarMoeda(g.resultado))}</span>
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3 items-start">
                     {g.posicoes.map((p) => <Fragment key={p.ticker}>{renderCartaoEncerrado({ p })}</Fragment>)}
                   </div>
                 </div>

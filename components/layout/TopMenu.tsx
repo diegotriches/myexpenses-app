@@ -49,7 +49,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
 
   if (!mounted) {
     return (
-      <header className="fixed top-0 left-0 right-0 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm z-30 flex items-center justify-between px-4 md:left-20 md:right-0 lg:left-64">
+      <header className="fixed top-0 left-0 right-0 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm z-30 flex items-center justify-between px-4 md:left-20 md:right-0 xl:left-64">
         <div className="flex items-center gap-3"><div className="w-10 h-10" /></div>
         <div className="flex items-center gap-2"><div className="w-10 h-10" /></div>
       </header>
@@ -65,8 +65,8 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
           border-b border-gray-200 dark:border-gray-700
           shadow-sm z-30
           transition-all duration-300
-          left-0 md:left-20
-          ${isCollapsed ? "lg:left-20" : "lg:left-64"}
+          left-0
+          ${isCollapsed ? "md:left-20" : "md:left-64"}
         `}
       >
         <div className="h-16 flex items-center justify-between px-4 md:px-6">

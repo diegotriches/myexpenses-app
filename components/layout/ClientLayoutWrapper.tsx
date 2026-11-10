@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import TopMenu from "@/components/layout/TopMenu";
 import { HideValuesProvider } from "@/contexts/HideValuesContext";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 interface ClientLayoutWrapperProps {
   children: ReactNode;
@@ -12,7 +13,11 @@ interface ClientLayoutWrapperProps {
 
 export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Entre 768 e 1279 px a barra lateral começa recolhida (aberta, ocupava um terço
+  // do tablet); o botão do menu continua abrindo e fechando em qualquer tamanho
+  const telaMedia = useMediaQuery("(min-width: 768px) and (max-width: 1279px)");
+  const [escolhaUsuario, setEscolhaUsuario] = useState<boolean | null>(null);
+  const isCollapsed = escolhaUsuario ?? telaMedia;
 
   const esconderNavbar =
     pathname === "/" ||
@@ -35,7 +40,7 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
 
         <div
           className={`
-    flex-1 flex flex-col min-h-screen w-full max-w-full
+    flex-1 flex flex-col min-h-screen w-full max-w-full min-w-0
     transition-all duration-300 ease-in-out
     bg-gray-50 dark:bg-gray-950
     ${!esconderNavbar ? (isCollapsed ? "md:ml-20" : "md:ml-64") : ""}
@@ -44,7 +49,7 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
           {!esconderNavbar && (
             <TopMenu
               isCollapsed={isCollapsed}
-              toggleSidebar={() => setIsCollapsed(!isCollapsed)}
+              toggleSidebar={() => setEscolhaUsuario(!isCollapsed)}
             />
           )}
 
@@ -53,7 +58,7 @@ export function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
           ) : (
             <main
               data-collapsed={isCollapsed ? "true" : "false"}
-              className="flex-1 w-full max-w-full p-4 md:p-6 pt-20 md:pt-24 transition-all duration-300"
+              className="flex-1 w-full max-w-full min-w-0 pt-16 md:pt-[4.5rem] pb-6 transition-all duration-300"
             >
               {children}
             </main>

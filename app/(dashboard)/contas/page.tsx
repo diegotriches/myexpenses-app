@@ -211,7 +211,7 @@ export default function ContasPage() {
   );
 
   return (
-    <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-6">
+    <div className="page-container p-4 md:p-6 space-y-6">
       {/* Cabeçalho */}
       <div>
         <div className="flex items-center gap-2 mb-2">
@@ -320,7 +320,7 @@ export default function ContasPage() {
 
       {/* Estados de carregamento e erro */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <Fragment key={i}>{renderSkeletonCard()}</Fragment>
           ))}
@@ -351,7 +351,7 @@ export default function ContasPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">Tente ajustar os filtros de busca</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
           {contasFiltradas.map((conta) => (
             <ContaCard
               key={conta.id}

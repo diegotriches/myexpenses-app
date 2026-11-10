@@ -93,7 +93,7 @@ export default function NotificacoesPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => verificarNotificacoes.mutate()}
+            onClick={() => verificarNotificacoes.mutate({})}
             disabled={verificarNotificacoes.isPending}
           >
             <RefreshCw className={cn("h-4 w-4 mr-2", verificarNotificacoes.isPending && "animate-spin")} />

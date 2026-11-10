@@ -204,7 +204,7 @@ export default function CartoesPage() {
   );
 
   return (
-    <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-6">
+    <div className="page-container p-4 md:p-6 space-y-6">
 
       {/* Header */}
       <header>
@@ -326,7 +326,7 @@ export default function CartoesPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Tente ajustar a busca</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 lg:gap-6">
                 {cartoesAtivos.map((cartao) => (
                   <CartaoItem
                     key={cartao.id}
@@ -349,7 +349,7 @@ export default function CartoesPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Cartões desativados aparecerão aqui</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
                 {cartoesInativos.map((cartao) => (
                   <CartaoItemInativo
                     key={cartao.id}
@@ -367,7 +367,7 @@ export default function CartoesPage() {
 
       {/* Loading */}
       {loading && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 lg:gap-6">
           {Array.from({ length: 4 }).map((_, i) => <Fragment key={i}>{renderSkeletonCard()}</Fragment>)}
         </div>
       )}

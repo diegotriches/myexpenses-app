@@ -55,8 +55,8 @@ export function NotificacaoPopover() {
     // Marca imediatamente para evitar chamadas duplas em StrictMode
     sessionStorage.setItem(SESSION_KEY, "1");
 
-    // Dispara em background — não bloqueia UI, erros são silenciosos
-    verificarNotificacoes.mutate(undefined, {
+    // Dispara em background, sem aviso: só avisa se surgir notificação nova
+    verificarNotificacoes.mutate({ silencioso: true }, {
       onError: () => {
         // Remove flag para tentar novamente na próxima sessão
         sessionStorage.removeItem(SESSION_KEY);
@@ -231,7 +231,7 @@ export function NotificacaoPopover() {
           <Button
             variant="ghost"
             className="w-full justify-center text-sm h-10 text-gray-500 dark:text-gray-400 touch-manipulation active:scale-[0.98] transition-transform"
-            onClick={() => verificarNotificacoes.mutate()}
+            onClick={() => verificarNotificacoes.mutate({})}
             disabled={verificarNotificacoes.isPending}
           >
             <RefreshCw className={cn("h-3.5 w-3.5 mr-2", verificarNotificacoes.isPending && "animate-spin")} />

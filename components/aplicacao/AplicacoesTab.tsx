@@ -320,7 +320,7 @@ export default function AplicacoesTab({ contas }: Props) {
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 px-1">
                 {grupo.nomeConta}
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
                 {grupo.aplicacoes.map((a) => {
                   const progresso = calcularProgresso(a);
                   const dias = diasRestantes(a);

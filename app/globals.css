@@ -539,11 +539,9 @@ canvas {
    ============================================ */
 
 @utility page-container {
-  max-width: 1200px;
+  max-width: 1600px;
   width: 100%;
   margin-inline: auto;
 }
 
-main[data-collapsed="true"] .page-container {
-  max-width: 100%;
-}
+/* A largura máxima é a mesma com a barra lateral aberta ou recolhida */
