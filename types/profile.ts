@@ -10,6 +10,8 @@ export interface Usuario {
   createdAt: string | Date;
   // ✅ NOVO: indica se o usuário tem senha cadastrada (false = conta OAuth)
   hasPassword: boolean;
+  // E-mail novo aguardando confirmação pelo link; o e-mail atual vale até lá
+  emailPendente?: string | null;
 }
 
 /**

@@ -91,6 +91,19 @@ export const profileService = {
   },
 
   /**
+   * Desiste da troca de e-mail em aberto
+   * DELETE /api/users/[id]/troca-email
+   */
+  async cancelarTrocaEmail(userId: string): Promise<Usuario> {
+    const res = await fetch(`${API_URL}/${userId}/troca-email`, { method: "DELETE" });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || error.message || "Erro ao cancelar a troca de e-mail");
+    }
+    return res.json();
+  },
+
+  /**
    * Deleta conta do usuário
    * DELETE /api/users/[id]
    * ✅ CORRIGIDO: senha é opcional — usuários OAuth não enviam senha

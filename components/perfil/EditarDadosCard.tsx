@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Save, X, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
-import { useAtualizarProfile } from "@/hooks/useProfile";
+import { Save, X, CheckCircle, AlertCircle, Loader2, MailWarning } from "lucide-react";
+import { useAtualizarProfile, useCancelarTrocaEmail } from "@/hooks/useProfile";
 import type { Usuario } from "@/types/profile";
 
 interface Props {
@@ -26,6 +26,7 @@ export default function EditarDadosCard({ usuario }: Props) {
 
   // React Query Mutation
   const atualizarProfile = useAtualizarProfile();
+  const cancelarTroca = useCancelarTrocaEmail();
 
   // Ajusta o estado durante o render quando as dependências mudam (inclusive na montagem)
   const [depsAnteriores, setDepsAnteriores] = useState<readonly unknown[] | null>(null);
@@ -58,7 +59,7 @@ export default function EditarDadosCard({ usuario }: Props) {
     }
 
     if (!form.email || form.email.trim() === "") {
-      novosErros.email = "Email é obrigatório";
+      novosErros.email = "E-mail é obrigatório";
     } else if (!validarEmail(form.email)) {
       novosErros.email = "E-mail inválido";
     }
@@ -94,14 +95,10 @@ export default function EditarDadosCard({ usuario }: Props) {
         email: form.email.trim().toLowerCase(),
       };
 
+      // O formulário volta aos dados devolvidos pela API: o e-mail só muda após a confirmação
       await atualizarProfile.mutateAsync({
         userId: usuario.id,
         dados: payload,
-      });
-
-      setUsuarioOriginal({ 
-        name: form.name.trim(), 
-        email: form.email.trim().toLowerCase(),
       });
 
       setSucesso(true);
@@ -109,13 +106,10 @@ export default function EditarDadosCard({ usuario }: Props) {
       // Remove mensagem de sucesso após 3 segundos
       setTimeout(() => setSucesso(false), 3000);
 
-    } catch (err: any) {
-      console.error("Erro ao salvar dados:", err);
-      
-      // Verifica se é erro de email duplicado
-      if (err.message?.toLowerCase().includes("email") && 
-          err.message?.toLowerCase().includes("já existe")) {
-        setErrors({ email: "Este email já está em uso" });
+    } catch (err) {
+      // E-mail de outra conta: mostra no próprio campo (o toast já trata os demais erros)
+      if (err instanceof Error && err.message.toLowerCase().includes("em uso")) {
+        setErrors({ email: "Este e-mail já está em uso" });
       }
     }
   };
@@ -137,6 +131,31 @@ export default function EditarDadosCard({ usuario }: Props) {
           <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
           <AlertDescription className="text-green-800 dark:text-green-200">
             Suas informações foram atualizadas com sucesso!
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Troca de e-mail aguardando o link */}
+      {usuario.emailPendente && (
+        <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-900">
+          <MailWarning className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertDescription className="text-amber-800 dark:text-amber-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <span>
+                Aguardando confirmação de <strong>{usuario.emailPendente}</strong>. Abra o link enviado
+                para esse endereço; até lá, a conta continua usando {usuario.email}.
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => cancelarTroca.mutate(usuario.id)}
+                disabled={cancelarTroca.isPending}
+                className="flex-shrink-0"
+              >
+                {cancelarTroca.isPending && <Loader2 size={14} className="mr-2 animate-spin" />}
+                Cancelar troca
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       )}
@@ -188,7 +207,7 @@ export default function EditarDadosCard({ usuario }: Props) {
             </div>
           )}
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Certifique-se de que tem acesso a este email
+            Ao trocar, enviamos um link de confirmação para o novo endereço; o e-mail só muda depois que você abrir o link.
           </p>
         </div>
       </div>

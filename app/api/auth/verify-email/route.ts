@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users, verificationTokens } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { respostaDeErro } from "@/lib/rota";
+import { ehTokenDeTrocaEmail } from "@/lib/trocaEmail";
 
 /**
  * GET /api/auth/verify-email?token=xxx
@@ -47,6 +48,14 @@ export async function GET(req: Request) {
           alreadyVerified: true,
         },
         { status: 200 }
+      );
+    }
+
+    // Link de troca de e-mail tem tela e rota próprias (/confirmar-email)
+    if (ehTokenDeTrocaEmail(registro.identifier)) {
+      return NextResponse.json(
+        { error: "Este link é de troca de e-mail. Abra-o pelo e-mail recebido." },
+        { status: 400 }
       );
     }
 

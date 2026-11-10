@@ -437,3 +437,139 @@ MyExpenses - Gestão Financeira Pessoal
   });
 }
 
+
+// ========================================
+// TROCA DE E-MAIL
+// ========================================
+
+/** Estilo compartilhado pelos e-mails de troca de endereço */
+const ESTILO_TROCA_EMAIL = `
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; padding: 20px; }
+  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+  .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center; }
+  .content { padding: 40px 30px; }
+  .button { display: inline-block; padding: 16px 32px; background: #667eea; color: white !important; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
+  .link-box { background: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0; word-break: break-all; font-size: 13px; color: #666; font-family: monospace; }
+  .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 8px; margin: 20px 0; color: #856404; font-size: 14px; }
+  .footer { background: #f9f9f9; padding: 30px; text-align: center; border-top: 1px solid #e0e0e0; font-size: 14px; color: #888; }
+`;
+
+const escaparHtml = (texto: string) =>
+  texto.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** Link para confirmar o novo endereço; a troca só acontece ao abrir o link. */
+export async function sendEmailChangeConfirmation(to: string, name: string, token: string) {
+  const link = `${APP_URL}/confirmar-email?token=${encodeURIComponent(token)}`;
+  const nome = escaparHtml(name);
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Confirme seu novo e-mail</title>
+        <style>${ESTILO_TROCA_EMAIL}</style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📧 Confirme seu novo e-mail</h1>
+            <p style="margin: 0; opacity: 0.9;">MyExpenses - Gestão Financeira</p>
+          </div>
+          <div class="content">
+            <p style="font-size: 18px; margin-bottom: 16px;">Olá, <strong>${nome}</strong>!</p>
+            <p style="margin-bottom: 16px;">Recebemos um pedido para usar este endereço na sua conta do <strong>MyExpenses</strong>. Para confirmar a troca, clique no botão abaixo:</p>
+            <div style="text-align: center;">
+              <a href="${link}" class="button">✅ Confirmar novo e-mail</a>
+            </div>
+            <p style="font-size: 14px; color: #888; margin-top: 24px;">Se o botão não funcionar, copie e cole este link no seu navegador:</p>
+            <div class="link-box">${link}</div>
+            <div class="warning">
+              <strong>⚠️ Este link expira em 24 horas.</strong><br>
+              Até a confirmação, a conta continua usando o e-mail anterior. Se você não pediu esta troca, ignore este e-mail.
+            </div>
+          </div>
+          <div class="footer">
+            <p><strong>MyExpenses</strong> - Gestão Financeira Pessoal</p>
+            <p style="margin-top: 8px; font-size: 12px;">Este é um e-mail automático, por favor não responda.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const text = `
+Confirme seu novo e-mail - MyExpenses
+
+Olá, ${name}!
+
+Recebemos um pedido para usar este endereço na sua conta do MyExpenses.
+Para confirmar a troca, acesse o link abaixo:
+${link}
+
+⚠️ Este link expira em 24 horas. Até a confirmação, a conta continua usando o e-mail anterior.
+
+Se você não pediu esta troca, ignore este e-mail.
+
+---
+MyExpenses - Gestão Financeira Pessoal
+  `;
+
+  return sendEmailWithRetry({ to, subject: "📧 Confirme seu novo e-mail no MyExpenses", html, text });
+}
+
+/** Aviso ao endereço antigo depois da troca, para o dono perceber uma alteração que não fez. */
+export async function sendEmailChangedNotice(to: string, name: string, novoEmail: string) {
+  const nome = escaparHtml(name);
+  const novo = escaparHtml(novoEmail);
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Seu e-mail foi alterado</title>
+        <style>${ESTILO_TROCA_EMAIL}</style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔔 Seu e-mail foi alterado</h1>
+            <p style="margin: 0; opacity: 0.9;">MyExpenses - Gestão Financeira</p>
+          </div>
+          <div class="content">
+            <p style="font-size: 18px; margin-bottom: 16px;">Olá, <strong>${nome}</strong>!</p>
+            <p style="margin-bottom: 16px;">O e-mail da sua conta do <strong>MyExpenses</strong> foi alterado para <strong>${novo}</strong>. Este endereço deixa de receber mensagens da conta.</p>
+            <div class="warning">
+              <strong>⚠️ Não foi você?</strong><br>
+              Entre em contato pela página de contato do MyExpenses o quanto antes.
+            </div>
+          </div>
+          <div class="footer">
+            <p><strong>MyExpenses</strong> - Gestão Financeira Pessoal</p>
+            <p style="margin-top: 8px; font-size: 12px;">Este é um e-mail automático, por favor não responda.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const text = `
+Seu e-mail foi alterado - MyExpenses
+
+Olá, ${name}!
+
+O e-mail da sua conta do MyExpenses foi alterado para ${novoEmail}.
+Este endereço deixa de receber mensagens da conta.
+
+⚠️ Não foi você? Entre em contato pela página de contato do MyExpenses o quanto antes.
+
+---
+MyExpenses - Gestão Financeira Pessoal
+  `;
+
+  return sendEmailWithRetry({ to, subject: "🔔 O e-mail da sua conta MyExpenses foi alterado", html, text });
+}

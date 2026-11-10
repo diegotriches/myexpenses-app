@@ -39,19 +39,23 @@ export function useAtualizarProfile() {
         QUERY_KEYS.profile,
       );
       if (previousProfile) {
+        // Só o nome muda na hora; o e-mail espera a confirmação pelo link
         queryClient.setQueryData<Usuario>(QUERY_KEYS.profile, {
           ...previousProfile,
-          ...dados,
+          ...(dados.name !== undefined && { name: dados.name }),
         });
       }
       return { previousProfile };
     },
 
-    onSuccess: (data) => {
+    onSuccess: (data, { dados }) => {
       queryClient.setQueryData(QUERY_KEYS.profile, data);
+      const pediuTroca = !!dados.email && dados.email === data.emailPendente;
       toast({
-        title: "Perfil atualizado!",
-        description: "Suas informações foram salvas com sucesso.",
+        title: pediuTroca ? "Confirme o novo e-mail" : "Perfil atualizado!",
+        description: pediuTroca
+          ? `Enviamos um link para ${data.emailPendente}. O e-mail da conta só muda depois que você abrir o link.`
+          : "Suas informações foram salvas com sucesso.",
       });
     },
 
@@ -64,6 +68,22 @@ export function useAtualizarProfile() {
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+}
+
+export function useCancelarTrocaEmail() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (userId: string) => profileService.cancelarTrocaEmail(userId),
+    onSuccess: (data) => {
+      queryClient.setQueryData(QUERY_KEYS.profile, data);
+      toast({ title: "Troca de e-mail cancelada", description: "O link enviado deixou de valer." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao cancelar a troca", description: error.message, variant: "destructive" });
     },
   });
 }

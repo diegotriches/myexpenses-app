@@ -6,11 +6,13 @@ import { getToken } from "next-auth/jwt";
 import bcrypt from "bcryptjs";
 import { getUserId } from "@/lib/auth";
 import { respostaDeErro } from "@/lib/rota";
+import { solicitarTrocaEmail } from "@/lib/trocaEmail";
+import { perfilDoUsuario } from "@/lib/perfilUsuario";
 
 // Janela de reautenticação OAuth aceita (5 minutos)
 const OAUTH_REAUTH_WINDOW_SEGUNDOS = 5 * 60;
 
-// PUT - Atualizar perfil (nome/email)
+// PUT - Atualizar perfil: nome na hora; e-mail novo vira pedido de troca, confirmado por link
 export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> },
@@ -30,66 +32,50 @@ export async function PUT(
     // ✅ 3. Verificar ownership
     if (userId !== targetId) {
       return NextResponse.json(
-        { message: "Você não tem permissão para editar outro usuário" },
+        { error: "Você não tem permissão para editar outro usuário" },
         { status: 403 },
       );
     }
 
-    const body = await req.json();
-    const { name, email } = body;
+    const body = (await req.json().catch(() => ({}))) as { name?: unknown; email?: unknown };
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const email = typeof body.email === "string" ? body.email.toLowerCase().trim() : "";
 
     // ✅ 4. Validar entrada
-    if (!name || name.trim().length < 2) {
+    if (name.length < 2) {
       return NextResponse.json(
-        { message: "Nome deve ter ao menos 2 caracteres" },
+        { error: "Nome deve ter ao menos 2 caracteres" },
         { status: 400 },
       );
     }
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json({ message: "E-mail inválido" }, { status: 400 });
+      return NextResponse.json({ error: "E-mail inválido" }, { status: 400 });
     }
 
-    // ✅ 5. Verificar se email já existe (para outro usuário)
-    const emailNormalizado = email.toLowerCase().trim();
-    const [emailExistente] = await db
-      .select()
+    const [atual] = await db
+      .select({ email: users.email })
       .from(users)
-      .where(eq(users.email, emailNormalizado))
+      .where(eq(users.id, userId))
       .limit(1);
 
-    if (emailExistente && emailExistente.id !== userId) {
+    if (!atual) {
       return NextResponse.json(
-        { message: "Este email já está em uso" },
-        { status: 409 },
-      );
-    }
-
-    // ✅ 6. Atualizar apenas campos permitidos
-    const [atualizado] = await db
-      .update(users)
-      .set({
-        name: name.trim(),
-        email: emailNormalizado,
-      })
-      .where(eq(users.id, userId))
-      .returning({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        image: users.image,
-        emailVerified: users.emailVerified,
-        createdAt: users.createdAt,
-      });
-
-    if (!atualizado) {
-      return NextResponse.json(
-        { message: "Usuário não encontrado" },
+        { error: "Usuário não encontrado" },
         { status: 404 },
       );
     }
 
-    return NextResponse.json(atualizado);
+    // ✅ 5. Nome muda na hora
+    await db.update(users).set({ name }).where(eq(users.id, userId));
+
+    // ✅ 6. E-mail só muda depois de confirmado pelo link enviado ao endereço novo
+    // (mesmo e-mail mantém um pedido em aberto; cancelar é DELETE /api/users/[id]/troca-email)
+    if (email !== atual.email) {
+      await solicitarTrocaEmail(userId, name, email);
+    }
+
+    return NextResponse.json(await perfilDoUsuario(userId));
   } catch (err) {
     return respostaDeErro(err, "Erro ao atualizar usuário");
   }
