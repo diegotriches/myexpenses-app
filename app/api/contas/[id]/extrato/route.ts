@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { extratoConta, contas } from "@/db/schema";
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { extratoConta, contas, extratoOrigemEnum, extratoTipoEnum } from "@/db/schema";
+import { eq, and, gte, lte, sql, desc, sum, type SQL } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { respostaDeErro } from "@/lib/rota";
+import { acumuladoNaConta, centavos, saldoAposLinha, valorAssinado } from "@/lib/saldoExtrato";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
 };
+
+type Origem = (typeof extratoOrigemEnum.enumValues)[number];
+type Tipo = (typeof extratoTipoEnum.enumValues)[number];
+
+const ehOrigem = (v: string): v is Origem => (extratoOrigemEnum.enumValues as readonly string[]).includes(v);
+const ehTipo = (v: string): v is Tipo => (extratoTipoEnum.enumValues as readonly string[]).includes(v);
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
@@ -49,101 +56,87 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const limit   = Math.min(Number(searchParams.get("limit")  ?? 50), 100);
     const offset  = Number(searchParams.get("offset") ?? 0);
 
-    // ── Filtros para a query principal (movimentações exibidas) ──────────────
-    const filtros = [
-      eq(extratoConta.contaId, contaId),
-      eq(extratoConta.userId, userId),
-    ];
+    const daConta = and(eq(extratoConta.contaId, contaId), eq(extratoConta.userId, userId));
+    const saldoAtual = Number(conta.saldoAtual);
 
-    if (inicio) filtros.push(gte(extratoConta.data, inicio));
-    if (fim)    filtros.push(lte(extratoConta.data, fim));
+    // ── Saldo de cada linha, derivado das linhas (ver lib/saldoExtrato.ts) ──
+    // A soma acumulada é feita sobre TODAS as linhas da conta, antes dos filtros,
+    // para o saldo exibido não depender de período, origem ou tipo escolhidos.
+    const comSaldo = db
+      .select({
+        id: extratoConta.id,
+        contaId: extratoConta.contaId,
+        data: extratoConta.data,
+        tipo: extratoConta.tipo,
+        descricao: extratoConta.descricao,
+        valor: extratoConta.valor,
+        origem: extratoConta.origem,
+        referenciaId: extratoConta.referenciaId,
+        createdAt: extratoConta.createdAt,
+        acumulado: acumuladoNaConta.as("acumulado"),
+      })
+      .from(extratoConta)
+      .where(daConta)
+      .as("e");
 
-    if (origem && origem !== "TODAS") {
-      filtros.push(eq(extratoConta.origem, origem as any));
-    }
+    // ── Filtros das movimentações exibidas ───────────────────────────────────
+    const filtros: SQL[] = [];
+    if (inicio) filtros.push(gte(comSaldo.data, inicio));
+    if (fim)    filtros.push(lte(comSaldo.data, fim));
+    if (origem && origem !== "TODAS" && ehOrigem(origem)) filtros.push(eq(comSaldo.origem, origem));
+    if (tipo && tipo !== "TODOS" && ehTipo(tipo)) filtros.push(eq(comSaldo.tipo, tipo));
 
-    if (tipo && tipo !== "TODOS") {
-      filtros.push(eq(extratoConta.tipo, tipo as any));
-    }
-
-    // ── Query principal ──────────────────────────────────────────────────────
     const registros = await db
       .select()
-      .from(extratoConta)
-      .where(and(...filtros))
-      .orderBy(desc(extratoConta.data), desc(extratoConta.createdAt))
+      .from(comSaldo)
+      .where(filtros.length ? and(...filtros) : undefined)
+      .orderBy(desc(comSaldo.data), desc(comSaldo.createdAt), desc(comSaldo.id))
       .limit(limit)
       .offset(offset);
 
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)` })
+      .from(comSaldo)
+      .where(filtros.length ? and(...filtros) : undefined);
+
+    const [{ total: totalDaContaTexto }] = await db
+      .select({ total: sum(valorAssinado) })
       .from(extratoConta)
-      .where(and(...filtros));
+      .where(daConta);
+    const totalDaConta = Number(totalDaContaTexto ?? 0);
 
-    // ── Resumo — SEMPRE calculado ────────────────────────────────────────────
-    // Filtros de data para o resumo (sem tipo/origem para refletir saldo real)
-    const filtrosResumo = [
-      eq(extratoConta.contaId, contaId),
-      eq(extratoConta.userId, userId),
-      ...(inicio ? [gte(extratoConta.data, inicio)] : []),
-      ...(fim    ? [lte(extratoConta.data, fim)]    : []),
-    ];
-
+    // ── Resumo do período (sem tipo/origem, para refletir o saldo real) ──────
     const movimentacoesPeriodo = await db
       .select({ tipo: extratoConta.tipo, valor: extratoConta.valor })
       .from(extratoConta)
-      .where(and(...filtrosResumo));
+      .where(and(
+        daConta,
+        ...(inicio ? [gte(extratoConta.data, inicio)] : []),
+        ...(fim    ? [lte(extratoConta.data, fim)]    : []),
+      ));
 
-    const totalEntradas = movimentacoesPeriodo
+    const totalEntradas = centavos(movimentacoesPeriodo
       .filter((m) => m.tipo === "entrada")
-      .reduce((sum, m) => sum + Number(m.valor), 0);
+      .reduce((s, m) => s + Number(m.valor), 0));
 
-    const totalSaidas = movimentacoesPeriodo
+    const totalSaidas = centavos(movimentacoesPeriodo
       .filter((m) => m.tipo === "saida")
-      .reduce((sum, m) => sum + Number(m.valor), 0);
+      .reduce((s, m) => s + Number(m.valor), 0));
 
-    // ── Saldo Inicial ────────────────────────────────────────────────────────
-    // Saldo imediatamente ANTES do período:
-    // → Com filtro de início: saldoApos da última mov ESTRITAMENTE antes de `inicio`
-    // → Sem filtro de início: 0, porque o extrato já contém o lançamento de
-    //   abertura da conta (origem AJUSTE, "Saldo inicial da conta") como primeira
-    //   movimentação. Usar conta.saldoInicial aqui causaria dupla contagem,
-    //   pois esse valor já está incluído em totalEntradas via o registro AJUSTE.
+    // Saldo imediatamente antes do período: o atual menos tudo o que veio a partir do início.
+    // Sem início, é o saldo antes da primeira linha (zero, já que a abertura da conta é uma linha).
     let saldoInicial: number;
-
     if (inicio) {
-      const filtroAnterior = [
-        eq(extratoConta.contaId, contaId),
-        eq(extratoConta.userId, userId),
-        sql`${extratoConta.data} < ${inicio}`,
-      ];
-
-      const [movAnterior] = await db
-        .select({ saldoApos: extratoConta.saldoApos })
+      const [{ total: aPartirDoInicio }] = await db
+        .select({ total: sum(valorAssinado) })
         .from(extratoConta)
-        .where(and(...filtroAnterior))
-        .orderBy(desc(extratoConta.data), desc(extratoConta.createdAt))
-        .limit(1);
-
-      saldoInicial = movAnterior
-        ? Number(movAnterior.saldoApos)
-        : Number(conta.saldoInicial ?? 0);
+        .where(and(daConta, gte(extratoConta.data, inicio)));
+      saldoInicial = centavos(saldoAtual - Number(aPartirDoInicio ?? 0));
     } else {
-      // Sem filtro de data: saldoInicial = 0 para evitar dupla contagem com o
-      // lançamento AJUSTE de abertura que já está em totalEntradas.
-      saldoInicial = 0;
+      saldoInicial = centavos(saldoAtual - totalDaConta);
     }
 
-    // ── Saldo Final ──────────────────────────────────────────────────────────
-    // CORREÇÃO: calculado aritmeticamente a partir do saldoInicial do período.
-    // Não depende de ordenação de registros nem de casos-borda de "sem filtro".
-    //
-    // Fórmula: saldoFinal = saldoInicial + totalEntradas - totalSaidas
-    //
-    // Isso é sempre correto porque totalEntradas e totalSaidas já filtram
-    // APENAS as movimentações do período (filtrosResumo), sem tipo/origem,
-    // refletindo o impacto real no saldo da conta no intervalo.
-    const saldoFinal = saldoInicial + totalEntradas - totalSaidas;
+    const saldoFinal = centavos(saldoInicial + totalEntradas - totalSaidas);
 
     const resumo = {
       contaId: conta.id,
@@ -152,7 +145,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       saldoFinal,
       totalEntradas,
       totalSaidas,
-      variacao: saldoFinal - saldoInicial,
+      variacao: centavos(saldoFinal - saldoInicial),
       periodo: { inicio, fim },
     };
 
@@ -172,7 +165,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         tipo: r.tipo,
         descricao: r.descricao,
         valor: Number(r.valor),
-        saldoApos: Number(r.saldoApos),
+        saldoApos: saldoAposLinha(saldoAtual, totalDaConta, Number(r.acumulado)),
         origem: r.origem,
         referenciaId: r.referenciaId,
         createdAt: r.createdAt,

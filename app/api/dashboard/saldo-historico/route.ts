@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { extratoConta, contas } from "@/db/schema";
-import { eq, and, lte } from "drizzle-orm";
+import { eq, and, gt } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { respostaDeErro } from "@/lib/rota";
+import { centavos, valorAssinado } from "@/lib/saldoExtrato";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 
 /**
  * GET /api/dashboard/saldo-historico?periodo=6
  *
- * Retorna o saldo total consolidado de todas as contas mes a mes.
+ * Saldo total consolidado das contas ativas no fim de cada mês.
  *
- * OTIMIZADO: busca todos os extratos de uma vez com uma unica query,
- * depois agrupa em memoria por conta/mes — eliminando o loop N x M.
+ * O saldo é derivado das linhas do extrato, ancorado no saldo atual
+ * (ver lib/saldoExtrato.ts): saldo no fim do mês = saldo atual − soma das
+ * linhas com data posterior. Assim lançamentos retroativos, edições e
+ * exclusões aparecem no histórico, o que o `saldo_apos` gravado não garante.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -25,14 +29,14 @@ export async function GET(req: NextRequest) {
 
     if (isNaN(numMeses) || numMeses < 1 || numMeses > 12) {
       return NextResponse.json(
-        { error: "Periodo invalido (1-12 meses)" },
+        { error: "Período inválido (1-12 meses)" },
         { status: 400 }
       );
     }
 
-    // 1. Buscar contas ativas
+    // 1. Contas ativas
     const contasUsuario = await db
-      .select()
+      .select({ id: contas.id, saldoAtual: contas.saldoAtual })
       .from(contas)
       .where(and(eq(contas.userId, userId), eq(contas.ativo, true)));
 
@@ -40,92 +44,34 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([]);
     }
 
-    // 2. Gerar meses e calcular data de corte (inicio do periodo)
-    const hoje = new Date();
-    const meses: { ano: number; mes: number; label: string; fimMes: string }[] = [];
+    // 2. Meses do período, terminando no mês atual (fuso BRT)
+    const [anoAtual, mesAtual] = hojeBrt().split("-").map(Number);
+    const meses: { label: string; fimMes: string }[] = [];
 
     for (let i = numMeses - 1; i >= 0; i--) {
-      const data = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-      const ano = data.getFullYear();
-      const mes = data.getMonth() + 1;
-      const ultimoDia = new Date(ano, mes, 0).getDate();
-      meses.push({
-        ano,
-        mes,
-        label: ano + "-" + String(mes).padStart(2, "0"),
-        fimMes: ano + "-" + String(mes).padStart(2, "0") + "-" + ultimoDia,
-      });
+      const base = new Date(Date.UTC(anoAtual, mesAtual - 1 - i, 1));
+      const ano = base.getUTCFullYear();
+      const mes = base.getUTCMonth() + 1;
+      const ultimoDia = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+      const label = ano + "-" + String(mes).padStart(2, "0");
+      meses.push({ label, fimMes: label + "-" + String(ultimoDia).padStart(2, "0") });
     }
 
-    // Data de corte: fim do ultimo mes do periodo
-    const fimPeriodo = meses[meses.length - 1].fimMes;
-
-    // 3. UMA UNICA QUERY: todos os extratos de todas as contas ate o fim do periodo
-    const todosExtratos = await db
-      .select({
-        contaId: extratoConta.contaId,
-        data: extratoConta.data,
-        saldoApos: extratoConta.saldoApos,
-        createdAt: extratoConta.createdAt,
-      })
+    // 3. Uma query: linhas posteriores ao fim do primeiro mês (inclui datas futuras)
+    const posteriores = await db
+      .select({ contaId: extratoConta.contaId, data: extratoConta.data, valor: valorAssinado })
       .from(extratoConta)
-      .where(
-        and(
-          eq(extratoConta.userId, userId),
-          lte(extratoConta.data, fimPeriodo)
-        )
-      )
-      .orderBy(extratoConta.data, extratoConta.createdAt);
+      .where(and(eq(extratoConta.userId, userId), gt(extratoConta.data, meses[0].fimMes)));
 
-    // 4. Agrupar extratos por contaId em memoria
-    // Map<contaId, array de movimentacoes ordenadas por data>
-    const extratosPorConta = new Map<string, { data: string; saldoApos: number; createdAt: Date }[]>();
+    const ativas = new Set(contasUsuario.map((c) => c.id));
+    const saldoAtualTotal = contasUsuario.reduce((s, c) => s + Number(c.saldoAtual), 0);
 
-    for (const e of todosExtratos) {
-      const lista = extratosPorConta.get(e.contaId) ?? [];
-      lista.push({
-        data: typeof e.data === "string" ? e.data : (e.data as Date).toISOString().split("T")[0],
-        saldoApos: Number(e.saldoApos),
-        createdAt: e.createdAt instanceof Date ? e.createdAt : new Date(e.createdAt),
-      });
-      extratosPorConta.set(e.contaId, lista);
-    }
-
-    // Saldo inicial por conta (usado quando nao ha movimentacao no periodo)
-    const saldoInicialMap = new Map(
-      contasUsuario.map((c) => [c.id, Number(c.saldoInicial)])
-    );
-
-    // 5. Calcular saldo por mes em memoria — zero queries adicionais
+    // 4. Fim de cada mês = saldo atual − linhas de contas ativas depois dessa data
     const resultado = meses.map(({ label, fimMes }) => {
-      let saldoTotal = 0;
-
-      for (const conta of contasUsuario) {
-        const movimentacoes = extratosPorConta.get(conta.id) ?? [];
-
-        // Pegar a ultima movimentacao ate o fim do mes
-        // (lista ja esta ordenada por data asc)
-        let ultimoSaldo: number | null = null;
-        for (const mov of movimentacoes) {
-          if (mov.data <= fimMes) {
-            ultimoSaldo = mov.saldoApos;
-          } else {
-            break;
-          }
-        }
-
-        if (ultimoSaldo !== null) {
-          saldoTotal += ultimoSaldo;
-        } else {
-          // Sem movimentacoes ate esse mes — usa saldo inicial
-          saldoTotal += saldoInicialMap.get(conta.id) ?? 0;
-        }
-      }
-
-      return {
-        mes: label,
-        saldoTotal: Math.round(saldoTotal * 100) / 100,
-      };
+      const depois = posteriores
+        .filter((l) => ativas.has(l.contaId) && l.data > fimMes)
+        .reduce((s, l) => s + Number(l.valor), 0);
+      return { mes: label, saldoTotal: centavos(saldoAtualTotal - depois) };
     });
 
     return NextResponse.json(resultado);
