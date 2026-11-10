@@ -2,6 +2,22 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Entrada da landing: use com motion-safe: para respeitar "reduzir movimento" */
+@theme {
+  --animate-fade-in-up: fade-in-up 0.7s ease-out both;
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

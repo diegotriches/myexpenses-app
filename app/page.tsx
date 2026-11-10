@@ -1,318 +1,312 @@
-"use client";
+// Página pública: apresentação do app e portfólio do projeto.
+// Renderizada no servidor; só o tema e a demonstração em vídeo rodam no navegador.
+// Quem já tem sessão é levado ao dashboard pelo proxy.ts, antes de a página carregar.
 
-import { useState } from "react";
-import { useTheme } from "next-themes";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { BsCashCoin } from "react-icons/bs";
+import type { LucideIcon } from "lucide-react";
 import {
-  FiTrendingUp,
-  FiDollarSign,
-  FiPieChart,
-  FiShield,
-  FiArrowRight,
-  FiChevronDown,
-  FiCode,
-  FiDatabase,
-  FiLayers,
-  FiZap,
-  FiLock,
-  FiSun,
-  FiMoon
-} from "react-icons/fi";
-import { AutoRedirectIfAuthenticated } from "@/components/auth/AutoRedirectIfAuthenticated";
+  ArrowRight,
+  ChartCandlestick,
+  Clock,
+  CreditCard,
+  Database,
+  DatabaseBackup,
+  Github,
+  Layers,
+  LayoutDashboard,
+  LockKeyhole,
+  PiggyBank,
+  Receipt,
+  Repeat,
+  Server,
+  ShieldCheck,
+  TestTubeDiagonal,
+  Wallet,
+} from "lucide-react";
+import { BsCashCoin } from "react-icons/bs";
 import HeroDemo from "@/components/landing/HeroDemo";
-import { useMounted } from "@/hooks/useMounted";
+import ThemeToggle from "@/components/landing/ThemeToggle";
 
-export default function LandingPage() {
-  const [techStackOpen, setTechStackOpen] = useState(false);
-  const { theme, setTheme } = useTheme();
-  const mounted = useMounted();
+const DESCRICAO =
+  "Projeto pessoal de finanças: contas, cartões, investimentos e o imposto de renda da bolsa em um só lugar. Next.js 16, TypeScript e Postgres.";
 
-  return (
-    <AutoRedirectIfAuthenticated
-      redirectTo="/dashboard"
-      showInlineIndicator
-      inlineIndicatorMessage="Verificando login salvo..."
-    >
-      <main className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden">
-          <div className="absolute inset-0">
-            <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
-            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-          </div>
+export const metadata: Metadata = {
+  title: "MyExpenses: finanças pessoais",
+  description: DESCRICAO,
+  openGraph: {
+    title: "MyExpenses",
+    description: DESCRICAO,
+    type: "website",
+    locale: "pt_BR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MyExpenses",
+    description: DESCRICAO,
+  },
+};
 
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 lg:pt-20 lg:pb-28">
-            {mounted && (
-              <div className="fixed top-6 right-6 z-50">
-                <button
-                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className="group p-3 bg-white/10 backdrop-blur-sm hover:bg-white/20 rounded-full border border-white/20 transition-all shadow-lg hover:shadow-xl hover:scale-110"
-                  aria-label="Alternar tema"
-                >
-                  {theme === "dark" ? (
-                    <FiSun className="text-yellow-300 group-hover:rotate-180 transition-transform duration-500" size={24} />
-                  ) : (
-                    <FiMoon className="text-blue-200 group-hover:-rotate-12 transition-transform duration-500" size={24} />
-                  )}
-                </button>
-              </div>
-            )}
+const GITHUB_PERFIL = "https://github.com/diegotriches";
 
-            <div className="flex justify-center lg:justify-start mb-10 lg:mb-8">
-              <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm px-6 py-3 rounded-full border border-white/20 hover:bg-white/20 transition-all">
-                <BsCashCoin className="text-yellow-300" size={32} />
-                <span className="font-bold text-2xl text-white">MyExpenses</span>
-              </div>
-            </div>
-
-            {/* ✅ NOVO: Hero em duas colunas — texto à esquerda, demo em
-                vídeo em destaque à direita (empilha no mobile) */}
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
-              <div className="text-center lg:text-left text-white space-y-6">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight animate-fade-in">
-                  Controle suas finanças
-                  <br />
-                  <span className="text-yellow-300 bg-gradient-to-r from-yellow-200 to-yellow-400 bg-clip-text text-transparent">
-                    de forma simples
-                  </span>
-                </h1>
-
-                <p className="text-lg md:text-xl text-blue-100 max-w-xl mx-auto lg:mx-0 leading-relaxed animate-fade-in-delay">
-                  Gerencie suas receitas, despesas e investimentos em um só lugar.
-                  Visualize seus gastos com gráficos intuitivos e tome decisões financeiras inteligentes.
-                </p>
-
-                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4 animate-fade-in-delay-2">
-                  <Link
-                    href="/register"
-                    className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-blue-600 font-bold text-lg rounded-full hover:bg-blue-50 transition-all shadow-xl hover:shadow-2xl hover:scale-105"
-                  >
-                    Começar Gratuitamente
-                    <FiArrowRight size={24} className="group-hover:translate-x-1 transition-transform" />
-                  </Link>
-
-                  <Link
-                    href="/login"
-                    className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white/10 backdrop-blur-sm text-white font-semibold text-lg rounded-full hover:bg-white/20 transition-all border-2 border-white/30 hover:border-white/50"
-                  >
-                    Já tenho conta
-                  </Link>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 pt-6 text-blue-100">
-                  <div className="flex items-center gap-2 group">
-                    <FiShield size={18} className="group-hover:text-green-300 transition-colors" />
-                    <span className="text-sm">100% Seguro</span>
-                  </div>
-                  <div className="flex items-center gap-2 group">
-                    <FiDollarSign size={18} className="group-hover:text-yellow-300 transition-colors" />
-                    <span className="text-sm">Gratuito</span>
-                  </div>
-                  <div className="flex items-center gap-2 group">
-                    <FiTrendingUp size={18} className="group-hover:text-green-300 transition-colors" />
-                    <span className="text-sm">Fácil de usar</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ✅ NOVO: showcase de vídeo — o destaque visual principal do Hero */}
-              <div className="animate-fade-in-delay-2">
-                <HeroDemo />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Features Section */}
-        <section className="py-20 bg-white dark:bg-gray-900 transition-colors">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                Tudo que você precisa para controlar suas finanças
-              </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-400">
-                Ferramentas poderosas para gerenciar seu dinheiro
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="group p-8 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-2xl shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
-                <div className="w-16 h-16 bg-blue-600 dark:bg-blue-500 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <FiDollarSign className="text-white" size={32} />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Controle Total</h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Registre todas suas receitas e despesas. Organize por categorias e acompanhe cada centavo.
-                </p>
-              </div>
-
-              <div className="group p-8 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-800 dark:to-gray-700 rounded-2xl shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
-                <div className="w-16 h-16 bg-purple-600 dark:bg-purple-500 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <FiPieChart className="text-white" size={32} />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Visualização Clara</h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Gráficos intuitivos mostram para onde seu dinheiro está indo. Entenda seus padrões de gastos.
-                </p>
-              </div>
-
-              <div className="group p-8 bg-gradient-to-br from-green-50 to-teal-50 dark:from-gray-800 dark:to-gray-700 rounded-2xl shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
-                <div className="w-16 h-16 bg-green-600 dark:bg-green-500 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <FiTrendingUp className="text-white" size={32} />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Decisões Inteligentes</h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Análises detalhadas ajudam você a tomar decisões financeiras mais inteligentes.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Tech Stack Section */}
-        <section className="py-16 bg-gray-50 dark:bg-gray-800 transition-colors">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <button onClick={() => setTechStackOpen(!techStackOpen)} className="w-full group">
-              <div className="flex items-center justify-between p-6 bg-white dark:bg-gray-900 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                    <FiCode className="text-white" size={24} />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Tecnologias Utilizadas</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Desenvolvido com as melhores ferramentas do mercado</p>
-                  </div>
-                </div>
-                <FiChevronDown className={"text-gray-400 transition-transform duration-300 " + (techStackOpen ? "rotate-180" : "")} size={24} />
-              </div>
-            </button>
-
-            <div className={"overflow-hidden transition-all duration-500 ease-in-out " + (techStackOpen ? "max-h-[2000px] opacity-100 mt-6" : "max-h-0 opacity-0")}>
-              <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
-                <div className="grid md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                        <FiLayers className="text-blue-600 dark:text-blue-400" size={20} />
-                      </div>
-                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">Frontend</h4>
-                    </div>
-                    <div className="space-y-3 pl-2">
-                      <TechItem name="Next.js 15" description="Framework React com SSR" />
-                      <TechItem name="TypeScript" description="Tipagem estática" />
-                      <TechItem name="Tailwind CSS" description="Estilização moderna" />
-                      <TechItem name="shadcn/ui" description="Componentes reutilizáveis" />
-                      <TechItem name="React Query" description="Gerenciamento de estado" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
-                        <FiZap className="text-purple-600 dark:text-purple-400" size={20} />
-                      </div>
-                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">Backend</h4>
-                    </div>
-                    <div className="space-y-3 pl-2">
-                      <TechItem name="Next.js API Routes" description="APIs serverless" />
-                      <TechItem name="NextAuth.js" description="Autenticação OAuth" />
-                      <TechItem name="Drizzle ORM" description="Type-safe database" />
-                      <TechItem name="Nodemailer" description="Envio de e-mails via Gmail" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                        <FiDatabase className="text-green-600 dark:text-green-400" size={20} />
-                      </div>
-                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">Database</h4>
-                    </div>
-                    <div className="space-y-3 pl-2">
-                      <TechItem name="PostgreSQL" description="Banco relacional robusto" />
-                      <TechItem name="Neon" description="Serverless Postgres" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
-                        <FiLock className="text-red-600 dark:text-red-400" size={20} />
-                      </div>
-                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">Segurança e Qualidade</h4>
-                    </div>
-                    <div className="space-y-3 pl-2">
-                      <TechItem name="bcryptjs" description="Hash de senhas" />
-                      <TechItem name="Zod" description="Validação de schemas" />
-                      <TechItem name="ESLint" description="Qualidade de código" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-900 rounded-xl">
-                  <p className="text-sm text-blue-800 dark:text-blue-200 text-center">
-                    Desenvolvido com tecnologias modernas e escaláveis para garantir performance e segurança.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-900 dark:to-purple-900 transition-colors">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-4xl font-bold text-white mb-6">Pronto para começar?</h2>
-            <p className="text-xl text-blue-100 mb-8">
-              Crie sua conta gratuitamente e comece a organizar suas finanças hoje mesmo.
-            </p>
-            <Link
-              href="/register"
-              className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-blue-600 font-bold text-lg rounded-full hover:bg-blue-50 transition-all shadow-xl hover:shadow-2xl hover:scale-105"
-            >
-              Criar Conta Grátis
-              <FiArrowRight size={24} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
-        </section>
-
-        {/* Footer */}
-        <footer className="py-8 bg-gray-900 dark:bg-black text-gray-400 dark:text-gray-500 text-center transition-colors">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex flex-col items-center gap-4">
-              <div className="flex items-center gap-2">
-                <BsCashCoin className="text-blue-400" size={20} />
-                <span className="font-semibold text-gray-300">MyExpenses</span>
-              </div>
-              <p className="text-sm">
-                &copy; {new Date().getFullYear()} MyExpenses. Todos os direitos reservados.
-              </p>
-              <div className="flex items-center gap-6 text-sm">
-                <Link href="/privacy" className="text-gray-500 hover:text-gray-300 transition-colors">
-                  Política de Privacidade
-                </Link>
-                <span className="text-gray-700">|</span>
-                <Link href="/terms" className="text-gray-500 hover:text-gray-300 transition-colors">
-                  Termos de Uso
-                </Link>
-              </div>
-            </div>
-          </div>
-        </footer>
-      </main>
-    </AutoRedirectIfAuthenticated>
-  );
+// Domínio mostrado na moldura da demonstração
+function dominioDoApp(): string {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_APP_URL ?? "").host || "myexpenses";
+  } catch {
+    return "myexpenses";
+  }
 }
 
-function TechItem({ name, description }: { name: string; description: string }) {
+const FUNCIONALIDADES: { icone: LucideIcon; titulo: string; texto: string }[] = [
+  {
+    icone: Wallet,
+    titulo: "Contas e extrato",
+    texto: "Saldo por conta, extrato com o saldo após cada lançamento e transferências entre contas.",
+  },
+  {
+    icone: Repeat,
+    titulo: "Lançamentos",
+    texto: "Receitas e despesas à vista, parceladas ou recorrentes, geradas automaticamente todo mês.",
+  },
+  {
+    icone: CreditCard,
+    titulo: "Cartões e faturas",
+    texto: "Ciclo pelo dia de fechamento, limite disponível, pagamento, adiantamento, estorno e antecipação de parcelas.",
+  },
+  {
+    icone: PiggyBank,
+    titulo: "Renda fixa",
+    texto: "Aplicações no CDI ou na Selic, com as taxas do Banco Central, IR regressivo por aporte e resgate no vencimento.",
+  },
+  {
+    icone: ChartCandlestick,
+    titulo: "Renda variável",
+    texto: "Ações, FIIs, ETFs e BDRs com preço médio, day trade, eventos corporativos, proventos e cotações automáticas.",
+  },
+  {
+    icone: Receipt,
+    titulo: "IR da bolsa",
+    texto: "Apuração mensal, isenção até R$ 20 mil, compensação de prejuízo, DARF com vencimento e bens e direitos.",
+  },
+  {
+    icone: LayoutDashboard,
+    titulo: "Dashboard",
+    texto: "Gráficos mensais, gastos por categoria, evolução do saldo e resumo anual exportável em PDF.",
+  },
+  {
+    icone: DatabaseBackup,
+    titulo: "Meus dados",
+    texto: "Backup automático, exportação e importação completas e a opção de ocultar os valores da tela.",
+  },
+];
+
+const STACK: { icone: LucideIcon; titulo: string; itens: string[] }[] = [
+  { icone: Layers, titulo: "Interface", itens: ["Next.js 16 (App Router)", "React 19", "Tailwind CSS v4 e shadcn/ui", "React Query v5", "Recharts"] },
+  { icone: Server, titulo: "Servidor", itens: ["Route Handlers do Next", "NextAuth v4 (Google e senha)", "Drizzle ORM", "Vercel Cron e Blob", "Nodemailer"] },
+  { icone: Database, titulo: "Dados", itens: ["PostgreSQL no Neon", "Transações com bloqueio de linha", "Scripts SQL versionados", "Taxas do BCB e cotações da brapi"] },
+  { icone: TestTubeDiagonal, titulo: "Qualidade", itens: ["TypeScript estrito, sem any", "ESLint", "Vitest nas regras de cálculo", "CI no GitHub Actions"] },
+];
+
+const DESTAQUES: { icone: LucideIcon; titulo: string; texto: string }[] = [
+  {
+    icone: LockKeyhole,
+    titulo: "Dinheiro sem condição de corrida",
+    texto: "Toda alteração de saldo roda numa transação com a conta travada: um clique duplo não paga a fatura duas vezes.",
+  },
+  {
+    icone: ShieldCheck,
+    titulo: "Dados isolados por usuário",
+    texto: "Cada consulta filtra pelo dono, e todo id vindo do navegador tem o dono conferido antes de qualquer escrita.",
+  },
+  {
+    icone: TestTubeDiagonal,
+    titulo: "Regras testadas",
+    texto: "Ciclo de fatura, divisão de parcelas, IR regressivo, preço médio, day trade e DARF são funções puras com testes.",
+  },
+  {
+    icone: Clock,
+    titulo: "Rotinas automáticas",
+    texto: "Crons diários geram recorrências, movem créditos de fatura, recalculam aplicações, atualizam cotações e fazem backup.",
+  },
+];
+
+export default function LandingPage() {
   return (
-    <div className="flex items-start gap-3 group">
-      <div className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full mt-2 group-hover:scale-150 transition-transform" />
-      <div>
-        <p className="font-semibold text-gray-900 dark:text-white text-sm">{name}</p>
-        <p className="text-xs text-gray-600 dark:text-gray-400">{description}</p>
-      </div>
-    </div>
+    <main className="min-h-screen bg-white dark:bg-gray-950">
+      {/* Cabeçalho */}
+      <header className="sticky top-0 z-40 bg-blue-700/85 dark:bg-gray-950/85 backdrop-blur border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 text-white">
+            <BsCashCoin className="text-yellow-300" size={26} />
+            <span className="font-bold text-lg">MyExpenses</span>
+          </Link>
+          <nav className="flex items-center gap-2 sm:gap-3">
+            <a href="#funcionalidades" className="hidden md:inline px-3 py-2 text-sm text-blue-100 hover:text-white">
+              Funcionalidades
+            </a>
+            <a href="#tecnologia" className="hidden md:inline px-3 py-2 text-sm text-blue-100 hover:text-white">
+              Como foi feito
+            </a>
+            <ThemeToggle />
+            <Link
+              href="/login"
+              className="px-4 py-2 rounded-full bg-white text-blue-700 text-sm font-semibold hover:bg-blue-50 transition-colors"
+            >
+              Entrar
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950">
+        <div className="absolute inset-0 pointer-events-none" aria-hidden>
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl motion-safe:animate-pulse" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl motion-safe:animate-pulse [animation-delay:1s]" />
+        </div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-20 lg:pt-20 lg:pb-28">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-10 items-center">
+            <div className="text-center lg:text-left text-white space-y-6">
+              <p className="motion-safe:animate-fade-in-up inline-block text-xs font-semibold uppercase tracking-widest text-blue-100 bg-white/10 border border-white/20 rounded-full px-3 py-1">
+                Projeto pessoal e portfólio
+              </p>
+              <h1 className="motion-safe:animate-fade-in-up text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight">
+                Minhas finanças,
+                <br />
+                <span className="bg-gradient-to-r from-yellow-200 to-yellow-400 bg-clip-text text-transparent">
+                  em um só lugar
+                </span>
+              </h1>
+              <p className="motion-safe:animate-fade-in-up [animation-delay:150ms] text-lg md:text-xl text-blue-100 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                Contas, cartões, investimentos e o imposto de renda da bolsa, com as regras que eu uso no dia a dia.
+                Construído para o meu controle financeiro e aberto aqui como portfólio.
+              </p>
+              <div className="motion-safe:animate-fade-in-up [animation-delay:300ms] flex flex-col sm:flex-row gap-3 justify-center lg:justify-start pt-2">
+                <Link
+                  href="/login"
+                  className="group inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white text-blue-700 font-bold rounded-full hover:bg-blue-50 transition-colors shadow-xl"
+                >
+                  Entrar
+                  <ArrowRight size={20} className="motion-safe:group-hover:translate-x-1 transition-transform" />
+                </Link>
+                <a
+                  href="#tecnologia"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white/10 text-white font-semibold rounded-full hover:bg-white/20 transition-colors border border-white/30"
+                >
+                  Ver como foi feito
+                </a>
+              </div>
+              <ul className="motion-safe:animate-fade-in-up [animation-delay:450ms] flex flex-wrap justify-center lg:justify-start gap-2 pt-2 text-xs text-blue-100">
+                {["Next.js 16", "React 19", "TypeScript", "PostgreSQL", "Drizzle", "Vitest"].map((t) => (
+                  <li key={t} className="px-2.5 py-1 rounded-full bg-white/10 border border-white/15">{t}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="motion-safe:animate-fade-in-up [animation-delay:300ms]">
+              <HeroDemo dominio={dominioDoApp()} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Funcionalidades */}
+      <section id="funcionalidades" className="scroll-mt-16 py-20 bg-white dark:bg-gray-950">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3">O que o app faz</h2>
+            <p className="text-lg text-gray-600 dark:text-gray-400">
+              Do lançamento do dia a dia ao DARF da bolsa, com as regras de cada módulo calculadas no próprio app.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {FUNCIONALIDADES.map(({ icone: Icone, titulo, texto }) => (
+              <div
+                key={titulo}
+                className="p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 hover:border-blue-300 dark:hover:border-blue-800 transition-colors"
+              >
+                <div className="w-11 h-11 rounded-xl bg-blue-600 dark:bg-blue-500 flex items-center justify-center mb-4">
+                  <Icone className="text-white" size={22} />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1.5">{titulo}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{texto}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Como foi feito */}
+      <section id="tecnologia" className="scroll-mt-16 py-20 bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3">Como foi feito</h2>
+            <p className="text-lg text-gray-600 dark:text-gray-400">
+              Uma aplicação full stack em TypeScript, com o cuidado que dinheiro exige.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
+            {STACK.map(({ icone: Icone, titulo, itens }) => (
+              <div key={titulo} className="p-6 rounded-2xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <Icone className="text-blue-600 dark:text-blue-400" size={20} />
+                  <h3 className="font-semibold text-gray-900 dark:text-white">{titulo}</h3>
+                </div>
+                <ul className="space-y-2">
+                  {itens.map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+                      <span className="mt-2 w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 flex-shrink-0" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-5">
+            {DESTAQUES.map(({ icone: Icone, titulo, texto }) => (
+              <div key={titulo} className="flex gap-4 p-6 rounded-2xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800">
+                <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-950 flex items-center justify-center flex-shrink-0">
+                  <Icone className="text-purple-600 dark:text-purple-400" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{titulo}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{texto}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Rodapé */}
+      <footer className="py-10 bg-gray-900 dark:bg-black text-gray-400">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-2">
+            <BsCashCoin className="text-blue-400" size={20} />
+            <span className="font-semibold text-gray-200">MyExpenses</span>
+            <span className="text-sm text-gray-500">· projeto pessoal</span>
+          </div>
+          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+            <Link href="/contato" className="hover:text-gray-200 transition-colors">Contato</Link>
+            <Link href="/privacy" className="hover:text-gray-200 transition-colors">Privacidade</Link>
+            <Link href="/terms" className="hover:text-gray-200 transition-colors">Termos de uso</Link>
+            <a
+              href={GITHUB_PERFIL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 hover:text-gray-200 transition-colors"
+            >
+              <Github size={16} />
+              GitHub
+            </a>
+          </nav>
+        </div>
+      </footer>
+    </main>
   );
 }

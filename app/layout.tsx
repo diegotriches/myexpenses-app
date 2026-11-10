@@ -25,7 +25,17 @@ export const viewport: Viewport = {
   ],
 };
 
+// Base das URLs absolutas de metadados (imagem de compartilhamento)
+function urlDoApp(): URL {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000");
+  } catch {
+    return new URL("http://localhost:3000");
+  }
+}
+
 export const metadata: Metadata = {
+  metadataBase: urlDoApp(),
   title: "MyExpenses - Controle Financeiro",
   description: "Gerencie suas finanças pessoais de forma simples e eficiente",
   appleWebApp: {
