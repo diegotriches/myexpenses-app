@@ -283,7 +283,7 @@ export default function FaturaPage() {
 
   if (!id) {
     return (
-      <div className="max-w-3xl mx-auto p-4 md:p-6">
+      <div className="page-container p-4 md:p-6">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>Parâmetros inválidos.</AlertDescription>
@@ -296,7 +296,7 @@ export default function FaturaPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-4">
+      <div className="page-container p-4 md:p-6 space-y-4">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
@@ -321,7 +321,7 @@ export default function FaturaPage() {
   })();
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
+    <div className="page-container p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Header */}
       <div className="flex items-start gap-2 md:gap-4">
         <Button
@@ -409,7 +409,11 @@ export default function FaturaPage() {
         </Alert>
       )}
 
-      {/* Card principal — total + ações (layout horizontal, mais baixo) */}
+      {/* A partir de 1280 px: transações à esquerda; total, adiantamentos e categorias
+          numa coluna à direita. Abaixo disso, tudo empilhado na ordem do DOM. */}
+      <div className="grid gap-4 md:gap-6 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_440px] xl:items-start">
+      <div className="space-y-4 md:space-y-6 xl:order-2 min-w-0">
+      {/* Card principal — total + ações */}
       <Card
         className={
           dadosFatura?.paga
@@ -418,7 +422,7 @@ export default function FaturaPage() {
         }
       >
         <CardContent className="px-4 py-3 md:px-6 md:py-3">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between xl:flex-col xl:items-stretch gap-3 md:gap-6 xl:gap-3">
             {/* Total */}
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -462,11 +466,11 @@ export default function FaturaPage() {
 
             {/* Ações */}
             {!dadosFatura?.paga && dadosTransacoes.length > 0 && (
-              <div className="flex flex-col sm:flex-row gap-2 md:flex-shrink-0">
+              <div className="flex flex-col sm:flex-row gap-2 md:flex-shrink-0 xl:[&>*]:flex-1">
                 <Button
                   onClick={() => setModalPagar(true)}
                   disabled={pagarFaturaMutation.isPending}
-                  className="bg-blue-600 hover:bg-blue-700 md:min-w-[150px]"
+                  className="bg-blue-600 hover:bg-blue-700 md:min-w-[150px] xl:min-w-0"
                 >
                   {pagarFaturaMutation.isPending ? (
                     <>
@@ -486,7 +490,7 @@ export default function FaturaPage() {
                   disabled={
                     registrarAdiantamento.isPending || saldoRestanteFatura <= 0
                   }
-                  className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30 md:min-w-[130px]"
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30 md:min-w-[130px] xl:min-w-0"
                 >
                   {registrarAdiantamento.isPending ? (
                     <>
@@ -533,7 +537,7 @@ export default function FaturaPage() {
         cancelando={cancelarAdiantamentoMut.isPending}
       />
 
-      {/* Resumo por categoria — largura total */}
+      {/* Resumo por categoria */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm md:text-base flex items-center gap-2">
@@ -560,8 +564,8 @@ export default function FaturaPage() {
                 ))}
               </div>
 
-              {/* Lista em duas colunas no desktop */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5">
+              {/* Duas colunas no tablet; uma só na coluna lateral (xl) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-x-8 gap-y-2.5">
                 {categoriasOrdenadas.map(([categoria, valor], idx) => {
                   const pct = (valor / baseCategorias) * 100;
                   return (
@@ -586,9 +590,10 @@ export default function FaturaPage() {
           )}
         </CardContent>
       </Card>
+      </div>
 
       {/* Lista de transações */}
-      <Card>
+      <Card className="xl:order-1 min-w-0">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm md:text-base flex items-center gap-2">
             <Receipt size={16} className="text-blue-600" />
@@ -617,6 +622,7 @@ export default function FaturaPage() {
           )}
         </CardContent>
       </Card>
+      </div>
 
       {compraEstorno && <EstornoModal key={compraEstorno.id} compra={compraEstorno} onClose={() => setCompraEstorno(null)} />}
 
