@@ -15,6 +15,8 @@ import { Wallet, Loader2, AlertCircle, TrendingUp, TrendingDown } from "lucide-r
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSaldoHistorico } from "@/hooks/useDashboard";
 import { useAplicacoes } from "@/hooks/useAplicacoes";
+import { useContas } from "@/hooks/useContas";
+import { useRendaVariavel } from "@/hooks/useRendaVariavel";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import type { Aplicacao } from "@/services/aplicacaoService";
 import {
@@ -26,6 +28,7 @@ import {
   type LoteEstado,
   type TaxaDia,
 } from "@/utils/aplicacaoSimulacao";
+import { custoRendaVariavelEm, mercadoRendaVariavel } from "@/utils/patrimonioUtils";
 import { formatarMoeda } from "@/utils/formatadores";
 import { useMoeda } from "@/hooks/useMoeda";
 import type { PropsTooltip } from "@/types/grafico";
@@ -37,7 +40,20 @@ const PERIODOS = [
 ] as const;
 
 const COR_CONTAS = "#2563eb";
-const COR_INVESTIDO = "#059669";
+const COR_RENDA_FIXA = "#059669";
+const COR_RENDA_VARIAVEL = "#7c3aed";
+
+const centavos = (v: number) => Math.round(v * 100) / 100;
+
+interface PontoPatrimonio {
+  mes: string;
+  Contas: number;
+  RendaFixa: number;
+  RendaVariavel: number;
+  Total: number;
+  /** Mês passado: renda variável pelo custo de aquisição (não há histórico de cotações) */
+  rvACusto: boolean;
+}
 
 function formatarMes(mes: string) {
   try {
@@ -120,31 +136,34 @@ function liquidoAtual(a: Aplicacao, hoje: string): number {
 
 function CustomTooltip({ active, payload, label, hidden }: PropsTooltip & { hidden?: boolean }) {
   if (!active || !payload?.length) return null;
-  const p = payload[0]?.payload ?? {};
-  const contas = p.Contas ?? 0;
-  const investido = p.Investido ?? 0;
-  const total = contas + investido;
+  const p: Partial<PontoPatrimonio> = payload[0]?.payload ?? {};
+  const total = p.Total ?? 0;
   const m = (v: number) => (hidden ? "••••••" : formatarMoeda(v));
+  const linhas: { cor: string; nome: string; valor: number; mostrar: boolean }[] = [
+    { cor: COR_CONTAS, nome: "Em contas", valor: p.Contas ?? 0, mostrar: true },
+    { cor: COR_RENDA_FIXA, nome: "Renda fixa (líq.)", valor: p.RendaFixa ?? 0, mostrar: (p.RendaFixa ?? 0) !== 0 },
+    {
+      cor: COR_RENDA_VARIAVEL,
+      nome: p.rvACusto ? "Renda variável (custo)" : "Renda variável",
+      valor: p.RendaVariavel ?? 0,
+      mostrar: (p.RendaVariavel ?? 0) !== 0,
+    },
+  ];
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-lg text-xs space-y-1">
       <p className="font-medium text-gray-700 dark:text-gray-300">{label}</p>
       <p className={`font-bold text-sm ${total >= 0 ? "text-gray-900 dark:text-white" : "text-red-600 dark:text-red-400"}`}>
         {m(total)}
       </p>
-      <div className="flex items-center justify-between gap-4">
-        <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-          <span className="inline-block w-2 h-2 rounded-full" style={{ background: COR_CONTAS }} />
-          Em contas
-        </span>
-        <span className="text-gray-700 dark:text-gray-300">{m(contas)}</span>
-      </div>
-      <div className="flex items-center justify-between gap-4">
-        <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-          <span className="inline-block w-2 h-2 rounded-full" style={{ background: COR_INVESTIDO }} />
-          Investido (líq.)
-        </span>
-        <span className="text-gray-700 dark:text-gray-300">{m(investido)}</span>
-      </div>
+      {linhas.filter((l) => l.mostrar).map((l) => (
+        <div key={l.nome} className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+            <span className="inline-block w-2 h-2 rounded-full" style={{ background: l.cor }} />
+            {l.nome}
+          </span>
+          <span className="text-gray-700 dark:text-gray-300">{m(l.valor)}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -152,23 +171,28 @@ function CustomTooltip({ active, payload, label, hidden }: PropsTooltip & { hidd
 export function CardSaldoHistorico() {
   const [periodo, setPeriodo] = useState<"3" | "6" | "12">("6");
   const { data: historico, isLoading: loadingHistorico, error } = useSaldoHistorico(periodo);
+  const contasQuery = useContas();
   const aplicacoesQuery = useAplicacoes();
+  const rvQuery = useRendaVariavel();
   const { hidden, mask } = useHideValues();
 
   const fmt = useMoeda();
   const erroAplicacoes = aplicacoesQuery.isError;
-  const carregando = loadingHistorico || aplicacoesQuery.isLoading;
+  const erroRv = rvQuery.isError;
+  const carregando = loadingHistorico || contasQuery.isLoading || aplicacoesQuery.isLoading || rvQuery.isLoading;
 
-  // Série mensal: contas (API) + investido líquido estimado (cliente)
-  const dadosGrafico = useMemo(() => {
+  // Série mensal: contas (API) + renda fixa líquida estimada + renda variável (custo nos meses passados)
+  const dadosGrafico = useMemo<PontoPatrimonio[]>(() => {
     const hoje = hojeBrt();
     const mesAtual = hoje.slice(0, 7);
     const aplicacoes = aplicacoesQuery.data ?? [];
+    const operacoesRv = rvQuery.data?.operacoes ?? [];
+    const temInvestimentos = aplicacoes.length > 0 || operacoesRv.length > 0;
 
     // Sem contas ativas a API devolve [] — gera os meses aqui para
     // os investimentos continuarem aparecendo.
     let base = historico ?? [];
-    if (base.length === 0 && aplicacoes.length > 0) {
+    if (base.length === 0 && temInvestimentos) {
       const n = parseInt(periodo);
       const [ano, mes] = mesAtual.split("-").map(Number);
       base = Array.from({ length: n }, (_, k) => {
@@ -180,32 +204,46 @@ export function CardSaldoHistorico() {
       });
     }
 
+    // Mês atual: os mesmos valores da página Contas (saldo atual das contas ativas,
+    // que já inclui lançamentos com data futura, e renda variável a mercado)
+    const contasAgora = contasQuery.data
+      ? contasQuery.data.filter((c) => c.ativo).reduce((s, c) => s + Number(c.saldoAtual), 0)
+      : null;
+
     return base.map((item) => {
-      let investido = 0;
+      const atual = item.mes >= mesAtual;
+      const fim = fimDoMes(item.mes);
+
+      let rendaFixa = 0;
       if (!erroAplicacoes) {
-        if (item.mes >= mesAtual) {
-          // Mês corrente: valor real, igual à página Contas
-          investido = aplicacoes
-            .filter((a) => !a.resgatada)
-            .reduce((s, a) => s + liquidoAtual(a, hoje), 0);
-        } else {
-          const fim = fimDoMes(item.mes);
-          investido = aplicacoes.reduce((s, a) => s + liquidoNoFimDoMes(a, fim), 0);
-        }
+        rendaFixa = atual
+          ? aplicacoes.filter((a) => !a.resgatada).reduce((s, a) => s + liquidoAtual(a, hoje), 0)
+          : aplicacoes.reduce((s, a) => s + liquidoNoFimDoMes(a, fim), 0);
       }
-      const contas = item.saldoTotal;
+
+      let rendaVariavel = 0;
+      if (!erroRv && operacoesRv.length > 0) {
+        rendaVariavel = atual
+          ? mercadoRendaVariavel(operacoesRv, rvQuery.data?.cotacoes ?? [])
+          : custoRendaVariavelEm(operacoesRv, fim);
+      }
+
+      const contas = atual && contasAgora !== null ? contasAgora : item.saldoTotal;
       return {
         mes: formatarMes(item.mes),
-        Contas: contas,
-        Investido: Math.round(investido * 100) / 100,
-        Total: Math.round((contas + investido) * 100) / 100,
+        Contas: centavos(contas),
+        RendaFixa: centavos(rendaFixa),
+        RendaVariavel: centavos(rendaVariavel),
+        Total: centavos(contas + rendaFixa + rendaVariavel),
+        rvACusto: !atual,
       };
     });
-  }, [historico, aplicacoesQuery.data, erroAplicacoes, periodo]);
+  }, [historico, contasQuery.data, aplicacoesQuery.data, rvQuery.data, erroAplicacoes, erroRv, periodo]);
 
   const ultimo = dadosGrafico[dadosGrafico.length - 1];
   const variacao = dadosGrafico.length >= 2 ? ultimo.Total - dadosGrafico[0].Total : null;
-  const temInvestimento = dadosGrafico.some((d) => d.Investido > 0);
+  const temRendaFixa = dadosGrafico.some((d) => d.RendaFixa !== 0);
+  const temRendaVariavel = dadosGrafico.some((d) => d.RendaVariavel !== 0);
 
   const cardTitle = (
     <div className="flex items-center justify-between w-full">
@@ -258,6 +296,8 @@ export function CardSaldoHistorico() {
     );
   }
 
+  const indisponiveis = [erroAplicacoes && "renda fixa", erroRv && "renda variável"].filter(Boolean).join(" e ");
+
   return (
     <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardHeader>{cardTitle}</CardHeader>
@@ -301,9 +341,13 @@ export function CardSaldoHistorico() {
                     <stop offset="5%" stopColor={COR_CONTAS} stopOpacity={0.25} />
                     <stop offset="95%" stopColor={COR_CONTAS} stopOpacity={0.03} />
                   </linearGradient>
-                  <linearGradient id="gradientInvestido" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={COR_INVESTIDO} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={COR_INVESTIDO} stopOpacity={0.05} />
+                  <linearGradient id="gradientRendaFixa" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={COR_RENDA_FIXA} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={COR_RENDA_FIXA} stopOpacity={0.05} />
+                  </linearGradient>
+                  <linearGradient id="gradientRendaVariavel" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={COR_RENDA_VARIAVEL} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={COR_RENDA_VARIAVEL} stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
@@ -329,41 +373,59 @@ export function CardSaldoHistorico() {
                   dot={{ fill: COR_CONTAS, strokeWidth: 0, r: 3 }}
                   activeDot={{ r: 5 }}
                 />
-                {temInvestimento && (
+                {temRendaFixa && (
                   <Area
                     type="monotone"
-                    dataKey="Investido"
+                    dataKey="RendaFixa"
                     stackId="patrimonio"
-                    stroke={COR_INVESTIDO}
+                    stroke={COR_RENDA_FIXA}
                     strokeWidth={2}
-                    fill="url(#gradientInvestido)"
-                    dot={{ fill: COR_INVESTIDO, strokeWidth: 0, r: 3 }}
+                    fill="url(#gradientRendaFixa)"
+                    dot={{ fill: COR_RENDA_FIXA, strokeWidth: 0, r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                )}
+                {temRendaVariavel && (
+                  <Area
+                    type="monotone"
+                    dataKey="RendaVariavel"
+                    stackId="patrimonio"
+                    stroke={COR_RENDA_VARIAVEL}
+                    strokeWidth={2}
+                    fill="url(#gradientRendaVariavel)"
+                    dot={{ fill: COR_RENDA_VARIAVEL, strokeWidth: 0, r: 3 }}
                     activeDot={{ r: 5 }}
                   />
                 )}
               </AreaChart>
             </ResponsiveContainer>
 
-            <div className="flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: COR_CONTAS }} />
                 Em contas
               </span>
-              {temInvestimento && (
+              {temRendaFixa && (
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: COR_INVESTIDO }} />
-                  Investido (líquido)
+                  <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: COR_RENDA_FIXA }} />
+                  Renda fixa (líquida)
+                </span>
+              )}
+              {temRendaVariavel && (
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: COR_RENDA_VARIAVEL }} />
+                  Renda variável
                 </span>
               )}
             </div>
 
-            {erroAplicacoes ? (
+            {indisponiveis ? (
               <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
-                Investimentos indisponíveis — exibindo apenas as contas.
+                {`Sem ${indisponiveis} (indisponível no momento): o total está incompleto.`}
               </p>
-            ) : temInvestimento ? (
+            ) : temRendaFixa || temRendaVariavel ? (
               <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center">
-                Investimentos dos meses anteriores são estimados (após IR); o mês atual usa o valor real.
+                Meses anteriores: renda fixa estimada após IR e renda variável pelo custo de aquisição. O mês atual usa os valores da página Contas.
               </p>
             ) : null}
           </>
