@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import type { ContaNoPeriodo } from "@/utils/resumoInvestimentosUtils";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,8 @@ export interface ResumoAnualData {
   // Ano anterior: totais no mesmo período; meses do ano inteiro (gráfico comparativo)
   totaisAnteriores: { receitas: number; despesas: number; saldo: number };
   mesesAnteriores:  MesResumo[];
+  // Saldo de cada conta em 31/12 do ano anterior e no fim do período (31/12 ou hoje)
+  contas:           ContaNoPeriodo[];
 }
 
 // ── Query Keys ─────────────────────────────────────────────────────────────

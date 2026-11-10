@@ -11,6 +11,10 @@ import {
 import type { ResumoAnualData } from "@/hooks/useResumoAnual";
 import { formatarMoeda } from "@/utils/formatadores";
 import { rotuloPeriodo } from "@/utils/resumoAnualUtils";
+import type { InvestimentosAno } from "@/utils/resumoInvestimentosUtils";
+import { TIPO_ATIVO_LABEL } from "@/utils/rendaVariavelUtils";
+
+const fmtData = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -159,7 +163,20 @@ const s = StyleSheet.create({
 
 // ── Componente ─────────────────────────────────────────────────────────────
 
-export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
+/** Linha "rótulo .... valor" da página da declaração */
+function LinhaValor({ rotulo, detalhe, valor }: { rotulo: string; detalhe?: string; valor: number }) {
+  return (
+    <View style={s.catRow}>
+      <Text style={{ fontSize: 8, color: "#374151", flex: 1 }}>
+        {rotulo}
+        {detalhe ? <Text style={{ color: "#9ca3af" }}>{`  ${detalhe}`}</Text> : null}
+      </Text>
+      <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold" }}>{formatarMoeda(valor)}</Text>
+    </View>
+  );
+}
+
+export function ResumoAnualPDF({ data, investimentos }: { data: ResumoAnualData; investimentos?: InvestimentosAno | null }) {
   const geradoEm = new Date().toLocaleString("pt-BR");
   const { ano, anoAnterior, totais, totaisAnteriores } = data;
   // No ano corrente, a comparação usa o mesmo intervalo do ano anterior (jan até o mês atual)
@@ -353,6 +370,83 @@ export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
           <Text style={s.footerText}>{geradoEm}</Text>
         </View>
       </Page>
+
+      {/* ── Página 3: Investimentos e declaração ──────────────────── */}
+      {investimentos && (
+        <Page size="A4" style={s.page}>
+          <View style={[s.header, { marginBottom: 12 }]}>
+            <Text style={[s.headerTitle, { fontSize: 14 }]}>Resumo Financeiro {ano}</Text>
+            <Text style={s.headerDate}>Investimentos e declaração</Text>
+          </View>
+
+          <Text style={s.sectionTitle}>
+            Patrimônio de {fmtData(investimentos.inicio)} a {investimentos.fimEhHoje ? "hoje" : fmtData(investimentos.fim)}
+          </Text>
+          <View style={s.kpiRow}>
+            {[
+              { label: "Patrimônio no início", value: investimentos.patrimonio.inicio.total },
+              { label: "Patrimônio no fim", value: investimentos.patrimonio.fim.total },
+              { label: "Variação", value: investimentos.patrimonio.variacao },
+            ].map(({ label, value }) => (
+              <View key={label} style={s.kpiBox}>
+                <Text style={s.kpiLabel}>{label}</Text>
+                <Text style={s.kpiValue}>{formatarMoeda(value)}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={s.kpiRow}>
+            {[
+              { label: "Rendimento renda fixa (estim.)", value: investimentos.rendaFixa.rendimento },
+              { label: "Proventos recebidos", value: investimentos.proventos.total },
+              { label: "Resultado em vendas", value: investimentos.rendaVariavel.resultadoRealizado },
+              { label: "IR apurado na bolsa", value: investimentos.rendaVariavel.impostoApurado },
+            ].map(({ label, value }) => (
+              <View key={label} style={s.kpiBox}>
+                <Text style={s.kpiLabel}>{label}</Text>
+                <Text style={[s.kpiValue, { fontSize: 11 }]}>{formatarMoeda(value)}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Text style={s.sectionTitle}>
+            Para a declaração — bens e direitos em {investimentos.fimEhHoje ? "hoje (prévia)" : fmtData(investimentos.fim)}
+          </Text>
+          {investimentos.declaracao.contas.map((c) => <LinhaValor key={`c-${c.nome}`} rotulo={c.nome} detalhe="conta" valor={c.saldo} />)}
+          {investimentos.declaracao.aplicacoes.map((a, i) => <LinhaValor key={`a-${i}`} rotulo={a.descricao} detalhe="renda fixa, bruto" valor={a.bruto} />)}
+          {investimentos.declaracao.rendaVariavel.map((b) => (
+            <LinhaValor key={`rv-${b.ticker}`} rotulo={b.ticker} detalhe={`${TIPO_ATIVO_LABEL[b.tipoAtivo]} · ${b.quantidade} cotas · custo`} valor={b.custoTotal} />
+          ))}
+
+          <Text style={s.sectionTitle}>Rendimentos isentos e tributação exclusiva</Text>
+          <LinhaValor rotulo="Dividendos (isento)" valor={investimentos.declaracao.isentos.dividendos} />
+          <LinhaValor rotulo="Rendimentos de FII (isento)" valor={investimentos.declaracao.isentos.rendimentosFii} />
+          <LinhaValor rotulo="Ganho em vendas de ações até R$ 20 mil/mês (isento)" valor={investimentos.declaracao.isentos.ganhoIsentoAcoes} />
+          <LinhaValor rotulo="JCP (tributação exclusiva)" valor={investimentos.declaracao.exclusivos.jcp} />
+
+          {investimentos.darfs.length > 0 && (
+            <>
+              <Text style={s.sectionTitle}>DARFs de renda variável (6015)</Text>
+              {investimentos.darfs.map((d) => (
+                <LinhaValor
+                  key={d.competencia}
+                  rotulo={`${d.competencia.slice(5, 7)}/${d.competencia.slice(0, 4)}`}
+                  detalhe={`vence ${fmtData(d.vencimento)} · ${d.pago ? "pago" : "em aberto"}`}
+                  valor={d.valor}
+                />
+              ))}
+            </>
+          )}
+
+          <Text style={{ fontSize: 7, color: "#9ca3af", marginTop: 12 }}>
+            Conferência a partir dos lançamentos do app. Os informes de rendimentos de bancos e corretoras prevalecem; a renda fixa em datas passadas é estimada.
+          </Text>
+
+          <View style={s.footer}>
+            <Text style={s.footerText}>Resumo Financeiro {ano} • Página 3</Text>
+            <Text style={s.footerText}>{geradoEm}</Text>
+          </View>
+        </Page>
+      )}
 
     </Document>
   );

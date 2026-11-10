@@ -18,15 +18,8 @@ import { useAplicacoes } from "@/hooks/useAplicacoes";
 import { useContas } from "@/hooks/useContas";
 import { useRendaVariavel } from "@/hooks/useRendaVariavel";
 import { useHideValues } from "@/contexts/HideValuesContext";
-import type { Aplicacao } from "@/services/aplicacaoService";
-import {
-  hojeBrt,
-  somarDias,
-  simularAplicacao,
-  estimarLiquidoTotal,
-  type TaxaDia,
-} from "@/utils/aplicacaoSimulacao";
-import { custoRendaVariavelEm, liquidoAtualAplicacao, mercadoRendaVariavel } from "@/utils/patrimonioUtils";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
+import { custoRendaVariavelEm, liquidoAtualAplicacao, mercadoRendaVariavel, valorAplicacaoEm } from "@/utils/patrimonioUtils";
 import { formatarMoeda } from "@/utils/formatadores";
 import { useMoeda } from "@/hooks/useMoeda";
 import type { PropsTooltip } from "@/types/grafico";
@@ -73,48 +66,6 @@ function fimDoMes(mes: string): string {
   const [ano, m] = mes.split("-").map(Number);
   const ultimoDia = new Date(ano, m, 0).getDate();
   return `${mes}-${String(ultimoDia).padStart(2, "0")}`;
-}
-
-/**
- * Valor LÍQUIDO estimado (após IR, como se tudo fosse resgatado na data) de
- * uma aplicação no fim de um mês PASSADO.
- *
- * Não guardamos o valor mês a mês, então a história é reconstruída: aportes e
- * resgates reais + taxa diária constante (a última taxa publicada) nos dias
- * úteis. Por isso é uma estimativa — o mês atual usa o valor real do app.
- */
-function liquidoNoFimDoMes(a: Aplicacao, fimMes: string): number {
-  const ultima = a.ultimaTaxa;
-  if (!ultima) return 0;
-
-  const aportes = (a.aportes ?? []).filter((x) => x.data <= fimMes);
-  if (aportes.length === 0) return 0;
-
-  const inicio = aportes.reduce((min, x) => (x.data < min ? x.data : min), aportes[0].data);
-  const taxas: TaxaDia[] = [];
-  // se o aporte rende no próprio dia, a primeira taxa é a do dia do aporte
-  for (let d = a.rendeNoDiaAporte ? inicio : somarDias(inicio, 1); d <= fimMes; d = somarDias(d, 1)) {
-    const dia = new Date(`${d}T00:00:00Z`).getUTCDay();
-    if (dia === 0 || dia === 6) continue;
-    taxas.push({ data: d, taxa: ultima.taxa });
-  }
-
-  const sim = simularAplicacao({
-    percentual: Number(a.percentualIndexador),
-    tributacao: a.tributacao,
-    aportes: aportes.map((x) => ({ id: x.id, data: x.data, valor: Number(x.valor) })),
-    resgates: (a.resgates ?? []).map((r) => ({
-      id: r.id,
-      data: r.data,
-      valorBruto: Number(r.valorBruto),
-      total: r.tipo === "total",
-    })),
-    taxas,
-    ate: fimMes,
-    rendeNoDiaAporte: a.rendeNoDiaAporte,
-  });
-
-  return estimarLiquidoTotal(sim.lotes, fimMes, a.tributacao).valorLiquido;
 }
 
 function CustomTooltip({ active, payload, label, hidden }: PropsTooltip & { hidden?: boolean }) {
@@ -201,7 +152,7 @@ export function CardSaldoHistorico() {
       if (!erroAplicacoes) {
         rendaFixa = atual
           ? aplicacoes.filter((a) => !a.resgatada).reduce((s, a) => s + liquidoAtualAplicacao(a, hoje), 0)
-          : aplicacoes.reduce((s, a) => s + liquidoNoFimDoMes(a, fim), 0);
+          : aplicacoes.reduce((s, a) => s + valorAplicacaoEm(a, fim).liquido, 0);
       }
 
       let rendaVariavel = 0;

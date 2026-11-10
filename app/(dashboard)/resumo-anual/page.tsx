@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   BarChart, Bar, ComposedChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -23,6 +24,9 @@ import { useMoeda } from "@/hooks/useMoeda";
 import type { CategoriaResumo } from "@/hooks/useResumoAnual";
 import { rotuloPeriodo } from "@/utils/resumoAnualUtils";
 import { taxaDePoupanca } from "@/utils/gastosUtils";
+import { usePeriodo } from "@/contexts/PeriodoContext";
+import { useResumoInvestimentos } from "@/hooks/useResumoInvestimentos";
+import { SecaoDeclaracao, SecaoInvestimentosAno } from "@/components/resumo-anual/SecoesInvestimentos";
 
 // ── Constantes ─────────────────────────────────────────────────────────────
 
@@ -32,6 +36,13 @@ const CORES_CATEGORIAS = [
   "#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#ec4899","#84cc16","#94a3b8",
 ];
 const MAX_CATEGORIAS = 8;
+
+type SerieComparativa = "despesas" | "receitas" | "saldo";
+const SERIES_COMPARATIVO: { valor: SerieComparativa; rotulo: string }[] = [
+  { valor: "despesas", rotulo: "Despesas" },
+  { valor: "receitas", rotulo: "Receitas" },
+  { valor: "saldo", rotulo: "Saldo" },
+];
 
 const CORES_METODOS = [
   "#6366f1","#0ea5e9","#10b981","#f59e0b",
@@ -267,6 +278,17 @@ export default function ResumoAnualPage() {
   const [exportando, setExportando] = useState(false);
 
   const { data, isLoading, error } = useResumoAnual(ano);
+  const investimentos = useResumoInvestimentos(ano, data?.contas);
+  const [serieComparativa, setSerieComparativa] = useState<SerieComparativa>("despesas");
+
+  // Clicar num mês do gráfico abre os lançamentos daquele mês
+  const router = useRouter();
+  const { setMesSelecionado, setAnoSelecionado } = usePeriodo();
+  const abrirMes = (indice: number) => {
+    setAnoSelecionado(ano);
+    setMesSelecionado(indice);
+    router.push("/transacoes");
+  };
 
   const exportarPDF = useCallback(async () => {
     if (!data) return;
@@ -274,7 +296,7 @@ export default function ResumoAnualPage() {
     try {
       const { pdf }            = await import("@react-pdf/renderer");
       const { ResumoAnualPDF } = await import("@/components/resumo-anual/ResumoAnualPDF");
-      const blob = await pdf(<ResumoAnualPDF data={data} />).toBlob();
+      const blob = await pdf(<ResumoAnualPDF data={data} investimentos={investimentos.dados} />).toBlob();
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
       a.href = url; a.download = `resumo-${ano}.pdf`; a.click();
@@ -284,7 +306,7 @@ export default function ResumoAnualPage() {
     } finally {
       setExportando(false);
     }
-  }, [data, ano]);
+  }, [data, ano, investimentos.dados]);
 
   if (isLoading) {
     return (
@@ -320,8 +342,8 @@ export default function ResumoAnualPage() {
 
   const dadosComparativo = MESES_LABEL.map((label, i) => ({
     mes:                label,
-    [ano]:              Math.round(data.meses[i].despesas),
-    [data.anoAnterior]: Math.round(data.mesesAnteriores[i].despesas),
+    [ano]:              Math.round(data.meses[i][serieComparativa]),
+    [data.anoAnterior]: Math.round(data.mesesAnteriores[i][serieComparativa]),
   }));
 
   const dadosEvolucao = MESES_LABEL.map((label, i) => ({
@@ -483,21 +505,46 @@ export default function ResumoAnualPage() {
               <YAxis tickFormatter={fmtK} tick={{ fontSize: 11 }} width={55} />
               <Tooltip content={<TooltipEvolucao />} />
               <Legend />
-              <Bar dataKey="receitas" name="Receitas" fill="#10b981" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="despesas" name="Despesas" fill="#ef4444" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="receitas" name="Receitas" fill="#10b981" radius={[3, 3, 0, 0]}
+                cursor="pointer" onClick={(_, indice) => abrirMes(indice)} />
+              <Bar dataKey="despesas" name="Despesas" fill="#ef4444" radius={[3, 3, 0, 0]}
+                cursor="pointer" onClick={(_, indice) => abrirMes(indice)} />
               <Line type="monotone" dataKey="saldo" name="Saldo"
                 stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
             </ComposedChart>
           </ResponsiveContainer>
+          <p className="text-[11px] text-center text-gray-400 dark:text-gray-500 mt-1">
+            Clique numa barra para ver os lançamentos do mês. Compras no cartão de crédito contam aqui no mês da fatura.
+          </p>
         </CardContent>
       </Card>
 
       {/* ── Gráfico 3: Comparativo de despesas ─────────────────────────── */}
       <Card className="dark:bg-gray-800 dark:border-gray-700">
         <CardHeader>
-          <CardTitle className="text-base md:text-lg text-gray-900 dark:text-white">
-            Comparativo de Despesas — {data.anoAnterior} vs {ano}
-          </CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-base md:text-lg text-gray-900 dark:text-white">
+              Comparativo — {data.anoAnterior} vs {ano}
+            </CardTitle>
+            <div className="inline-flex rounded-md bg-gray-100 dark:bg-gray-700 p-0.5" role="tablist" aria-label="Série do comparativo">
+              {SERIES_COMPARATIVO.map((s) => (
+                <button
+                  key={s.valor}
+                  type="button"
+                  role="tab"
+                  aria-selected={serieComparativa === s.valor}
+                  onClick={() => setSerieComparativa(s.valor)}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    serieComparativa === s.valor
+                      ? "bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white"
+                      : "text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                  }`}
+                >
+                  {s.rotulo}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={280}>
@@ -591,6 +638,10 @@ export default function ResumoAnualPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* ── Investimentos no ano e dados para a declaração ──────────────── */}
+      <SecaoInvestimentosAno dados={investimentos.dados} ano={ano} carregando={investimentos.carregando} incompleto={investimentos.incompleto} />
+      <SecaoDeclaracao dados={investimentos.dados} ano={ano} carregando={investimentos.carregando} />
 
       {/* ── Botão exportar mobile ──────────────────────────────────────── */}
       <Button className="md:hidden w-full bg-blue-700 hover:bg-blue-900"
