@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { cotacoesRv } from "@/db/schema";
 import { inArray } from "drizzle-orm";
 import { precisaAtualizar } from "./mercado";
+import { textoDoErro } from "@/utils/erro";
 
 export type Interrupcao = "sem-chave" | "chave-invalida" | "limite" | null;
 
@@ -103,14 +104,14 @@ export async function atualizarCotacoes(
           },
         });
       resultado.atualizados.push(ticker);
-    } catch (e: any) {
+    } catch (e) {
       if (e instanceof ErroBrapi && (e.tipo === "chave-invalida" || e.tipo === "limite")) {
         // Não adianta insistir: o restante também falharia
         resultado.interrompido = e.tipo;
         resultado.falhas.push({ ticker, motivo: e.message });
         break;
       }
-      resultado.falhas.push({ ticker, motivo: e?.message || "Erro ao buscar cotação" });
+      resultado.falhas.push({ ticker, motivo: textoDoErro(e, "Erro ao buscar cotação") });
     }
     if (i < pendentes.length - 1) await dormir(PAUSA_ENTRE_BUSCAS_MS);
   }

@@ -65,7 +65,7 @@ export async function PUT(
       return NextResponse.json({ error: "Ícone não pode ser vazio" }, { status: 400 });
     }
 
-    const dadosAtualizacao: Record<string, any> = {
+    const dadosAtualizacao: Partial<typeof estabelecimentos.$inferInsert> = {
       updatedAt: new Date(),
     };
 

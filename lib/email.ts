@@ -149,11 +149,11 @@ export async function sendEmail({
 
     console.log("✅ [EMAIL] Enviado com sucesso:", info.messageId);
     return { success: true, id: info.messageId };
-  } catch (error: any) {
+  } catch (error) {
     console.error("❌ [EMAIL] Erro:", error);
     return {
       success: false,
-      error: error.message || "Erro desconhecido",
+      error: error instanceof Error && error.message ? error.message : "Erro desconhecido",
     };
   }
 }
@@ -162,7 +162,7 @@ export async function sendEmailWithRetry(
   params: SendEmailParams,
   maxRetries: number = 3,
 ): Promise<SendEmailResult> {
-  let lastError: any;
+  let lastError: unknown;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {

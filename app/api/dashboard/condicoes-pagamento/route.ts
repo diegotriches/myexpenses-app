@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
         )
       );
 
-    const condicoes = contarCondicoes(transacoesPeriodo as any);
+    const condicoes = contarCondicoes(transacoesPeriodo);
 
     return NextResponse.json(condicoes);
   } catch (error) {

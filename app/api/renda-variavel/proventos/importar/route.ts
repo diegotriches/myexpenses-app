@@ -17,13 +17,24 @@ import { respostaDeErro } from "@/lib/rota";
 const TIPOS: TipoProvento[] = ["dividendo", "jcp", "rendimento"];
 const MAX_LINHAS = 1000;
 
+/** O valor vindo do corpo é um dos itens da lista? */
+const pertence = <T extends string>(lista: readonly T[], v: unknown): v is T =>
+  typeof v === "string" && (lista as readonly string[]).includes(v);
+
+
+/** Linha como chega do cliente: nada é confiável até passar pela validação abaixo. */
+type EntradaProvento = Partial<Record<
+  "ticker" | "tipo" | "data" | "quantidade" | "precoUnitario" | "valorLiquido" | "instituicao",
+  unknown
+>> | null;
+
 export async function POST(req: NextRequest) {
   try {
     const userId = await getUserId();
     if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const body = await req.json();
-    const entrada: any[] = Array.isArray(body.proventos) ? body.proventos : [];
+    const entrada: EntradaProvento[] = Array.isArray(body.proventos) ? body.proventos : [];
     if (entrada.length === 0) return NextResponse.json({ error: "Nenhum provento para importar" }, { status: 400 });
     if (entrada.length > MAX_LINHAS)
       return NextResponse.json({ error: `Máximo de ${MAX_LINHAS} proventos por importação` }, { status: 400 });
@@ -35,13 +46,15 @@ export async function POST(req: NextRequest) {
     }[] = [];
     let invalidos = 0;
 
-    for (const e of entrada) {
-      const ticker = normalizarTicker(String(e?.ticker ?? ""));
-      const valor = Number(e?.valorLiquido);
-      const data = String(e?.data ?? "");
-      const qtd = e?.quantidade === null || e?.quantidade === undefined ? null : Number(e.quantidade);
+    for (const linha of entrada) {
+      const e = linha ?? {};
+      const ticker = normalizarTicker(String(e.ticker ?? ""));
+      const valor = Number(e.valorLiquido);
+      const data = String(e.data ?? "");
+      const { tipo } = e;
+      const qtd = e.quantidade === null || e.quantidade === undefined ? null : Number(e.quantidade);
       if (
-        !TICKER_REGEX.test(ticker) || !TIPOS.includes(e?.tipo) || !(valor > 0) ||
+        !TICKER_REGEX.test(ticker) || !pertence(TIPOS, tipo) || !(valor > 0) ||
         !/^\d{4}-\d{2}-\d{2}$/.test(data) || data > hoje ||
         (qtd !== null && (!Number.isInteger(qtd) || qtd < 0))
       ) {
@@ -51,13 +64,13 @@ export async function POST(req: NextRequest) {
       const valorLiquido = r2(valor);
       validos.push({
         ticker,
-        tipo: e.tipo,
+        tipo,
         data,
         quantidade: qtd,
         precoUnitario: e.precoUnitario !== null && e.precoUnitario !== undefined && Number(e.precoUnitario) > 0 ? Number(e.precoUnitario) : null,
         valorLiquido,
         instituicao: e.instituicao ? String(e.instituicao).slice(0, 120) : null,
-        chave: chaveProvento({ ticker, data, tipo: e.tipo, valorLiquido, quantidade: qtd }),
+        chave: chaveProvento({ ticker, data, tipo, valorLiquido, quantidade: qtd }),
       });
     }
 

@@ -24,10 +24,10 @@ export async function PUT(
     if (titulo !== undefined && titulo.length > 100)
       return NextResponse.json({ error: "Título muito longo (máx. 100 caracteres)" }, { status: 400 });
 
-    if (cor !== undefined && !CORES_VALIDAS.includes(cor as any))
+    if (cor !== undefined && !(CORES_VALIDAS as readonly string[]).includes(cor))
       return NextResponse.json({ error: "Cor inválida" }, { status: 400 });
 
-    const dadosAtualizacao: Record<string, any> = { updatedAt: new Date() };
+    const dadosAtualizacao: Partial<typeof notas.$inferInsert> = { updatedAt: new Date() };
     if (titulo   !== undefined) dadosAtualizacao.titulo   = titulo.trim();
     if (conteudo !== undefined) dadosAtualizacao.conteudo = conteudo.trim();
     if (cor      !== undefined) dadosAtualizacao.cor      = cor;

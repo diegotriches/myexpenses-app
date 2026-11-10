@@ -5,6 +5,7 @@ import { contatos } from "@/db/schema";
 import { eq, desc, and, or, like, sql } from "drizzle-orm";
 import { verificarAdmin } from "@/lib/admin";
 import { respostaDeErro } from "@/lib/rota";
+import { ehStatusContato } from "@/types/contato";
 
 /**
  * GET /api/admin/contatos
@@ -42,7 +43,10 @@ export async function GET(req: NextRequest) {
     const filtros = [];
 
     if (status !== "todos") {
-      filtros.push(eq(contatos.status, status as any));
+      if (!ehStatusContato(status)) {
+        return NextResponse.json({ error: "Status inválido" }, { status: 400 });
+      }
+      filtros.push(eq(contatos.status, status));
     }
 
     if (assunto !== "todos") {
@@ -152,7 +156,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    let updates: any = {};
+    let updates: Partial<typeof contatos.$inferInsert>;
 
     switch (acao) {
       case "marcar_lido":
@@ -164,9 +168,9 @@ export async function PATCH(req: NextRequest) {
         break;
       
       case "mudar_status":
-        if (!novoStatus) {
+        if (!ehStatusContato(novoStatus)) {
           return NextResponse.json(
-            { error: "novoStatus é obrigatório para mudar_status" },
+            { error: "novoStatus é obrigatório para mudar_status e precisa ser um status válido" },
             { status: 400 }
           );
         }

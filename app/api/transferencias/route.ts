@@ -284,7 +284,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(resultado, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro ao criar transferência:", error);
 
     const errorMessages: Record<string, { message: string; status: number }> =

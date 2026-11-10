@@ -85,11 +85,16 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    delete (body as any).id;
-    delete (body as any).userId;
-    delete (body as any).createdAt;
-
-    const dados = { ...body, updatedAt: new Date() };
+    // Só os campos de preferência: id, userId e datas do corpo são ignorados
+    const CAMPOS: (keyof PreferenciasNotificacao)[] = [
+      ...camposBooleanos,
+      'diasAntesVencimento',
+      'limiteMinimoConta',
+    ];
+    const dados: Partial<PreferenciasNotificacao> & { updatedAt: Date } = { updatedAt: new Date() };
+    for (const campo of CAMPOS) {
+      if (body[campo] !== undefined) Object.assign(dados, { [campo]: body[campo] });
+    }
 
     const [existing] = await db
       .select()

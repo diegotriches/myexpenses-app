@@ -6,6 +6,7 @@ import { cartoes, contas } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { respostaDeErro } from "@/lib/rota";
+import { codigoDoErro } from "@/utils/erro";
 
 // GET - Buscar cartão específico
 export async function GET(
@@ -278,13 +279,11 @@ export async function DELETE(
 
     return NextResponse.json({ message: "Cartão deletado com sucesso." });
 
-  } catch (error: any) {
+  } catch (error) {
     // Constraint de FK — cartão tem movimentações vinculadas
     const isConstraintError =
-      error?.code === "23503" ||
-      error?.message?.includes("foreign key") ||
-      error?.message?.includes("violates foreign key constraint") ||
-      error?.message?.includes("constraint");
+      codigoDoErro(error) === "23503" ||
+      (error instanceof Error && /foreign key|constraint/.test(error.message));
 
     if (isConstraintError) {
       return NextResponse.json(

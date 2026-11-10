@@ -9,7 +9,7 @@ import ws from "ws";
 
 // ✅ Configurar WebSocket apenas no Node.js (não no Edge Runtime)
 if (typeof WebSocket === 'undefined') {
-  neonConfig.webSocketConstructor = ws as any;
+  neonConfig.webSocketConstructor = ws;
 }
 
 // ============================================================================
@@ -22,9 +22,9 @@ interface DatabaseConfig {
 }
 
 interface LogLevel {
-  info: (...args: any[]) => void;
-  warn: (...args: any[]) => void;
-  error: (...args: any[]) => void;
+  info: (...args: unknown[]) => void;
+  warn: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
 }
 
 // Tipo para o retorno do Drizzle

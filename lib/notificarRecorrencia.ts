@@ -8,6 +8,7 @@ import { notificacoes, preferenciasNotificacao } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import type { AlertaImpacto } from "./aplicarImpacto";
 import { formatarMoeda } from "@/utils/formatadores";
+import { textoDoErro } from "@/utils/erro";
 
 // Respeita as preferências do usuário; sem registro = tudo ligado
 async function preferenciaAtiva(
@@ -86,10 +87,10 @@ export async function notificarImpactoRecorrencia(
         limiteDisponivelApos: alerta.limiteDisponivelApos,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error(
       "[Recorrências] Falha ao criar notificação de impacto:",
-      error?.message,
+      textoDoErro(error),
     );
   }
 }
@@ -119,10 +120,10 @@ export async function notificarErroRecorrencia(p: ErroParams): Promise<void> {
         motivo: p.motivo,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error(
       "[Recorrências] Falha ao criar notificação de erro:",
-      error?.message,
+      textoDoErro(error),
     );
   }
 }

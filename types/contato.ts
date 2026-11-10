@@ -1,4 +1,8 @@
-export type StatusContato = "pendente" | "em_andamento" | "resolvido" | "arquivado";
+export const STATUS_CONTATO = ["pendente", "em_andamento", "resolvido", "arquivado"] as const;
+export type StatusContato = (typeof STATUS_CONTATO)[number];
+
+export const ehStatusContato = (v: unknown): v is StatusContato =>
+  typeof v === "string" && (STATUS_CONTATO as readonly string[]).includes(v);
 
 export interface NovoContatoDTO {
   nome: string;

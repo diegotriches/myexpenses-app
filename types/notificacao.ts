@@ -24,7 +24,7 @@ export interface Notificacao {
   mensagem: string;
   lida: boolean;
   link?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string | Date;
 }
 
@@ -34,7 +34,7 @@ export interface CriarNotificacaoDTO {
   titulo: string;
   mensagem: string;
   link?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PreferenciasNotificacao {

@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { recalcularAplicacao, executarResgate } from "@/lib/aplicacaoEngine";
 import { formatarMoeda } from "@/utils/formatadores";
+import { textoDoErro } from "@/utils/erro";
 
 const paraDataIso = (d: Date) => d.toISOString().split("T")[0];
 
@@ -42,9 +43,9 @@ export async function GET(req: NextRequest) {
           bcb: r.statusBcb,
         });
       }
-    } catch (error: any) {
-      console.error(`[Cron Aplicações] Erro ao recalcular ${aplicacao.id}:`, error.message);
-      resultados.push({ aplicacaoId: aplicacao.id, status: "erro", motivo: error.message });
+    } catch (error) {
+      console.error(`[Cron Aplicações] Erro ao recalcular ${aplicacao.id}:`, textoDoErro(error));
+      resultados.push({ aplicacaoId: aplicacao.id, status: "erro", motivo: textoDoErro(error) });
     }
   }
 
@@ -91,14 +92,14 @@ export async function GET(req: NextRequest) {
           },
         });
         notificada = true;
-      } catch (erroNotificacao: any) {
-        console.error(`[Cron Aplicações] Resgate ${aplicacao.id} ok, mas falhou ao criar a notificação:`, erroNotificacao.message);
+      } catch (erroNotificacao) {
+        console.error(`[Cron Aplicações] Resgate ${aplicacao.id} ok, mas falhou ao criar a notificação:`, textoDoErro(erroNotificacao));
       }
 
       resultados.push({ aplicacaoId: aplicacao.id, status: "resgatada", notificada });
-    } catch (error: any) {
-      console.error(`[Cron Aplicações] Erro ao resgatar ${aplicacao.id}:`, error.message);
-      resultados.push({ aplicacaoId: aplicacao.id, status: "erro", motivo: error.message });
+    } catch (error) {
+      console.error(`[Cron Aplicações] Erro ao resgatar ${aplicacao.id}:`, textoDoErro(error));
+      resultados.push({ aplicacaoId: aplicacao.id, status: "erro", motivo: textoDoErro(error) });
     }
   }
 

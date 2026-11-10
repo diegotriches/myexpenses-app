@@ -18,7 +18,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   // pagamento e conta/cartão — essas mudanças afetam só as PRÓXIMAS
   // gerações do cron; ocorrências já criadas no histórico não são
   // recalculadas retroativamente.
-  const camposPermitidos: Record<string, any> = {};
+  const camposPermitidos: Partial<typeof recorrencias.$inferInsert> = {};
 
   if (typeof body.ativa === "boolean") camposPermitidos.ativa = body.ativa;
   if (body.descricao !== undefined) camposPermitidos.descricao = body.descricao || null;

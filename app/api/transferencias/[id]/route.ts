@@ -267,7 +267,7 @@ export async function DELETE(
       { message: "Transferência removida com sucesso" },
       { status: 200 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro ao remover transferência:", error);
 
     const errorMessages: Record<string, { message: string; status: number }> =

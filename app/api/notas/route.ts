@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     if (titulo !== undefined && titulo.length > 100)
       return NextResponse.json({ error: "Título muito longo (máx. 100 caracteres)" }, { status: 400 });
 
-    if (!CORES_VALIDAS.includes(cor as any))
+    if (!(CORES_VALIDAS as readonly string[]).includes(cor))
       return NextResponse.json({ error: "Cor inválida" }, { status: 400 });
 
     const [nova] = await db

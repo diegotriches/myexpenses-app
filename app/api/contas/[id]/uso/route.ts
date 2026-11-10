@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import type { SQL } from "drizzle-orm";
+import type { PgTable } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import {
   contas,
@@ -36,7 +38,7 @@ export async function GET(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
     }
 
-    const contar = async (tabela: any, condicao: any) => {
+    const contar = async (tabela: PgTable, condicao: SQL | undefined) => {
       const [r] = await db.select({ n: sql<number>`count(*)::int` }).from(tabela).where(condicao);
       return Number(r?.n ?? 0);
     };

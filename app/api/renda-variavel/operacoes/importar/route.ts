@@ -19,9 +19,20 @@ import { respostaDeErro } from "@/lib/rota";
 const TIPOS_ATIVO: TipoAtivo[] = ["acao", "fii", "etf", "bdr"];
 const EVENTOS = ["desdobramento", "bonificacao"] as const;
 const MAX_OPERACOES = 1500;
+
+/** O valor vindo do corpo é um dos itens da lista? */
+const pertence = <T extends string>(lista: readonly T[], v: unknown): v is T =>
+  typeof v === "string" && (lista as readonly string[]).includes(v);
+
 const LOTE = 200;
 
 const fmtIso = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
+
+/** Linha como chega do cliente: nada é confiável até passar pela validação abaixo. */
+type EntradaOperacao = Partial<Record<
+  "chave" | "ticker" | "tipo" | "tipoAtivo" | "evento" | "data" | "quantidade" | "precoUnitario" | "dataEstimada" | "instituicao",
+  unknown
+>> | null;
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,7 +40,7 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const body = await req.json();
-    const entrada: any[] = Array.isArray(body.operacoes) ? body.operacoes : [];
+    const entrada: EntradaOperacao[] = Array.isArray(body.operacoes) ? body.operacoes : [];
     if (entrada.length === 0) return NextResponse.json({ error: "Nenhuma operação para importar" }, { status: 400 });
     if (entrada.length > MAX_OPERACOES)
       return NextResponse.json({ error: `Máximo de ${MAX_OPERACOES} operações por importação` }, { status: 400 });
@@ -48,18 +59,21 @@ export async function POST(req: NextRequest) {
     let invalidos = 0;
     let duplicados = 0;
 
-    for (const e of entrada) {
-      const ticker = normalizarTicker(String(e?.ticker ?? ""));
-      const data = String(e?.data ?? "");
-      const qtd = Number(e?.quantidade);
-      const preco = Number(e?.precoUnitario);
-      const evento = e?.evento ?? null;
-      const chave = String(e?.chave ?? "").slice(0, 300);
+    for (const linha of entrada) {
+      const e = linha ?? {};
+      const ticker = normalizarTicker(String(e.ticker ?? ""));
+      const data = String(e.data ?? "");
+      const qtd = Number(e.quantidade);
+      const preco = Number(e.precoUnitario);
+      const { tipo, tipoAtivo } = e;
+      // undefined = evento desconhecido (inválido); null = negócio comum
+      const evento = e.evento === null || e.evento === undefined ? null : pertence(EVENTOS, e.evento) ? e.evento : undefined;
+      const chave = String(e.chave ?? "").slice(0, 300);
       if (
         !chave || !TICKER_REGEX.test(ticker) ||
-        (e?.tipo !== "compra" && e?.tipo !== "venda") ||
-        !TIPOS_ATIVO.includes(e?.tipoAtivo) ||
-        (evento !== null && (!EVENTOS.includes(evento) || e.tipo !== "compra")) ||
+        (tipo !== "compra" && tipo !== "venda") ||
+        !pertence(TIPOS_ATIVO, tipoAtivo) ||
+        evento === undefined || (evento !== null && tipo !== "compra") ||
         !/^\d{4}-\d{2}-\d{2}$/.test(data) || data > hoje ||
         !Number.isInteger(qtd) || qtd <= 0 ||
         !Number.isFinite(preco) || (evento ? preco !== 0 : preco <= 0)
@@ -72,8 +86,8 @@ export async function POST(req: NextRequest) {
         continue;
       }
       novas.set(chave, {
-        chave, ticker, tipo: e.tipo, evento, data, quantidade: qtd, precoUnitario: preco,
-        tipoAtivo: tipoAtivoDoTicker.get(ticker) ?? e.tipoAtivo,
+        chave, ticker, tipo, evento, data, quantidade: qtd, precoUnitario: preco,
+        tipoAtivo: tipoAtivoDoTicker.get(ticker) ?? tipoAtivo,
         dataEstimada: e.dataEstimada === true,
         instituicao: e.instituicao ? String(e.instituicao).slice(0, 120) : null,
       });

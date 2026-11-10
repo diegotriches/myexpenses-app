@@ -4,6 +4,7 @@ import { users, notificacoes, preferences, backupsUsuario } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { formatarBytes, gerarArquivoBackup, type ArquivoBackup } from "@/lib/backupDados";
 import type { BackupFrequencia } from "@/types/preferences";
+import { textoDoErro } from "@/utils/erro";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -239,15 +240,16 @@ export async function GET(req: NextRequest) {
         tamanho: statistics.tamanhoBytes,
         duracao,
       });
-    } catch (error: any) {
+    } catch (error) {
       const duracao = Date.now() - inicioUsuario;
-      console.error(`[Cron Backup] ❌ ${usuario.email}:`, error.message);
-      await criarNotificacao(usuario.id, "erro", { erro: error.message });
+      const mensagem = textoDoErro(error);
+      console.error(`[Cron Backup] ❌ ${usuario.email}:`, mensagem);
+      await criarNotificacao(usuario.id, "erro", { erro: mensagem });
       resultados.push({
         userId: usuario.id,
         email: usuario.email,
         status: "erro",
-        erro: error.message,
+        erro: mensagem,
         duracao,
       });
     }

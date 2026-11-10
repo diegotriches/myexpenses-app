@@ -4,6 +4,7 @@ import { recorrencias, transacoes } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { aplicarImpactoRecorrencia } from "@/lib/aplicarImpacto";
+import { textoDoErro } from "@/utils/erro";
 import {
   notificarImpactoRecorrencia,
   notificarErroRecorrencia,
@@ -134,9 +135,10 @@ export async function GET(req: NextRequest) {
       }
 
       resultados.push({ id: rec.id, status: "gerada", alerta: alerta?.tipo });
-    } catch (error: any) {
-      console.error(`[Cron Recorrências] Erro na recorrência ${rec.id}:`, error.message);
-      resultados.push({ id: rec.id, status: "erro", motivo: error.message });
+    } catch (error) {
+      const motivo = textoDoErro(error);
+      console.error(`[Cron Recorrências] Erro na recorrência ${rec.id}:`, motivo);
+      resultados.push({ id: rec.id, status: "erro", motivo });
 
       await notificarErroRecorrencia({
         userId: rec.userId,
@@ -144,7 +146,7 @@ export async function GET(req: NextRequest) {
         descricao: rec.descricao,
         valor: Number(rec.valor),
         dataTexto,
-        motivo: error.message,
+        motivo,
       });
     }
   }

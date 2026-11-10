@@ -5,6 +5,7 @@ import { contatos, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verificarAdmin } from "@/lib/admin";
 import { respostaDeErro } from "@/lib/rota";
+import { ehStatusContato } from "@/types/contato";
 
 /**
  * GET /api/admin/contatos/[id]
@@ -76,11 +77,10 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
-    const updates: any = {};
+    const updates: Partial<typeof contatos.$inferInsert> = {};
 
     if (body.status) {
-      const statusValidos = ["pendente", "em_andamento", "resolvido", "arquivado"];
-      if (!statusValidos.includes(body.status)) {
+      if (!ehStatusContato(body.status)) {
         return NextResponse.json(
           { error: "Status inválido" },
           { status: 400 }

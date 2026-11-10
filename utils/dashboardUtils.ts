@@ -15,7 +15,7 @@ import type {
  * @param transacoes - Array de transações
  * @returns Contagem de dinheiro, pix e cartão
  */
-export function contarCondicoes(transacoes: Transacao[]): CondicoesPagamento {
+export function contarCondicoes(transacoes: { formaPagamento?: string | null }[]): CondicoesPagamento {
   const resultado: CondicoesPagamento = { dinheiro: 0, pix: 0, cartao: 0 };
 
   transacoes.forEach(t => {
@@ -34,7 +34,7 @@ export function contarCondicoes(transacoes: Transacao[]): CondicoesPagamento {
  * @param transacoes - Array de transações
  * @returns Contagem de à vista, parcelado e recorrente
  */
-export function contarFormas(transacoes: Transacao[]): FormasPagamento {
+export function contarFormas(transacoes: { parcelado?: boolean | null; recorrente?: boolean | null }[]): FormasPagamento {
   const resultado: FormasPagamento = { aVista: 0, parcelado: 0, recorrente: 0 };
 
   transacoes.forEach(t => {

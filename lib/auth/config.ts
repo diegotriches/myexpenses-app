@@ -1,4 +1,5 @@
 import { NextAuthOptions } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "./adapter";
@@ -114,7 +115,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
 
         // Login com Google sempre usa rememberMe = true (sessão longa)
-        const rememberMe = (user as any).rememberMe;
+        const rememberMe = user.rememberMe;
         token.rememberMe = typeof rememberMe === "boolean" ? rememberMe : true;
 
         // Define exp baseado em rememberMe
@@ -130,7 +131,9 @@ export const authOptions: NextAuthOptions = {
 
       // Token expirado — retorna null para forçar novo login
       if (token.exp && (token.exp as number) < now) {
-        return null as any;
+        // O tipo do NextAuth v4 não prevê null aqui, mas o callback de sessão
+        // abaixo trata o token nulo como sessão sem usuário
+        return null as unknown as JWT;
       }
 
       // Com rememberMe: renova expiração deslizante de 7 dias

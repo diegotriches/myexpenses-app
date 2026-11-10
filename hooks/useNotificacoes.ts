@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { notificacaoService } from "@/services/notificacaoService";
 import { useToast } from "@/hooks/use-toast";
-import type { Notificacao } from "@/types/notificacao";
+import type { Notificacao, NotificacoesResponse } from "@/types/notificacao";
 
 // ========================================
 // QUERY KEYS
@@ -44,8 +44,9 @@ export function useMarcarNotificacaoLida() {
       await queryClient.cancelQueries({ queryKey: ["notificacoes"] });
       const previousQueries = queryClient.getQueriesData({ queryKey: ["notificacoes"] });
 
-      queryClient.setQueriesData({ queryKey: ["notificacoes"] }, (old: any) => {
-        if (!old) return old;
+      // Só as listas: ["notificacoes", "preferencias"] tem outro formato
+      queryClient.setQueriesData<NotificacoesResponse>({ queryKey: ["notificacoes"] }, (old) => {
+        if (!old || !Array.isArray(old.notificacoes)) return old;
         return {
           ...old,
           notificacoes: old.notificacoes.map((n: Notificacao) =>

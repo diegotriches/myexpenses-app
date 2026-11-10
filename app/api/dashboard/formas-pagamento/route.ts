@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
         )
       );
 
-    const formas = contarFormas(transacoesPeriodo as any);
+    const formas = contarFormas(transacoesPeriodo);
 
     return NextResponse.json(formas);
   } catch (error) {
