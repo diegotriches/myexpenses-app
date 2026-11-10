@@ -102,7 +102,7 @@ export const transacaoService = {
    *   formaPagamento: "pix"
    * });
    */
-  async criar(dados: CreateTransacaoDTO): Promise<Transacao | Transacao[]> {
+  async criar(dados: CreateTransacaoDTO | CreateTransacaoDTO[]): Promise<Transacao | Transacao[]> {
     const res = await fetch("/api/transacoes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

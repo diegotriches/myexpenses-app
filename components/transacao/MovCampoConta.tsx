@@ -21,7 +21,7 @@ interface Props {
     tipo: "entrada" | "saida";
     valor: string;
   };
-  update: (k: string, v: any) => void;
+  update: (k: "contaId", v: string) => void;
   renderInfoBox?: (content: React.ReactNode) => React.ReactNode;
   hideSelect?: boolean;
   error?: string;

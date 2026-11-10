@@ -18,6 +18,7 @@ import {
     Check
 } from "lucide-react";
 import { useAlterarSenha } from "@/hooks/useProfile";
+import { textoDoErro } from "@/utils/erro";
 
 interface Props {
     usuarioId?: string;
@@ -157,11 +158,12 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
             // Remove mensagem de sucesso após 5 segundos
             setTimeout(() => setSucesso(false), 5000);
 
-        } catch (err: any) {
+        } catch (err) {
             console.error("Erro ao alterar senha:", err);
 
             // Verifica se é erro de senha incorreta
-            if (err.message?.includes("incorreta") || err.message?.includes("atual")) {
+            const mensagem = textoDoErro(err, "");
+            if (mensagem.includes("incorreta") || mensagem.includes("atual")) {
                 setErrors({ senhaAtual: "Senha incorreta" });
             }
         }

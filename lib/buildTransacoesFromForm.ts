@@ -34,6 +34,9 @@ interface BuildTransacoesParams {
   modoEdicao?: ModoEdicao; // ✅ ADICIONADO: necessário para edição
 }
 
+// Sem transação em edição, o resultado é sempre de criação
+export function buildTransacoesFromForm(params: BuildTransacoesParams & { transacaoEdicao: null }): CreateTransacaoDTO[];
+export function buildTransacoesFromForm(params: BuildTransacoesParams): (CreateTransacaoDTO | UpdateTransacaoDTO)[];
 export function buildTransacoesFromForm({
   form,
   contaId,

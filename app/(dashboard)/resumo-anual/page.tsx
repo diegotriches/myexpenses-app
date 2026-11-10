@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useResumoAnual } from "@/hooks/useResumoAnual";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarMoeda } from "@/utils/formatadores";
+import type { PropsTooltip } from "@/types/grafico";
 
 // ── Constantes ─────────────────────────────────────────────────────────────
 
@@ -89,15 +90,15 @@ function KpiCard({
 
 // ── Tooltip customizado ────────────────────────────────────────────────────
 
-function TooltipMoeda({ active, payload, label }: any) {
+function TooltipMoeda({ active, payload, label }: PropsTooltip) {
   const { mask } = useHideValues();
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 text-sm">
       <p className="font-semibold text-gray-900 dark:text-white mb-1">{label}</p>
-      {payload.map((p: any) => (
+      {payload.map((p) => (
         <p key={p.name} style={{ color: p.color }}>
-          {p.name}: {mask(formatarMoeda(p.value))}
+          {p.name}: {mask(formatarMoeda(Number(p.value ?? 0)))}
         </p>
       ))}
     </div>
@@ -106,7 +107,7 @@ function TooltipMoeda({ active, payload, label }: any) {
 
 // ── Lista com rosca — reutilizada para categorias e métodos ───────────────
 
-function RoscaComLista({
+function RoscaComLista<T extends { total: number; percentual: number }>({
   itens,
   cores,
   labelKey,
@@ -114,12 +115,12 @@ function RoscaComLista({
   renderLabel,
   renderDetalhe,
 }: {
-  itens:        any[];
+  itens:        T[];
   cores:        string[];
-  labelKey:     string;
-  valorKey?:    string;
-  renderLabel:  (item: any, i: number) => React.ReactNode;
-  renderDetalhe?: (item: any) => React.ReactNode;
+  labelKey:     keyof T & string;
+  valorKey?:    keyof T & string;
+  renderLabel:  (item: T, i: number) => React.ReactNode;
+  renderDetalhe?: (item: T) => React.ReactNode;
 }) {
   const { mask } = useHideValues();
   return (
@@ -148,7 +149,7 @@ function RoscaComLista({
       {/* Barras de progresso */}
       <div className="w-full md:w-3/5 space-y-4">
         {itens.map((item, i) => (
-          <div key={item[labelKey]}>
+          <div key={String(item[labelKey])}>
             <div className="flex items-center justify-between text-sm mb-1.5">
               <div className="flex items-center gap-2 min-w-0">
                 <span
@@ -267,9 +268,7 @@ export default function ResumoAnualPage() {
     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
   ][m - 1] ?? "";
 
-  const metodosPagamento = (data as any).metodosPagamento as {
-    metodo: string; quantidade: number; total: number; percentual: number;
-  }[];
+  const metodosPagamento = data.metodosPagamento;
 
   return (
     <div className="page-container p-4 md:p-6 space-y-6">

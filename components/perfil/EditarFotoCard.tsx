@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useUploadFoto, useRemoverFoto } from "@/hooks/useProfile";
 import type { Usuario } from "@/types/profile";
+import { textoDoErro } from "@/utils/erro";
 
 interface Props {
   usuario: Usuario;
@@ -98,9 +99,9 @@ export default function EditarFotoCard({ usuario }: Props) {
       });
 
       cancelarEdicao();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erro ao enviar foto:", err);
-      setErro(err.message || "Erro ao enviar foto. Tente novamente.");
+      setErro(textoDoErro(err, "Erro ao enviar foto. Tente novamente."));
     }
   };
 
@@ -113,7 +114,7 @@ export default function EditarFotoCard({ usuario }: Props) {
       await removerFoto.mutateAsync(usuario.id);
       
       cancelarEdicao();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erro ao remover foto:", err);
     }
   };

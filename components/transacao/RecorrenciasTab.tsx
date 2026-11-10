@@ -62,7 +62,7 @@ export default function RecorrenciasTab({ contas, cartoes }: Props) {
   });
   const [erroEdicao, setErroEdicao] = useState<string | null>(null);
 
-  const updateEdicao = (key: string, value: any) => {
+  const updateEdicao = <K extends keyof typeof formEdicao>(key: K, value: (typeof formEdicao)[K]) => {
     setFormEdicao((f) => ({ ...f, [key]: value }));
   };
 

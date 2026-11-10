@@ -18,6 +18,13 @@ export interface CategoriaResumo {
   [key: string]: string | number;
 }
 
+export interface MetodoPagamentoResumo {
+  metodo:     string;
+  quantidade: number;
+  total:      number;
+  percentual: number;
+}
+
 export interface TransacaoDestaque {
   id:          string;
   descricao:   string | null;
@@ -34,6 +41,7 @@ export interface ResumoAnualData {
   totais:           { receitas: number; despesas: number; saldo: number };
   meses:            MesResumo[];
   categorias:       CategoriaResumo[];
+  metodosPagamento: MetodoPagamentoResumo[];
   maiorReceita:     TransacaoDestaque | null;
   maiorDespesa:     TransacaoDestaque | null;
   mediaMensal:      { receitas: number; despesas: number };

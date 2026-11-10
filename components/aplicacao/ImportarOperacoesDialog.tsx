@@ -26,6 +26,7 @@ import {
   type LeituraOperacoes, type OperacaoImportavel,
 } from "@/utils/importacaoOperacoesUtils";
 import { formatarMoeda } from "@/utils/formatadores";
+import { textoDoErro } from "@/utils/erro";
 
 interface Props {
   open: boolean;
@@ -230,8 +231,8 @@ export default function ImportarOperacoesDialog({ open, onOpenChange, existentes
         })),
       );
       onOpenChange(false);
-    } catch (e: any) {
-      setErro(e.message);
+    } catch (e) {
+      setErro(textoDoErro(e));
     }
   };
 

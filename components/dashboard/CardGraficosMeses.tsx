@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useHideValues } from '@/contexts/HideValuesContext';
 import { formatarMoeda } from "@/utils/formatadores";
 import { useMoeda } from "@/hooks/useMoeda";
+import type { PropsTooltip } from "@/types/grafico";
 
 type DadosGrafico = {
   mes: string;
@@ -45,7 +46,7 @@ export function CardGraficoMeses({ ano }: CardGraficoMesesProps) {
   const totais = useMemo(() => {
     if (!dados || dados.length === 0) return { receitas: 0, despesas: 0, balanco: 0 };
     return dados.reduce(
-      (acc: { receitas: number; despesas: number; balanco: number }, item: any) => ({
+      (acc: { receitas: number; despesas: number; balanco: number }, item) => ({
         receitas: acc.receitas + (item.receitas ?? 0),
         despesas: acc.despesas + (item.despesas ?? 0),
         balanco:  acc.balanco  + (item.balanco  ?? 0),
@@ -56,7 +57,7 @@ export function CardGraficoMeses({ ano }: CardGraficoMesesProps) {
 
   const dadosGrafico = useMemo<DadosGrafico[]>(() => {
     if (!dados || dados.length === 0) return [];
-    return dados.map((item: any) => ({
+    return dados.map((item) => ({
       mes:      formatarMes(item.mes ?? ''),
       Receitas: item.receitas ?? 0,
       Despesas: item.despesas ?? 0,
@@ -66,14 +67,14 @@ export function CardGraficoMeses({ ano }: CardGraficoMesesProps) {
 
   const colors = { receitas: '#16a34a', despesas: '#dc2626', balanco: '#2563eb' };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: PropsTooltip) => {
     if (!active || !payload?.length) return null;
     return (
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-lg text-xs space-y-1">
         <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</p>
-        {payload.map((p: any) => (
-          <p key={p.dataKey} style={{ color: p.fill }}>
-            {p.name}: {hidden ? "••••••" : formatarMoeda(p.value)}
+        {payload.map((p) => (
+          <p key={String(p.dataKey)} style={{ color: p.fill }}>
+            {p.name}: {hidden ? "••••••" : formatarMoeda(Number(p.value ?? 0))}
           </p>
         ))}
       </div>

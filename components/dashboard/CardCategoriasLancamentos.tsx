@@ -8,6 +8,7 @@ import { useTransacoesAno } from '@/hooks/useTransacoes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMoeda } from "@/hooks/useMoeda";
+import type { PropsTooltip } from "@/types/grafico";
 
 const CORES_LANCAMENTOS = ['#3b82f6', '#6366f1', '#8b5cf6', '#0ea5e9', '#06b6d4'];
 
@@ -42,7 +43,7 @@ export function CardCategoriasLancamentos({ ano }: CardCategoriasLancamentosProp
     [categorias, totalLancamentos]
   );
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: PropsTooltip) => {
     if (!active || !payload?.length) return null;
     return (
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shadow-lg text-xs">

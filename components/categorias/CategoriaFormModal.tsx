@@ -167,7 +167,7 @@ export default function CategoriaFormModal({
       }
       
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erro ao salvar:", err);
     }
   };

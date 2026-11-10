@@ -20,7 +20,7 @@ interface Props {
     cartaoId: string;
     valor: string;
   };
-  update: (key: string, value: any) => void;
+  update: (k: "cartaoId", v: string) => void;
   renderInfoBox?: (content: React.ReactNode) => React.ReactNode;
   hideSelect?: boolean;
   error?: string;

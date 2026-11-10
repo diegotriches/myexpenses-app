@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CreditCard, Loader2, TrendingDown, CheckCircle2, Clock } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarMoeda } from "@/utils/formatadores";
+import type { PropsTooltip } from "@/types/grafico";
 
 interface Props {
   /** Ano exibido — controlado pelo seletor de ano do Dashboard */
@@ -27,20 +28,20 @@ const formatarCompacto = (valor: number) => {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(valor);
 };
 
-function TooltipCustomizado({ active, payload, label }: any) {
+function TooltipCustomizado({ active, payload, label }: PropsTooltip) {
   const { mask } = useHideValues();
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 text-sm min-w-[160px]">
       <p className="font-semibold text-gray-700 dark:text-gray-200 mb-2">{label}</p>
-      {payload.map((entry: any) => (
-        <div key={entry.dataKey} className="flex items-center justify-between gap-4 mb-1">
+      {payload.map((entry) => (
+        <div key={String(entry.dataKey)} className="flex items-center justify-between gap-4 mb-1">
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: entry.fill }} />
             <span className="text-gray-500 dark:text-gray-400">{entry.name}</span>
           </div>
           <span className="font-medium tabular-nums" style={{ color: entry.fill }}>
-            {mask(formatarCompacto(entry.value))}
+            {mask(formatarCompacto(Number(entry.value ?? 0)))}
           </span>
         </div>
       ))}

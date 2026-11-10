@@ -39,6 +39,7 @@ import {
   useRemoverEstabelecimento,
 } from "@/hooks/useEstabelecimentos";
 import { formatarMoeda } from "@/utils/formatadores";
+import type { CreateEstabelecimentoDTO, UpdateEstabelecimentoDTO } from "@/types/estabelecimento";
 
 // ─── Bottom Sheet — detalhes no mobile ───────────────────────────────────────
 
@@ -219,11 +220,13 @@ export default function EstabelecimentosPage() {
     setDeleteAberto(true);
   }
 
-  async function handleSalvar(dados: any) {
+  async function handleSalvar(dados: CreateEstabelecimentoDTO | UpdateEstabelecimentoDTO) {
     if (editando) {
       await atualizarEstabelecimento.mutateAsync({ id: editando.id, dados });
     } else {
-      await criarEstabelecimento.mutateAsync(dados);
+      const { nome, icone, localizacao } = dados;
+      if (!nome || !icone) throw new Error("Nome e ícone são obrigatórios");
+      await criarEstabelecimento.mutateAsync({ nome, icone, localizacao: localizacao ?? undefined });
     }
     setFormAberto(false);
     setEditando(null);

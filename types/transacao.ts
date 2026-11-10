@@ -95,6 +95,12 @@ export interface UpdateTransacaoDTO {
   recorrenciaId?: string | null;
 }
 
+/** O que o formulário de movimentação entrega para salvar: criação (uma ou várias parcelas) ou edição. */
+export type DadosSalvarTransacao = CreateTransacaoDTO | CreateTransacaoDTO[] | UpdateTransacaoDTO;
+
+export const ehAtualizacaoTransacao = (d: DadosSalvarTransacao): d is UpdateTransacaoDTO =>
+  !Array.isArray(d) && "modoEdicao" in d;
+
 /**
  * Filtros para listagem de transações
  */

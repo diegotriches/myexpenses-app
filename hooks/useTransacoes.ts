@@ -71,7 +71,7 @@ export function useCriarTransacao() {
   const { toast }   = useToast();
 
   return useMutation({
-    mutationFn: (dados: CreateTransacaoDTO) => transacaoService.criar(dados),
+    mutationFn: (dados: CreateTransacaoDTO | CreateTransacaoDTO[]) => transacaoService.criar(dados),
     onSuccess: () => {
       invalidarTudo(queryClient);
       toast({ title: "Transação criada!", description: "A transação foi registrada com sucesso." });

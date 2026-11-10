@@ -18,7 +18,7 @@ interface Props {
     tipo: "entrada" | "saida";
     categoria: string;
   };
-  update: (k: string, v: any) => void;
+  update: (k: "categoria", v: string) => void;
   error?: string;
 }
 

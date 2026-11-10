@@ -28,6 +28,7 @@ import {
   type ConfigIr, type MesIr, type OperacaoIr,
 } from "@/utils/irRendaVariavelUtils";
 import { formatarMoeda } from "@/utils/formatadores";
+import { textoDoErro } from "@/utils/erro";
 
 const fmtIso = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -120,8 +121,8 @@ export default function ImpostoRendaRendaVariavel() {
     try {
       await salvarConfig.mutateAsync(novo);
       setCfgOpen(false);
-    } catch (e: any) {
-      setErroCfg(e.message);
+    } catch (e) {
+      setErroCfg(textoDoErro(e));
     }
   };
 

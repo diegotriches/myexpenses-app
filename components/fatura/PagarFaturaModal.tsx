@@ -39,6 +39,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarMoeda } from "@/utils/formatadores";
+import { textoDoErro } from "@/utils/erro";
 
 interface Conta {
   id: string;
@@ -135,10 +136,10 @@ export default function PagarFaturaModal({
 
       // Modal fecha automaticamente quando fatura.paga === true
       // (via useEffect no pai)
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erro ao pagar fatura:", err);
       
-      const mensagem = err.message || "Erro ao processar pagamento. Tente novamente.";
+      const mensagem = textoDoErro(err, "Erro ao processar pagamento. Tente novamente.");
       setErro(mensagem);
     }
   };

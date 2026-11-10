@@ -28,6 +28,7 @@ import {
 } from "@/utils/aplicacaoSimulacao";
 import { formatarMoeda } from "@/utils/formatadores";
 import { useMoeda } from "@/hooks/useMoeda";
+import type { PropsTooltip } from "@/types/grafico";
 
 const PERIODOS = [
   { label: "3m", value: "3" },
@@ -117,7 +118,7 @@ function liquidoAtual(a: Aplicacao, hoje: string): number {
   return estimarLiquidoTotal(proj.lotes, hoje, a.tributacao).valorLiquido;
 }
 
-function CustomTooltip({ active, payload, label, hidden }: any) {
+function CustomTooltip({ active, payload, label, hidden }: PropsTooltip & { hidden?: boolean }) {
   if (!active || !payload?.length) return null;
   const p = payload[0]?.payload ?? {};
   const contas = p.Contas ?? 0;

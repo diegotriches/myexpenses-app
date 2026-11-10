@@ -14,7 +14,7 @@ import { MoreVertical, Pencil, Trash2, Power, CreditCard, Wallet } from "lucide-
 import { Cartao } from "@/types/cartao";
 import { empresaOptions, bandeiraOptions } from "@/utils/cartaoOptions";
 
-function getImgFromOption(options: any[], value: string) {
+function getImgFromOption(options: readonly { value: string; imgSrc: string }[], value: string) {
   return options.find((o) => o.value === value)?.imgSrc ?? null;
 }
 

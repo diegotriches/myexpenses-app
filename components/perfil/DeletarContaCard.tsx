@@ -30,6 +30,7 @@ import {
 import { FcGoogle } from "react-icons/fc";
 import { useDeletarConta } from "@/hooks/useProfile";
 import type { Usuario } from "@/types/profile";
+import { codigoDoErro, textoDoErro } from "@/utils/erro";
 
 interface Props {
   usuario: Usuario;
@@ -132,13 +133,14 @@ function DeletarContaInner({ usuario }: Props) {
         senha: isOAuth ? undefined : senha,
       });
       // Hook já redireciona para /login após sucesso
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erro ao deletar conta:", err);
+      const mensagemErro = textoDoErro(err, "");
 
       // Se a rota retornar OAUTH_REAUTH_REQUIRED, pede para reautenticar
       if (
-        err.code === "OAUTH_REAUTH_REQUIRED" ||
-        err.message?.includes("Reautenticação")
+        codigoDoErro(err) === "OAUTH_REAUTH_REQUIRED" ||
+        mensagemErro.includes("Reautenticação")
       ) {
         setErro(
           "Sua sessão expirou. Clique em 'Confirmar com Google' para reautenticar.",
@@ -148,12 +150,12 @@ function DeletarContaInner({ usuario }: Props) {
 
       let mensagem = "Erro ao deletar conta. Tente novamente.";
       if (
-        err.message?.includes("incorreta") ||
-        err.message?.includes("Senha")
+        mensagemErro.includes("incorreta") ||
+        mensagemErro.includes("Senha")
       ) {
         mensagem = "Senha incorreta. Tente novamente.";
-      } else if (err.message) {
-        mensagem = err.message;
+      } else if (mensagemErro) {
+        mensagem = mensagemErro;
       }
       setErro(mensagem);
     }

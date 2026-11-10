@@ -73,7 +73,7 @@ export default function AplicacoesTab({ contas }: Props) {
     dataVencimento: "",
   });
   const [erro, setErro] = useState<string | null>(null);
-  const updateForm = (key: string, value: any) => setForm((f) => ({ ...f, [key]: value }));
+  const updateForm = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   // ── Aporte ───────────────────────────────────────────────────────────────
   const [aporteAlvo, setAporteAlvo] = useState<Aplicacao | null>(null);
@@ -81,14 +81,14 @@ export default function AplicacoesTab({ contas }: Props) {
     contaId: "", tipo: "saida" as "entrada" | "saida", valor: "", data: hojeIso,
   });
   const [erroAporte, setErroAporte] = useState<string | null>(null);
-  const updateAporte = (key: string, value: any) => setAporteForm((f) => ({ ...f, [key]: value }));
+  const updateAporte = <K extends keyof typeof aporteForm>(key: K, value: (typeof aporteForm)[K]) => setAporteForm((f) => ({ ...f, [key]: value }));
 
   // ── Resgate ──────────────────────────────────────────────────────────────
   const [resgateAlvo, setResgateAlvo] = useState<Aplicacao | null>(null);
   const [resgateModo, setResgateModo] = useState<"total" | "parcial">("total");
   const [resgateForm, setResgateForm] = useState({ tipo: "entrada" as "entrada" | "saida", data: "", valor: "", descricao: "" });
   const [erroResgate, setErroResgate] = useState<string | null>(null);
-  const updateResgate = (key: string, value: any) => setResgateForm((f) => ({ ...f, [key]: value }));
+  const updateResgate = <K extends keyof typeof resgateForm>(key: K, value: (typeof resgateForm)[K]) => setResgateForm((f) => ({ ...f, [key]: value }));
 
   const nomeConta = useCallback((contaId: string) => contas.find((c) => c.id === contaId)?.nome ?? "Conta", [contas]);
 

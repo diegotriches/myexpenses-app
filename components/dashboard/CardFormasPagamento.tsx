@@ -5,6 +5,7 @@ import { DollarSign, Layers, Repeat, Loader2, LayoutList } from "lucide-react";
 import { useFormasPagamento } from "@/hooks/useDashboard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import type { PropsTooltip } from "@/types/grafico";
 
 const CORES = {
   aVista: "#3b82f6",
@@ -12,7 +13,7 @@ const CORES = {
   recorrente: "#a855f7",
 };
 
-const CustomTooltip = ({ active, payload }: any) => {
+const CustomTooltip = ({ active, payload }: PropsTooltip) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shadow-lg text-xs">

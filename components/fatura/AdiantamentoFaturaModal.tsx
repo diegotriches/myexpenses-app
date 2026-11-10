@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarMoeda } from "@/utils/formatadores";
+import { textoDoErro } from "@/utils/erro";
 
 interface Conta {
   id:         string;
@@ -115,8 +116,8 @@ export default function AdiantamentoFaturaModal({
     try {
       setErro(null);
       await onConfirmar({ contaId, valor: valorNum, descricao: descricao.trim() || undefined });
-    } catch (err: any) {
-      setErro(err.message || "Erro ao processar adiantamento");
+    } catch (err) {
+      setErro(textoDoErro(err, "Erro ao processar adiantamento"));
     }
   }
 

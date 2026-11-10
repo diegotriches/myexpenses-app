@@ -60,17 +60,11 @@ export const cartaoService = {
   },
 
   /**
-   * Remove um cartão
+   * Remove um cartão. Lança ErroApi; status 409 = cartão com movimentações
+   * (a tela o inativa no lugar de excluir).
    */
   async remover(id: number): Promise<void> {
-    const res = await fetch(`/api/cartoes/${id}`, {
-      method: "DELETE",
-    });
-    
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ message: "Erro ao remover cartão" }));
-      throw new Error(error.message || error.error || "Erro ao remover cartão");
-    }
+    await requisicao<unknown>(`/api/cartoes/${id}`, { method: "DELETE" }, "Erro ao remover cartão");
   },
 
 };

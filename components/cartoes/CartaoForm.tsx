@@ -29,6 +29,19 @@ import { useHideValues } from "@/contexts/HideValuesContext";
 
 type TipoCartao = "credito" | "debito";
 
+interface FormCartao {
+  nome: string;
+  tipo: TipoCartao;
+  bandeira: string;
+  empresa: string;
+  limite: string;
+  diaFechamento: string;
+  diaVencimento: string;
+  ativo: boolean;
+  observacoes: string;
+  contaVinculadaId: string;
+}
+
 interface Props {
   initialValues: Cartao | null;
   onSubmit: (values: CreateCartaoDTO | UpdateCartaoDTO) => Promise<void>;
@@ -39,8 +52,8 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
   const { data: contas = [] } = useContas();
   const { mask } = useHideValues();
 
-  const [form, setForm] = useState({
-    nome: "", tipo: "credito" as TipoCartao, bandeira: "", empresa: "",
+  const [form, setForm] = useState<FormCartao>({
+    nome: "", tipo: "credito", bandeira: "", empresa: "",
     limite: "", diaFechamento: "", diaVencimento: "", ativo: true,
     observacoes: "", contaVinculadaId: "none",
   });
@@ -84,7 +97,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
     handleChange("limite", limitado ? (parseInt(limitado, 10) / 100).toFixed(2) : "");
   }
 
-  function handleChange(field: string, value: any) {
+  function handleChange<K extends keyof FormCartao>(field: K, value: FormCartao[K]) {
     setForm((f) => {
       const updated = { ...f, [field]: value };
       if (field === "tipo") {
@@ -97,17 +110,18 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
     validarCampo(field, value);
   }
 
-  function validarCampo(field: string, value: any) {
+  function validarCampo(field: keyof FormCartao, value: FormCartao[keyof FormCartao]) {
     // Mensagem do campo, ou null quando válido; campos sem regra não mexem nos erros
+    const texto = typeof value === "string" ? value : "";
     let mensagem: string | null;
     switch (field) {
-      case "nome":             mensagem = !value?.trim() ? "Nome é obrigatório" : null; break;
-      case "empresa":          mensagem = !value ? "Selecione o banco emissor" : null; break;
-      case "bandeira":         mensagem = !value ? "Selecione a bandeira" : null; break;
-      case "contaVinculadaId": mensagem = form.tipo === "debito" && (!value || value === "none") ? "Conta vinculada obrigatória" : null; break;
-      case "limite":           mensagem = form.tipo === "credito" && (!Number.isFinite(Number(value)) || Number(value) <= 0) ? "Informe um limite válido" : null; break;
-      case "diaFechamento":    mensagem = form.tipo === "credito" && !value ? "Informe o dia de fechamento" : null; break;
-      case "diaVencimento":    mensagem = form.tipo === "credito" && !value ? "Informe o dia de vencimento" : null; break;
+      case "nome":             mensagem = !texto.trim() ? "Nome é obrigatório" : null; break;
+      case "empresa":          mensagem = !texto ? "Selecione o banco emissor" : null; break;
+      case "bandeira":         mensagem = !texto ? "Selecione a bandeira" : null; break;
+      case "contaVinculadaId": mensagem = form.tipo === "debito" && (!texto || texto === "none") ? "Conta vinculada obrigatória" : null; break;
+      case "limite":           mensagem = form.tipo === "credito" && (!Number.isFinite(Number(texto)) || Number(texto) <= 0) ? "Informe um limite válido" : null; break;
+      case "diaFechamento":    mensagem = form.tipo === "credito" && !texto ? "Informe o dia de fechamento" : null; break;
+      case "diaVencimento":    mensagem = form.tipo === "credito" && !texto ? "Informe o dia de vencimento" : null; break;
       default: return;
     }
     const e = { ...erros };

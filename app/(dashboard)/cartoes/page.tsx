@@ -32,6 +32,7 @@ import {
   useRemoverCartao,
 } from "@/hooks/useCartoes";
 import { useTransacoes } from "@/hooks/useTransacoes";
+import { ErroApi } from "@/services/http";
 
 type OrdenacaoType = "nome" | "limite-maior" | "limite-menor" | "uso-maior" | "uso-menor";
 
@@ -130,8 +131,8 @@ export default function CartoesPage() {
       setModalExclusaoOpen(false);
       setCartaoParaExcluir(null);
       setAlertaBloqueio(null);
-    } catch (err: any) {
-      if (err?.status === 409 || err?.response?.status === 409 || err?.code === "HAS_TRANSACTIONS") {
+    } catch (err) {
+      if (err instanceof ErroApi && err.status === 409) {
         setModalExclusaoOpen(false);
         setAlertaBloqueio(
           `O cartão "${cartaoParaExcluir.nome}" possui movimentações e não pode ser excluído. ` +

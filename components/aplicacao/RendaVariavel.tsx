@@ -41,6 +41,7 @@ import ImportarOperacoesDialog from "@/components/aplicacao/ImportarOperacoesDia
 import { EVENTO_LABEL, calcularPosicoes, dataEncerramento, encerramentoRecente } from "@/utils/rendaVariavelUtils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatarMoeda } from "@/utils/formatadores";
+import { textoDoErro } from "@/utils/erro";
 
 interface Props {
   contas: Conta[];
@@ -249,8 +250,8 @@ export default function RendaVariavel({ contas }: Props) {
         movimentarConta: form.movimentar,
       });
       setModalOpen(false);
-    } catch (e: any) {
-      setErro(e.message);
+    } catch (e) {
+      setErro(textoDoErro(e));
     }
   };
 
@@ -272,8 +273,8 @@ export default function RendaVariavel({ contas }: Props) {
     try {
       await salvarCotacao.mutateAsync({ ticker: cotacaoAlvo.ticker, preco: v });
       setCotacaoAlvo(null);
-    } catch (e: any) {
-      setCotacaoErro(e.message);
+    } catch (e) {
+      setCotacaoErro(textoDoErro(e));
     }
   };
 
@@ -784,7 +785,7 @@ export default function RendaVariavel({ contas }: Props) {
                   tipo: form.tipo === "compra" ? "saida" : "entrada",
                   valor: totalPrevisto.toFixed(2),
                 }}
-                update={(k: string, v: any) => { if (k === "contaId") updateForm("contaId", v); }}
+                update={(_, v) => updateForm("contaId", v)}
                 renderInfoBox={() => null}
               />
             )}

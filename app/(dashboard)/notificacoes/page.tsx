@@ -39,6 +39,13 @@ const severidadeConfig: Record<string, { color: string; bg: string; label: strin
 };
 const severidadeFallback = { color: "text-gray-500", bg: "bg-gray-50 dark:bg-gray-900", label: "Outro" };
 
+type FiltroStatus = "todas" | "lidas" | "nao-lidas";
+const FILTROS_STATUS: readonly string[] = ["todas", "lidas", "nao-lidas"];
+const FILTROS_SEVERIDADE: readonly string[] = ["todas", "info", "warning", "error", "success"];
+
+const ehFiltroStatus = (v: string): v is FiltroStatus => FILTROS_STATUS.includes(v);
+const ehFiltroSeveridade = (v: string): v is SeveridadeNotificacao | "todas" => FILTROS_SEVERIDADE.includes(v);
+
 export default function NotificacoesPage() {
   const { data, isLoading }   = useNotificacoes();
   const marcarComoLida        = useMarcarNotificacaoLida();
@@ -47,7 +54,7 @@ export default function NotificacoesPage() {
 
   const router = useRouter();
 
-  const [filtroStatus,     setFiltroStatus]     = useState<"todas" | "lidas" | "nao-lidas">("todas");
+  const [filtroStatus,     setFiltroStatus]     = useState<FiltroStatus>("todas");
   const [filtroSeveridade, setFiltroSeveridade] = useState<SeveridadeNotificacao | "todas">("todas");
 
   const notificacoes = data?.notificacoes || [];
@@ -114,7 +121,7 @@ export default function NotificacoesPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-            <Select value={filtroStatus} onValueChange={(v: any) => setFiltroStatus(v)}>
+            <Select value={filtroStatus} onValueChange={(v) => { if (ehFiltroStatus(v)) setFiltroStatus(v); }}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
@@ -125,7 +132,7 @@ export default function NotificacoesPage() {
               </SelectContent>
             </Select>
 
-            <Select value={filtroSeveridade} onValueChange={(v: any) => setFiltroSeveridade(v)}>
+            <Select value={filtroSeveridade} onValueChange={(v) => { if (ehFiltroSeveridade(v)) setFiltroSeveridade(v); }}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>

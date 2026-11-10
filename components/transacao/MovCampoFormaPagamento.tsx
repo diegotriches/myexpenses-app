@@ -9,17 +9,20 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { FaMoneyBill, FaCreditCard, FaDollarSign } from "react-icons/fa";
+import type { IconType } from "react-icons";
+
+type FormaPagamento = "dinheiro" | "pix" | "cartao";
 
 interface Props {
   form: {
     tipo: "entrada" | "saida";
     formaPagamento: string;
   };
-  update: (k: string, v: any) => void;
-  opcoesDisponiveis?: readonly ("dinheiro" | "pix" | "cartao")[];
+  update: (k: "formaPagamento", v: FormaPagamento) => void;
+  opcoesDisponiveis?: readonly FormaPagamento[];
 }
 
-const formaPagamentoOptions = [
+const formaPagamentoOptions: { value: FormaPagamento; label: string; icon: IconType; color: string }[] = [
   { 
     value: "dinheiro", 
     label: "Dinheiro", 
@@ -46,7 +49,7 @@ export default function MovCampoFormaPagamento({
   opcoesDisponiveis = ["dinheiro", "pix", "cartao"]
 }: Props) {
   const opcoesVisiveis = formaPagamentoOptions.filter((opt) =>
-    opcoesDisponiveis.includes(opt.value as any)
+    opcoesDisponiveis.includes(opt.value)
   );
 
   const labelTexto = form.tipo === "entrada" 
@@ -65,7 +68,10 @@ export default function MovCampoFormaPagamento({
 
       <Select
         value={form.formaPagamento}
-        onValueChange={(v) => update("formaPagamento", v)}
+        onValueChange={(v) => {
+          const opcao = opcoesVisiveis.find((opt) => opt.value === v);
+          if (opcao) update("formaPagamento", opcao.value);
+        }}
       >
         <SelectTrigger className="dark:bg-gray-800 dark:border-gray-700 h-12">
           <SelectValue placeholder="Selecione">

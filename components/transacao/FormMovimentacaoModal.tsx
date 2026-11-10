@@ -42,6 +42,8 @@ import {
 
 import { FaMoneyBill, FaSpinner, FaSyncAlt } from "react-icons/fa";
 import { AlertCircle, Minus, Plus } from "lucide-react";
+import type { IconType } from "react-icons";
+import type { DadosSalvarTransacao } from "@/types/transacao";
 
 type TipoPagamento = "avista" | "parcelado" | "recorrente";
 
@@ -55,7 +57,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   transacaoEdicao: Transacao | null;
   modoEdicao?: "unica" | "todas_parcelas" | "toda_recorrencia";
-  salvar: (dados: any) => Promise<void>;
+  salvar: (dados: DadosSalvarTransacao) => Promise<void>;
   // ✅ NOVO: caminho separado para criar recorrências (POST /api/recorrencias
   // em vez de POST /api/transacoes). Opcional — se não for passado e o
   // usuário tentar criar uma recorrência, o submit lança um erro claro
@@ -88,7 +90,7 @@ type FormState = typeof initialForm;
 // Função para a data ser a do momento em que o formulário abre
 const novoForm = (): FormState => ({ ...initialForm, data: hojeBrt() });
 
-const tipoPagamentoIcons: Record<TipoPagamento, any> = {
+const tipoPagamentoIcons: Record<TipoPagamento, IconType> = {
   avista:     FaMoneyBill,
   parcelado:  FaSpinner,
   recorrente: FaSyncAlt,
@@ -147,8 +149,6 @@ export default function FormMovimentacaoModal({
       });
     }
   };
-
-  const updateAny = (key: string, value: any) => update(key as keyof FormState, value);
 
   const tipoPagamento = useMemo<TipoPagamento>(() => {
     if (form.parcelado)  return "parcelado";
@@ -409,7 +409,7 @@ export default function FormMovimentacaoModal({
           transacaoEdicao: null,
         });
 
-        const comEstabelecimento = transacoesParaCriar.map((t: any) => ({
+        const comEstabelecimento = transacoesParaCriar.map((t) => ({
           ...t,
           estabelecimentoId: form.estabelecimentoId || undefined,
         }));
@@ -475,29 +475,29 @@ export default function FormMovimentacaoModal({
             )}
 
             {/* 1. TIPO */}
-            <MovCamposBasicos form={form} update={updateAny} campo="tipo" disabled={bloqueiaCampos.tipo} />
+            <MovCamposBasicos form={form} update={update} campo="tipo" disabled={bloqueiaCampos.tipo} />
 
             {/* 2. CATEGORIA */}
-            <MovCampoCategoria form={form} update={updateAny} error={errors.categoria} />
+            <MovCampoCategoria form={form} update={update} error={errors.categoria} />
 
             {/* 3. VALOR + DATA */}
             <div className="grid grid-cols-2 gap-3">
-              <MovCamposBasicos form={form} update={updateAny} campo="valor" error={errors.valor} />
-              <MovCamposBasicos form={form} update={updateAny} campo="data"  disabled={bloqueiaCampos.data} error={errors.data} />
+              <MovCamposBasicos form={form} update={update} campo="valor" error={errors.valor} />
+              <MovCamposBasicos form={form} update={update} campo="data"  disabled={bloqueiaCampos.data} error={errors.data} />
             </div>
 
             {/* 4. FORMA DE PAGAMENTO + CONTA/CARTÃO */}
             <div className="grid grid-cols-2 gap-3">
-              <MovCampoFormaPagamento form={form} update={updateAny} opcoesDisponiveis={opcoesFormaPagamento} />
-              {mostrarCampoConta  && <MovCampoConta  form={form} update={updateAny} renderInfoBox={() => null} error={errors.conta}  valorOriginal={valorOriginalEdicao} />}
-              {mostrarCampoCartao && <MovCampoCartao form={form} update={updateAny} renderInfoBox={() => null} error={errors.cartao} disabled={parcelasEmFaturaPaga > 0} />}
+              <MovCampoFormaPagamento form={form} update={update} opcoesDisponiveis={opcoesFormaPagamento} />
+              {mostrarCampoConta  && <MovCampoConta  form={form} update={update} renderInfoBox={() => null} error={errors.conta}  valorOriginal={valorOriginalEdicao} />}
+              {mostrarCampoCartao && <MovCampoCartao form={form} update={update} renderInfoBox={() => null} error={errors.cartao} disabled={parcelasEmFaturaPaga > 0} />}
             </div>
 
             {mostrarCampoConta  && form.contaId  && (
-              <MovCampoConta  form={form} update={updateAny} hideSelect={true} renderInfoBox={(c) => <div className="w-full">{c}</div>} valorOriginal={valorOriginalEdicao} />
+              <MovCampoConta  form={form} update={update} hideSelect={true} renderInfoBox={(c) => <div className="w-full">{c}</div>} valorOriginal={valorOriginalEdicao} />
             )}
             {mostrarCampoCartao && form.cartaoId && (
-              <MovCampoCartao form={form} update={updateAny} hideSelect={true} renderInfoBox={(c) => <div className="w-full">{c}</div>} />
+              <MovCampoCartao form={form} update={update} hideSelect={true} renderInfoBox={(c) => <div className="w-full">{c}</div>} />
             )}
 
             {/* 5. TIPO DE PAGAMENTO */}
@@ -657,7 +657,7 @@ export default function FormMovimentacaoModal({
                 <span className="text-gray-400 group-open:rotate-180 transition-transform">▼</span>
               </summary>
               <div className="mt-2">
-                <MovCamposBasicos form={form} update={updateAny} campo="descricao" />
+                <MovCamposBasicos form={form} update={update} campo="descricao" />
               </div>
             </details>
           </div>

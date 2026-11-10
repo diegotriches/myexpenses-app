@@ -35,6 +35,7 @@ import {
 } from "@/utils/proventosUtils";
 import MovCampoConta from "@/components/transacao/MovCampoConta";
 import { formatarMoeda } from "@/utils/formatadores";
+import { textoDoErro } from "@/utils/erro";
 
 interface Props {
   contas: Conta[];
@@ -102,9 +103,9 @@ export default function ProventosRendaVariavel({ contas }: Props) {
   const [form, setForm] = useState(formVazio());
   const [erro, setErro] = useState<string | null>(null);
 
-  const updateForm = (k: string, v: any) =>
+  const updateForm = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => {
-      const novo: any = { ...f, [k]: v };
+      const novo = { ...f, [k]: v };
       if (k === "ticker") novo.ticker = normalizarTicker(String(v));
       // por padrão só credita a conta quando o pagamento é de hoje
       if (k === "data") novo.movimentar = v === hojeIso;
@@ -159,8 +160,8 @@ export default function ProventosRendaVariavel({ contas }: Props) {
         movimentarConta: form.movimentar,
       });
       setModalOpen(false);
-    } catch (e: any) {
-      setErro(e.message);
+    } catch (e) {
+      setErro(textoDoErro(e));
     }
   };
 
@@ -224,8 +225,8 @@ export default function ProventosRendaVariavel({ contas }: Props) {
         contaId: creditar ? contaImport : undefined,
       });
       setImportOpen(false);
-    } catch (e: any) {
-      setErroImport(e.message);
+    } catch (e) {
+      setErroImport(textoDoErro(e));
     }
   };
 
@@ -490,7 +491,7 @@ export default function ProventosRendaVariavel({ contas }: Props) {
             {form.movimentar && contas.length > 0 && (
               <MovCampoConta
                 form={{ contaId: form.contaId, tipo: "entrada", valor: lerDecimal(form.valor) > 0 ? lerDecimal(form.valor).toFixed(2) : "" }}
-                update={(k: string, v: any) => { if (k === "contaId") updateForm("contaId", v); }}
+                update={(_, v) => updateForm("contaId", v)}
                 renderInfoBox={() => null}
               />
             )}
@@ -582,7 +583,7 @@ export default function ProventosRendaVariavel({ contas }: Props) {
                 {creditar && contas.length > 0 && (
                   <MovCampoConta
                     form={{ contaId: contaImport, tipo: "entrada", valor: totalLeitura.toFixed(2) }}
-                    update={(k: string, v: any) => { if (k === "contaId") setContaImport(v); }}
+                    update={(_, v) => setContaImport(v)}
                     renderInfoBox={() => null}
                   />
                 )}

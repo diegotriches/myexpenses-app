@@ -26,6 +26,7 @@ import {
 } from "react-icons/bs";
 import { MdOutlineAutoGraph } from "react-icons/md";
 import { Menu, ChevronRight } from "lucide-react";
+import type { IconType } from "react-icons";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -97,7 +98,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     isMobile = false,
   }: {
     href: string;
-    icon: any;
+    icon: IconType;
     label: string;
     isMobile?: boolean;
   }) => {

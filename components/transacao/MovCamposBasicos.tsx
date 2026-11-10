@@ -5,18 +5,23 @@ import { Label } from "@/components/ui/label";
 import { Calendar, DollarSign, FileText, TrendingUp, TrendingDown } from "lucide-react";
 import { useState } from "react";
 
-interface Props {
+// Cada instância edita um campo só: o tipo de `update` acompanha `campo`,
+// e a tela não precisa aceitar chaves que o componente nunca altera
+type Props = {
   form: {
     tipo: "entrada" | "saida";
     data: string;
     valor: string;
     descricao: string;
   };
-  update: (k: string, v: any) => void;
-  campo: "tipo" | "data" | "valor" | "descricao";
   disabled?: boolean;
   error?: string;
-}
+} & (
+  | { campo: "tipo"; update: (k: "tipo", v: "entrada" | "saida") => void }
+  | { campo: "data"; update: (k: "data", v: string) => void }
+  | { campo: "valor"; update: (k: "valor", v: string) => void }
+  | { campo: "descricao"; update: (k: "descricao", v: string) => void }
+);
 
 // ✅ NOVO: formatador pt-BR — vírgula nos centavos e ponto nos milhares
 // (ex: 1.234.567,89). Declarado fora do componente pra não recriar a
@@ -43,7 +48,7 @@ export default function MovCamposBasicos({ form, update, campo, disabled, error 
     const limitado = apenasNumeros.slice(0, 10);
     setValorDigitos(limitado);
     const valorEmReais = limitado ? (parseInt(limitado, 10) / 100).toFixed(2) : "";
-    update("valor", valorEmReais);
+    if (campo === "valor") update("valor", valorEmReais);
   };
 
   const errorClass = error ? "border-red-500 dark:border-red-500 focus-visible:ring-red-500" : "";
@@ -58,7 +63,7 @@ export default function MovCamposBasicos({ form, update, campo, disabled, error 
           <div className={`grid grid-cols-2 gap-3 ${error ? "ring-2 ring-red-500 ring-offset-2 rounded-lg" : ""}`}>
             <button
               type="button"
-              onClick={() => !disabled && update("tipo", "entrada")}
+              onClick={() => !disabled && campo === "tipo" && update("tipo", "entrada")}
               disabled={disabled}
               className={`
                 h-20 border-2 rounded-lg transition-all duration-200
@@ -77,7 +82,7 @@ export default function MovCamposBasicos({ form, update, campo, disabled, error 
             </button>
             <button
               type="button"
-              onClick={() => !disabled && update("tipo", "saida")}
+              onClick={() => !disabled && campo === "tipo" && update("tipo", "saida")}
               disabled={disabled}
               className={`
                 h-20 border-2 rounded-lg transition-all duration-200
@@ -109,7 +114,7 @@ export default function MovCamposBasicos({ form, update, campo, disabled, error 
           <Input
             type="date"
             value={form.data}
-            onChange={(e) => update("data", e.target.value)}
+            onChange={(e) => campo === "data" && update("data", e.target.value)}
             className={`dark:bg-gray-800 dark:border-gray-700 dark:text-white h-12 ${errorClass}`}
             disabled={disabled}
           />
@@ -151,7 +156,7 @@ export default function MovCamposBasicos({ form, update, campo, disabled, error 
           <Input
             type="text"
             value={form.descricao}
-            onChange={(e) => update("descricao", e.target.value)}
+            onChange={(e) => campo === "descricao" && update("descricao", e.target.value)}
             className="dark:bg-gray-800 dark:border-gray-700 dark:text-white h-12"
             placeholder="Descrição da movimentação (opcional)"
             maxLength={100}

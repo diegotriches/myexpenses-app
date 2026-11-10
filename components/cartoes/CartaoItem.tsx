@@ -47,7 +47,7 @@ interface Props {
   onToggleAtivo?: (cartao: Cartao) => void;
 }
 
-function getImgFromOption(options: any[], value: string) {
+function getImgFromOption(options: readonly { value: string; imgSrc: string }[], value: string) {
   const found = options.find((o) => o.value === value);
   return found ? found.imgSrc : null;
 }

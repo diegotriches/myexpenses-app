@@ -17,6 +17,7 @@ import type { OperacaoRvApi } from "@/services/rendaVariavelService";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { TICKER_REGEX, normalizarTicker } from "@/utils/rendaVariavelUtils";
 import { calcularEvento, posicaoEm } from "@/utils/eventosCorporativosUtils";
+import { textoDoErro } from "@/utils/erro";
 
 type TipoForm = "desdobramento" | "grupamento" | "bonificacao" | "troca";
 
@@ -94,8 +95,8 @@ export default function EventoCorporativoDialog({ open, onOpenChange, operacoes 
         await criar.mutateAsync({ tipo, ticker, data, antigo: num(antigo), novo: num(novo) });
       }
       onOpenChange(false);
-    } catch (e: any) {
-      setErro(e.message);
+    } catch (e) {
+      setErro(textoDoErro(e));
     }
   };
 

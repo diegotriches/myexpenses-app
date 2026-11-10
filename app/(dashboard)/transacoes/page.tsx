@@ -32,6 +32,8 @@ import { useContas } from "@/hooks/useContas";
 import { Transacao, ModoEdicao } from "@/types/transacao";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import { useFaturas } from "@/hooks/useFaturas";
+import { ehAtualizacaoTransacao, type DadosSalvarTransacao } from "@/types/transacao";
+import type { CreateRecorrenciaDTO } from "@/types/recorrencia";
 
 export default function TransacoesPage() {
   const router = useRouter();
@@ -199,14 +201,16 @@ export default function TransacoesPage() {
     }
   }
 
-  async function handleSalvar(dados: any) {
+  async function handleSalvar(dados: DadosSalvarTransacao) {
     try {
       if (editando) {
+        if (!ehAtualizacaoTransacao(dados)) throw new Error("Dados de edição inválidos");
         await atualizarTransacao.mutateAsync({
           id: editando.id,
           dados: { ...dados, modoEdicao: tipoEdicao },
         });
       } else {
+        if (ehAtualizacaoTransacao(dados)) throw new Error("Dados de criação inválidos");
         await criarTransacao.mutateAsync(dados);
       }
       setOpenModal(false);
@@ -218,7 +222,7 @@ export default function TransacoesPage() {
     }
   }
 
-  async function handleSalvarRecorrencia(dados: any) {
+  async function handleSalvarRecorrencia(dados: CreateRecorrenciaDTO) {
     try {
       await criarRecorrencia.mutateAsync(dados);
       setOpenModal(false);
