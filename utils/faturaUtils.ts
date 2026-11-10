@@ -1,4 +1,5 @@
 import type { Fatura, StatusFatura } from "@/types/fatura";
+import { hojeBrt } from "./aplicacaoSimulacao";
 
 // ========================================
 // CÁLCULO DE FATURA E PERÍODO
@@ -180,7 +181,8 @@ export function calcularStatusFatura(
 
 /**
  * Verifica se uma fatura está fechada (chegou ou passou da data de fechamento).
- * No dia de fechamento a fatura já está fechada.
+ * No dia de fechamento a fatura já está fechada. "Hoje" é a data de Brasília, e o
+ * fechamento é limitado ao último dia do mês, como em calcularPeriodoFatura.
  *
  * @example
  * // Hoje: 10/jan/2026, fecha dia 10
@@ -193,17 +195,17 @@ export function faturaEstaFechada(
   ano: number,
   diaFechamento: number
 ): boolean {
-  const hoje = new Date();
-  const anoHoje  = hoje.getFullYear();
-  const mesHoje  = hoje.getMonth() + 1;
-  const diaHoje  = hoje.getDate();
+  const [anoHoje, mesHoje, diaHoje] = hojeBrt().split("-").map(Number);
 
   // Fatura só está fechada se o dia de fechamento já ocorreu NO PASSADO
   // Ex: hoje = 09/03, fechamento = 09 → fatura mar/2026 está fechada
   //     hoje = 09/03, fechamento = 09 → fatura abr/2026 NÃO está fechada
   if (ano > anoHoje) return false;
   if (ano === anoHoje && mes > mesHoje) return false;
-  if (ano === anoHoje && mes === mesHoje) return diaHoje >= diaFechamento;
+  if (ano === anoHoje && mes === mesHoje) {
+    const ultimoDiaDoMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+    return diaHoje >= Math.min(diaFechamento, ultimoDiaDoMes);
+  }
   return true; // mês/ano já passou inteiramente
 }
 

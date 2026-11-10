@@ -2,6 +2,7 @@ import { CreateTransacaoDTO } from "@/types/transacao";
 import { FormMovimentacao } from "./buildTransacoesFromForm";
 import { normalizeDate } from "./utils";
 import { adicionarMeses } from "@/utils/dateUtils";
+import { distribuirValor } from "@/utils/faturaUtils";
 
 interface Params {
   form: FormMovimentacao;
@@ -28,14 +29,16 @@ export function buildCreateTransacoesFromForm({
 
   // PARCELADO
   if (form.parcelado) {
-    const valorParcela = valorTotal / form.parcelas;
+    // Centavos distribuídos nas primeiras parcelas: 100 em 3 = 33,34 + 33,33 + 33,33
+    // (dividir direto daria 33,333…, gravado como 33,33, e a compra perderia 1 centavo)
+    const valoresParcelas = distribuirValor(Math.round(valorTotal * 100), form.parcelas).map(Number);
 
     return Array.from({ length: form.parcelas }).map((_, i) => {
       const data = adicionarMeses(new Date(baseData), i);
 
       return {
         tipo: form.tipo,
-        valor: valorParcela,
+        valor: valoresParcelas[i],
         data: data.toISOString().split('T')[0],
         descricao: form.descricao,
         categoria: form.categoria,
