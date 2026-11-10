@@ -14,16 +14,10 @@ export const dashboardKeys = {
   grafico: (ano: number) => ["dashboard", "grafico", ano] as const,
   extrato: (filters: FiltrosExtrato) =>
     ["dashboard", "extrato", filters] as const,
-  condicoesPagamento: (ano: number) =>
-    ["dashboard", "condicoes", ano] as const,
-  formasPagamento: (ano: number) =>
-    ["dashboard", "formas", ano] as const,
   recorrentes: (ano: number) =>
     ["dashboard", "recorrentes", ano] as const,
   despesasFuturas: (mes: number, ano: number) =>
     ["dashboard", "despesas-futuras", ano, mes] as const,
-  valoresPeriodo: (ano: number) =>
-    ["dashboard", "valores-periodo", ano] as const,
   maioresGastos: (ano: number, limit: number) =>
     ["dashboard", "maiores-gastos", ano, limit] as const,
   transacoesRecentes: (limit: number) =>
@@ -51,24 +45,6 @@ export function useGraficoMeses(ano: number) {
   });
 }
 
-export function useCondicoesPagamento(ano: number) {
-  return useQuery({
-    queryKey: dashboardKeys.condicoesPagamento(ano),
-    queryFn: () => dashboardService.buscarCondicoesPagamento(ano),
-    staleTime: 3 * 60 * 1000,
-    refetchOnWindowFocus: true,
-  });
-}
-
-export function useFormasPagamento(ano: number) {
-  return useQuery({
-    queryKey: dashboardKeys.formasPagamento(ano),
-    queryFn: () => dashboardService.buscarFormasPagamento(ano),
-    staleTime: 3 * 60 * 1000,
-    refetchOnWindowFocus: true,
-  });
-}
-
 export function useRecorrentes(ano: number) {
   return useQuery({
     queryKey: dashboardKeys.recorrentes(ano),
@@ -87,15 +63,6 @@ export function useDespesasFuturas() {
         mesSelecionado + 1,
         anoSelecionado,
       ),
-    staleTime: 2 * 60 * 1000,
-    refetchOnWindowFocus: true,
-  });
-}
-
-export function useValoresPeriodo(ano: number) {
-  return useQuery({
-    queryKey: dashboardKeys.valoresPeriodo(ano),
-    queryFn: () => dashboardService.buscarValoresPeriodo(ano),
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: true,
   });

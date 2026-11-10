@@ -1,32 +1,29 @@
 "use client";
 
-import { Fragment, useMemo, useEffect, useState, useRef } from 'react';
+import { Fragment, useMemo, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 
 import { useDashboard, useDespesasFuturas } from '@/hooks/useDashboard';
 import { useContas } from '@/hooks/useContas';
-import { useCartoes } from '@/hooks/useCartoes';
 import { usePeriodo } from '@/contexts/PeriodoContext';
 
 import { CardResumo } from '@/components/dashboard/CardResumo';
 import { CardLimiteCredito } from '@/components/dashboard/CardLimiteCredito';
 import { CardTransacoesRecentes } from '@/components/dashboard/CardTransacoesRecentes';
-import { CardCondicoesPagamento } from '@/components/dashboard/CardCondicoesPagamento';
-import { CardFormasPagamento } from '@/components/dashboard/CardFormasPagamento';
 import { CardGraficoMeses } from '@/components/dashboard/CardGraficosMeses';
 import { CardParcelados } from '@/components/dashboard/CardParcelados';
 import { CardRecorrentes } from '@/components/dashboard/CardRecorrente';
 import { CardMaioresGastos } from '@/components/dashboard/CardMaioresGastos';
-import { CardCategoriasLancamentos } from '@/components/dashboard/CardCategoriasLancamentos';
 import { CardCategorias } from '@/components/dashboard/CardCategorias';
-import { CardValores } from '@/components/dashboard/CardValores';
+import { CardProximosVencimentos } from '@/components/dashboard/CardProximosVencimentos';
+import { CardFimDoMes } from '@/components/dashboard/CardFimDoMes';
 import GastosAnuaisCard from '@/components/cartoes/GastosAnuaisCard';
 import { CardSaldoHistorico } from '@/components/dashboard/CardSaldoHistorico';
 import { SeletorAno } from '@/components/dashboard/SeletorAno';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PieChart, BarChart3, Calendar } from 'lucide-react';
+import { CalendarClock, BarChart3, Calendar } from 'lucide-react';
 import { BsHouse } from "react-icons/bs";
 
 function useSaudacao() {
@@ -73,6 +70,15 @@ function RotuloSecao({ titulo, detalhe }: { titulo: string; detalhe?: string }) 
   );
 }
 
+// Abas organizadas por pergunta: o que acontece agora e como foi o ano.
+// Só mudam por clique (antes alternavam sozinhas e tiravam o gráfico da tela durante a leitura).
+type Aba = 'mes' | 'ano';
+
+const ABAS: { valor: Aba; rotulo: string; icone: typeof CalendarClock }[] = [
+  { valor: 'mes', rotulo: 'Este mês', icone: CalendarClock },
+  { valor: 'ano', rotulo: 'Ano', icone: BarChart3 },
+];
+
 // ── Dashboard ──────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -82,7 +88,6 @@ export default function Dashboard() {
   const { data: dashboard, isLoading: loadingDashboard } = useDashboard();
   const { data: despesasFuturas, isLoading: loadingDespesasFuturas } = useDespesasFuturas();
   const { data: contas = [], isLoading: loadingContas } = useContas();
-  const { data: cartoes = [], isLoading: loadingCartoes } = useCartoes();
   const { mesSelecionado, anoSelecionado } = usePeriodo();
 
   // Rótulo do escopo dos cards de resumo (mês do PeriodoContext)
@@ -97,95 +102,20 @@ export default function Dashboard() {
     return nome.split(" ")[0];
   }, [session]);
 
-  // Ano exibido nas duas abas (padrão: ano vigente → de janeiro até o mês atual)
+  const [aba, setAba] = useState<Aba>('mes');
+
+  // Ano da aba "Ano" (padrão: ano vigente → de janeiro até o mês atual)
   const [anoDashboard, setAnoDashboard] = useState<number>(() => new Date().getFullYear());
 
-  // ── Tabs com transição automática ──────────────────────────────────────
-  type TabValue = 'overview' | 'analytics';
-  const TAB_DURATION = 8000;
-
-  const [activeTab, setActiveTab] = useState<TabValue>('overview');
-  const [autoPlay,  setAutoPlay]  = useState(true);
-
-  const barOverviewRef  = useRef<HTMLSpanElement>(null);
-  const barAnalyticsRef = useRef<HTMLSpanElement>(null);
-  const rafRef          = useRef<number>(0);
-  const activeTabRef    = useRef<TabValue>('overview');
-
-  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
-
-  function setBarWidth(pct: number) {
-    const bar = activeTabRef.current === 'overview'
-      ? barOverviewRef.current
-      : barAnalyticsRef.current;
-    if (bar) bar.style.width = `${pct}%`;
-  }
-
-  function clearBars() {
-    if (barOverviewRef.current)  barOverviewRef.current.style.width  = '0%';
-    if (barAnalyticsRef.current) barAnalyticsRef.current.style.width = '0%';
-  }
-
-  useEffect(() => {
-    if (!autoPlay) { clearBars(); return; }
-
-    const start = performance.now();
-
-    function tick(now: number) {
-      const pct = Math.min(((now - start) / TAB_DURATION) * 100, 100);
-      setBarWidth(pct);
-      if (pct < 100) {
-        rafRef.current = requestAnimationFrame(tick);
-      } else {
-        clearBars();
-        setActiveTab(prev => prev === 'overview' ? 'analytics' : 'overview');
-      }
-    }
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [autoPlay, activeTab]);
-
-  function handleTabChange(value: string) {
-    cancelAnimationFrame(rafRef.current);
-    setActiveTab(value as TabValue);
-    setAutoPlay(false);
-    clearBars();
-  }
-
-  // Trocar de ano interrompe a troca automática de abas
-  function handleAnoChange(ano: number) {
-    cancelAnimationFrame(rafRef.current);
-    setAutoPlay(false);
-    clearBars();
-    setAnoDashboard(ano);
-  }
-  // ────────────────────────────────────────────────────────────────────────
-
   const totais = useMemo(() => {
-    if (!contas.length && !cartoes.length) return null;
-
     const contasAtivas = contas.filter(c => c.ativo);
-    const totalContas  = contasAtivas.reduce((acc, c) => acc + Number(c.saldoAtual), 0);
-
-    const cartoesCredito   = cartoes.filter(c => c.tipo === 'credito' && c.ativo);
-    const limiteTotal      = cartoesCredito.reduce((acc, c) => acc + Number(c.limite), 0);
-    const limiteDisponivel = cartoesCredito.reduce((acc, c) => acc + Number(c.limiteDisponivel), 0);
-    const limiteUsado      = limiteTotal - limiteDisponivel;
-    const percentualUso    = limiteTotal > 0 ? (limiteUsado / limiteTotal) * 100 : 0;
-
     return {
-      totalContas,
-      limiteTotal,
-      limiteDisponivel: Math.max(0, limiteDisponivel),
-      limiteUsado:      Math.max(0, limiteUsado),
-      percentualUso:    Math.max(0, percentualUso),
-      quantidadeContas:  contasAtivas.length,
-      quantidadeCartoes: cartoesCredito.length,
+      totalContas:      contasAtivas.reduce((acc, c) => acc + Number(c.saldoAtual), 0),
+      quantidadeContas: contasAtivas.length,
     };
-  }, [contas, cartoes]);
+  }, [contas]);
 
-  const isLoading = loadingDashboard || loadingContas || loadingCartoes || loadingDespesasFuturas;
+  const isLoading = loadingDashboard || loadingContas || loadingDespesasFuturas;
 
   // Mesmo layout e altura do CardResumo (4 cards)
   const renderResumoSkeleton = () => (
@@ -245,127 +175,84 @@ export default function Dashboard() {
         ) : (
           <CardResumo
             resumo={dashboard?.resumo || { receitas: 0, despesas: 0, saldo: 0 }}
-            saldoContas={totais?.totalContas}
-            quantidadeContas={totais?.quantidadeContas}
+            saldoContas={totais.totalContas}
+            quantidadeContas={totais.quantidadeContas}
             despesasFuturas={despesasFuturas}
           />
         )}
       </section>
 
-      {/* Tabs com transição automática */}
+      {/* Abas */}
       <div className="space-y-4">
         <div className="sticky top-0 z-20 -mx-6 px-6 py-2 bg-background/95 backdrop-blur md:static md:mx-0 md:px-0 md:py-0 md:bg-transparent md:backdrop-blur-none flex items-center justify-between gap-3">
-        <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground dark:bg-gray-800">
-          <button
-            onClick={() => handleTabChange('overview')}
-            className={[
-              'relative inline-flex items-center gap-2 justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium',
-              'ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-              'overflow-hidden',
-              activeTab === 'overview'
-                ? 'bg-background text-foreground shadow-sm dark:bg-gray-700 dark:text-white'
-                : 'hover:bg-background/50 dark:hover:bg-gray-700/50',
-            ].join(' ')}
-          >
-            <PieChart className="h-4 w-4" />
-            Visão Geral
-            <span
-              ref={barOverviewRef}
-              className="absolute bottom-0 left-0 h-[2px] bg-blue-500 dark:bg-blue-400 rounded-full"
-              style={{ width: '0%' }}
-            />
-          </button>
+          <div role="tablist" aria-label="Seções do dashboard" className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground dark:bg-gray-800">
+            {ABAS.map(({ valor, rotulo, icone: Icone }) => (
+              <button
+                key={valor}
+                type="button"
+                role="tab"
+                aria-selected={aba === valor}
+                onClick={() => setAba(valor)}
+                className={[
+                  'inline-flex items-center gap-2 justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium',
+                  'ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                  aba === valor
+                    ? 'bg-background text-foreground shadow-sm dark:bg-gray-700 dark:text-white'
+                    : 'hover:bg-background/50 dark:hover:bg-gray-700/50',
+                ].join(' ')}
+              >
+                <Icone className="h-4 w-4" />
+                {rotulo}
+              </button>
+            ))}
+          </div>
 
-          <button
-            onClick={() => handleTabChange('analytics')}
-            className={[
-              'relative inline-flex items-center gap-2 justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium',
-              'ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-              'overflow-hidden',
-              activeTab === 'analytics'
-                ? 'bg-background text-foreground shadow-sm dark:bg-gray-700 dark:text-white'
-                : 'hover:bg-background/50 dark:hover:bg-gray-700/50',
-            ].join(' ')}
-          >
-            <BarChart3 className="h-4 w-4" />
-            Análises
-            <span
-              ref={barAnalyticsRef}
-              className="absolute bottom-0 left-0 h-[2px] bg-blue-500 dark:bg-blue-400 rounded-full"
-              style={{ width: '0%' }}
-            />
-          </button>
+          {aba === 'ano' && (
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Ano
+              </span>
+              <SeletorAno value={anoDashboard} onChange={setAnoDashboard} />
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="hidden sm:inline text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Ano
-          </span>
-          <SeletorAno value={anoDashboard} onChange={handleAnoChange} />
-        </div>
-        </div>
-
-        <div className="relative">
-          {/* Visão Geral */}
-          <div
-            className="space-y-4"
-            style={{
-              opacity:       activeTab === 'overview' ? 1 : 0,
-              pointerEvents: activeTab === 'overview' ? 'auto' : 'none',
-              position:      activeTab === 'overview' ? 'relative' : 'absolute',
-              top: 0, left: 0, right: 0,
-              transition:    'opacity 0.5s ease',
-            }}
-          >
-            {/* Posição atual — não depende do ano */}
-            <RotuloSecao titulo="Posição atual" />
+        {aba === 'mes' ? (
+          <div className="space-y-4">
+            {/* O que vem pela frente: a partir de hoje, não do mês selecionado no topo */}
+            <RotuloSecao titulo="A partir de hoje" />
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-              <div className="lg:col-span-8 [&>*]:h-full"><CardSaldoHistorico /></div>
+              <div className="lg:col-span-8 [&>*]:h-full"><CardProximosVencimentos /></div>
+              <div className="lg:col-span-4 [&>*]:h-full"><CardFimDoMes /></div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              <div className="lg:col-span-8 [&>*]:h-full"><CardTransacoesRecentes /></div>
               <div className="lg:col-span-4 [&>*]:h-full"><CardLimiteCredito /></div>
             </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <RotuloSecao titulo="Patrimônio" detalhe="últimos meses" />
+            <CardSaldoHistorico />
 
-            {/* Visão do ano selecionado */}
             <div className="pt-2">
               <RotuloSecao titulo="Ano" detalhe={String(anoDashboard)} />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
               <div className="lg:col-span-8 [&>*]:h-full"><CardGraficoMeses ano={anoDashboard} /></div>
-              <div className="lg:col-span-4 [&>*]:h-full"><CardTransacoesRecentes /></div>
+              <div className="lg:col-span-4 [&>*]:h-full"><CardMaioresGastos ano={anoDashboard} /></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="[&>*]:h-full"><CardCategorias ano={anoDashboard} tipo="despesa" /></div>
+              <div className="[&>*]:h-full"><CardCategorias ano={anoDashboard} tipo="receita" /></div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
               <div className="lg:col-span-8 [&>*]:h-full"><GastosAnuaisCard ano={anoDashboard} /></div>
               <div className="lg:col-span-4 [&>*]:h-full"><CardParcelados /></div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="[&>*]:h-full"><CardCondicoesPagamento ano={anoDashboard} /></div>
-              <div className="[&>*]:h-full"><CardFormasPagamento ano={anoDashboard} /></div>
-            </div>
+            <CardRecorrentes ano={anoDashboard} />
           </div>
-
-          {/* Análises */}
-          <div
-            className="space-y-4"
-            style={{
-              opacity:       activeTab === 'analytics' ? 1 : 0,
-              pointerEvents: activeTab === 'analytics' ? 'auto' : 'none',
-              position:      activeTab === 'analytics' ? 'relative' : 'absolute',
-              top: 0, left: 0, right: 0,
-              transition:    'opacity 0.5s ease',
-            }}
-          >
-            <RotuloSecao titulo="Ano" detalhe={String(anoDashboard)} />
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              <div className="[&>*]:h-full"><CardCategoriasLancamentos ano={anoDashboard} /></div>
-              <div className="[&>*]:h-full"><CardCategorias ano={anoDashboard} tipo="receita" /></div>
-              <div className="md:col-span-2 xl:col-span-1 [&>*]:h-full"><CardCategorias ano={anoDashboard} tipo="despesa" /></div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="[&>*]:h-full"><CardMaioresGastos ano={anoDashboard} /></div>
-              <div className="[&>*]:h-full"><CardValores ano={anoDashboard} /></div>
-              <div className="md:col-span-2"><CardRecorrentes ano={anoDashboard} /></div>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

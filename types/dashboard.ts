@@ -59,24 +59,6 @@ export interface CategoriaTotal {
 }
 
 /**
- * Contagem por forma de pagamento
- */
-export interface CondicoesPagamento {
-  dinheiro: number;
-  pix: number;
-  cartao: number;
-}
-
-/**
- * Contagem por tipo de pagamento
- */
-export interface FormasPagamento {
-  aVista: number;
-  parcelado: number;
-  recorrente: number;
-}
-
-/**
  * Filtros para extrato
  */
 export interface FiltrosExtrato {
@@ -129,17 +111,6 @@ export interface DespesasFuturas {
 // ========================================
 // ✅ TIPOS NOVOS: Endpoints adicionados na refatoração
 // ========================================
-
-/**
- * Retornado por GET /api/dashboard/valores-periodo
- * Usado pelo CardValores
- */
-export interface ValoresPeriodoResponse {
-  recebidos: number;
-  aReceber: number;
-  aPagar: number;
-  projecao: number;
-}
 
 /**
  * Item individual de gasto

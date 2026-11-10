@@ -1,54 +1,9 @@
 import { Transacao } from "@/types/transacao";
-import type {
-  CondicoesPagamento,
-  FormasPagamento,
-  CategoriaTotal,
-} from "@/types/dashboard";
+import type { CategoriaTotal } from "@/types/dashboard";
 
 // ========================================
 // FUNÇÕES DE CÁLCULO
 // ========================================
-
-/**
- * Conta transações por forma de pagamento
- * 
- * @param transacoes - Array de transações
- * @returns Contagem de dinheiro, pix e cartão
- */
-export function contarCondicoes(transacoes: { formaPagamento?: string | null }[]): CondicoesPagamento {
-  const resultado: CondicoesPagamento = { dinheiro: 0, pix: 0, cartao: 0 };
-
-  transacoes.forEach(t => {
-    const forma = t.formaPagamento || 'dinheiro';
-    if (forma === 'dinheiro' || forma === 'pix' || forma === 'cartao') {
-      resultado[forma]++;
-    }
-  });
-
-  return resultado;
-}
-
-/**
- * Conta transações por tipo de pagamento
- * 
- * @param transacoes - Array de transações
- * @returns Contagem de à vista, parcelado e recorrente
- */
-export function contarFormas(transacoes: { parcelado?: boolean | null; recorrente?: boolean | null }[]): FormasPagamento {
-  const resultado: FormasPagamento = { aVista: 0, parcelado: 0, recorrente: 0 };
-
-  transacoes.forEach(t => {
-    if (t.parcelado === true) {
-      resultado.parcelado++;
-    } else if (t.recorrente === true) {
-      resultado.recorrente++;
-    } else {
-      resultado.aVista++;
-    }
-  });
-
-  return resultado;
-}
 
 /**
  * Filtra apenas transações parceladas

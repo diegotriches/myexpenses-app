@@ -5,6 +5,7 @@ import { cartoes, faturas, transacoes } from "@/db/schema";
 import { eq, and, gte, lte, asc } from "drizzle-orm";
 import { getUserIdOrRedirect } from "@/lib/auth/session";
 import { calcularPeriodoFatura, calcularDataVencimento } from "@/utils/faturaUtils";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 
 export interface FaturaAbertaItem {
   cartaoId: number;
@@ -20,10 +21,9 @@ export interface FaturaAbertaItem {
  * Se o dia atual >= diaFechamento, a fatura ativa já é do próximo mês.
  */
 function calcularFaturaAtiva(diaFechamento: number): { mes: number; ano: number } {
-  const hoje     = new Date();
-  const diaAtual = hoje.getDate();
-  const mesAtual = hoje.getMonth();   // 0-indexed
-  const anoAtual = hoje.getFullYear();
+  // Data de Brasília: o servidor roda em UTC e viraria o dia às 21h
+  const [anoAtual, mesHoje, diaAtual] = hojeBrt().split("-").map(Number);
+  const mesAtual = mesHoje - 1;   // 0-indexed
 
   if (diaAtual >= diaFechamento) {
     // Fatura do próximo mês
@@ -45,8 +45,6 @@ export async function GET() {
   try {
     const userId = await getUserIdOrRedirect();
 
-    const hoje     = new Date();
-// 1-indexed
     const cartoesAtivos = await db
       .select()
       .from(cartoes)
@@ -139,7 +137,8 @@ export async function GET() {
 
       const dataVencimento    = calcularDataVencimento(faturaEscolhida.mes, faturaEscolhida.ano, diaVencimento);
       const dataVencimentoStr = dataVencimento.toISOString().split("T")[0];
-      const status: "EM_ABERTO" | "ATRASADA" = hoje > dataVencimento ? "ATRASADA" : "EM_ABERTO";
+      // Atrasada só depois do dia do vencimento (comparando datas de Brasília, sem hora)
+      const status: "EM_ABERTO" | "ATRASADA" = hojeBrt() > dataVencimentoStr ? "ATRASADA" : "EM_ABERTO";
 
       resultado.push({
         cartaoId:       cartao.id,
