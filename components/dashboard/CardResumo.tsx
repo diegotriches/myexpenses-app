@@ -5,6 +5,7 @@ import { TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import type { DashboardResumo } from '@/types/dashboard';
 import { useMoeda } from "@/hooks/useMoeda";
+import { taxaDePoupanca } from "@/utils/gastosUtils";
 
 interface Props {
   resumo: DashboardResumo;
@@ -19,6 +20,8 @@ interface Props {
 export function CardResumo({ resumo, despesasFuturas }: Props) {
 
   const fmt = useMoeda();
+  // Quanto da receita do mês sobrou (null quando não houve receita)
+  const taxa = taxaDePoupanca(resumo.receitas, resumo.despesas);
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
@@ -85,7 +88,11 @@ export function CardResumo({ resumo, despesasFuturas }: Props) {
               <ArrowDownRight className="h-2 w-2 md:h-3 md:w-3 text-red-600 dark:text-red-400" />
             )}
             <p className="text-[9px] md:text-xs text-gray-500 dark:text-gray-400 leading-none md:leading-normal">
-              {resumo.saldo >= 0 ? 'Positivo' : 'Negativo'}
+              {taxa === null
+                ? (resumo.saldo >= 0 ? 'Positivo' : 'Negativo')
+                : taxa >= 0
+                  ? `Poupou ${taxa}% da receita`
+                  : `Gastou ${-taxa}% além da receita`}
             </p>
           </div>
         </CardContent>

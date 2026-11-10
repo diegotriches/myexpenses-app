@@ -17,13 +17,15 @@ import { CardMaioresGastos } from '@/components/dashboard/CardMaioresGastos';
 import { CardCategorias } from '@/components/dashboard/CardCategorias';
 import { CardProximosVencimentos } from '@/components/dashboard/CardProximosVencimentos';
 import { CardFimDoMes } from '@/components/dashboard/CardFimDoMes';
+import { CardCategoriasMedia } from '@/components/dashboard/CardCategoriasMedia';
+import { CardAlocacao, CardCarteira, CardProventosResumo } from '@/components/dashboard/CardsInvestimentos';
 import GastosAnuaisCard from '@/components/cartoes/GastosAnuaisCard';
 import { CardSaldoHistorico } from '@/components/dashboard/CardSaldoHistorico';
 import { SeletorAno } from '@/components/dashboard/SeletorAno';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CalendarClock, BarChart3, Calendar } from 'lucide-react';
+import { CalendarClock, BarChart3, Calendar, PiggyBank } from 'lucide-react';
 import { BsHouse } from "react-icons/bs";
 
 function useSaudacao() {
@@ -70,13 +72,14 @@ function RotuloSecao({ titulo, detalhe }: { titulo: string; detalhe?: string }) 
   );
 }
 
-// Abas organizadas por pergunta: o que acontece agora e como foi o ano.
+// Abas organizadas por pergunta: o que acontece agora, como foi o ano e como estão os investimentos.
 // Só mudam por clique (antes alternavam sozinhas e tiravam o gráfico da tela durante a leitura).
-type Aba = 'mes' | 'ano';
+type Aba = 'mes' | 'ano' | 'investimentos';
 
 const ABAS: { valor: Aba; rotulo: string; icone: typeof CalendarClock }[] = [
   { valor: 'mes', rotulo: 'Este mês', icone: CalendarClock },
   { valor: 'ano', rotulo: 'Ano', icone: BarChart3 },
+  { valor: 'investimentos', rotulo: 'Investimentos', icone: PiggyBank },
 ];
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
@@ -217,20 +220,23 @@ export default function Dashboard() {
           )}
         </div>
 
-        {aba === 'mes' ? (
+        {aba === 'mes' && (
           <div className="space-y-4">
-            {/* O que vem pela frente: a partir de hoje, não do mês selecionado no topo */}
-            <RotuloSecao titulo="A partir de hoje" />
+            {/* Mês corrente e o que vem pela frente: a partir de hoje, não do mês selecionado no topo */}
+            <RotuloSecao titulo="Mês atual" detalhe="a partir de hoje" />
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
               <div className="lg:col-span-8 [&>*]:h-full"><CardProximosVencimentos /></div>
               <div className="lg:col-span-4 [&>*]:h-full"><CardFimDoMes /></div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-              <div className="lg:col-span-8 [&>*]:h-full"><CardTransacoesRecentes /></div>
+              <div className="lg:col-span-8 [&>*]:h-full"><CardCategoriasMedia /></div>
               <div className="lg:col-span-4 [&>*]:h-full"><CardLimiteCredito /></div>
             </div>
+            <CardTransacoesRecentes />
           </div>
-        ) : (
+        )}
+
+        {aba === 'ano' && (
           <div className="space-y-4">
             <RotuloSecao titulo="Patrimônio" detalhe="últimos meses" />
             <CardSaldoHistorico />
@@ -251,6 +257,17 @@ export default function Dashboard() {
               <div className="lg:col-span-4 [&>*]:h-full"><CardParcelados /></div>
             </div>
             <CardRecorrentes ano={anoDashboard} />
+          </div>
+        )}
+
+        {aba === 'investimentos' && (
+          <div className="space-y-4">
+            <RotuloSecao titulo="Investimentos" detalhe="posição atual" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="[&>*]:h-full"><CardAlocacao /></div>
+              <div className="[&>*]:h-full"><CardCarteira /></div>
+              <div className="md:col-span-2 lg:col-span-1 [&>*]:h-full"><CardProventosResumo /></div>
+            </div>
           </div>
         )}
       </div>

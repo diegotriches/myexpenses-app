@@ -8,34 +8,12 @@ import { useHideValues } from "@/contexts/HideValuesContext";
 import { useContas } from "@/hooks/useContas";
 import { useAplicacoes } from "@/hooks/useAplicacoes";
 import { useRendaVariavel } from "@/hooks/useRendaVariavel";
-import type { Aplicacao } from "@/services/aplicacaoService";
-import {
-  hojeBrt,
-  projetarLotes,
-  estimarLiquidoTotal,
-  type LoteEstado,
-} from "@/utils/aplicacaoSimulacao";
+import { hojeBrt } from "@/utils/aplicacaoSimulacao";
+import { liquidoAtualAplicacao } from "@/utils/patrimonioUtils";
 import { resumirCarteira } from "@/utils/rendaVariavelUtils";
 import { formatarMoeda } from "@/utils/formatadores";
 
 const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
-
-// Valor LÍQUIDO estimado de uma aplicação ativa: rendimento confirmado pelo
-// BCB + projeção dos dias úteis ainda não publicados, já descontado o IR que
-// seria retido se tudo fosse resgatado hoje (mesmo cálculo da aba Aplicações).
-function liquidoEstimado(a: Aplicacao, hoje: string): number {
-  const lotes: LoteEstado[] = (a.aportes ?? []).map((x) => ({
-    id: x.id,
-    data: x.data,
-    aportado: Number(x.valor),
-    principal: Number(x.principalRestante),
-    valorAtual: Number(x.valorAtual),
-  }));
-  const proj = projetarLotes(
-    lotes, Number(a.percentualIndexador), a.ultimaTaxa, hoje, a.rendeNoDiaAporte
-  );
-  return estimarLiquidoTotal(proj.lotes, hoje, a.tributacao).valorLiquido;
-}
 
 // Padrão compacto dos cards de resumo (mesmo das páginas Dashboard e Cartões)
 const CARD = "!py-0 !gap-0 border-l-4 dark:bg-gray-900 dark:border-gray-800 hover:shadow-lg transition-shadow overflow-hidden";
@@ -62,7 +40,7 @@ export default function PatrimonioCard() {
 
     const hoje = hojeBrt();
     const investidas = (aplicacoesQuery.data ?? []).filter((a) => !a.resgatada);
-    const rendaFixa = investidas.reduce((soma, a) => soma + liquidoEstimado(a, hoje), 0);
+    const rendaFixa = investidas.reduce((soma, a) => soma + liquidoAtualAplicacao(a, hoje), 0);
     // Renda variável a valor de mercado (bruto, sem IR sobre o ganho)
     const carteiraRv = resumirCarteira(rvQuery.data?.operacoes ?? [], rvQuery.data?.cotacoes ?? []);
     const rendaVariavel = carteiraRv.valorMercado;

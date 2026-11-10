@@ -23,12 +23,10 @@ import {
   hojeBrt,
   somarDias,
   simularAplicacao,
-  projetarLotes,
   estimarLiquidoTotal,
-  type LoteEstado,
   type TaxaDia,
 } from "@/utils/aplicacaoSimulacao";
-import { custoRendaVariavelEm, mercadoRendaVariavel } from "@/utils/patrimonioUtils";
+import { custoRendaVariavelEm, liquidoAtualAplicacao, mercadoRendaVariavel } from "@/utils/patrimonioUtils";
 import { formatarMoeda } from "@/utils/formatadores";
 import { useMoeda } from "@/hooks/useMoeda";
 import type { PropsTooltip } from "@/types/grafico";
@@ -119,21 +117,6 @@ function liquidoNoFimDoMes(a: Aplicacao, fimMes: string): number {
   return estimarLiquidoTotal(sim.lotes, fimMes, a.tributacao).valorLiquido;
 }
 
-/** Valor líquido estimado AGORA — mesmo cálculo da página Contas */
-function liquidoAtual(a: Aplicacao, hoje: string): number {
-  const lotes: LoteEstado[] = (a.aportes ?? []).map((x) => ({
-    id: x.id,
-    data: x.data,
-    aportado: Number(x.valor),
-    principal: Number(x.principalRestante),
-    valorAtual: Number(x.valorAtual),
-  }));
-  const proj = projetarLotes(
-    lotes, Number(a.percentualIndexador), a.ultimaTaxa, hoje, a.rendeNoDiaAporte
-  );
-  return estimarLiquidoTotal(proj.lotes, hoje, a.tributacao).valorLiquido;
-}
-
 function CustomTooltip({ active, payload, label, hidden }: PropsTooltip & { hidden?: boolean }) {
   if (!active || !payload?.length) return null;
   const p: Partial<PontoPatrimonio> = payload[0]?.payload ?? {};
@@ -217,7 +200,7 @@ export function CardSaldoHistorico() {
       let rendaFixa = 0;
       if (!erroAplicacoes) {
         rendaFixa = atual
-          ? aplicacoes.filter((a) => !a.resgatada).reduce((s, a) => s + liquidoAtual(a, hoje), 0)
+          ? aplicacoes.filter((a) => !a.resgatada).reduce((s, a) => s + liquidoAtualAplicacao(a, hoje), 0)
           : aplicacoes.reduce((s, a) => s + liquidoNoFimDoMes(a, fim), 0);
       }
 
