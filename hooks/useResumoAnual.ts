@@ -12,10 +12,11 @@ export interface MesResumo {
 }
 
 export interface CategoriaResumo {
-  categoria:  string;
-  total:      number;
-  percentual: number;
-  [key: string]: string | number;
+  categoria:     string;
+  total:         number;
+  percentual:    number;
+  totalAnterior: number;        // mesmo período do ano anterior
+  variacao:      number | null; // % sobre totalAnterior; null = não havia gasto
 }
 
 export interface MetodoPagamentoResumo {
@@ -37,6 +38,8 @@ export interface TransacaoDestaque {
 export interface ResumoAnualData {
   ano:              number;
   anoAnterior:      number;
+  // No ano corrente: até o mês atual (a comparação usa o mesmo intervalo); 12 nos anos passados
+  periodoComparado: { ateMes: number };
   // Ano atual
   totais:           { receitas: number; despesas: number; saldo: number };
   meses:            MesResumo[];
@@ -47,7 +50,7 @@ export interface ResumoAnualData {
   mediaMensal:      { receitas: number; despesas: number };
   melhorMes:        { mes: number; saldo: number } | null;
   piorMes:          { mes: number; saldo: number } | null;
-  // Ano anterior
+  // Ano anterior: totais no mesmo período; meses do ano inteiro (gráfico comparativo)
   totaisAnteriores: { receitas: number; despesas: number; saldo: number };
   mesesAnteriores:  MesResumo[];
 }

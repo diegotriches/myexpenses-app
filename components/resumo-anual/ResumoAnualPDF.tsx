@@ -10,6 +10,7 @@ import {
 } from "@react-pdf/renderer";
 import type { ResumoAnualData } from "@/hooks/useResumoAnual";
 import { formatarMoeda } from "@/utils/formatadores";
+import { rotuloPeriodo } from "@/utils/resumoAnualUtils";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -161,6 +162,8 @@ const s = StyleSheet.create({
 export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
   const geradoEm = new Date().toLocaleString("pt-BR");
   const { ano, anoAnterior, totais, totaisAnteriores } = data;
+  // No ano corrente, a comparação usa o mesmo intervalo do ano anterior (jan até o mês atual)
+  const rotuloComparacao = rotuloPeriodo(anoAnterior, data.periodoComparado.ateMes);
 
   const diffReceitas = variacaoPct(totais.receitas, totaisAnteriores.receitas);
   const diffDespesas = variacaoPct(totais.despesas, totaisAnteriores.despesas);
@@ -196,7 +199,7 @@ export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
               <Text style={s.kpiValue}>{formatarMoeda(value)}</Text>
               {diff !== null && (
                 <Text style={[s.kpiDiff, (diff > 0) === pos ? s.kpiPos : s.kpiNeg]}>
-                  {diff > 0 ? "▲" : "▼"} {Math.abs(diff)}% vs {anoAnterior}
+                  {diff > 0 ? "▲" : "▼"} {Math.abs(diff)}% vs {rotuloComparacao}
                 </Text>
               )}
             </View>
@@ -293,7 +296,7 @@ export function ResumoAnualPDF({ data }: { data: ResumoAnualData }) {
         {data.categorias.length > 0 && (
           <>
             <Text style={s.sectionTitle}>Top Categorias de Despesa</Text>
-            {data.categorias.map((cat) => (
+            {data.categorias.slice(0, 8).map((cat) => (
               <View key={cat.categoria} style={s.catRow}>
                 <Text style={{ width: "30%", fontSize: 8, color: "#374151" }}>{cat.categoria}</Text>
                 <View style={s.barBg}>

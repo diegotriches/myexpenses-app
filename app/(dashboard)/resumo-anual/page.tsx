@@ -2,11 +2,11 @@
 
 import { useState, useCallback } from "react";
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  BarChart, Bar, ComposedChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import {
-  TrendingUp, TrendingDown, DollarSign, Calendar,
+  TrendingUp, TrendingDown, DollarSign, Calendar, PiggyBank,
   Award, AlertTriangle, Download, ChevronLeft, ChevronRight,
   Banknote, Smartphone, CreditCard, ArrowLeftRight,
 } from "lucide-react";
@@ -19,14 +19,19 @@ import { useResumoAnual } from "@/hooks/useResumoAnual";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarMoeda } from "@/utils/formatadores";
 import type { PropsTooltip } from "@/types/grafico";
+import { useMoeda } from "@/hooks/useMoeda";
+import type { CategoriaResumo } from "@/hooks/useResumoAnual";
+import { rotuloPeriodo } from "@/utils/resumoAnualUtils";
+import { taxaDePoupanca } from "@/utils/gastosUtils";
 
 // ── Constantes ─────────────────────────────────────────────────────────────
 
 const MESES_LABEL = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
 const CORES_CATEGORIAS = [
-  "#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6",
+  "#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#ec4899","#84cc16","#94a3b8",
 ];
+const MAX_CATEGORIAS = 8;
 
 const CORES_METODOS = [
   "#6366f1","#0ea5e9","#10b981","#f59e0b",
@@ -54,9 +59,9 @@ const variacao = (atual: number, anterior: number): number => {
 // ── KPI Card ───────────────────────────────────────────────────────────────
 
 function KpiCard({
-  titulo, valor, anterior, icone: Icone, corPositiva = true,
+  titulo, valor, anterior, rotuloComparacao, icone: Icone, corPositiva = true,
 }: {
-  titulo: string; valor: number; anterior: number;
+  titulo: string; valor: number; anterior: number; rotuloComparacao: string;
   icone: React.ElementType; corPositiva?: boolean;
 }) {
   const { mask } = useHideValues();
@@ -80,12 +85,75 @@ function KpiCard({
         {!neutro && (
           <p className={`text-xs flex items-center gap-1 ${cor}`}>
             {subindo ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {Math.abs(diff)}% vs {anterior > 0 ? "ano anterior" : "—"}
+            {Math.abs(diff)}% vs {rotuloComparacao}
           </p>
         )}
       </CardContent>
     </Card>
   );
+}
+
+// ── KPI: taxa de poupança (quanto da receita sobrou) ───────────────────────
+
+function KpiTaxa({ taxa, anterior, rotuloComparacao }: { taxa: number | null; anterior: number | null; rotuloComparacao: string }) {
+  const diff = taxa !== null && anterior !== null ? taxa - anterior : null;
+  return (
+    <Card className="dark:bg-gray-800 dark:border-gray-700">
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Taxa de Poupança</p>
+          <PiggyBank className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+        </div>
+        <p className={`text-2xl font-bold mb-1 ${taxa !== null && taxa < 0 ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
+          {taxa === null ? "—" : `${taxa}%`}
+        </p>
+        {diff !== null && diff !== 0 ? (
+          <p className={`text-xs flex items-center gap-1 ${diff > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+            {diff > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            {Math.abs(diff)} p.p. vs {rotuloComparacao}
+          </p>
+        ) : (
+          <p className="text-xs text-gray-500 dark:text-gray-400">da receita do período</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Tooltip do gráfico mensal: receitas, despesas, saldo e taxa de poupança do mês
+function TooltipEvolucao({ active, payload, label }: PropsTooltip) {
+  const fmt = useMoeda();
+  if (!active || !payload?.length) return null;
+  const p: { receitas?: number; despesas?: number; saldo?: number; taxa?: number | null } = payload[0]?.payload ?? {};
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 text-sm space-y-0.5">
+      <p className="font-semibold text-gray-900 dark:text-white mb-1">{label}</p>
+      <p className="text-green-600 dark:text-green-400">Receitas: {fmt(p.receitas ?? 0)}</p>
+      <p className="text-red-600 dark:text-red-400">Despesas: {fmt(p.despesas ?? 0)}</p>
+      <p className="text-blue-600 dark:text-blue-400">Saldo: {fmt(p.saldo ?? 0)}</p>
+      {p.taxa !== null && p.taxa !== undefined && (
+        <p className="text-gray-500 dark:text-gray-400">Poupança: {p.taxa}% da receita</p>
+      )}
+    </div>
+  );
+}
+
+// 8 maiores categorias e o resto somado em "Demais"
+function agruparCategorias(categorias: CategoriaResumo[]): CategoriaResumo[] {
+  if (categorias.length <= MAX_CATEGORIAS + 1) return categorias;
+  const resto = categorias.slice(MAX_CATEGORIAS);
+  const total = resto.reduce((s, c) => s + c.total, 0);
+  const totalAnterior = resto.reduce((s, c) => s + c.totalAnterior, 0);
+  return [
+    ...categorias.slice(0, MAX_CATEGORIAS),
+    {
+      categoria: `Demais (${resto.length})`,
+      total,
+      percentual: resto.reduce((s, c) => s + c.percentual, 0),
+      totalAnterior,
+      variacao: totalAnterior > 0 ? Math.round(((total - totalAnterior) / totalAnterior) * 100) : null,
+    },
+  ];
 }
 
 // ── Tooltip customizado ────────────────────────────────────────────────────
@@ -261,7 +329,15 @@ export default function ResumoAnualPage() {
     receitas: Math.round(data.meses[i].receitas),
     despesas: Math.round(data.meses[i].despesas),
     saldo:    Math.round(data.meses[i].saldo),
+    taxa:     taxaDePoupanca(data.meses[i].receitas, data.meses[i].despesas),
   }));
+
+  // No ano corrente o período vai até o mês atual, e a comparação usa o mesmo intervalo
+  const ateMes = data.periodoComparado.ateMes;
+  const rotuloComparacao = rotuloPeriodo(data.anoAnterior, ateMes);
+  const taxaAno = taxaDePoupanca(data.totais.receitas, data.totais.despesas);
+  const taxaAnterior = taxaDePoupanca(data.totaisAnteriores.receitas, data.totaisAnteriores.despesas);
+  const categorias = agruparCategorias(data.categorias);
 
   const nomeMes = (m: number) => [
     "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -289,7 +365,9 @@ export default function ResumoAnualPage() {
           </Button>
         </div>
         <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
-          Visão consolidada das suas finanças em {ano}
+          {ateMes < 12
+            ? `Janeiro a ${nomeMes(ateMes).toLowerCase()} de ${ano}, comparado com o mesmo período de ${data.anoAnterior}`
+            : `Visão consolidada das suas finanças em ${ano}`}
         </p>
         <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
       </div>
@@ -313,13 +391,14 @@ export default function ResumoAnualPage() {
       </div>
 
       {/* ── KPIs ───────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <KpiCard titulo="Total de Receitas" valor={data.totais.receitas}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard titulo="Total de Receitas" valor={data.totais.receitas} rotuloComparacao={rotuloComparacao}
           anterior={data.totaisAnteriores.receitas} icone={TrendingUp} corPositiva={true} />
-        <KpiCard titulo="Total de Despesas" valor={data.totais.despesas}
+        <KpiCard titulo="Total de Despesas" valor={data.totais.despesas} rotuloComparacao={rotuloComparacao}
           anterior={data.totaisAnteriores.despesas} icone={TrendingDown} corPositiva={false} />
-        <KpiCard titulo="Saldo do Ano" valor={data.totais.saldo}
+        <KpiCard titulo="Saldo do Ano" valor={data.totais.saldo} rotuloComparacao={rotuloComparacao}
           anterior={data.totaisAnteriores.saldo} icone={DollarSign} corPositiva={true} />
+        <KpiTaxa taxa={taxaAno} anterior={taxaAnterior} rotuloComparacao={rotuloComparacao} />
       </div>
 
       {/* ── Destaques ──────────────────────────────────────────────────── */}
@@ -389,45 +468,26 @@ export default function ResumoAnualPage() {
         )}
       </div>
 
-      {/* ── Gráfico 1: Evolução mensal ─────────────────────────────────── */}
+      {/* ── Receitas e despesas por mês, com o saldo em linha ─────────────── */}
       <Card className="dark:bg-gray-800 dark:border-gray-700">
         <CardHeader>
           <CardTitle className="text-base md:text-lg text-gray-900 dark:text-white">
-            Evolução Mensal — {ano}
+            Receitas, despesas e saldo — {ano}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={dadosEvolucao} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+          <ResponsiveContainer width="100%" height={320}>
+            <ComposedChart data={dadosEvolucao} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
               <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
               <YAxis tickFormatter={fmtK} tick={{ fontSize: 11 }} width={55} />
-              <Tooltip content={<TooltipMoeda />} />
+              <Tooltip content={<TooltipEvolucao />} />
               <Legend />
               <Bar dataKey="receitas" name="Receitas" fill="#10b981" radius={[3, 3, 0, 0]} />
               <Bar dataKey="despesas" name="Despesas" fill="#ef4444" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* ── Gráfico 2: Saldo por mês ────────────────────────────────────── */}
-      <Card className="dark:bg-gray-800 dark:border-gray-700">
-        <CardHeader>
-          <CardTitle className="text-base md:text-lg text-gray-900 dark:text-white">
-            Saldo por Mês — {ano}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={dadosEvolucao} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-              <YAxis tickFormatter={fmtK} tick={{ fontSize: 11 }} width={55} />
-              <Tooltip content={<TooltipMoeda />} />
               <Line type="monotone" dataKey="saldo" name="Saldo"
-                stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-            </LineChart>
+                stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+            </ComposedChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
@@ -475,9 +535,9 @@ export default function ResumoAnualPage() {
 
               {/* Aba Categorias */}
               <TabsContent value="categorias">
-                {data.categorias.length > 0 ? (
+                {categorias.length > 0 ? (
                   <RoscaComLista
-                    itens={data.categorias}
+                    itens={categorias}
                     cores={CORES_CATEGORIAS}
                     labelKey="categoria"
                     renderLabel={(item) => (
@@ -485,6 +545,11 @@ export default function ResumoAnualPage() {
                         {item.categoria}
                       </span>
                     )}
+                    renderDetalhe={(item) =>
+                      item.variacao === null
+                        ? `sem gasto em ${rotuloComparacao}`
+                        : `${item.variacao > 0 ? "▲" : item.variacao < 0 ? "▼" : "="} ${Math.abs(item.variacao)}% vs ${rotuloComparacao}`
+                    }
                   />
                 ) : (
                   <p className="text-center text-gray-500 dark:text-gray-400 py-8 text-sm">
