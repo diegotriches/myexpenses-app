@@ -9,7 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
 import { FiUserPlus, FiMail, FiLock, FiUser, FiArrowLeft, FiEye, FiEyeOff, FiCheck, FiX } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
-import { BsCashCoin } from "react-icons/bs";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -29,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AutoRedirectIfAuthenticated } from "@/components/auth/AutoRedirectIfAuthenticated";
 import { authService } from "@/services/authService";
 import { ErroApi } from "@/services/http";
+import { LogoMarca } from "@/components/common/LogoMarca";
 
 const registerSchema = z.object({
   name:     z.string().min(2, "O nome deve ter ao menos 2 caracteres"),
@@ -386,7 +386,7 @@ export default function RegisterPage() {
             {/* Lado esquerdo */}
             <div className="hidden lg:block text-white space-y-6">
               <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full mb-4">
-                <BsCashCoin className="text-yellow-300" size={24} />
+                <LogoMarca tamanho={28} className="ring-1 ring-white/40 shadow-md" />
                 <span className="font-semibold text-lg">MyExpenses</span>
               </div>
               <h1 className="text-5xl font-extrabold leading-tight">
@@ -423,7 +423,7 @@ export default function RegisterPage() {
               <CardHeader className="space-y-2 pb-6">
                 <div className="lg:hidden flex justify-center mb-4">
                   <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full">
-                    <BsCashCoin size={20} />
+                    <LogoMarca tamanho={24} className="ring-1 ring-white/40 shadow-md" />
                     <span className="font-semibold">MyExpenses</span>
                   </div>
                 </div>

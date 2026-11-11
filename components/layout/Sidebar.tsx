@@ -17,7 +17,6 @@ import {
   BsHouse,
   BsArrowLeftRight,
   BsBank,
-  BsCashCoin,
   BsTags,
   BsCreditCard,
   BsFillGearFill,
@@ -27,6 +26,7 @@ import {
 import { MdOutlineAutoGraph } from "react-icons/md";
 import { Menu, ChevronRight } from "lucide-react";
 import type { IconType } from "react-icons";
+import { LogoMarca } from "@/components/common/LogoMarca";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -227,9 +227,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       {/* Logo */}
       <div className="mb-6 px-1">
         <Link href="/dashboard" className="flex items-center gap-3 group">
-          <div className="w-9 h-9 shrink-0 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm group-hover:bg-blue-700 transition-colors">
-            <BsCashCoin size={20} className="text-white" />
-          </div>
+          <LogoMarca tamanho={36} className="shadow-sm transition-transform group-hover:scale-105" />
           <span
             className={`
               text-lg font-bold tracking-tight text-white whitespace-nowrap transition-all duration-300

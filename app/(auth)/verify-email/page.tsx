@@ -3,13 +3,13 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { BsCashCoin } from "react-icons/bs";
 import { FiArrowLeft } from "react-icons/fi";
 import { Loader2, MailCheck, MailX, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { authService } from "@/services/authService";
 import { mensagemDoErro } from "@/services/http";
+import { LogoMarca } from "@/components/common/LogoMarca";
 
 // ── Conteúdo da página ────────────────────────────────────────────────────────
 
@@ -205,7 +205,7 @@ export default function VerifyEmailPage() {
           <CardHeader className="space-y-2 pb-4">
             <div className="flex justify-center mb-2">
               <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full">
-                <BsCashCoin size={20} />
+                <LogoMarca tamanho={24} className="ring-1 ring-white/40 shadow-md" />
                 <span className="font-semibold">MyExpenses</span>
               </div>
             </div>

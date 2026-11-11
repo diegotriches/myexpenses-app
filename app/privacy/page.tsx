@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { FiArrowLeft, FiShield, FiLock, FiEye, FiDownload, FiTrash2, FiDatabase } from "react-icons/fi";
-import { BsCashCoin } from "react-icons/bs";
+import { LogoMarca } from "@/components/common/LogoMarca";
 
 export default function PrivacyPage() {
   const lastUpdate = "08 de Janeiro de 2026";
@@ -22,7 +22,7 @@ export default function PrivacyPage() {
           </Link>
 
           <div className="flex items-center gap-2">
-            <BsCashCoin className="text-blue-600 dark:text-blue-400" size={24} />
+            <LogoMarca tamanho={28} />
             <span className="font-bold text-lg text-gray-900 dark:text-white">MyExpenses</span>
           </div>
         </div>

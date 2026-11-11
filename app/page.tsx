@@ -24,9 +24,9 @@ import {
   TestTubeDiagonal,
   Wallet,
 } from "lucide-react";
-import { BsCashCoin } from "react-icons/bs";
 import HeroDemo from "@/components/landing/HeroDemo";
 import ThemeToggle from "@/components/landing/ThemeToggle";
+import { LogoMarca } from "@/components/common/LogoMarca";
 
 const DESCRICAO =
   "Projeto pessoal de finanças: contas, cartões, investimentos e o imposto de renda da bolsa em um só lugar. Next.js 16, TypeScript e Postgres.";
@@ -138,7 +138,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-40 bg-blue-700/85 dark:bg-gray-950/85 backdrop-blur border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-white">
-            <BsCashCoin className="text-yellow-300" size={26} />
+            <LogoMarca tamanho={30} className="ring-1 ring-white/40 shadow-md" />
             <span className="font-bold text-lg">MyExpenses</span>
           </Link>
           <nav className="flex items-center gap-2 sm:gap-3">
@@ -287,7 +287,7 @@ export default function LandingPage() {
       <footer className="py-10 bg-gray-900 dark:bg-black text-gray-400">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <BsCashCoin className="text-blue-400" size={20} />
+            <LogoMarca tamanho={22} />
             <span className="font-semibold text-gray-200">MyExpenses</span>
             <span className="text-sm text-gray-500">· projeto pessoal</span>
           </div>

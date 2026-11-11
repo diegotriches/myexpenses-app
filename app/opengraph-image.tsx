@@ -22,20 +22,22 @@ export default function OpengraphImage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 20, fontSize: 40, fontWeight: 700 }}>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 32,
-              background: "#fde047",
-              color: "#1d4ed8",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 38,
-            }}
-          >
-            $
+          {/* Mesmo desenho de components/common/LogoMarca.tsx (aqui sem hooks, pois roda no gerador de imagem) */}
+          <div style={{ display: "flex", borderRadius: 16, border: "2px solid rgba(255,255,255,0.45)", boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
+            <svg width="68" height="68" viewBox="0 0 512 512">
+              <defs>
+                <linearGradient id="logo-og" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="512" y2="512">
+                  <stop offset="0" stopColor="#536DFE" />
+                  <stop offset="1" stopColor="#6A3DE8" />
+                </linearGradient>
+              </defs>
+              <rect width="512" height="512" rx="112" fill="url(#logo-og)" />
+              <circle cx="256" cy="256" r="150" fill="#fff" />
+              <g fill="none" stroke="url(#logo-og)" strokeWidth="27" strokeLinecap="butt" strokeLinejoin="round">
+                <path d="M256 150v34M256 330v32" />
+                <path d="M300 210C293 192 276 180 254 180C228 180 209 194 209 217C209 241 230 249 256 256C284 264 306 273 306 297C306 320 286 334 257 334C232 334 213 321 206 300" />
+              </g>
+            </svg>
           </div>
           MyExpenses
         </div>

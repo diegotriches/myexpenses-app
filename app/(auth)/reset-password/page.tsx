@@ -7,7 +7,6 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FiLock, FiArrowLeft, FiEye, FiEyeOff, FiCheck, FiX, FiCheckCircle } from "react-icons/fi";
-import { BsCashCoin } from "react-icons/bs";
 import { useState, useEffect, Suspense } from "react";
 
 import {
@@ -26,6 +25,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
 import { ErroApi, mensagemDoErro } from "@/services/http";
+import { LogoMarca } from "@/components/common/LogoMarca";
 
 // Schema de validação com senha forte
 const resetPasswordSchema = z.object({
@@ -379,7 +379,7 @@ export default function ResetPasswordPage() {
             {/* Logo */}
             <div className="flex justify-center mb-4">
               <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full">
-                <BsCashCoin size={20} />
+                <LogoMarca tamanho={24} className="ring-1 ring-white/40 shadow-md" />
                 <span className="font-semibold">MyExpenses</span>
               </div>
             </div>

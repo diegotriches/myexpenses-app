@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BsCashCoin } from "react-icons/bs";
 import { FiHome, FiArrowLeft, FiAlertCircle } from "react-icons/fi";
+import { LogoMarca } from "@/components/common/LogoMarca";
 
 export default function NotFound() {
   const router = useRouter();
@@ -24,7 +24,7 @@ export default function NotFound() {
             href="/"
             className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm px-6 py-3 rounded-full border border-white/20 hover:bg-white/20 transition-all"
           >
-            <BsCashCoin className="text-yellow-300" size={28} />
+            <LogoMarca tamanho={32} className="ring-1 ring-white/40 shadow-md" />
             <span className="font-bold text-xl text-white">MyExpenses</span>
           </Link>
         </div>
