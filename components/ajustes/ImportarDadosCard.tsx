@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { dadosService } from "@/services/dadosService";
 import { mensagemDoErro } from "@/services/http";
 import type { ResultadoImportacao } from "@/types/backup";
@@ -40,6 +40,7 @@ interface ArquivoLido {
  * tabelas reais.
  */
 export default function ImportarDadosCard() {
+  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient  = useQueryClient();
 
@@ -84,16 +85,14 @@ export default function ImportarDadosCard() {
       const json = await dadosService.processarImportacao(arquivo.raw);
 
       setResultado(json);
-      toast.success("Importação concluída com sucesso!", {
-        description: `${json.totalImportado} registros importados.`,
-      });
+      toast({ title: "Importação concluída com sucesso!", description: `${json.totalImportado} registros importados.` });
 
       // Restauração afeta praticamente todas as telas do app
       queryClient.invalidateQueries();
     } catch (error) {
       const mensagem = mensagemDoErro(error, "Verifique sua conexão e tente novamente.");
       setErro(mensagem);
-      toast.error("Erro ao importar dados", { description: mensagem });
+      toast({ title: "Erro ao importar dados", description: mensagem, variant: "destructive" });
     } finally {
       setProcessando(false);
     }

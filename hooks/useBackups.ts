@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import type { BackupListItem, RestaurarBackupResponse } from "@/types/backup";
 
 const QUERY_KEY = ["backups"] as const;
@@ -21,6 +21,8 @@ export function useBackups() {
 
 // ── Download ──────────────────────────────────────────────────────────────────
 export function useDownloadBackup() {
+  const { toast } = useToast();
+
   return useMutation({
     mutationFn: async (backupId: string) => {
       const res = await fetch(`/api/backups/${backupId}/download`);
@@ -42,7 +44,7 @@ export function useDownloadBackup() {
       window.URL.revokeObjectURL(url);
     },
     onError: (error: Error) => {
-      toast.error("Erro ao baixar backup", { description: error.message });
+      toast({ title: "Erro ao baixar backup", description: error.message, variant: "destructive" });
     },
   });
 }
@@ -50,6 +52,7 @@ export function useDownloadBackup() {
 // ── Restaurar ─────────────────────────────────────────────────────────────────
 export function useRestaurarBackup() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (backupId: string): Promise<RestaurarBackupResponse> => {
@@ -65,14 +68,12 @@ export function useRestaurarBackup() {
       return res.json();
     },
     onSuccess: () => {
-      toast.success("Backup restaurado com sucesso!", {
-        description: "Todos os seus dados foram restaurados.",
-      });
+      toast({ title: "Backup restaurado com sucesso!", description: "Todos os seus dados foram restaurados." });
       // Invalida TUDO — restauração afeta praticamente todas as queries do app
       queryClient.invalidateQueries();
     },
     onError: (error: Error) => {
-      toast.error("Erro ao restaurar backup", { description: error.message });
+      toast({ title: "Erro ao restaurar backup", description: error.message, variant: "destructive" });
     },
   });
 }
@@ -80,6 +81,7 @@ export function useRestaurarBackup() {
 // ── Excluir ───────────────────────────────────────────────────────────────────
 export function useExcluirBackup() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (backupId: string) => {
@@ -93,10 +95,10 @@ export function useExcluirBackup() {
       queryClient.setQueryData<BackupListItem[]>(QUERY_KEY, (prev = []) =>
         prev.filter((b) => b.id !== backupId)
       );
-      toast.success("Backup removido com sucesso");
+      toast({ title: "Backup removido com sucesso" });
     },
     onError: (error: Error) => {
-      toast.error("Erro ao excluir backup", { description: error.message });
+      toast({ title: "Erro ao excluir backup", description: error.message, variant: "destructive" });
     },
   });
 }

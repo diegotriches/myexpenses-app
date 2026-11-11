@@ -12,7 +12,7 @@ import {
   Shield,
   Package,
 } from "lucide-react";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { dadosService } from "@/services/dadosService";
 import { mensagemDoErro } from "@/services/http";
 
@@ -29,6 +29,7 @@ import { mensagemDoErro } from "@/services/http";
  * semanal, com histórico persistido no Postgres).
  */
 export default function ExportarDadosCard() {
+  const { toast } = useToast();
   const [exportando, setExportando] = useState(false);
 
   async function handleExportar() {
@@ -45,11 +46,9 @@ export default function ExportarDadosCard() {
       a.remove();
       window.URL.revokeObjectURL(url);
 
-      toast.success("Dados exportados com sucesso!", {
-        description: `Arquivo: ${filename}`,
-      });
+      toast({ title: "Dados exportados com sucesso!", description: `Arquivo: ${filename}` });
     } catch (error) {
-      toast.error("Erro ao exportar dados", { description: mensagemDoErro(error, "Verifique sua conexão e tente novamente.") });
+      toast({ title: "Erro ao exportar dados", description: mensagemDoErro(error, "Verifique sua conexão e tente novamente."), variant: "destructive" });
     } finally {
       setExportando(false);
     }
