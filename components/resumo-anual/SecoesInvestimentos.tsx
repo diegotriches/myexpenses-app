@@ -15,7 +15,7 @@ const corValor = (v: number) => (v >= 0 ? "text-green-600 dark:text-green-400" :
 
 function Carregando() {
   return (
-    <Card className="dark:bg-gray-800 dark:border-gray-700">
+    <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardContent className="p-6 space-y-3">
         <Skeleton className="h-6 w-56" />
         <Skeleton className="h-28 w-full" />
@@ -50,7 +50,7 @@ export function SecaoInvestimentosAno({
   ];
 
   return (
-    <Card className="dark:bg-gray-800 dark:border-gray-700">
+    <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base md:text-lg text-gray-900 dark:text-white">
           <Landmark className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -140,7 +140,7 @@ export function SecaoDeclaracao({ dados, ano, carregando }: { dados: Investiment
   const semBens = d.contas.length === 0 && d.aplicacoes.length === 0 && d.rendaVariavel.length === 0;
 
   return (
-    <Card className="dark:bg-gray-800 dark:border-gray-700">
+    <Card className="dark:bg-gray-900 dark:border-gray-800">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base md:text-lg text-gray-900 dark:text-white">
           <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />

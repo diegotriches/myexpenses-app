@@ -417,8 +417,8 @@ export default function FaturaPage() {
       <Card
         className={
           dadosFatura?.paga
-            ? "border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-900"
-            : "border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-900"
+            ? "border-green-200 bg-green-50 dark:bg-green-950/40 dark:border-green-900/60"
+            : "border-orange-200 bg-orange-50 dark:bg-orange-950/40 dark:border-orange-900/60"
         }
       >
         <CardContent className="px-4 py-3 md:px-6 md:py-3">

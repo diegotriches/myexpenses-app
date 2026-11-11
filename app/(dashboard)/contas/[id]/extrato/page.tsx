@@ -241,7 +241,7 @@ export default function ExtratoContaPage() {
 
       {/* Resumo do Período */}
       {resumo && (
-        <Card className="dark:bg-gray-800 dark:border-gray-700">
+        <Card className="dark:bg-gray-900 dark:border-gray-800">
           <CardHeader>
             <CardTitle className="text-lg md:text-xl text-gray-900 dark:text-white">
               Resumo do Período
@@ -304,7 +304,7 @@ export default function ExtratoContaPage() {
       {loading && !error && (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Card key={i} className="animate-pulse dark:bg-gray-800 dark:border-gray-700">
+            <Card key={i} className="animate-pulse dark:bg-gray-900 dark:border-gray-800">
               <CardContent className="p-4">
                 <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3" />
                 <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
@@ -316,7 +316,7 @@ export default function ExtratoContaPage() {
 
       {/* Vazio */}
       {!loading && !error && extratoFiltrado.length === 0 && (
-        <Card className="border-dashed dark:bg-gray-800 dark:border-gray-700">
+        <Card className="border-dashed dark:bg-gray-900 dark:border-gray-800">
           <CardContent className="p-12 text-center">
             <p className="text-gray-600 dark:text-gray-400 font-medium mb-1">
               Nenhuma movimentação encontrada
@@ -337,7 +337,7 @@ export default function ExtratoContaPage() {
 
       {/* Desktop: Tabela */}
       {!loading && !error && extratoPagina.length > 0 && (
-        <Card className="hidden md:block dark:bg-gray-800 dark:border-gray-700">
+        <Card className="hidden md:block dark:bg-gray-900 dark:border-gray-800">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm table-fixed">

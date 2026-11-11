@@ -416,7 +416,7 @@ export default function ResumoAnualPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
 
         {data.melhorMes && (
-          <Card className="dark:bg-gray-800 dark:border-gray-700 border-green-200 dark:border-green-900">
+          <Card className="dark:bg-gray-900 dark:border-gray-800 border-green-200 dark:border-green-900">
             <CardContent className="p-3 md:p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Award className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -429,7 +429,7 @@ export default function ResumoAnualPage() {
         )}
 
         {data.piorMes && (
-          <Card className="dark:bg-gray-800 dark:border-gray-700 border-red-200 dark:border-red-900">
+          <Card className="dark:bg-gray-900 dark:border-gray-800 border-red-200 dark:border-red-900">
             <CardContent className="p-3 md:p-4">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-4 w-4 text-red-500 dark:text-red-400" />
@@ -443,7 +443,7 @@ export default function ResumoAnualPage() {
           </Card>
         )}
 
-        <Card className="dark:bg-gray-800 dark:border-gray-700">
+        <Card className="dark:bg-gray-900 dark:border-gray-800">
           <CardContent className="p-3 md:p-4">
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -457,7 +457,7 @@ export default function ResumoAnualPage() {
         </Card>
 
         {data.maiorDespesa && (
-          <Card className="dark:bg-gray-800 dark:border-gray-700">
+          <Card className="dark:bg-gray-900 dark:border-gray-800">
             <CardContent className="p-3 md:p-4">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="h-4 w-4 text-orange-500 dark:text-orange-400" />
@@ -480,7 +480,7 @@ export default function ResumoAnualPage() {
       </div>
 
       {/* ── Receitas e despesas por mês, com o saldo em linha ─────────────── */}
-      <Card className="dark:bg-gray-800 dark:border-gray-700">
+      <Card className="dark:bg-gray-900 dark:border-gray-800">
         <CardHeader>
           <CardTitle className="text-base md:text-lg text-gray-900 dark:text-white">
             Receitas, despesas e saldo — {ano}
@@ -509,7 +509,7 @@ export default function ResumoAnualPage() {
       </Card>
 
       {/* ── Gráfico 3: Comparativo de despesas ─────────────────────────── */}
-      <Card className="dark:bg-gray-800 dark:border-gray-700">
+      <Card className="dark:bg-gray-900 dark:border-gray-800">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="text-base md:text-lg text-gray-900 dark:text-white">
@@ -552,7 +552,7 @@ export default function ResumoAnualPage() {
 
       {/* ── Card unificado: Categorias | Métodos de Pagamento ──────────── */}
       {(data.categorias.length > 0 || metodosPagamento?.length > 0) && (
-        <Card className="dark:bg-gray-800 dark:border-gray-700">
+        <Card className="dark:bg-gray-900 dark:border-gray-800">
           <CardHeader>
             <CardTitle className="text-base md:text-lg text-gray-900 dark:text-white">
               Distribuição Anual — {ano}
