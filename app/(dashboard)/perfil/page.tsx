@@ -135,7 +135,7 @@ if (!usuario) {
                 Foto de Perfil
               </CardTitle>
               <CardDescription>
-                Adicione ou atualize sua foto de perfil. Formatos aceitos: JPG, PNG (máx. 5MB)
+                Adicione ou atualize sua foto de perfil. Formatos aceitos: JPG, PNG ou WebP. A foto é recortada em quadrado e reduzida antes do envio.
               </CardDescription>
             </CardHeader>
             <CardContent>

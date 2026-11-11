@@ -15,6 +15,7 @@ import {
 import { useUploadFoto, useRemoverFoto } from "@/hooks/useProfile";
 import type { Usuario } from "@/types/profile";
 import { textoDoErro } from "@/utils/erro";
+import { reduzirFotoPerfil } from "@/utils/imagem";
 
 interface Props {
   usuario: Usuario;
@@ -25,6 +26,7 @@ export default function EditarFotoCard({ usuario }: Props) {
   const [preview, setPreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [reduzindo, setReduzindo] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // React Query Mutations
@@ -42,9 +44,10 @@ export default function EditarFotoCard({ usuario }: Props) {
 
   // Validação de arquivo
   const validarArquivo = (file: File): string | null => {
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // A foto é reduzida antes do envio (utils/imagem.ts): o original pode ser maior que o limite do servidor
+    const maxSize = 15 * 1024 * 1024; // 15MB
     if (file.size > maxSize) {
-      return "A imagem deve ter no máximo 5MB";
+      return "A imagem deve ter no máximo 15MB";
     }
 
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -62,7 +65,7 @@ export default function EditarFotoCard({ usuario }: Props) {
     processarArquivo(file);
   };
 
-  const processarArquivo = (file: File) => {
+  const processarArquivo = async (file: File) => {
     setErro(null);
 
     const erroValidacao = validarArquivo(file);
@@ -71,12 +74,25 @@ export default function EditarFotoCard({ usuario }: Props) {
       return;
     }
 
+    // Recorta em quadrado e reduz para 256 px antes de mostrar e enviar:
+    // o menu lateral exibe a foto com 36 px em todas as páginas
+    let reduzida: File;
+    try {
+      setReduzindo(true);
+      reduzida = await reduzirFotoPerfil(file);
+    } catch (err) {
+      setErro(textoDoErro(err, "Não foi possível processar a imagem. Tente outra foto."));
+      return;
+    } finally {
+      setReduzindo(false);
+    }
+
     if (preview) {
       URL.revokeObjectURL(preview);
     }
 
-    setNovaFoto(file);
-    setPreview(URL.createObjectURL(file));
+    setNovaFoto(reduzida);
+    setPreview(URL.createObjectURL(reduzida));
   };
 
   const enviarFoto = async () => {
@@ -180,7 +196,7 @@ export default function EditarFotoCard({ usuario }: Props) {
     return 'U';
   };
 
-  const isLoading = uploadFoto.isPending || removerFoto.isPending;
+  const isLoading = uploadFoto.isPending || removerFoto.isPending || reduzindo;
 
   return (
     <div className="space-y-6">
@@ -262,7 +278,7 @@ export default function EditarFotoCard({ usuario }: Props) {
           </div>
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            JPG, PNG ou WebP (máx. 5MB)
+            JPG, PNG ou WebP (máx. 15MB, reduzida automaticamente)
           </p>
         </div>
       </div>
