@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { TrendingUp } from "lucide-react";
 import { useContas } from "@/hooks/useContas";
-import AplicacoesTab from "@/components/aplicacao/AplicacoesTab";
-import ResumoInvestimentos from "@/components/aplicacao/ResumoInvestimentos";
-import ResumoRendaVariavel from "@/components/aplicacao/ResumoRendaVariavel";
-import RendaVariavel from "@/components/aplicacao/RendaVariavel";
+import AplicacoesTab from "@/components/aplicacoes/AplicacoesTab";
+import ResumoInvestimentos from "@/components/aplicacoes/ResumoInvestimentos";
+import ResumoRendaVariavel from "@/components/renda-variavel/ResumoRendaVariavel";
+import RendaVariavel from "@/components/renda-variavel/RendaVariavel";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AbasSecao } from "@/components/common/AbasSecao";
 

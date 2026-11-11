@@ -12,7 +12,7 @@ interface Props {
   loading?: boolean;
 }
 
-export default function ConfirmDeleteEstabelecimentoModal({
+export default function ExcluirEstabelecimentoModal({
   aberto,
   onClose,
   estabelecimento,

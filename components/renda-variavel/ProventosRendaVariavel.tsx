@@ -33,7 +33,7 @@ import {
   TIPO_PROVENTO_LABEL, lerPlanilhaProventos, resumirProventos,
   type ProventoRv, type ResultadoLeitura, type TipoProvento,
 } from "@/utils/proventosUtils";
-import MovCampoConta from "@/components/transacao/MovCampoConta";
+import MovCampoConta from "@/components/transacoes/MovCampoConta";
 import { formatarMoeda } from "@/utils/formatadores";
 import { textoDoErro } from "@/utils/erro";
 

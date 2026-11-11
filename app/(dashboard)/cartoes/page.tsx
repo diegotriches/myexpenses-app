@@ -20,7 +20,7 @@ import { Search, CreditCard, AlertTriangle } from "lucide-react";
 import CartaoFormModal from "@/components/cartoes/CartaoFormModal";
 import CartaoItem from "@/components/cartoes/CartaoItem";
 import CartaoItemInativo from "@/components/cartoes/CartaoItemInativo";
-import { CartaoExclusaoModal } from "@/components/cartoes/CartaoExclusaoModal";
+import { ExcluirCartaoModal } from "@/components/cartoes/ExcluirCartaoModal";
 import ResumoCartoes from "@/components/cartoes/ResumoCartoes";
 
 import { Cartao, CreateCartaoDTO, UpdateCartaoDTO } from "@/types/cartao";
@@ -363,7 +363,7 @@ export default function CartoesPage() {
       />
 
       {cartaoParaExcluir && (
-        <CartaoExclusaoModal
+        <ExcluirCartaoModal
           isOpen={modalExclusaoOpen}
           onClose={() => { setModalExclusaoOpen(false); setCartaoParaExcluir(null); }}
           onConfirm={confirmarExclusao}

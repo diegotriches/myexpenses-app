@@ -30,8 +30,8 @@ import {
 } from "@/utils/aplicacaoSimulacao";
 // Mesmos campos do modal de Nova Movimentação (conta com logo do banco e
 // valor em formato calculadora)
-import MovCampoConta from "@/components/transacao/MovCampoConta";
-import MovCamposBasicos from "@/components/transacao/MovCamposBasicos";
+import MovCampoConta from "@/components/transacoes/MovCampoConta";
+import MovCamposBasicos from "@/components/transacoes/MovCamposBasicos";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarMoeda } from "@/utils/formatadores";
 

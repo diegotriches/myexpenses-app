@@ -33,7 +33,7 @@ interface Props {
   conta: Conta | null;
 }
 
-export default function ModalAjustarSaldo({ open, onClose, conta }: Props) {
+export default function AjustarSaldoModal({ open, onClose, conta }: Props) {
   const { mask } = useHideValues();
   const [valor, setValor] = useState("");
   const [descricao, setDescricao] = useState("");

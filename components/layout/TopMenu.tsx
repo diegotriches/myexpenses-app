@@ -19,7 +19,7 @@ import ConfirmDialog from "@/components/common/ConfirmDialog";
 import PeriodoSelector      from "@/components/layout/PeriodoSelector";
 import CalculadoraModal     from "@/components/common/CalculadoraModal";
 import NotasPanel           from "@/components/common/NotasPanel";
-import { NotificacaoPopover } from "@/components/notificacao/NotificacaoPopover";
+import { NotificacaoPopover } from "@/components/notificacoes/NotificacaoPopover";
 import { useHideValues }    from "@/contexts/HideValuesContext";
 import { proximoTema, rotuloAlternarTema } from "@/utils/tema";
 

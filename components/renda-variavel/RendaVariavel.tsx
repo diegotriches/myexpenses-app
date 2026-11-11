@@ -33,11 +33,11 @@ import {
   TIPO_ATIVO_LABEL, TICKER_REGEX,
   type AtivoCarteira, type PosicaoAtivo, type TipoAtivo, type TipoOperacao,
 } from "@/utils/rendaVariavelUtils";
-import MovCampoConta from "@/components/transacao/MovCampoConta";
-import ProventosRendaVariavel from "@/components/aplicacao/ProventosRendaVariavel";
-import ImpostoRendaRendaVariavel from "@/components/aplicacao/ImpostoRendaRendaVariavel";
-import EventoCorporativoDialog from "@/components/aplicacao/EventoCorporativoDialog";
-import ImportarOperacoesDialog from "@/components/aplicacao/ImportarOperacoesDialog";
+import MovCampoConta from "@/components/transacoes/MovCampoConta";
+import ProventosRendaVariavel from "@/components/renda-variavel/ProventosRendaVariavel";
+import ImpostoRendaRendaVariavel from "@/components/renda-variavel/ImpostoRendaRendaVariavel";
+import EventoCorporativoDialog from "@/components/renda-variavel/EventoCorporativoDialog";
+import ImportarOperacoesDialog from "@/components/renda-variavel/ImportarOperacoesDialog";
 import { EVENTO_LABEL, calcularPosicoes, dataEncerramento, encerramentoRecente } from "@/utils/rendaVariavelUtils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatarMoeda } from "@/utils/formatadores";

@@ -8,7 +8,7 @@ interface CartaoExclusaoModalProps {
   possuiDependencias?: boolean; // se o cartão possui faturas ou transações
 }
 
-export function CartaoExclusaoModal({
+export function ExcluirCartaoModal({
   isOpen,
   onClose,
   onConfirm,

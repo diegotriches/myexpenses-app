@@ -27,7 +27,7 @@ import {
 
 import EstabelecimentoCard from "@/components/estabelecimentos/EstabelecimentoCard";
 import EstabelecimentoFormModal from "@/components/estabelecimentos/EstabelecimentoFormModal";
-import ConfirmDeleteEstabelecimentoModal from "@/components/estabelecimentos/ConfirmDeleteEstabelecimentoModal";
+import ExcluirEstabelecimentoModal from "@/components/estabelecimentos/ExcluirEstabelecimentoModal";
 
 import { Estabelecimento } from "@/types/estabelecimento";
 import { iconOptions } from "@/utils/iconOptions";
@@ -422,7 +422,7 @@ export default function EstabelecimentosPage() {
         salvando={criarEstabelecimento.isPending || atualizarEstabelecimento.isPending}
       />
 
-      <ConfirmDeleteEstabelecimentoModal
+      <ExcluirEstabelecimentoModal
         aberto={deleteAberto}
         onClose={() => { setDeleteAberto(false); setExcluindo(null); }}
         estabelecimento={excluindo}

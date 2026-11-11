@@ -31,7 +31,7 @@ interface ModalTransferenciaProps {
   contaOrigemInicialId?: string | null;
 }
 
-export function ModalTransferencia({
+export function TransferenciaModal({
   open,
   onClose,
   contas,

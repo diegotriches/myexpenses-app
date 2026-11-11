@@ -2,10 +2,10 @@
 
 import { useState, useMemo } from "react";
 
-import MovCamposBasicos from "@/components/transacao/MovCamposBasicos";
-import MovCampoCategoria from "@/components/transacao/MovCampoCategoria";
-import MovCampoFormaPagamento from "@/components/transacao/MovCampoFormaPagamento";
-import MovCampoConta from "@/components/transacao/MovCampoConta";
+import MovCamposBasicos from "@/components/transacoes/MovCamposBasicos";
+import MovCampoCategoria from "@/components/transacoes/MovCampoCategoria";
+import MovCampoFormaPagamento from "@/components/transacoes/MovCampoFormaPagamento";
+import MovCampoConta from "@/components/transacoes/MovCampoConta";
 import MovCampoCartao from "./MovCampoCartao";
 import MovCampoEstabelecimento from "./MovCampoEstabelecimento";
 

@@ -23,10 +23,10 @@ import type { Recorrencia } from "@/types/recorrencia";
 import type { Conta } from "@/types/conta";
 import type { Cartao } from "@/types/cartao";
 // ✅ NOVO: reaproveita os mesmos componentes do modal de Nova Movimentação
-import MovCamposBasicos from "@/components/transacao/MovCamposBasicos";
-import MovCampoFormaPagamento from "@/components/transacao/MovCampoFormaPagamento";
-import MovCampoConta from "@/components/transacao/MovCampoConta";
-import MovCampoCartao from "@/components/transacao/MovCampoCartao";
+import MovCamposBasicos from "@/components/transacoes/MovCamposBasicos";
+import MovCampoFormaPagamento from "@/components/transacoes/MovCampoFormaPagamento";
+import MovCampoConta from "@/components/transacoes/MovCampoConta";
+import MovCampoCartao from "@/components/transacoes/MovCampoCartao";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarMoeda } from "@/utils/formatadores";
 

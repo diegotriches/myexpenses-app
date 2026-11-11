@@ -15,7 +15,7 @@ interface Props {
   categoria: Categoria | null;
 }
 
-export default function ConfirmDeleteModal({
+export default function ExcluirCategoriaModal({
   aberto,
   onClose,
   categoria,

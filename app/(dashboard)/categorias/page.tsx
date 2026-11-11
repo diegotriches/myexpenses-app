@@ -37,7 +37,7 @@ import {
 
 import CategoriaCard from "@/components/categorias/CategoriaCard";
 import CategoriaFormModal from "@/components/categorias/CategoriaFormModal";
-import ConfirmDeleteModal from "@/components/categorias/ConfirmDeleteModal";
+import ExcluirCategoriaModal from "@/components/categorias/ExcluirCategoriaModal";
 import { Categoria, TotalCategoria } from "@/types/categoria";
 import { iconOptions } from "@/utils/iconOptions";
 import { useCategorias, useTotaisCategorias } from "@/hooks/useCategorias";
@@ -459,7 +459,7 @@ export default function CategoriasPage() {
         onClose={() => setFormModalAberto(false)}
         categoria={categoriaEditando}
       />
-      <ConfirmDeleteModal
+      <ExcluirCategoriaModal
         aberto={deleteModalAberto}
         onClose={() => setDeleteModalAberto(false)}
         categoria={categoriaExcluir}

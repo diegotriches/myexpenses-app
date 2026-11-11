@@ -8,14 +8,14 @@ import { MdAdd } from "react-icons/md";
 import { BsArrowLeftRight, BsBank } from "react-icons/bs";
 import { AlertCircle, Repeat, List, Layers } from "lucide-react";
 
-import FormMovimentacaoModal from "@/components/transacao/FormMovimentacaoModal";
-import MovimentacaoTabela from "@/components/transacao/MovimentacaoTabela";
-import ConfirmarEdicaoModal from "@/components/transacao/ConfirmarEdicaoModal";
-import ConfirmarExclusaoModal from "@/components/transacao/ConfirmarExclusaoModal";
-import FaturaFechadaModal from "@/components/transacao/FaturaFechadaModal";
-import FiltrosMovimentacoes, { FiltrosState } from "@/components/transacao/FiltrosMovimentacoes";
-import RecorrenciasTab from "@/components/transacao/RecorrenciasTab";
-import ParcelasTab from "@/components/transacao/ParcelasTab";
+import FormMovimentacaoModal from "@/components/transacoes/FormMovimentacaoModal";
+import MovimentacaoTabela from "@/components/transacoes/MovimentacaoTabela";
+import ConfirmarEdicaoModal from "@/components/transacoes/ConfirmarEdicaoModal";
+import ConfirmarExclusaoModal from "@/components/transacoes/ConfirmarExclusaoModal";
+import FaturaFechadaModal from "@/components/transacoes/FaturaFechadaModal";
+import FiltrosMovimentacoes, { FiltrosState } from "@/components/transacoes/FiltrosMovimentacoes";
+import RecorrenciasTab from "@/components/transacoes/RecorrenciasTab";
+import ParcelasTab from "@/components/transacoes/ParcelasTab";
 
 import {
   useTransacoes,

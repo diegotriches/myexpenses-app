@@ -15,8 +15,8 @@ import {
 import ContaModal from "@/components/contas/ContaModal";
 import ContaCard from "@/components/contas/ContaCard";
 import ExcluirContaModal from "@/components/contas/ExcluirContaModal";
-import { ModalTransferencia } from "@/components/transferencias/ModalTransferencia";
-import ModalAjustarSaldo from "@/components/contas/ModalAjustarSaldo";
+import { TransferenciaModal } from "@/components/transferencias/TransferenciaModal";
+import AjustarSaldoModal from "@/components/contas/AjustarSaldoModal";
 import PatrimonioCard from "@/components/contas/PatrimonioCard";
 import { Conta, CreateContaDTO, UpdateContaDTO } from "@/types/conta";
 
@@ -341,14 +341,14 @@ export default function ContasPage() {
         onSalvar={salvarConta}
       />
 
-      <ModalTransferencia
+      <TransferenciaModal
         open={modalTransferenciaOpen}
         onClose={handleFecharTransferencia}
         contas={contas}
         contaOrigemInicialId={contaOrigemSelecionada}
       />
 
-      <ModalAjustarSaldo
+      <AjustarSaldoModal
         open={modalAjusteOpen}
         onClose={handleFecharAjuste}
         conta={contaParaAjustar}
