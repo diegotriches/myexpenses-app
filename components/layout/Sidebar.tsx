@@ -63,8 +63,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   const linkClasses = (href: string) => {
     const base   = "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors duration-150 relative group";
     const estado = isActive(href)
-      ? "bg-blue-50 text-blue-700 font-semibold dark:bg-blue-950/60 dark:text-blue-300"
-      : "text-gray-600 font-medium hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white";
+      ? "bg-blue-600 text-white font-semibold shadow-sm shadow-blue-950/40"
+      : "text-slate-300 font-medium hover:bg-white/[0.06] hover:text-white";
     return `${base} ${estado}`;
   };
 
@@ -150,8 +150,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         onClick={() => router.push("/perfil")}
         className={`
           w-full flex items-center p-3 overflow-hidden
-          bg-gray-50 hover:bg-gray-100 border border-gray-200
-          dark:bg-gray-800/60 dark:hover:bg-gray-800 dark:border-gray-800
+          bg-white/[0.04] hover:bg-white/[0.08] border border-white/10
           rounded-lg transition-colors duration-150 group cursor-pointer
           ${isExpanded || isMobile ? "gap-3 justify-start" : "gap-0 justify-center"}
         `}
@@ -171,7 +170,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
               <span className="text-white font-bold text-sm">{initials}</span>
             )}
           </div>
-          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-gray-50 dark:border-gray-900 rounded-full" />
+          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-slate-900 rounded-full" />
         </div>
 
         <div
@@ -185,21 +184,21 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         >
           {loading ? (
             <div className="space-y-1.5">
-              <div className="h-3.5 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse" />
-              <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse" />
+              <div className="h-3.5 bg-white/10 rounded w-24 animate-pulse" />
+              <div className="h-2.5 bg-white/10 rounded w-32 animate-pulse" />
             </div>
           ) : (
             <>
-              <p className="text-sm font-semibold truncate text-gray-900 dark:text-white">{displayName}</p>
+              <p className="text-sm font-semibold truncate text-white">{displayName}</p>
               {displayEmail && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{displayEmail}</p>
+                <p className="text-xs text-slate-400 truncate">{displayEmail}</p>
               )}
             </>
           )}
         </div>
 
         <div className={`transition-all duration-300 overflow-hidden flex-shrink-0 ${isExpanded || isMobile ? "max-w-[16px] opacity-100" : "max-w-0 opacity-0"}`}>
-          <ChevronRight size={16} className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <ChevronRight size={16} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
       </button>
     );
@@ -233,7 +232,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           </div>
           <span
             className={`
-              text-lg font-bold tracking-tight text-gray-900 dark:text-white whitespace-nowrap transition-all duration-300
+              text-lg font-bold tracking-tight text-white whitespace-nowrap transition-all duration-300
               ${isExpanded || isMobile ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 absolute pointer-events-none"}
             `}
           >
@@ -248,7 +247,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           <div key={group.title}>
             <p
               className={`
-                text-[11px] font-semibold text-gray-400 dark:text-gray-500
+                text-[11px] font-semibold text-slate-500
                 uppercase tracking-wider mb-1.5 px-3 transition-all duration-300
                 ${isExpanded || isMobile ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 absolute pointer-events-none"}
               `}
@@ -267,7 +266,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         <div className="flex flex-col gap-1">
           <p
             className={`
-              text-[11px] font-semibold text-gray-400 dark:text-gray-500
+              text-[11px] font-semibold text-slate-500
               uppercase tracking-wider mb-1.5 px-3 transition-all duration-300
               ${isExpanded || isMobile ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 absolute pointer-events-none"}
             `}
@@ -277,7 +276,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           {renderNavLink({ href: "/resumo-anual", icon: MdOutlineAutoGraph, label: "Resumo Anual", isMobile })}
         </div>
 
-        <div className="mt-auto border-t border-gray-200 dark:border-gray-800 pt-3">
+        <div className="mt-auto border-t border-white/10 pt-3">
           {renderNavLink({ href: "/ajustes", icon: BsFillGearFill, label: "Ajustes", isMobile })}
         </div>
       </div>
@@ -302,10 +301,10 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       <nav
         className={`
           hidden md:flex fixed top-0 left-0 h-screen
-          bg-white dark:bg-gray-900
+          bg-slate-900 text-slate-300
           p-4 flex-col
           transition-all duration-300 z-40
-          border-r border-gray-200 dark:border-gray-800
+          border-r border-slate-800
           overflow-x-hidden
           ${isExpanded ? "w-64" : "w-20"}
           ${isCollapsed && isHovered ? "shadow-xl" : ""}
@@ -333,8 +332,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
             side="left"
             className="
               w-64 p-4
-              bg-white dark:bg-gray-900
-              border-r border-gray-200 dark:border-gray-800
+              bg-slate-900 text-slate-300
+              border-r border-slate-800
               [&>button]:hidden
             "
           >
