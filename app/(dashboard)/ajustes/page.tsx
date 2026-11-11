@@ -4,8 +4,7 @@ import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import PreferenciasCard from "@/components/ajustes/PreferenciasCard";
 import ExportarDadosCard from "@/components/ajustes/ExportarDadosCard";
 import ImportarDadosCard from "@/components/ajustes/ImportarDadosCard";
@@ -19,6 +18,8 @@ import {
   Database,
 } from "lucide-react";
 import { BsFillGearFill } from "react-icons/bs";
+import { PageHeader } from "@/components/common/PageHeader";
+import { AbasSecao } from "@/components/common/AbasSecao";
 
 type Aba = "preferencias" | "dados";
 
@@ -50,32 +51,22 @@ function AjustesContent() {
 
   return (
     <div className="page-container p-4 md:p-6 space-y-6">
-      {/* Cabeçalho */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <BsFillGearFill className="text-2xl md:text-3xl text-blue-700 dark:text-blue-400" />
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-            Ajustes
-          </h1>
-        </div>
-        <p className="text-gray-600 dark:text-gray-400">
-          Aparência, notificações, backup e importação de dados
-        </p>
-      </div>
-
-      <Separator />
+      <PageHeader
+        icone={BsFillGearFill}
+        titulo="Ajustes"
+        descricao="Aparência, notificações, backup e importação de dados"
+      />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Aba)} className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="preferencias" className="flex items-center gap-2">
-            <Sliders className="h-4 w-4" />
-            Preferências
-          </TabsTrigger>
-          <TabsTrigger value="dados" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            Dados
-          </TabsTrigger>
-        </TabsList>
+        <AbasSecao
+          ariaLabel="Seções dos ajustes"
+          abas={[
+            { id: "preferencias", rotulo: "Preferências", icone: Sliders },
+            { id: "dados", rotulo: "Dados", icone: Database },
+          ] as const}
+          ativa={activeTab}
+          onChange={setActiveTab}
+        />
 
         {/* PREFERÊNCIAS */}
         <TabsContent value="preferencias" className="space-y-6">

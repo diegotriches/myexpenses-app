@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { Notificacao, SeveridadeNotificacao } from "@/types/notificacao";
+import { PageHeader } from "@/components/common/PageHeader";
 
 // Severidade fora destas 4 chaves (ex.: tipo de notificação futuro) cai no cinza neutro
 const severidadeConfig: Record<string, { color: string; bg: string; label: string; icone: LucideIcon }> = {
@@ -161,39 +162,34 @@ export default function NotificacoesPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl p-4 md:p-6 space-y-4 md:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Notificações</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {naoLidas > 0
-              ? `${naoLidas} não ${naoLidas === 1 ? "lida" : "lidas"}`
-              : "Todas as notificações estão lidas"}
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => verificarNotificacoes.mutate({})}
-            disabled={verificarNotificacoes.isPending}
-          >
-            <RefreshCw className={cn("h-4 w-4 mr-2", verificarNotificacoes.isPending && "animate-spin")} />
-            Verificar novas
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            // Ainda não há aba própria para notificações; Preferências é a mais próxima
-            onClick={() => router.push("/ajustes?tab=preferencias")}
-            title="Configurações"
-          >
-            <Settings className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Configurações</span>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        icone={Bell}
+        titulo="Notificações"
+        descricao={naoLidas > 0 ? `${naoLidas} não ${naoLidas === 1 ? "lida" : "lidas"}` : "Todas as notificações estão lidas"}
+        acoes={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => verificarNotificacoes.mutate({})}
+              disabled={verificarNotificacoes.isPending}
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-2", verificarNotificacoes.isPending && "animate-spin")} />
+              Verificar novas
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              // Ainda não há aba própria para notificações; Preferências é a mais próxima
+              onClick={() => router.push("/ajustes?tab=preferencias")}
+              title="Configurações"
+            >
+              <Settings className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Configurações</span>
+            </Button>
+          </>
+        }
+      />
 
       {/* Filtros + Ações */}
       <Card className="p-3 md:p-4 gap-0">

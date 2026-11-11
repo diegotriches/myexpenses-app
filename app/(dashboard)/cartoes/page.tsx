@@ -33,6 +33,8 @@ import {
 } from "@/hooks/useCartoes";
 import { useTransacoes } from "@/hooks/useTransacoes";
 import { ErroApi } from "@/services/http";
+import { PageHeader } from "@/components/common/PageHeader";
+import { AbasSecao } from "@/components/common/AbasSecao";
 
 type OrdenacaoType = "nome" | "limite-maior" | "limite-menor" | "uso-maior" | "uso-menor";
 
@@ -206,17 +208,11 @@ export default function CartoesPage() {
   return (
     <div className="page-container p-4 md:p-6 space-y-6">
 
-      {/* Header */}
-      <header>
-        <div className="flex items-center gap-2 mb-2">
-          <BsCreditCard className="text-2xl md:text-3xl text-blue-700 dark:text-blue-500" />
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Cartões</h1>
-        </div>
-        <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
-          Gerencie seus cartões de crédito e débito
-        </p>
-        <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
-      </header>
+      <PageHeader
+        icone={BsCreditCard}
+        titulo="Cartões"
+        descricao="Gerencie seus cartões de crédito e débito"
+      />
 
       {/* Resumo: pago no ano, faturas em aberto, limite utilizado e limite disponível */}
       {!loading && temCartaoCredito && <ResumoCartoes cartoes={cartoes} />}
@@ -233,41 +229,15 @@ export default function CartoesPage() {
 
       {/* Abas: cartões ativos / inativos (mesmo estilo da página Contas) */}
       {!loading && cartoes.length > 0 && (
-        <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700" role="tablist">
-          {([
-            { id: "ativos", label: "Ativos", qtd: contadores.ativos },
-            { id: "inativos", label: "Inativos", qtd: contadores.inativos },
-          ] as const).map((item) => {
-            const selecionada = abaAtiva === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={selecionada}
-                onClick={() => { setAbaAtiva(item.id); setAlertaBloqueio(null); }}
-                className={[
-                  "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-                  selecionada
-                    ? "border-blue-700 text-blue-700 dark:border-blue-500 dark:text-blue-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200",
-                ].join(" ")}
-              >
-                {item.label}
-                <span
-                  className={[
-                    "ml-2 rounded-full px-2 py-0.5 text-xs",
-                    selecionada
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                      : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
-                  ].join(" ")}
-                >
-                  {item.qtd}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <AbasSecao
+          ariaLabel="Situação dos cartões"
+          abas={[
+            { id: "ativos", rotulo: "Ativos", qtd: contadores.ativos },
+            { id: "inativos", rotulo: "Inativos", qtd: contadores.inativos },
+          ] as const}
+          ativa={abaAtiva}
+          onChange={setAbaAtiva}
+        />
       )}
 
       {/* Barra de busca e ordenação */}

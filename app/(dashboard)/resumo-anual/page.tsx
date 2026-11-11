@@ -9,7 +9,7 @@ import {
 import {
   TrendingUp, TrendingDown, DollarSign, Calendar, PiggyBank,
   Award, AlertTriangle, Download, ChevronLeft, ChevronRight,
-  Banknote, Smartphone, CreditCard, ArrowLeftRight,
+  Banknote, Smartphone, CreditCard, ArrowLeftRight, Wallet,
 } from "lucide-react";
 import { MdOutlineAutoGraph } from "react-icons/md";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,8 @@ import { taxaDePoupanca } from "@/utils/gastosUtils";
 import { usePeriodo } from "@/contexts/PeriodoContext";
 import { useResumoInvestimentos } from "@/hooks/useResumoInvestimentos";
 import { SecaoDeclaracao, SecaoInvestimentosAno } from "@/components/resumo-anual/SecoesInvestimentos";
+import { KpiCard as Indicador, type TomKpi, type TomValorKpi } from "@/components/common/KpiCard";
+import { PageHeader } from "@/components/common/PageHeader";
 
 // ── Constantes ─────────────────────────────────────────────────────────────
 
@@ -67,40 +69,39 @@ const variacao = (atual: number, anterior: number): number => {
   return Math.round(((atual - anterior) / Math.abs(anterior)) * 100);
 };
 
-// ── KPI Card ───────────────────────────────────────────────────────────────
+// ── Indicadores do topo (sobre o KpiCard comum) ───────────────────────────
+
+// Linha de comparação com o período anterior, colorida por ser melhora ou piora
+function renderComparacao(diff: number, texto: string, melhorouQuandoSobe: boolean) {
+  if (diff === 0) return null;
+  const subindo = diff > 0;
+  const cor = subindo === melhorouQuandoSobe ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
+  return (
+    <span className={`inline-flex items-center gap-1 ${cor}`}>
+      {subindo ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+      {texto}
+    </span>
+  );
+}
 
 function KpiCard({
-  titulo, valor, anterior, rotuloComparacao, icone: Icone, corPositiva = true,
+  titulo, valor, anterior, rotuloComparacao, icone, corPositiva = true, tom, tomValor,
 }: {
   titulo: string; valor: number; anterior: number; rotuloComparacao: string;
-  icone: React.ElementType; corPositiva?: boolean;
+  icone: React.ElementType<{ className?: string }>; corPositiva?: boolean;
+  tom: TomKpi; tomValor?: TomValorKpi;
 }) {
   const { mask } = useHideValues();
-  const diff    = variacao(valor, anterior);
-  const subindo = diff > 0;
-  const neutro  = diff === 0;
-  const cor = neutro
-    ? "text-gray-500"
-    : (subindo === corPositiva
-        ? "text-green-600 dark:text-green-400"
-        : "text-red-600 dark:text-red-400");
-
+  const diff = variacao(valor, anterior);
   return (
-    <Card className="dark:bg-gray-800 dark:border-gray-700">
-      <CardContent className="p-3 md:p-5">
-        <div className="flex items-center justify-between gap-2 mb-1.5 md:mb-3">
-          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 font-medium">{titulo}</p>
-          <Icone className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
-        </div>
-        <p className="text-base sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-1 break-words">{mask(formatarMoeda(valor))}</p>
-        {!neutro && (
-          <p className={`text-xs flex items-center gap-1 ${cor}`}>
-            {subindo ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {Math.abs(diff)}% vs {rotuloComparacao}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+    <Indicador
+      titulo={titulo}
+      valor={mask(formatarMoeda(valor))}
+      icone={icone}
+      tom={tom}
+      tomValor={tomValor}
+      detalhe={renderComparacao(diff, `${Math.abs(diff)}% vs ${rotuloComparacao}`, corPositiva)}
+    />
   );
 }
 
@@ -109,25 +110,18 @@ function KpiCard({
 function KpiTaxa({ taxa, anterior, rotuloComparacao }: { taxa: number | null; anterior: number | null; rotuloComparacao: string }) {
   const diff = taxa !== null && anterior !== null ? taxa - anterior : null;
   return (
-    <Card className="dark:bg-gray-800 dark:border-gray-700">
-      <CardContent className="p-3 md:p-5">
-        <div className="flex items-center justify-between gap-2 mb-1.5 md:mb-3">
-          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 font-medium">Taxa de Poupança</p>
-          <PiggyBank className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
-        </div>
-        <p className={`text-base sm:text-xl md:text-2xl font-bold mb-1 ${taxa !== null && taxa < 0 ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
-          {taxa === null ? "—" : `${taxa}%`}
-        </p>
-        {diff !== null && diff !== 0 ? (
-          <p className={`text-xs flex items-center gap-1 ${diff > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-            {diff > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {Math.abs(diff)} p.p. vs {rotuloComparacao}
-          </p>
-        ) : (
-          <p className="text-xs text-gray-500 dark:text-gray-400">da receita do período</p>
-        )}
-      </CardContent>
-    </Card>
+    <Indicador
+      titulo="Taxa de poupança"
+      valor={taxa === null ? "—" : `${taxa}%`}
+      icone={PiggyBank}
+      tom="roxo"
+      tomValor={taxa !== null && taxa < 0 ? "negativo" : "neutro"}
+      detalhe={
+        diff !== null && diff !== 0
+          ? renderComparacao(diff, `${Math.abs(diff)} p.p. vs ${rotuloComparacao}`, true)
+          : "da receita do período"
+      }
+    />
   );
 }
 
@@ -371,28 +365,22 @@ export default function ResumoAnualPage() {
   return (
     <div className="page-container p-4 md:p-6 space-y-6">
 
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <MdOutlineAutoGraph className="text-2xl md:text-3xl text-blue-700 dark:text-blue-500" />
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-              Resumo do Ano
-            </h1>
-          </div>
+      <PageHeader
+        icone={MdOutlineAutoGraph}
+        titulo="Resumo do Ano"
+        descricao={
+          ateMes < 12
+            ? `Janeiro a ${nomeMes(ateMes).toLowerCase()} de ${ano}, comparado com o mesmo período de ${data.anoAnterior}`
+            : `Visão consolidada das suas finanças em ${ano}`
+        }
+        acoes={
           <Button variant="outline" size="sm" onClick={exportarPDF}
             disabled={exportando || !data} className="hidden md:flex dark:border-gray-700">
             <Download className="h-4 w-4 mr-2" />
             {exportando ? "Gerando PDF..." : "Exportar PDF"}
           </Button>
-        </div>
-        <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
-          {ateMes < 12
-            ? `Janeiro a ${nomeMes(ateMes).toLowerCase()} de ${ano}, comparado com o mesmo período de ${data.anoAnterior}`
-            : `Visão consolidada das suas finanças em ${ano}`}
-        </p>
-        <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
-      </div>
+        }
+      />
 
       {/* ── Seletor de ano ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
@@ -415,11 +403,12 @@ export default function ResumoAnualPage() {
       {/* ── KPIs ───────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <KpiCard titulo="Total de Receitas" valor={data.totais.receitas} rotuloComparacao={rotuloComparacao}
-          anterior={data.totaisAnteriores.receitas} icone={TrendingUp} corPositiva={true} />
+          anterior={data.totaisAnteriores.receitas} icone={TrendingUp} corPositiva={true} tom="verde" />
         <KpiCard titulo="Total de Despesas" valor={data.totais.despesas} rotuloComparacao={rotuloComparacao}
-          anterior={data.totaisAnteriores.despesas} icone={TrendingDown} corPositiva={false} />
+          anterior={data.totaisAnteriores.despesas} icone={TrendingDown} corPositiva={false} tom="vermelho" />
         <KpiCard titulo="Saldo do Ano" valor={data.totais.saldo} rotuloComparacao={rotuloComparacao}
-          anterior={data.totaisAnteriores.saldo} icone={DollarSign} corPositiva={true} />
+          anterior={data.totaisAnteriores.saldo} icone={Wallet} corPositiva={true} tom="azul"
+          tomValor={data.totais.saldo >= 0 ? "positivo" : "negativo"} />
         <KpiTaxa taxa={taxaAno} anterior={taxaAnterior} rotuloComparacao={rotuloComparacao} />
       </div>
 

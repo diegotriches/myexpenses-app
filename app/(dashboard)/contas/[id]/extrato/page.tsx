@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft, TrendingUp, TrendingDown,
+  TrendingUp, TrendingDown,
   ChevronUp, ChevronDown, ChevronsUpDown, Info,
 } from "lucide-react";
 import { Badge }   from "@/components/ui/badge";
@@ -22,6 +22,7 @@ import { useExtratoConta } from "@/hooks/useContas";
 import type { MovimentacaoExtrato } from "@/types/conta";
 import { formatarDataParaExibicao } from "@/utils/dateUtils";
 import { useMoeda } from "@/hooks/useMoeda";
+import { PageHeader } from "@/components/common/PageHeader";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const ITENS_POR_PAGINA = 20;
@@ -231,26 +232,12 @@ export default function ExtratoContaPage() {
   return (
     <div className="page-container p-4 md:p-6 space-y-6">
 
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <Button
-            variant="ghost" size="icon"
-            onClick={() => router.back()}
-            className="dark:hover:bg-gray-800 -ml-2 flex-shrink-0"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <BsBank className="text-2xl md:text-3xl text-blue-700 dark:text-blue-500" />
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-            Extrato da Conta
-          </h1>
-        </div>
-        <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
-          {contaNome || "Carregando..."}
-        </p>
-        <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
-      </div>
+      <PageHeader
+        onVoltar={() => router.back()}
+        icone={BsBank}
+        titulo="Extrato da Conta"
+        descricao={contaNome || "Carregando..."}
+      />
 
       {/* Resumo do Período */}
       {resumo && (

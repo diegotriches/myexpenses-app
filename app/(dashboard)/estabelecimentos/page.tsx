@@ -40,6 +40,7 @@ import {
 } from "@/hooks/useEstabelecimentos";
 import { formatarMoeda } from "@/utils/formatadores";
 import type { CreateEstabelecimentoDTO, UpdateEstabelecimentoDTO } from "@/types/estabelecimento";
+import { PageHeader } from "@/components/common/PageHeader";
 
 // ─── Bottom Sheet — detalhes no mobile ───────────────────────────────────────
 
@@ -301,19 +302,11 @@ export default function EstabelecimentosPage() {
 
   return (
     <div className="page-container p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <header>
-        <div className="flex items-center gap-2 mb-2">
-          <Store className="text-2xl md:text-3xl text-blue-700 dark:text-blue-500" size={28} />
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-            Estabelecimentos
-          </h1>
-        </div>
-        <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
-          Gerencie os locais associados às suas transações
-        </p>
-        <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
-      </header>
+      <PageHeader
+        icone={Store}
+        titulo="Estabelecimentos"
+        descricao="Gerencie os locais associados às suas transações"
+      />
 
       {/* Barra de busca + botão */}
       {!loading && !error && estabelecimentos.length > 0 && (

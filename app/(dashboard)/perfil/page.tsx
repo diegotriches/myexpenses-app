@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import EditarDadosCard from "@/components/perfil/EditarDadosCard";
 import EditarFotoCard from "@/components/perfil/EditarFotoCard";
@@ -11,6 +11,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { User, Image as ImageIcon, Lock, Trash2, AlertCircle, UserCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/common/PageHeader";
+import { AbasSecao } from "@/components/common/AbasSecao";
 
 export default function PerfilPage() {
   // React Query
@@ -82,64 +84,30 @@ if (!usuario) {
 
   return (
     <div className="page-container p-4 md:p-6 space-y-6">
-      {/* Cabeçalho */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <UserCircle className="text-2xl md:text-3xl text-blue-700 dark:text-blue-500" size={32} />
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-              Meu Perfil
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant="secondary" className="text-xs">
-                Membro desde {formatarDataMembro(usuario.createdAt)}
-              </Badge>
-            </div>
-          </div>
-        </div>
-        <p className="text-gray-600 dark:text-gray-400">
-          Gerencie suas informações pessoais, foto de perfil e configurações de segurança
-        </p>
-        <hr className="border-t border-gray-300 dark:border-gray-700" />
-      </div>
+      <PageHeader
+        icone={UserCircle}
+        titulo="Meu Perfil"
+        selo={
+          <Badge variant="secondary" className="text-xs">
+            Membro desde {formatarDataMembro(usuario.createdAt)}
+          </Badge>
+        }
+        descricao="Gerencie suas informações pessoais, foto de perfil e configurações de segurança"
+      />
 
       {/* Tabs */}
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto gap-2 bg-transparent p-0">
-          <TabsTrigger
-            value="dados"
-            className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white cursor-pointer"
-          >
-            <User size={16} />
-            <span className="hidden sm:inline">Dados Pessoais</span>
-            <span className="sm:hidden">Dados</span>
-          </TabsTrigger>
-          
-          <TabsTrigger
-            value="foto"
-            className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white cursor-pointer"
-          >
-            <ImageIcon size={16} />
-            <span>Foto</span>
-          </TabsTrigger>
-          
-          <TabsTrigger
-            value="senha"
-            className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white cursor-pointer"
-          >
-            <Lock size={16} />
-            <span>Segurança</span>
-          </TabsTrigger>
-          
-          <TabsTrigger
-            value="conta"
-            className="flex items-center gap-2 data-[state=active]:bg-red-600 data-[state=active]:text-white cursor-pointer"
-          >
-            <Trash2 size={16} />
-            <span className="hidden sm:inline">Excluir Conta</span>
-            <span className="sm:hidden">Excluir</span>
-          </TabsTrigger>
-        </TabsList>
+        <AbasSecao
+          ariaLabel="Seções do perfil"
+          abas={[
+            { id: "dados", rotulo: "Dados", icone: User },
+            { id: "foto", rotulo: "Foto", icone: ImageIcon },
+            { id: "senha", rotulo: "Segurança", icone: Lock },
+            { id: "conta", rotulo: "Excluir conta", icone: Trash2 },
+          ] as const}
+          ativa={abaAtiva}
+          onChange={setAbaAtiva}
+        />
 
         {/* Dados Pessoais */}
         <TabsContent value="dados" className="space-y-4">

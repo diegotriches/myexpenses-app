@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { MdAdd } from "react-icons/md";
 import { BsArrowLeftRight, BsBank } from "react-icons/bs";
 import { AlertCircle, Repeat, List, Layers } from "lucide-react";
@@ -34,6 +34,8 @@ import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import { useFaturas } from "@/hooks/useFaturas";
 import { ehAtualizacaoTransacao, type DadosSalvarTransacao } from "@/types/transacao";
 import type { CreateRecorrenciaDTO } from "@/types/recorrencia";
+import { PageHeader } from "@/components/common/PageHeader";
+import { AbasSecao } from "@/components/common/AbasSecao";
 
 export default function TransacoesPage() {
   const router = useRouter();
@@ -61,6 +63,7 @@ export default function TransacoesPage() {
   const [itemExcluir,        setItemExcluir]        = useState<Transacao | null>(null);
   const [modalFaturaFechada, setModalFaturaFechada] = useState(false);
 
+  const [abaMov, setAbaMov] = useState<"movimentacoes" | "parcelas" | "recorrencias">("movimentacoes");
   const [filtros, setFiltros] = useState<FiltrosState>({
     tipo:              "todas",
     categoria:         "",
@@ -269,19 +272,11 @@ export default function TransacoesPage() {
 
   return (
     <div className="page-container p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <BsArrowLeftRight className="text-2xl md:text-3xl text-blue-700 dark:text-blue-500" />
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-            Movimentações
-          </h1>
-        </div>
-        <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
-          {movimentacoesFiltradas.length} transação(ões) encontrada(s)
-        </p>
-        <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
-      </div>
+      <PageHeader
+        icone={BsArrowLeftRight}
+        titulo="Movimentações"
+        descricao={`${movimentacoesFiltradas.length} ${movimentacoesFiltradas.length === 1 ? "transação encontrada" : "transações encontradas"}`}
+      />
 
       {temContasAtivas && (
         <Button
@@ -297,21 +292,17 @@ export default function TransacoesPage() {
       {!temContasAtivas ? (
         renderEmptyStateNoConta()
       ) : (
-        <Tabs defaultValue="movimentacoes" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 max-w-xl">
-            <TabsTrigger value="movimentacoes" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
-              <List className="w-4 h-4 hidden sm:block" />
-              Movimentações
-            </TabsTrigger>
-            <TabsTrigger value="parcelas" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
-              <Layers className="w-4 h-4 hidden sm:block" />
-              Parcelas
-            </TabsTrigger>
-            <TabsTrigger value="recorrencias" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
-              <Repeat className="w-4 h-4 hidden sm:block" />
-              Recorrências
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={abaMov} className="space-y-4">
+          <AbasSecao
+            ariaLabel="Tipo de lançamento"
+            abas={[
+              { id: "movimentacoes", rotulo: "Movimentações", icone: List },
+              { id: "parcelas", rotulo: "Parcelas", icone: Layers },
+              { id: "recorrencias", rotulo: "Recorrências", icone: Repeat },
+            ] as const}
+            ativa={abaMov}
+            onChange={setAbaMov}
+          />
 
           <TabsContent value="movimentacoes" className="space-y-4">
             <div className="space-y-4">

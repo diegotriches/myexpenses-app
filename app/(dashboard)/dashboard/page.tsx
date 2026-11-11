@@ -27,6 +27,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarClock, BarChart3, Calendar, PiggyBank } from 'lucide-react';
 import { BsHouse } from "react-icons/bs";
+import { PageHeader } from "@/components/common/PageHeader";
+import { AbasSecao } from "@/components/common/AbasSecao";
 
 function useSaudacao() {
   const [saudacao, setSaudacao] = useState("");
@@ -136,37 +138,22 @@ export default function Dashboard() {
 
   return (
     <div className="page-container p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <BsHouse className="text-3xl text-blue-700 dark:text-blue-500" />
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-          </div>
-          {dataFormatada && (
-            <span className="hidden sm:flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 whitespace-nowrap">
-              <Calendar className="w-3.5 h-3.5" />
-              {dataFormatada}
-            </span>
-          )}
-        </div>
-
-        <div className="mb-4">
-          <p className="text-gray-600 dark:text-gray-400">
+      <PageHeader
+        icone={BsHouse}
+        titulo="Dashboard"
+        descricao={
+          <>
             {saudacao}{primeiroNome ? `, ${primeiroNome}!` : "!"}{" "}
-            <span className="text-gray-400 dark:text-gray-500">
-              Aqui está o resumo das suas finanças.
-            </span>
-          </p>
-          {dataFormatada && (
-            <p className="sm:hidden text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-              {dataFormatada}
-            </p>
-          )}
-        </div>
-
-        <hr className="border-t border-gray-300 dark:border-gray-700" />
-      </div>
+            <span className="text-gray-400 dark:text-gray-500">Aqui está o resumo das suas finanças.</span>
+          </>
+        }
+        acoes={dataFormatada ? (
+          <span className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-white text-gray-600 border border-gray-200 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-800 whitespace-nowrap">
+            <Calendar className="w-3.5 h-3.5" />
+            {dataFormatada}
+          </span>
+        ) : undefined}
+      />
 
       {/* Cards de resumo principal — escopo: mês selecionado */}
       <section className="space-y-2">
@@ -188,27 +175,13 @@ export default function Dashboard() {
       {/* Abas */}
       <div className="space-y-4">
         <div className="sticky top-0 z-20 -mx-6 px-6 py-2 bg-background/95 backdrop-blur md:static md:mx-0 md:px-0 md:py-0 md:bg-transparent md:backdrop-blur-none flex items-center justify-between gap-3">
-          <div role="tablist" aria-label="Seções do dashboard" className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground dark:bg-gray-800">
-            {ABAS.map(({ valor, rotulo, icone: Icone }) => (
-              <button
-                key={valor}
-                type="button"
-                role="tab"
-                aria-selected={aba === valor}
-                onClick={() => setAba(valor)}
-                className={[
-                  'inline-flex items-center gap-2 justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium',
-                  'ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                  aba === valor
-                    ? 'bg-background text-foreground shadow-sm dark:bg-gray-700 dark:text-white'
-                    : 'hover:bg-background/50 dark:hover:bg-gray-700/50',
-                ].join(' ')}
-              >
-                <Icone className="h-4 w-4" />
-                {rotulo}
-              </button>
-            ))}
-          </div>
+          <AbasSecao
+            ariaLabel="Seções do dashboard"
+            abas={ABAS.map(({ valor, rotulo, icone }) => ({ id: valor, rotulo, icone }))}
+            ativa={aba}
+            onChange={setAba}
+            className="flex-1"
+          />
 
           {aba === 'ano' && (
             <div className="flex items-center gap-2">

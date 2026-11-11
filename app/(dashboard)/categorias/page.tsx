@@ -43,6 +43,8 @@ import { iconOptions } from "@/utils/iconOptions";
 import { useCategorias, useTotaisCategorias } from "@/hooks/useCategorias";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarMoeda } from "@/utils/formatadores";
+import { PageHeader } from "@/components/common/PageHeader";
+import { AbasSecao } from "@/components/common/AbasSecao";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -310,55 +312,23 @@ export default function CategoriasPage() {
 
   return (
     <div className="page-container p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <header>
-        <div className="flex items-center gap-2 mb-2">
-          <BsTags className="text-2xl md:text-3xl text-blue-700 dark:text-blue-500" />
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Categorias</h1>
-        </div>
-        <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
-          Organize suas transações com categorias personalizadas
-        </p>
-        <hr className="border-t border-gray-300 dark:border-gray-700 my-4" />
-      </header>
+      <PageHeader
+        icone={BsTags}
+        titulo="Categorias"
+        descricao="Organize suas transações com categorias personalizadas"
+      />
 
       {/* Abas: receitas / despesas (mesmo estilo das páginas Contas e Cartões) */}
       {!loading && !error && categorias.length > 0 && (
-        <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700" role="tablist">
-          {([
-            { id: "entrada", label: "Receitas", qtd: contadores.entradas },
-            { id: "saida", label: "Despesas", qtd: contadores.saidas },
-          ] as const).map((item) => {
-            const selecionada = aba === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={selecionada}
-                onClick={() => setAba(item.id)}
-                className={[
-                  "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-                  selecionada
-                    ? "border-blue-700 text-blue-700 dark:border-blue-500 dark:text-blue-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200",
-                ].join(" ")}
-              >
-                {item.label}
-                <span
-                  className={[
-                    "ml-2 rounded-full px-2 py-0.5 text-xs",
-                    selecionada
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                      : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
-                  ].join(" ")}
-                >
-                  {item.qtd}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <AbasSecao
+          ariaLabel="Tipo de categoria"
+          abas={[
+            { id: "entrada", rotulo: "Receitas", qtd: contadores.entradas },
+            { id: "saida", rotulo: "Despesas", qtd: contadores.saidas },
+          ] as const}
+          ativa={aba}
+          onChange={setAba}
+        />
       )}
 
       {/* Barra de busca + seletor de ano */}
