@@ -288,7 +288,7 @@ function RegisterForm() {
           ) : (
             <div className="flex items-center gap-2">
               <FiUserPlus size={20} />
-              Criar Conta Gratuita
+              Criar conta
             </div>
           )}
         </Button>
@@ -390,19 +390,18 @@ export default function RegisterPage() {
                 <span className="font-semibold text-lg">MyExpenses</span>
               </div>
               <h1 className="text-5xl font-extrabold leading-tight">
-                Comece a organizar suas finanças hoje!
+                Crie sua conta
               </h1>
               <p className="text-xl text-blue-100 leading-relaxed">
-                Crie sua conta gratuitamente e tenha acesso imediato a todas as funcionalidades.
+                Um projeto pessoal, aberto como portfólio. Com a conta, você explora o app com os seus próprios dados.
               </p>
               <div className="space-y-4 pt-4">
                 {[
-                  { text: "100% gratuito e sem limites",        highlight: true  },
-                  { text: "Não precisa de cartão de crédito",   highlight: true  },
-                  { text: "Comece a usar em segundos",          highlight: false },
-                  { text: "Dashboard completo com gráficos",    highlight: false },
-                  { text: "Controle total de suas transações",  highlight: false },
-                  { text: "Dados seguros e criptografados",     highlight: false },
+                  { text: "Contas, cartões e faturas",              highlight: false },
+                  { text: "Parcelas, recorrências e estornos",      highlight: false },
+                  { text: "Renda fixa e renda variável",            highlight: false },
+                  { text: "Resumo anual e dados para o IR",         highlight: false },
+                  { text: "Backup automático e exportação",         highlight: false },
                 ].map((item, index) => (
                   <div key={index} className="flex items-center gap-3">
                     <div className={`w-6 h-6 rounded-full ${item.highlight ? "bg-green-400" : "bg-green-400/20"} flex items-center justify-center flex-shrink-0`}>

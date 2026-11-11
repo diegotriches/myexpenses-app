@@ -264,9 +264,10 @@ export default function MovimentacaoLinha({
               <ArrowUpCircle className="w-3 h-3 flex-shrink-0" />{rotuloTipo}
             </Badge>
           ) : (
-            <Badge variant="outline" className="inline-flex items-center gap-1 whitespace-nowrap bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800">
+            // Despesa é a maioria das linhas: texto discreto, sem selo. O valor já vem em vermelho
+            <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
               <ArrowDownCircle className="w-3 h-3 flex-shrink-0" />Despesa
-            </Badge>
+            </span>
           )}
         </div>
       </td>

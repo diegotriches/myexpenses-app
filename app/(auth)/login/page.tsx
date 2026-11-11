@@ -281,7 +281,7 @@ function LoginForm() {
         <p className="text-sm text-gray-600 dark:text-gray-400">
           Ainda não tem uma conta?{" "}
           <Link href="/register" className="text-blue-600 dark:text-blue-400 hover:underline font-semibold">
-            Criar conta gratuita
+            Criar conta
           </Link>
         </p>
       </div>
@@ -344,13 +344,13 @@ function LoginPageInner() {
               </div>
               <h1 className="text-5xl font-extrabold leading-tight">Bem-vindo de volta!</h1>
               <p className="text-xl text-blue-100 leading-relaxed">
-                Continue gerenciando suas finanças com inteligência. Seus dados estão seguros e prontos para você.
+                Entre para ver suas contas, cartões e investimentos.
               </p>
               <div className="space-y-4 pt-4">
                 {[
-                  "Acesso a todas suas transações",
-                  "Dashboard com análises em tempo real",
-                  "Controle completo de receitas e despesas",
+                  "Saldo, faturas e próximos vencimentos",
+                  "Investimentos e IR da bolsa",
+                  "Resumo do ano e dados para a declaração",
                 ].map((item, index) => (
                   <div key={index} className="flex items-center gap-3">
                     <div className="w-6 h-6 rounded-full bg-green-400/20 flex items-center justify-center flex-shrink-0">

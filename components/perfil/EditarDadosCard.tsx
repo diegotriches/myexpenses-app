@@ -246,7 +246,7 @@ export default function EditarDadosCard({ usuario }: Props) {
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          Para alterar sua senha, utilize a aba <strong>Segurança</strong> no menu acima.
+          <p>Para alterar sua senha, use a aba <strong>Segurança</strong>, logo acima.</p>
         </AlertDescription>
       </Alert>
     </div>

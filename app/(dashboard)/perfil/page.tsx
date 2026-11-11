@@ -100,17 +100,16 @@ if (!usuario) {
         <AbasSecao
           ariaLabel="Seções do perfil"
           abas={[
-            { id: "dados", rotulo: "Dados", icone: User },
+            { id: "dados", rotulo: "Dados pessoais", icone: User },
             { id: "foto", rotulo: "Foto", icone: ImageIcon },
             { id: "senha", rotulo: "Segurança", icone: Lock },
-            { id: "conta", rotulo: "Excluir conta", icone: Trash2 },
           ] as const}
           ativa={abaAtiva}
           onChange={setAbaAtiva}
         />
 
         {/* Dados Pessoais */}
-        <TabsContent value="dados" className="space-y-4">
+        <TabsContent value="dados" className="space-y-4 max-w-3xl">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -128,7 +127,7 @@ if (!usuario) {
         </TabsContent>
 
         {/* Foto de Perfil */}
-        <TabsContent value="foto" className="space-y-4">
+        <TabsContent value="foto" className="space-y-4 max-w-3xl">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -146,7 +145,7 @@ if (!usuario) {
         </TabsContent>
 
         {/* Alterar Senha */}
-        <TabsContent value="senha" className="space-y-4">
+        <TabsContent value="senha" className="space-y-6 max-w-3xl">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -161,10 +160,8 @@ if (!usuario) {
               <AlterarSenhaCard usuarioId={usuario.id} />
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Deletar Conta */}
-        <TabsContent value="conta" className="space-y-4">
+          {/* Zona de perigo: fica no fim de Segurança, sem o peso de uma aba própria */}
           <Card className="border-red-200 dark:border-red-900">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">

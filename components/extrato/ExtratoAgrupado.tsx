@@ -38,6 +38,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PageHeader } from "@/components/common/PageHeader";
+import { KpiCard } from "@/components/common/KpiCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { iconOptions } from "@/utils/iconOptions";
 import { useHideValues } from "@/contexts/HideValuesContext";
@@ -206,7 +208,7 @@ export default function ExtratoAgrupado({ origem, id }: Props) {
   // ── Estados ─────────────────────────────────────────────────────────────
   if (query.isError && !primeira) {
     return (
-      <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-4">
+      <div className="page-container p-4 md:p-6 space-y-4">
         <Button variant="ghost" onClick={() => router.push(voltar.href)} className="-ml-2">
           <ArrowLeft size={16} className="mr-2" /> {voltar.rotulo}
         </Button>
@@ -218,45 +220,30 @@ export default function ExtratoAgrupado({ origem, id }: Props) {
     );
   }
 
-  const cardResumo = "!py-0 !gap-0 border-l-4 dark:bg-gray-900 dark:border-gray-800 overflow-hidden";
-
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-5">
-      {/* Cabeçalho */}
-      <div className="flex items-start gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.push(voltar.href)} className="h-9 w-9 mt-1 flex-shrink-0">
-          <ArrowLeft size={18} />
-        </Button>
-        {identidade ? (
-          <div className="flex items-center gap-3 min-w-0">
-            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradiente} flex items-center justify-center shadow-md flex-shrink-0`}>
-              {IconComp ? <IconComp size={24} className="text-white" /> : <IconePadrao size={24} className="text-white" />}
+    <div className="page-container p-4 md:p-6 space-y-5">
+      {identidade ? (
+        <PageHeader
+          onVoltar={() => router.push(voltar.href)}
+          iconeCustom={
+            <div className={`w-10 h-10 md:w-11 md:h-11 rounded-xl bg-gradient-to-br ${gradiente} flex items-center justify-center shadow-sm flex-shrink-0`}>
+              {IconComp ? <IconComp size={22} className="text-white" /> : <IconePadrao size={22} className="text-white" />}
             </div>
-            <div className="min-w-0">
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white truncate">{identidade.nome}</h1>
-              {ehCategoria ? (
-                <div className="flex items-center gap-2 mt-0.5">
-                  <Badge className="text-xs">{tipoLabel}</Badge>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Extrato da categoria</span>
-                </div>
-              ) : (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1 truncate">
-                  {estab?.localizacao ? (
-                    <><MapPin size={11} className="flex-shrink-0" />{estab.localizacao}</>
-                  ) : (
-                    "Extrato do estabelecimento"
-                  )}
-                </p>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-12 w-12 rounded-xl" />
-            <div className="space-y-2"><Skeleton className="h-5 w-40" /><Skeleton className="h-3 w-24" /></div>
-          </div>
-        )}
-      </div>
+          }
+          titulo={<span className="truncate">{identidade.nome}</span>}
+          selo={ehCategoria ? <Badge className="text-xs">{tipoLabel}</Badge> : undefined}
+          descricao={
+            ehCategoria ? "Extrato da categoria" : estab?.localizacao ? (
+              <span className="flex items-center gap-1 truncate"><MapPin size={12} className="flex-shrink-0" />{estab.localizacao}</span>
+            ) : "Extrato do estabelecimento"
+          }
+        />
+      ) : (
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-11 w-11 rounded-xl" />
+          <div className="space-y-2"><Skeleton className="h-5 w-40" /><Skeleton className="h-3 w-24" /></div>
+        </div>
+      )}
 
       {/* Período */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -295,82 +282,50 @@ export default function ExtratoAgrupado({ origem, id }: Props) {
 
       {/* Resumo */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
-        {query.isLoading || !resumo ? (
-          [...Array(4)].map((_, i) => (
-            <Card key={i} className={`${cardResumo} border-l-gray-200 dark:border-l-gray-700`}>
-              <CardContent className="!px-3 !py-3 md:!px-4 md:!py-5 space-y-2">
-                <Skeleton className="h-3 w-20" /><Skeleton className="h-6 w-28" />
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <>
-            <Card className={`${cardResumo} ${modo === "entrada" ? "border-l-green-500" : modo === "saida" ? "border-l-red-500" : "border-l-blue-500"}`}>
-              <CardContent className="!px-3 !py-3 md:!px-4 md:!py-5">
-                <p className="text-[11px] md:text-sm font-medium text-gray-900 dark:text-white flex items-center justify-between">
-                  {rotuloTotal}
-                  <Wallet className="h-3 w-3 md:h-4 md:w-4 text-gray-400" />
-                </p>
-                <p className={`text-base md:text-2xl font-bold mt-1 ${
-                  modo === "entrada" || (modo === "ambos" && resumo.atual >= 0)
-                    ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                }`}>
-                  {mask(formatarMoeda(resumo.atual))}
-                </p>
-                {resumo.outro > 0 && (
-                  <p className="text-[9px] md:text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-                    {rotuloOutro}: {mask(formatarMoeda(resumo.outro))}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className={`${cardResumo} border-l-blue-500`}>
-              <CardContent className="!px-3 !py-3 md:!px-4 md:!py-5">
-                <p className="text-[11px] md:text-sm font-medium text-gray-900 dark:text-white flex items-center justify-between">
-                  Lançamentos
-                  <Receipt className="h-3 w-3 md:h-4 md:w-4 text-gray-400" />
-                </p>
-                <p className="text-base md:text-2xl font-bold mt-1 text-blue-600 dark:text-blue-400">{resumo.quantidade}</p>
-              </CardContent>
-            </Card>
-
-            <Card className={`${cardResumo} border-l-purple-500`}>
-              <CardContent className="!px-3 !py-3 md:!px-4 md:!py-5">
-                <p className="text-[11px] md:text-sm font-medium text-gray-900 dark:text-white flex items-center justify-between">
-                  Média por lançamento
-                  <Equal className="h-3 w-3 md:h-4 md:w-4 text-gray-400" />
-                </p>
-                <p className="text-base md:text-2xl font-bold mt-1 text-purple-600 dark:text-purple-400">
-                  {mask(formatarMoeda(resumo.media))}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className={`${cardResumo} border-l-orange-500`}>
-              <CardContent className="!px-3 !py-3 md:!px-4 md:!py-5">
-                <p className="text-[11px] md:text-sm font-medium text-gray-900 dark:text-white">
-                  {mes === null ? "vs. ano anterior" : "vs. mês anterior"}
-                </p>
-                {resumo.variacao === null ? (
-                  <p className="text-sm md:text-base text-gray-400 mt-1">Sem comparação</p>
-                ) : (
-                  <>
-                    <p className={`text-base md:text-2xl font-bold mt-1 flex items-center gap-1 ${
-                      (resumo.variacao > 0) === subiuEhRuim ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
-                    }`}>
-                      {resumo.variacao > 0 ? <ArrowUpRight className="h-4 w-4 md:h-5 md:w-5" /> : <ArrowDownRight className="h-4 w-4 md:h-5 md:w-5" />}
-                      {Math.abs(resumo.variacao).toFixed(0)}%
-                    </p>
-                    <p className="text-[9px] md:text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-                      antes: {mask(formatarMoeda(resumo.ant))}
-                    </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </>
-        )}
+        <KpiCard
+          titulo={rotuloTotal}
+          valor={resumo ? mask(formatarMoeda(resumo.atual)) : ""}
+          icone={Wallet}
+          tom={modo === "entrada" ? "verde" : modo === "saida" ? "vermelho" : "azul"}
+          tomValor={modo === "ambos" && resumo ? (resumo.atual >= 0 ? "positivo" : "negativo") : "neutro"}
+          detalhe={resumo && resumo.outro > 0 ? `${rotuloOutro}: ${mask(formatarMoeda(resumo.outro))}` : undefined}
+          carregando={query.isLoading || !resumo}
+        />
+        <KpiCard
+          titulo="Lançamentos"
+          valor={resumo?.quantidade ?? 0}
+          icone={Receipt}
+          tom="azul"
+          carregando={query.isLoading || !resumo}
+        />
+        <KpiCard
+          titulo="Média por lançamento"
+          valor={resumo ? mask(formatarMoeda(resumo.media)) : ""}
+          icone={Equal}
+          tom="roxo"
+          carregando={query.isLoading || !resumo}
+        />
+        <KpiCard
+          titulo={mes === null ? "vs. ano anterior" : "vs. mês anterior"}
+          valor={
+            !resumo || resumo.variacao === null ? (
+              <span className="text-sm md:text-base font-normal text-gray-400">Sem comparação</span>
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                {resumo.variacao > 0 ? <ArrowUpRight className="h-4 w-4 md:h-5 md:w-5" /> : <ArrowDownRight className="h-4 w-4 md:h-5 md:w-5" />}
+                {Math.abs(resumo.variacao).toFixed(0)}%
+              </span>
+            )
+          }
+          icone={resumo && resumo.variacao !== null && resumo.variacao > 0 ? ArrowUpRight : ArrowDownRight}
+          tom="laranja"
+          tomValor={
+            !resumo || resumo.variacao === null ? "neutro"
+              : (resumo.variacao > 0) === subiuEhRuim ? "negativo" : "positivo"
+          }
+          detalhe={resumo && resumo.variacao !== null ? `antes: ${mask(formatarMoeda(resumo.ant))}` : undefined}
+          carregando={query.isLoading || !resumo}
+        />
       </div>
 
       {/* Gráfico mensal */}
