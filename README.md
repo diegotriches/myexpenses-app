@@ -10,8 +10,10 @@ Aplicativo web de finanças pessoais: contas, cartões de crédito, lançamentos
 - **Aplicações (renda fixa):** CDB e similares atrelados ao CDI ou à Selic, com rendimento diário pelas taxas do Banco Central, IR regressivo por aporte e resgate automático no vencimento.
 - **Renda variável:** ações, FIIs, ETFs e BDRs, com preço médio, day trade, eventos corporativos, proventos e cotações automáticas. Importa as planilhas da Área do Investidor da B3.
 - **IR de renda variável:** apuração mensal, isenção de ações até R$ 20 mil, compensação de prejuízo, DARF com vencimento e bens e direitos para a declaração.
-- **Dashboard e resumo anual:** gráficos mensais, gastos por categoria e forma de pagamento, evolução do saldo e exportação em PDF.
+- **Dashboard:** próximos vencimentos, saldo previsto para o fim do mês, gastos do mês comparados à média, evolução do patrimônio (contas e investimentos) e resumo dos investimentos.
+- **Resumo anual:** receitas, despesas e taxa de poupança comparadas ao ano anterior, categorias, formas de pagamento, investimentos no ano e dados para a declaração de IR, com exportação em PDF.
 - **Conta do usuário:** login com Google ou e-mail e senha, notificações, opção de ocultar valores, backup automático e importação/exportação de todos os dados.
+- **Interface:** tema claro e escuro (segue o sistema por padrão) e layout para celular, tablet e telas grandes (até QHD).
 
 ## Stack
 
@@ -131,6 +133,7 @@ Acesse http://localhost:3000, entre com o Google ou cadastre-se com e-mail e sen
 | `npm run dev` | Servidor de desenvolvimento |
 | `npm run build` / `npm start` | Build e servidor de produção |
 | `npm run validate` | Checagem de tipos (`tsc --noEmit`) e lint (`eslint .`) |
+| `npm run type-check` / `npm run lint` | Cada uma das checagens acima, separada |
 | `npm test` | Testes das regras de cálculo (Vitest) |
 | `npm run test:watch` | Testes em modo observação |
 | `npm run pre-deploy` | `validate`, testes e build: rode antes de publicar |
