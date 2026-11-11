@@ -28,9 +28,7 @@ import type { CreateRecorrenciaDTO } from "@/types/recorrencia";
 import { formatarDataParaInput } from "@/utils/dateUtils";
 import { useTransacoesTodas } from "@/hooks/useTransacoes";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
-import { buildTransacoesFromForm } from "@/lib/buildTransacoesFromForm";
-// ✅ NOVO: builder separado para o payload de recorrência
-import { buildCreateRecorrenciaFromForm } from "@/lib/buildCreateRecorrenciaFromForm";
+import { buildTransacoesFromForm, buildCreateRecorrenciaFromForm } from "@/utils/formMovimentacao";
 
 import {
   Select,
