@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMounted } from "@/hooks/useMounted";
 import { useTheme } from "next-themes";
+import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { BsList, BsChevronLeft, BsCalculatorFill } from "react-icons/bs";
 import { Sun, Moon, Monitor, LogOut, MoreVertical, Eye, EyeOff, StickyNote } from "lucide-react";
@@ -34,6 +35,9 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
   const [notasPanelOpen,    setNotasPanelOpen]    = useState(false);
   const [showLogoutDialog,  setShowLogoutDialog]  = useState(false);
   const { hidden, toggle: toggleHide } = useHideValues();
+  // O mês global não afeta Ajustes, Perfil e Notificações: o seletor some nessas páginas
+  const pathname = usePathname();
+  const mostraPeriodo = !["/ajustes", "/perfil", "/notificacoes"].some((p) => pathname?.startsWith(p));
 
 
   // Alternar devolve ao tema do sistema quando o destino coincide com ele (utils/tema.ts)
@@ -49,7 +53,7 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
 
   if (!mounted) {
     return (
-      <header className="fixed top-0 left-0 right-0 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm z-30 flex items-center justify-between px-4 md:left-20 md:right-0 xl:left-64">
+      <header className="fixed top-0 left-0 right-0 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 z-30 flex items-center justify-between px-4 md:left-20 md:right-0 xl:left-64">
         <div className="flex items-center gap-3"><div className="w-10 h-10" /></div>
         <div className="flex items-center gap-2"><div className="w-10 h-10" /></div>
       </header>
@@ -62,8 +66,8 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
         className={`
           fixed top-0 right-0 h-16
           bg-white dark:bg-gray-900
-          border-b border-gray-200 dark:border-gray-700
-          shadow-sm z-30
+          border-b border-gray-200 dark:border-gray-800
+          z-30
           transition-all duration-300
           left-0
           ${isCollapsed ? "md:left-20" : "md:left-64"}
@@ -96,12 +100,16 @@ const TopMenu = ({ isCollapsed, toggleSidebar }: TopMenuProps) => {
           </div>
 
           {/* ── CENTER ── */}
-          <div className="hidden lg:flex absolute left-1/2 transform -translate-x-1/2">
-            <PeriodoSelector />
-          </div>
-          <div className="md:hidden flex-shrink-0 mx-2">
-            <PeriodoSelector />
-          </div>
+          {mostraPeriodo && (
+            <>
+              <div className="hidden lg:flex absolute left-1/2 transform -translate-x-1/2">
+                <PeriodoSelector />
+              </div>
+              <div className="md:hidden flex-shrink-0 mx-2">
+                <PeriodoSelector />
+              </div>
+            </>
+          )}
 
           {/* ── RIGHT ── */}
           <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">

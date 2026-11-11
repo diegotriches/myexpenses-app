@@ -61,12 +61,11 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   };
 
   const linkClasses = (href: string) => {
-    const base   = "flex items-center gap-3 p-3 rounded-lg transition-all duration-200 relative group";
-    const hover  = "hover:bg-blue-600 dark:hover:bg-blue-500 hover:shadow-md";
-    const active = isActive(href)
-      ? "bg-blue-600 dark:bg-blue-500 shadow-md"
-      : "hover:bg-blue-600/50 dark:hover:bg-blue-500/50";
-    return `${base} ${hover} ${active}`;
+    const base   = "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors duration-150 relative group";
+    const estado = isActive(href)
+      ? "bg-blue-50 text-blue-700 font-semibold dark:bg-blue-950/60 dark:text-blue-300"
+      : "text-gray-600 font-medium hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white";
+    return `${base} ${estado}`;
   };
 
   const navigationGroups = [
@@ -104,10 +103,10 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   }) => {
     const content = (
       <Link href={href} className={linkClasses(href)}>
-        <Icon size={20} className="flex-shrink-0" />
+        <Icon size={18} className="flex-shrink-0" />
         <span
           className={`
-            font-medium whitespace-nowrap
+            whitespace-nowrap
             transition-all duration-300
             ${isExpanded || isMobile
               ? "opacity-100 translate-x-0"
@@ -117,12 +116,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         >
           {label}
         </span>
-        {isActive(href) && (isExpanded || isMobile) && (
-          <ChevronRight size={16} className="ml-auto opacity-70" />
-        )}
-        {isActive(href) && (
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white dark:bg-gray-200 rounded-r-full" />
-        )}
       </Link>
     );
 
@@ -157,13 +150,14 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         onClick={() => router.push("/perfil")}
         className={`
           w-full flex items-center p-3 overflow-hidden
-          bg-blue-800 dark:bg-gray-800 hover:bg-blue-700 dark:hover:bg-gray-700
-          rounded-lg transition-all duration-200 group cursor-pointer
+          bg-gray-50 hover:bg-gray-100 border border-gray-200
+          dark:bg-gray-800/60 dark:hover:bg-gray-800 dark:border-gray-800
+          rounded-lg transition-colors duration-150 group cursor-pointer
           ${isExpanded || isMobile ? "gap-3 justify-start" : "gap-0 justify-center"}
         `}
       >
         <div className="relative flex-shrink-0">
-          <div className="w-10 h-10 rounded-full border-2 border-white dark:border-slate-700 overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700">
+          <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700">
             {loading ? (
               <div className="w-full h-full bg-blue-400 dark:bg-blue-600 animate-pulse" />
             ) : userData?.image && !fotoError ? (
@@ -177,7 +171,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
               <span className="text-white font-bold text-sm">{initials}</span>
             )}
           </div>
-          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-blue-800 dark:border-slate-800 rounded-full" />
+          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-gray-50 dark:border-gray-900 rounded-full" />
         </div>
 
         <div
@@ -191,21 +185,21 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         >
           {loading ? (
             <div className="space-y-1.5">
-              <div className="h-3.5 bg-blue-600 dark:bg-gray-600 rounded w-24 animate-pulse" />
-              <div className="h-2.5 bg-blue-600 dark:bg-gray-600 rounded w-32 animate-pulse" />
+              <div className="h-3.5 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse" />
+              <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse" />
             </div>
           ) : (
             <>
-              <p className="text-sm font-semibold truncate text-white">{displayName}</p>
+              <p className="text-sm font-semibold truncate text-gray-900 dark:text-white">{displayName}</p>
               {displayEmail && (
-                <p className="text-xs text-blue-200 dark:text-gray-400 truncate">{displayEmail}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{displayEmail}</p>
               )}
             </>
           )}
         </div>
 
         <div className={`transition-all duration-300 overflow-hidden flex-shrink-0 ${isExpanded || isMobile ? "max-w-[16px] opacity-100" : "max-w-0 opacity-0"}`}>
-          <ChevronRight size={16} className="text-blue-200 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <ChevronRight size={16} className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
       </button>
     );
@@ -232,14 +226,14 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   const renderSidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
     <>
       {/* Logo */}
-      <div className="mb-8">
+      <div className="mb-6 px-1">
         <Link href="/dashboard" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-all border border-blue-100 dark:border-slate-700">
-            <BsCashCoin size={24} className="text-blue-600 dark:text-blue-400" />
+          <div className="w-9 h-9 shrink-0 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm group-hover:bg-blue-700 transition-colors">
+            <BsCashCoin size={20} className="text-white" />
           </div>
           <span
             className={`
-              text-xl font-bold text-white whitespace-nowrap transition-all duration-300
+              text-lg font-bold tracking-tight text-gray-900 dark:text-white whitespace-nowrap transition-all duration-300
               ${isExpanded || isMobile ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 absolute pointer-events-none"}
             `}
           >
@@ -249,13 +243,13 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       </div>
 
       {/* Navigation Groups */}
-      <div className="flex-1 flex flex-col gap-6 overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 flex flex-col gap-5 overflow-y-auto overflow-x-hidden">
         {navigationGroups.map((group) => (
           <div key={group.title}>
             <p
               className={`
-                text-xs font-semibold text-blue-200 dark:text-slate-400
-                uppercase tracking-wider mb-2 px-3 transition-all duration-300
+                text-[11px] font-semibold text-gray-400 dark:text-gray-500
+                uppercase tracking-wider mb-1.5 px-3 transition-all duration-300
                 ${isExpanded || isMobile ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 absolute pointer-events-none"}
               `}
             >
@@ -269,27 +263,27 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
           </div>
         ))}
 
-        {/* Análise + Ajustes */}
-        <div className="mt-auto flex flex-col gap-1">
+        {/* Análise na sequência dos grupos; Ajustes fica embaixo, junto do perfil */}
+        <div className="flex flex-col gap-1">
           <p
             className={`
-              text-xs font-semibold text-blue-200 dark:text-slate-400
-              uppercase tracking-wider mb-2 px-3 transition-all duration-300
+              text-[11px] font-semibold text-gray-400 dark:text-gray-500
+              uppercase tracking-wider mb-1.5 px-3 transition-all duration-300
               ${isExpanded || isMobile ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 absolute pointer-events-none"}
             `}
           >
             Análise
           </p>
           {renderNavLink({ href: "/resumo-anual", icon: MdOutlineAutoGraph, label: "Resumo Anual", isMobile })}
+        </div>
 
-          <div className="border-t border-blue-600 dark:border-slate-700 my-2" />
-
+        <div className="mt-auto border-t border-gray-200 dark:border-gray-800 pt-3">
           {renderNavLink({ href: "/ajustes", icon: BsFillGearFill, label: "Ajustes", isMobile })}
         </div>
       </div>
 
       {/* User Profile Card */}
-      <div className="mt-4">
+      <div className="mt-3">
         {renderUserProfileCard({ isMobile })}
       </div>
     </>
@@ -308,13 +302,13 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
       <nav
         className={`
           hidden md:flex fixed top-0 left-0 h-screen
-          bg-gradient-to-b from-blue-600 to-blue-700
-          dark:from-slate-950 dark:via-slate-900 dark:to-slate-950
-          text-white p-4 flex-col
-          transition-all duration-300 shadow-2xl z-40
-          border-r border-blue-800 dark:border-slate-800
+          bg-white dark:bg-gray-900
+          p-4 flex-col
+          transition-all duration-300 z-40
+          border-r border-gray-200 dark:border-gray-800
           overflow-x-hidden
           ${isExpanded ? "w-64" : "w-20"}
+          ${isCollapsed && isHovered ? "shadow-xl" : ""}
         `}
         onMouseEnter={() => isCollapsed && setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -339,9 +333,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
             side="left"
             className="
               w-64 p-4
-              bg-gradient-to-b from-blue-600 to-blue-700
-              dark:from-slate-950 dark:via-slate-900 dark:to-slate-950
-              text-white border-none
+              bg-white dark:bg-gray-900
+              border-r border-gray-200 dark:border-gray-800
               [&>button]:hidden
             "
           >
