@@ -37,6 +37,11 @@ export interface TransacaoBase {
 
   // Transferência
   transferenciaId?: string | null;
+
+  // Estorno: compra de origem
+  estornoDeId?: string | null;
+  // Ocorrência gerada pelo template de recorrência (modelo atual)
+  origemRecorrenciaId?: string | null;
 }
 
 /**
@@ -46,6 +51,7 @@ export interface Transacao extends TransacaoBase {
   id: string;
   userId?: string;
   createdAt?: string | Date;
+  updatedAt?: string | Date | null;
 }
 
 /**

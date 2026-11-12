@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import MovimentacaoLinha from "./MovimentacaoLinha";
 import { Transacao } from "@/types/transacao";
 import { Cartao } from "@/types/cartao";
@@ -32,6 +33,9 @@ export default function MovimentacaoTabela({
   // Abaixo de 1536 px, Condição e Estabelecimento entram nas colunas Pagamento e
   // Descrição: com as 10 colunas, a descrição ficava com ~145 px em 1366 px
   const colunasCompletas = useMediaQuery("(min-width: 1536px)");
+  // Só um painel de detalhes aberto por vez; clicar de novo na mesma fecha
+  const [abertaId, setAbertaId] = useState<string | null>(null);
+  const alternar = (id: string) => setAbertaId((atual) => (atual === id ? null : id));
 
   if (loading) {
     return (
@@ -86,6 +90,9 @@ export default function MovimentacaoTabela({
               onExcluir={() => onExcluir(mov)}
               viewMode="card"
               bloqueada={isBloqueada ? isBloqueada(mov) : false}
+              aberta={abertaId === mov.id}
+              onAlternar={() => alternar(mov.id)}
+              movimentacoes={movimentacoes}
             />
           );
         })}
@@ -151,6 +158,9 @@ export default function MovimentacaoTabela({
                       viewMode="table"
                       colunasCompletas={colunasCompletas}
                       bloqueada={isBloqueada ? isBloqueada(mov) : false}
+                      aberta={abertaId === mov.id}
+                      onAlternar={() => alternar(mov.id)}
+                      movimentacoes={movimentacoes}
                     />
                   );
                 })}

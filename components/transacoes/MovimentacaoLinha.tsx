@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent } from "@/components/ui/card";
+import type { KeyboardEvent, MouseEvent } from "react";
+import MovimentacaoDetalhes, { MOTIVO_BLOQUEIO } from "./MovimentacaoDetalhes";
 
 import { useCategorias } from "@/hooks/useCategorias";
 import { useContas } from "@/hooks/useContas";
@@ -52,7 +54,16 @@ interface Props {
   // Tabela: false abaixo de 1536 px. Condição e Estabelecimento deixam de ser
   // colunas e aparecem dentro de Pagamento e Descrição
   colunasCompletas?: boolean;
+  // Painel de detalhes aberto logo abaixo da linha; um por vez, controlado pela tabela
+  aberta?: boolean;
+  onAlternar?: () => void;
+  // Movimentações carregadas, para o painel ligar estorno e compra
+  movimentacoes?: Transacao[];
 }
+
+// O menu de ações fica dentro da linha clicável: o clique nele (e no conteúdo
+// do menu, que sobe pela árvore do React mesmo estando em portal) não abre os detalhes
+const pararPropagacao = (e: MouseEvent | KeyboardEvent) => e.stopPropagation();
 
 const formaPagamentoConfig = {
   dinheiro:      { icon: Banknote,       label: "Dinheiro",      color: "text-green-600 dark:text-green-400"  },
@@ -60,8 +71,6 @@ const formaPagamentoConfig = {
   cartao:        { icon: CreditCard,     label: "Cartão",        color: "text-purple-600 dark:text-purple-400" },
   transferencia: { icon: ArrowLeftRight, label: "Transferência", color: "text-blue-600 dark:text-blue-400"   },
 };
-
-const MOTIVO_BLOQUEIO = "Faz parte de uma antecipação pendente — desfaça na aba Parcelas primeiro";
 
 export default function MovimentacaoLinha({
   mov,
@@ -72,6 +81,9 @@ export default function MovimentacaoLinha({
   viewMode = "table",
   bloqueada = false,
   colunasCompletas = true,
+  aberta = false,
+  onAlternar,
+  movimentacoes = [],
 }: Props) {
   const { data: categorias = [] } = useCategorias();
   const { data: contas = [] }     = useContas();
@@ -111,6 +123,36 @@ export default function MovimentacaoLinha({
   const valorExibido = fmt(mov.valor);
   const descricaoExibida = isTransferencia ? descricaoTransferencia : mov.descricao || "(Sem descrição)";
   const nomeContaOuCartao = isTransferencia ? null : mov.formaPagamento === "cartao" ? cartao?.nome ?? "Cartão" : contaAtual?.nome ?? null;
+
+  // Transferência não tem painel: ela nem chega a esta lista (ver pendências)
+  const temDetalhes = !isTransferencia && !!onAlternar;
+  const alternarPorTeclado = (e: KeyboardEvent) => {
+    if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+    e.preventDefault();
+    onAlternar?.();
+  };
+  const propsClicavel = temDetalhes
+    ? {
+        onClick: onAlternar,
+        onKeyDown: alternarPorTeclado,
+        tabIndex: 0,
+        "aria-expanded": aberta,
+      }
+    : {};
+
+  const renderDetalhes = () => (
+    <MovimentacaoDetalhes
+      mov={mov}
+      cartao={cartao}
+      estabelecimento={estabelecimento}
+      movimentacoes={movimentacoes}
+      rotuloPagamento={formaPagamento?.label ?? null}
+      nomeContaOuCartao={nomeContaOuCartao}
+      bloqueada={bloqueada}
+      onEditar={onEditar}
+      onExcluir={onExcluir}
+    />
+  );
 
   // ── Célula Conta/Cartão ───────────────────────────────────────────────────
   const renderContaOuCartaoCell = () => {
@@ -194,9 +236,12 @@ export default function MovimentacaoLinha({
     const cor = creditoVisual ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
 
     return (
-      <Card className="py-0 gap-0 dark:bg-gray-900 dark:border-gray-800">
+      <Card className={`py-0 gap-0 dark:bg-gray-900 ${aberta ? "border-blue-300 dark:border-blue-800" : "dark:border-gray-800"}`}>
         <CardContent className="p-3">
-          <div className="flex items-center gap-3">
+          <div
+            {...propsClicavel}
+            className={`flex items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${temDetalhes ? "cursor-pointer" : ""}`}
+          >
             <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
               creditoVisual ? "bg-green-50 dark:bg-green-950/40" : "bg-red-50 dark:bg-red-950/40"
             }`}>
@@ -223,8 +268,15 @@ export default function MovimentacaoLinha({
                 <p className="flex-1 min-w-0 text-xs text-gray-500 dark:text-gray-400 truncate">{detalhes}</p>
               </div>
             </div>
-            {renderAcoesMenu()}
+            <div onClick={pararPropagacao} onKeyDown={pararPropagacao}>
+              {renderAcoesMenu()}
+            </div>
           </div>
+          {aberta && temDetalhes && (
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+              {renderDetalhes()}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -232,9 +284,17 @@ export default function MovimentacaoLinha({
 
   // ── DESKTOP: table row ────────────────────────────────────────────────────
   return (
-    <tr className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
-      creditoVisual ? "bg-green-50/30 dark:bg-green-950/10" : "bg-red-50/30 dark:bg-red-950/10"
-    }`}>
+    <>
+    <tr
+      {...propsClicavel}
+      className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors outline-none focus-visible:bg-blue-50 dark:focus-visible:bg-blue-950/30 ${
+        temDetalhes ? "cursor-pointer" : ""
+      } ${
+        aberta
+          ? "bg-gray-100 dark:bg-gray-800/70"
+          : creditoVisual ? "bg-green-50/30 dark:bg-green-950/10" : "bg-red-50/30 dark:bg-red-950/10"
+      }`}
+    >
       <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
         {formatarDataParaExibicao(mov.data)}
       </td>
@@ -338,9 +398,17 @@ export default function MovimentacaoLinha({
       </td>
       )}
 
-      <td className="px-3 py-3 text-center">
+      <td className="px-3 py-3 text-center" onClick={pararPropagacao} onKeyDown={pararPropagacao}>
         {renderAcoesMenu()}
       </td>
     </tr>
+    {aberta && temDetalhes && (
+      <tr className="bg-gray-50 dark:bg-gray-800/40">
+        <td colSpan={colunasCompletas ? 10 : 8} className="px-4 py-4 border-l-2 border-blue-500">
+          {renderDetalhes()}
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
