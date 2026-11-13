@@ -14,6 +14,7 @@ import ConfirmarEdicaoModal from "@/components/transacoes/ConfirmarEdicaoModal";
 import ConfirmarExclusaoModal from "@/components/transacoes/ConfirmarExclusaoModal";
 import FaturaFechadaModal from "@/components/transacoes/FaturaFechadaModal";
 import FiltrosMovimentacoes, { FiltrosState } from "@/components/transacoes/FiltrosMovimentacoes";
+import { contarPorTipo, passaFiltroTipo } from "@/utils/filtroMovimentacao";
 import RecorrenciasTab from "@/components/transacoes/RecorrenciasTab";
 import ParcelasTab from "@/components/transacoes/ParcelasTab";
 
@@ -96,9 +97,9 @@ export default function TransacoesPage() {
     return false;
   }
 
-  const movimentacoesFiltradas = useMemo(() => {
+  // Todos os filtros menos o tipo: base da contagem do seletor Todas / Receitas / Despesas
+  const filtradasSemTipo = useMemo(() => {
     return transacoes.filter((mov) => {
-      if (filtros.tipo !== "todas" && mov.tipo !== filtros.tipo) return false;
       if (filtros.categoria      && mov.categoria      !== filtros.categoria)      return false;
       if (filtros.formaPagamento && mov.formaPagamento !== filtros.formaPagamento) return false;
       if (filtros.estabelecimentoId && filtros.estabelecimentoId !== "all") {
@@ -120,7 +121,14 @@ export default function TransacoesPage() {
       }
       return true;
     });
-  }, [transacoes, filtros]);
+  }, [transacoes, filtros.categoria, filtros.formaPagamento, filtros.estabelecimentoId, filtros.busca, filtros.valorMin, filtros.valorMax]);
+
+  const contagemTipo = useMemo(() => contarPorTipo(filtradasSemTipo), [filtradasSemTipo]);
+
+  const movimentacoesFiltradas = useMemo(
+    () => filtradasSemTipo.filter((mov) => passaFiltroTipo(mov.tipo, filtros.tipo)),
+    [filtradasSemTipo, filtros.tipo]
+  );
 
   const categoriasUnicas = useMemo(
     () => Array.from(new Set(transacoes.map((m) => m.categoria).filter(Boolean))).sort() as string[],
@@ -311,6 +319,7 @@ export default function TransacoesPage() {
               onFiltrosChange={setFiltros}
               categorias={categoriasUnicas}
               formasPagamento={formasPagamentoUnicas}
+              contagemTipo={contagemTipo}
               acoes={
                 <Button
                   onClick={abrirNovo}
