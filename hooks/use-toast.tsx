@@ -8,6 +8,7 @@ export interface Toast {
   description?: React.ReactNode;
   action?: ToastActionElement;
   variant?: "default" | "destructive";
+  /** Em ms; padrão 5000. `Infinity` só fecha pelo botão ou arrastando */
   duration?: number;
 }
 
@@ -15,18 +16,21 @@ interface ToastState {
   toasts: Toast[];
 }
 
+// No celular os avisos ficam no topo, sobre o conteúdo: mais de 3 empilhados
+// cobrem boa parte da tela
+const LIMITE_TOASTS = 3;
+
 type Action =
   | { type: "ADD_TOAST"; toast: Toast }
   | { type: "UPDATE_TOAST"; toast: Partial<Toast> & Pick<Toast, "id"> }
-  | { type: "DISMISS_TOAST"; toastId?: string }
-  | { type: "REMOVE_TOAST"; toastId?: string };
+  | { type: "DISMISS_TOAST"; toastId?: string };
 
 const toastReducer = (state: ToastState, action: Action): ToastState => {
   switch (action.type) {
     case "ADD_TOAST":
       return {
         ...state,
-        toasts: [action.toast, ...state.toasts].slice(0, 5),
+        toasts: [action.toast, ...state.toasts].slice(0, LIMITE_TOASTS),
       };
 
     case "UPDATE_TOAST":
@@ -37,17 +41,9 @@ const toastReducer = (state: ToastState, action: Action): ToastState => {
         ),
       };
 
-    case "DISMISS_TOAST": {
-      const { toastId } = action;
-      return {
-        ...state,
-        toasts: state.toasts.map((t) =>
-          t.id === toastId || toastId === undefined ? { ...t, open: false } : t
-        ),
-      };
-    }
-
-    case "REMOVE_TOAST":
+    // Tira da lista: o toast fechado não pode continuar ocupando espaço na pilha.
+    // A animação de saída acontece no componente, antes de chamar o dismiss
+    case "DISMISS_TOAST":
       if (action.toastId === undefined) {
         return { ...state, toasts: [] };
       }
@@ -83,6 +79,8 @@ function genId() {
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = React.useReducer(toastReducer, { toasts: [] });
 
+  // O tempo de exibição é contado no componente (components/ui/toast.tsx),
+  // que pausa enquanto o usuário toca ou passa o mouse no aviso
   const toast = React.useCallback(
     ({ duration = 5000, ...props }: Omit<Toast, "id">) => {
       const id = genId();
@@ -100,12 +98,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           duration,
         },
       });
-
-      if (duration !== Infinity) {
-        setTimeout(() => {
-          dismiss();
-        }, duration);
-      }
 
       return { id, dismiss, update };
     },
