@@ -1,4 +1,4 @@
-import { Categoria, CriarCategoriaDTO, AtualizarCategoriaDTO, TotaisCategoriasResponse, UsoCategoria } from "@/types/categoria";
+import { Categoria, CriarCategoriaDTO, AtualizarCategoriaDTO, UsoCategoria } from "@/types/categoria";
 import { requisicao } from "@/services/http";
 
 /**
@@ -34,10 +34,6 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 export const categoriaService = {
-  totais(ano: number) {
-    return requisicao<TotaisCategoriasResponse>(`/api/categorias/totais?ano=${ano}`, undefined, "Erro ao carregar totais");
-  },
-
   uso(id: string) {
     return requisicao<UsoCategoria>(`/api/categorias/${id}/uso`, undefined, "Erro ao verificar o uso da categoria");
   },

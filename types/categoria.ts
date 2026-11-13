@@ -29,19 +29,6 @@ export interface AtualizarCategoriaDTO {
   icone?: string;
 }
 
-// ── Totais por categoria (GET /api/categorias/totais) ──
-export interface TotalCategoria {
-  total: number;
-  totalEntrada: number;
-  totalSaida: number;
-  quantidade: number;
-}
-
-export interface TotaisCategoriasResponse {
-  ano: number;
-  totais: Record<string, TotalCategoria>;
-}
-
 // ── Uso antes de excluir (GET /api/categorias/[id]/uso) ──
 export interface UsoCategoria {
   transacoes: number;

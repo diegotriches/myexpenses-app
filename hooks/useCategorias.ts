@@ -87,7 +87,6 @@ export function useAtualizarCategoria(options: MutationOptions = {}) {
       queryClient.invalidateQueries({ queryKey: ["transacoes"] });
       queryClient.invalidateQueries({ queryKey: ["recorrencias"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["categorias-totais"] });
       
       if (showToast) {
         toast({
@@ -138,16 +137,6 @@ export function useRemoverCategoria(options: MutationOptions = {}) {
         });
       }
     },
-  });
-}
-
-/** Totais do ano por categoria; chave fora do prefixo "categorias" para não ser invalidada a cada edição. */
-export function useTotaisCategorias(ano: number, enabled = true) {
-  return useQuery({
-    queryKey: ["categorias-totais", ano],
-    queryFn: () => categoriaService.totais(ano),
-    enabled,
-    staleTime: 1000 * 60 * 5,
   });
 }
 
