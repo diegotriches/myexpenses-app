@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Select,
   SelectContent,
@@ -31,6 +31,8 @@ interface Props {
   onFiltrosChange: (filtros: FiltrosState) => void;
   categorias: string[];
   formasPagamento: string[];
+  /** Botões extras no fim da linha da busca, depois de Filtros (ex.: Nova Movimentação) */
+  acoes?: ReactNode;
 }
 
 export default function FiltrosMovimentacoes({
@@ -38,6 +40,7 @@ export default function FiltrosMovimentacoes({
   onFiltrosChange,
   categorias,
   formasPagamento,
+  acoes,
 }: Props) {
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const { data: estabelecimentos = [] } = useEstabelecimentos();
@@ -111,6 +114,8 @@ export default function FiltrosMovimentacoes({
             </Badge>
           )}
         </Button>
+
+        {acoes}
       </div>
 
       {/* Painel expansível */}

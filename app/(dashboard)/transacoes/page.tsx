@@ -305,24 +305,23 @@ export default function TransacoesPage() {
           />
 
           <TabsContent value="movimentacoes" className="space-y-4">
-            <div className="space-y-4">
-              <FiltrosMovimentacoes
-                filtros={filtros}
-                onFiltrosChange={setFiltros}
-                categorias={categoriasUnicas}
-                formasPagamento={formasPagamentoUnicas}
-              />
-              <div className="hidden md:flex justify-end">
+            {/* Nova Movimentação fica na linha da busca, depois de Filtros; no celular o "+" flutuante faz esse papel */}
+            <FiltrosMovimentacoes
+              filtros={filtros}
+              onFiltrosChange={setFiltros}
+              categorias={categoriasUnicas}
+              formasPagamento={formasPagamentoUnicas}
+              acoes={
                 <Button
                   onClick={abrirNovo}
                   disabled={criarTransacao.isPending}
-                  className="flex items-center gap-2 bg-blue-700 hover:bg-blue-900 text-white disabled:opacity-50"
+                  className="hidden md:flex items-center gap-2 bg-blue-700 hover:bg-blue-900 text-white disabled:opacity-50"
                 >
                   <MdAdd className="text-xl" />
                   {criarTransacao.isPending ? "Criando..." : "Nova Movimentação"}
                 </Button>
-              </div>
-            </div>
+              }
+            />
 
             <MovimentacaoTabela
               movimentacoes={movimentacoesFiltradas}
