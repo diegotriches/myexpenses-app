@@ -282,7 +282,7 @@ export default function TransacoesPage() {
         <Button
           onClick={abrirNovo}
           disabled={criarTransacao.isPending}
-          className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 hover:bg-blue-900 z-50"
+          className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 text-white hover:bg-blue-900 z-50"
           size="icon"
         >
           <MdAdd className="text-2xl" />

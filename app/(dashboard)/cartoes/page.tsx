@@ -198,7 +198,7 @@ export default function CartoesPage() {
       <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
         Adicione seu primeiro cartão para começar a gerenciar limites e faturas
       </p>
-      <Button onClick={abrirNovo} size="lg" className="bg-blue-700 hover:bg-blue-900">
+      <Button onClick={abrirNovo} size="lg" className="bg-blue-700 text-white hover:bg-blue-900">
         <MdAdd className="mr-2 text-xl" />
         Adicionar Primeiro Cartão
       </Button>
@@ -268,7 +268,7 @@ export default function CartoesPage() {
 
           <Button
             onClick={abrirNovo}
-            className="hidden md:flex items-center gap-2 bg-blue-700 hover:bg-blue-900"
+            className="hidden md:flex items-center gap-2 bg-blue-700 text-white hover:bg-blue-900"
           >
             <MdAdd className="text-xl" />
             Adicionar Cartão
@@ -279,7 +279,7 @@ export default function CartoesPage() {
       {/* FAB mobile */}
       <Button
         onClick={abrirNovo}
-        className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 hover:bg-blue-900 z-50"
+        className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 text-white hover:bg-blue-900 z-50"
         size="icon"
       >
         <MdAdd className="text-2xl" />

@@ -319,7 +319,7 @@ export default function EditarFotoCard({ usuario }: Props) {
               type="button"
               onClick={enviarFoto}
               disabled={isLoading || !!erro}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 cursor-pointer"
+              className="flex-1 bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
             >
               {uploadFoto.isPending ? (
                 <>

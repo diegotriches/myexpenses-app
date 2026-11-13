@@ -254,7 +254,7 @@ export default function AjustarSaldoModal({ open, onClose, conta }: Props) {
           <Button
             onClick={handleSubmit}
             disabled={ajustarSaldo.isPending || !valor || !descricao.trim()}
-            className="bg-blue-700 hover:bg-blue-900"
+            className="bg-blue-700 text-white hover:bg-blue-900"
           >
             {ajustarSaldo.isPending ? (
               <>

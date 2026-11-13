@@ -277,7 +277,7 @@ export default function MovCampoEstabelecimento({ estabelecimentoId, onChange }:
                       size="sm"
                       onClick={handleCriarNovo}
                       disabled={!nomeNovo.trim() || salvandoNovo}
-                      className="flex-1 h-7 text-xs bg-blue-600 hover:bg-blue-700"
+                      className="flex-1 h-7 text-xs bg-blue-600 text-white hover:bg-blue-700"
                     >
                       {salvandoNovo ? (
                         <Loader2 size={12} className="animate-spin" />

@@ -187,7 +187,7 @@ export default function ContasPage() {
       <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
         Comece adicionando sua primeira conta bancária ou carteira digital para gerenciar suas finanças
       </p>
-      <Button onClick={abrirNovaConta} size="lg" className="bg-blue-700 hover:bg-blue-900">
+      <Button onClick={abrirNovaConta} size="lg" className="bg-blue-700 text-white hover:bg-blue-900">
         <MdAdd className="mr-2 text-xl" />
         Adicionar Primeira Conta
       </Button>
@@ -267,7 +267,7 @@ export default function ContasPage() {
           {/* Botão adicionar - desktop */}
           <Button
             onClick={abrirNovaConta}
-            className="hidden md:flex items-center gap-2 bg-blue-700 hover:bg-blue-900"
+            className="hidden md:flex items-center gap-2 bg-blue-700 text-white hover:bg-blue-900"
           >
             <MdAdd className="text-xl" />
             Adicionar Conta
@@ -278,7 +278,7 @@ export default function ContasPage() {
       {/* Botão adicionar - mobile fixo */}
       <Button
         onClick={abrirNovaConta}
-        className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 hover:bg-blue-900 z-50"
+        className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 text-white hover:bg-blue-900 z-50"
         size="icon"
       >
         <MdAdd className="text-2xl" />

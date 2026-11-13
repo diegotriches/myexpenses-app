@@ -80,7 +80,7 @@ export default function CategoriasPage() {
       <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto px-4">
         Crie sua primeira categoria de {tipo === "entrada" ? "receita" : "despesa"} para organizar suas transações
       </p>
-      <Button onClick={abrirCriacao} size="lg" className="bg-blue-700 hover:bg-blue-800">
+      <Button onClick={abrirCriacao} size="lg" className="bg-blue-700 text-white hover:bg-blue-800">
         <MdAdd className="mr-2 text-xl" />
         Criar Categoria
       </Button>
@@ -136,7 +136,7 @@ export default function CategoriasPage() {
               className="pl-10 bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700"
             />
           </div>
-          <Button onClick={abrirCriacao} className="hidden md:flex items-center gap-2 bg-blue-700 hover:bg-blue-800">
+          <Button onClick={abrirCriacao} className="hidden md:flex items-center gap-2 bg-blue-700 text-white hover:bg-blue-800">
             <MdAdd className="text-xl" />
             Nova Categoria
           </Button>
@@ -147,7 +147,7 @@ export default function CategoriasPage() {
       {!loading && !error && (
         <Button
           onClick={abrirCriacao}
-          className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 hover:bg-blue-800 z-50"
+          className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 text-white hover:bg-blue-800 z-50"
           size="icon"
         >
           <MdAdd className="text-2xl" />

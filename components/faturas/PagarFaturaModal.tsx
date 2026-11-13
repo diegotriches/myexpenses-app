@@ -292,7 +292,7 @@ export default function PagarFaturaModal({
           <Button
             onClick={confirmar}
             disabled={loading || !contaId || !dataPagamento || !saldoSuficiente}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600 text-white hover:bg-blue-700"
           >
             {loading ? (
               <>

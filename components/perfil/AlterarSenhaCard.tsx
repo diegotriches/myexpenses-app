@@ -356,7 +356,7 @@ export default function AlterarSenhaCard({ usuarioId }: Props) {
                 <Button
                     onClick={handleAlterarSenha}
                     disabled={!temAlteracoes || alterarSenha.isPending}
-                    className="flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700"
+                    className="flex-1 sm:flex-initial bg-blue-600 text-white hover:bg-blue-700"
                 >
                     {alterarSenha.isPending ? (
                         <>

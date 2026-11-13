@@ -360,7 +360,7 @@ export default function ContaModal({
             <Button
               onClick={handleSubmit}
               disabled={temErros}
-              className="flex-1 h-12 text-sm font-semibold touch-manipulation bg-blue-700 hover:bg-blue-900"
+              className="flex-1 h-12 text-sm font-semibold touch-manipulation bg-blue-700 text-white hover:bg-blue-900"
             >
               {isEdit ? "Salvar" : "Adicionar"}
             </Button>

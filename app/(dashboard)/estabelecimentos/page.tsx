@@ -122,7 +122,7 @@ export default function EstabelecimentosPage() {
       <Button
         onClick={abrirCriacao}
         size="lg"
-        className="bg-blue-700 hover:bg-blue-800"
+        className="bg-blue-700 text-white hover:bg-blue-800"
       >
         <MdAdd className="mr-2 text-xl" />
         Cadastrar Estabelecimento
@@ -181,7 +181,7 @@ export default function EstabelecimentosPage() {
           </div>
           <Button
             onClick={abrirCriacao}
-            className="hidden md:flex items-center gap-2 bg-blue-700 hover:bg-blue-800"
+            className="hidden md:flex items-center gap-2 bg-blue-700 text-white hover:bg-blue-800"
           >
             <MdAdd className="text-xl" />
             Novo Estabelecimento
@@ -193,7 +193,7 @@ export default function EstabelecimentosPage() {
       {!loading && !error && (
         <Button
           onClick={abrirCriacao}
-          className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 hover:bg-blue-800 z-50"
+          className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-blue-700 text-white hover:bg-blue-800 z-50"
           size="icon"
           aria-label="Criar novo estabelecimento"
         >

@@ -633,7 +633,7 @@ export default function ResumoAnualPage() {
       <SecaoDeclaracao dados={investimentos.dados} ano={ano} carregando={investimentos.carregando} />
 
       {/* ── Botão exportar mobile ──────────────────────────────────────── */}
-      <Button className="md:hidden w-full bg-blue-700 hover:bg-blue-900"
+      <Button className="md:hidden w-full bg-blue-700 text-white hover:bg-blue-900"
         onClick={exportarPDF} disabled={exportando || !data}>
         <Download className="h-4 w-4 mr-2" />
         {exportando ? "Gerando PDF..." : "Exportar PDF"}

@@ -321,7 +321,7 @@ export function TransferenciaModal({
           <Button
             onClick={handleSubmit}
             disabled={!formularioValido || criarTransferencia.isPending}
-            className="bg-blue-700 hover:bg-blue-900"
+            className="bg-blue-700 text-white hover:bg-blue-900"
           >
             {criarTransferencia.isPending ? "Transferindo..." : "Confirmar Transferência"}
           </Button>
