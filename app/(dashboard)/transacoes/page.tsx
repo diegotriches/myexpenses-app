@@ -251,7 +251,7 @@ export default function TransacoesPage() {
       <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mb-2 max-w-md mx-auto px-4">
         Você precisa cadastrar pelo menos uma conta bancária antes de registrar movimentações.
       </p>
-      <Button onClick={() => router.push("/contas")} size="lg" className="bg-blue-700 hover:bg-blue-900">
+      <Button onClick={() => router.push("/contas")} size="lg" className="bg-blue-700 text-white hover:bg-blue-900">
         <BsBank className="mr-2 text-xl" />
         Cadastrar Primeira Conta
       </Button>

@@ -470,7 +470,7 @@ export default function FaturaPage() {
                 <Button
                   onClick={() => setModalPagar(true)}
                   disabled={pagarFaturaMutation.isPending}
-                  className="bg-blue-600 hover:bg-blue-700 md:min-w-[150px] xl:min-w-0"
+                  className="bg-blue-600 text-white hover:bg-blue-700 md:min-w-[150px] xl:min-w-0"
                 >
                   {pagarFaturaMutation.isPending ? (
                     <>
