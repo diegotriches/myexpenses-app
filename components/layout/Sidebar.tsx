@@ -27,6 +27,26 @@ import { MdOutlineAutoGraph } from "react-icons/md";
 import { Menu, ChevronRight } from "lucide-react";
 import type { IconType } from "react-icons";
 import { LogoMarca } from "@/components/common/LogoMarca";
+import { useIndicadorDeslizante } from "@/hooks/useIndicadorDeslizante";
+
+/**
+ * Pílula azul que desliza (400 ms) até o link ativo do menu. Fica dentro do contêiner dos links
+ * (position: relative) e mede o link marcado com data-ativo. Sem link ativo (Perfil,
+ * Notificações), some; ao reaparecer, nasce no lugar em vez de deslizar de onde estava.
+ * Até ser posicionada, o próprio link ativo pinta o fundo (ver linkClasses).
+ */
+function IndicadorNavAtivo({ chave }: { chave: string }) {
+  const ref = useIndicadorDeslizante({ chave, seletorItens: "a[data-ativo]", seletorAtivo: 'a[data-ativo="true"]' });
+
+  return (
+    <span
+      ref={ref}
+      aria-hidden="true"
+      style={{ opacity: 0 }}
+      className="pointer-events-none absolute left-0 top-0 z-0 rounded-lg bg-blue-600 shadow-sm shadow-blue-950/40 data-[animar=true]:transition-[transform,width,height] data-[animar=true]:duration-[400ms] data-[animar=true]:ease-[cubic-bezier(0.22,1,0.36,1)]"
+    />
+  );
+}
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -38,6 +58,9 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   const [fotoError,   setFotoError]   = useState(false);
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [isHovered,   setIsHovered]   = useState(false);
+  // Item clicado enquanto a página nova ainda não assumiu o endereço: a pílula já vai
+  // até ele no clique, em vez de esperar a navegação terminar
+  const [destino,     setDestino]     = useState<string | null>(null);
   const pathname = usePathname();
   const router   = useRouter();
 
@@ -53,17 +76,19 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   if (!depsAnteriores || depsAtuais.some((d, i) => !Object.is(d, depsAnteriores[i]))) {
     setDepsAnteriores(depsAtuais);
     setMobileOpen(false);
+    setDestino(null);
   }
 
   const isActive = (href: string) => {
+    if (destino) return href === destino;
     if (href === "/dashboard") return pathname === href;
     return pathname.startsWith(href);
   };
 
   const linkClasses = (href: string) => {
-    const base   = "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors duration-150 relative group";
+    const base   = "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors duration-200 relative z-10 group";
     const estado = isActive(href)
-      ? "bg-blue-600 text-white font-semibold shadow-sm shadow-blue-950/40"
+      ? "bg-blue-600 text-white font-semibold shadow-sm shadow-blue-950/40 group-data-[indicador-pronto=true]/nav:bg-transparent group-data-[indicador-pronto=true]/nav:shadow-none"
       : "text-slate-300 font-medium hover:bg-white/[0.06] hover:text-white";
     return `${base} ${estado}`;
   };
@@ -102,7 +127,15 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
     isMobile?: boolean;
   }) => {
     const content = (
-      <Link href={href} className={linkClasses(href)}>
+      <Link
+        href={href}
+        className={linkClasses(href)}
+        data-ativo={isActive(href) ? "true" : "false"}
+        onClick={(e) => {
+          // Só clique simples: com Ctrl/Cmd/Shift ou botão do meio abre em outra aba
+          if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && !isActive(href)) setDestino(href);
+        }}
+      >
         <Icon size={18} className="flex-shrink-0" />
         <span
           className={`
@@ -239,8 +272,9 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         </Link>
       </div>
 
-      {/* Navigation Groups */}
-      <div className="flex-1 flex flex-col gap-5 overflow-y-auto overflow-x-hidden">
+      {/* Navigation Groups (a pílula do link ativo desliza por cima deste contêiner) */}
+      <div className="group/nav relative flex-1 flex flex-col gap-5 overflow-y-auto overflow-x-hidden">
+        <IndicadorNavAtivo chave={destino ?? pathname} />
         {navigationGroups.map((group) => (
           <div key={group.title}>
             <p

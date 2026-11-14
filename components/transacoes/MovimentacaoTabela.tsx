@@ -5,7 +5,8 @@ import MovimentacaoLinha from "./MovimentacaoLinha";
 import { Transacao } from "@/types/transacao";
 import { Cartao } from "@/types/cartao";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowUpCircle, ArrowDownCircle, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { useEstabelecimentos } from "@/hooks/useEstabelecimentos";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
@@ -37,16 +38,46 @@ export default function MovimentacaoTabela({
   const [abertaId, setAbertaId] = useState<string | null>(null);
   const alternar = (id: string) => setAbertaId((atual) => (atual === id ? null : id));
 
+  // Esqueleto no formato das linhas reais: quando os dados chegam, ocupam o mesmo espaço
+  // e a página não muda de altura
   if (loading) {
     return (
-      <Card className="dark:bg-gray-900 dark:border-gray-800">
-        <CardContent className="p-12 text-center">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-10 w-10 text-blue-600 dark:text-blue-400 animate-spin" />
-            <p className="text-gray-600 dark:text-gray-400">Carregando movimentações...</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div role="status" aria-label="Carregando movimentações">
+        {/* 📱 MOBILE: cartões como os de MovimentacaoLinha */}
+        <div className="md:hidden space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="py-0 gap-0 dark:bg-gray-900 dark:border-gray-800">
+              <CardContent className="p-3 flex items-center gap-3">
+                <Skeleton className="w-9 h-9 rounded-full flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+                <Skeleton className="h-4 w-16" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* 💻 DESKTOP: cabeçalho e linhas com a altura das reais */}
+        <Card className="hidden md:block dark:bg-gray-900 dark:border-gray-800">
+          <CardContent className="p-0">
+            <div className="h-[41px] bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700" />
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-[57px] px-3 flex items-center gap-6">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 flex-1 max-w-[260px]" />
+                  <Skeleton className="h-4 w-16 ml-auto" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -74,7 +105,7 @@ export default function MovimentacaoTabela({
   return (
     <>
       {/* 📱 MOBILE: cards */}
-      <div className="md:hidden space-y-2">
+      <div className="md:hidden space-y-2 motion-safe:animate-conteudo-in">
         {movimentacoes.map((mov) => {
           const cartao         = cartoes.find((c) => c.id === mov.cartaoId) || null;
           const estabelecimento = mov.estabelecimentoId
@@ -109,7 +140,7 @@ export default function MovimentacaoTabela({
       </div>
 
       {/* 💻 DESKTOP: tabela */}
-      <Card className="hidden md:block dark:bg-gray-900 dark:border-gray-800">
+      <Card className="hidden md:block dark:bg-gray-900 dark:border-gray-800 motion-safe:animate-conteudo-in">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className={`w-full table-fixed ${colunasCompletas ? "min-w-[1180px]" : "min-w-[880px]"}`}>

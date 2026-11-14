@@ -287,7 +287,7 @@ export default function CartoesPage() {
 
       {/* Tabs */}
       {!loading && cartoes.length > 0 && (
-        <Tabs value={abaAtiva} onValueChange={(v) => { setAbaAtiva(v); setAlertaBloqueio(null); }}>
+        <Tabs value={abaAtiva} onValueChange={(v) => { setAbaAtiva(v); setAlertaBloqueio(null); }} className="motion-safe:animate-conteudo-in">
           <TabsContent value="ativos" className="space-y-4">
             {cartoesAtivos.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-lg">

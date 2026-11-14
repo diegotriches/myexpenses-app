@@ -533,7 +533,7 @@ export default function RendaVariavel({ contas }: Props) {
         </div>
       ) : (
         <>
-          <Tabs defaultValue="carteira" className="space-y-4">
+          <Tabs defaultValue="carteira" className="space-y-4 motion-safe:animate-conteudo-in">
             {totalHistorico > 0 && (
               <TabsList>
                 <TabsTrigger value="carteira">Carteira</TabsTrigger>

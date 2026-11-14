@@ -9,6 +9,7 @@ import { ToastProvider } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { PeriodoProvider } from "@/contexts/PeriodoContext";
 import { ClientLayoutWrapper } from "@/components/layout/ClientLayoutWrapper";
+import { MotionConfig } from "framer-motion";
 
 const createQueryClient = () =>
   new QueryClient({
@@ -60,9 +61,13 @@ export function AppProviders({ children }: AppProvidersProps) {
         <QueryClientProvider client={queryClient}>
           <ToastProvider>
             <PeriodoProvider>
-              <ClientLayoutWrapper>
-                {children}
-              </ClientLayoutWrapper>
+              {/* "Reduzir movimento" do sistema também desliga as animações do framer-motion
+                  (menu lateral do celular); as de CSS já respeitam pela regra global do globals.css */}
+              <MotionConfig reducedMotion="user">
+                <ClientLayoutWrapper>
+                  {children}
+                </ClientLayoutWrapper>
+              </MotionConfig>
               <Toaster />
               {process.env.NODE_ENV === "development" && (
                 <ReactQueryDevtools

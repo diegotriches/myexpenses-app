@@ -283,7 +283,9 @@ export default function TransacoesPage() {
       <PageHeader
         icone={BsArrowLeftRight}
         titulo="Movimentações"
-        descricao={`${movimentacoesFiltradas.length} ${movimentacoesFiltradas.length === 1 ? "transação encontrada" : "transações encontradas"}`}
+        descricao={loadingTransacoes
+          ? "Carregando…"
+          : `${movimentacoesFiltradas.length} ${movimentacoesFiltradas.length === 1 ? "transação encontrada" : "transações encontradas"}`}
       />
 
       {temContasAtivas && (
@@ -320,6 +322,7 @@ export default function TransacoesPage() {
               categorias={categoriasUnicas}
               formasPagamento={formasPagamentoUnicas}
               contagemTipo={contagemTipo}
+              carregando={loadingTransacoes}
               acoes={
                 <Button
                   onClick={abrirNovo}
@@ -332,7 +335,9 @@ export default function TransacoesPage() {
               }
             />
 
+            {/* key: trocar Todas/Receitas/Despesas recria a lista, que entra com a mesma animação */}
             <MovimentacaoTabela
+              key={filtros.tipo}
               movimentacoes={movimentacoesFiltradas}
               loading={loading}
               cartoes={cartoes}

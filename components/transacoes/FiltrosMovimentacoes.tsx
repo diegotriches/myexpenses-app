@@ -13,10 +13,12 @@ import { InputMoeda } from "@/components/ui/input-moeda";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { Search, X, Filter } from "lucide-react";
 import { useEstabelecimentos } from "@/hooks/useEstabelecimentos";
 import { formatarMoeda } from "@/utils/formatadores";
 import type { FiltroTipo } from "@/utils/filtroMovimentacao";
+import { useIndicadorDeslizante } from "@/hooks/useIndicadorDeslizante";
 
 export interface FiltrosState {
   /** Seletor Todas / Receitas / Despesas (estornos entram em Despesas) */
@@ -38,6 +40,21 @@ interface Props {
   acoes?: ReactNode;
   /** Quantas movimentações cada opção do seletor mostraria, já com os outros filtros aplicados */
   contagemTipo: Record<FiltroTipo, number>;
+  /** Enquanto carrega, o seletor não mostra contagem (zero parece dado real e depois pula) */
+  carregando?: boolean;
+}
+
+/** Fundo da opção ativa do seletor Todas / Receitas / Despesas, que desliza até a opção clicada */
+function FundoSeletorTipo({ chave }: { chave: string }) {
+  const ref = useIndicadorDeslizante({ chave, seletorItens: '[role="tab"]', seletorAtivo: '[role="tab"][data-state="active"]' });
+  return (
+    <span
+      ref={ref}
+      aria-hidden="true"
+      style={{ opacity: 0 }}
+      className="pointer-events-none absolute left-0 top-0 z-0 rounded-md border border-transparent bg-background shadow-sm dark:border-input dark:bg-gray-950 data-[animar=true]:transition-[transform,width,height] data-[animar=true]:duration-300 data-[animar=true]:ease-[cubic-bezier(0.22,1,0.36,1)]"
+    />
+  );
 }
 
 const OPCOES_TIPO: { valor: FiltroTipo; rotulo: string }[] = [
@@ -53,6 +70,7 @@ export default function FiltrosMovimentacoes({
   formasPagamento,
   acoes,
   contagemTipo,
+  carregando = false,
 }: Props) {
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const { data: estabelecimentos = [] } = useEstabelecimentos();
@@ -97,11 +115,25 @@ export default function FiltrosMovimentacoes({
 
   const renderSeletorTipo = (className: string) => (
     <Tabs value={filtros.tipo} onValueChange={(v) => updateFiltro("tipo", v)} className={className}>
-      <TabsList aria-label="Tipo de movimentação" className="h-9 w-full lg:w-auto dark:bg-gray-800">
+      <TabsList aria-label="Tipo de movimentação" className="group/seg relative h-9 w-full lg:w-auto dark:bg-gray-800">
+        {/* A chave inclui as contagens: a largura das opções muda quando os números chegam */}
+        <FundoSeletorTipo chave={`${filtros.tipo}|${carregando}|${contagemTipo.todas}|${contagemTipo.entrada}|${contagemTipo.saida}`} />
         {OPCOES_TIPO.map((o) => (
-          <TabsTrigger key={o.valor} value={o.valor} className="px-3 dark:data-[state=active]:bg-gray-950">
+          <TabsTrigger
+            key={o.valor}
+            value={o.valor}
+            className={cn(
+              "relative z-10 px-3 dark:data-[state=active]:bg-gray-950",
+              // com o fundo deslizante posicionado, a opção ativa tira o próprio fundo
+              "group-data-[indicador-pronto=true]/seg:data-[state=active]:bg-transparent group-data-[indicador-pronto=true]/seg:data-[state=active]:shadow-none",
+              "dark:group-data-[indicador-pronto=true]/seg:data-[state=active]:bg-transparent dark:group-data-[indicador-pronto=true]/seg:data-[state=active]:border-transparent",
+            )}
+          >
             {o.rotulo}
-            <span className="text-xs tabular-nums text-muted-foreground">{contagemTipo[o.valor]}</span>
+            {/* Enquanto carrega, reserva o espaço do número (invisível) para a busca não mudar de largura */}
+            <span className={cn("text-xs tabular-nums text-muted-foreground", carregando ? "invisible" : "motion-safe:animate-conteudo-in")}>
+              {carregando ? 0 : contagemTipo[o.valor]}
+            </span>
           </TabsTrigger>
         ))}
       </TabsList>

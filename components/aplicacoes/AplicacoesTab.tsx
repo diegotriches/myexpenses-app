@@ -271,7 +271,8 @@ export default function AplicacoesTab({ contas }: Props) {
   const nomeAplicacao = (a: Aplicacao) => a.descricao || `Aplicação em ${INDEXADOR_LABEL[a.indexador]}`;
 
   return (
-    <>
+    // Entra com animação quando os dados chegam (o carregamento retorna antes, com esqueleto)
+    <div className="motion-safe:animate-conteudo-in">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="inline-flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           <button
@@ -844,6 +845,6 @@ export default function AplicacoesTab({ contas }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

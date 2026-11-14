@@ -157,35 +157,38 @@ export default function CategoriasPage() {
       {/* Tabs */}
       {!loading && !error && categorias.length > 0 && (
         <Tabs value={aba} onValueChange={(v) => setAba(v as "entrada" | "saida")}>
-          <TabsContent value={aba} className="space-y-4">
-            {categoriasFiltradas.length === 0 ? (
-              busca ? (
-                <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                  <Search className="mx-auto mb-3 text-gray-300 dark:text-gray-600" size={48} />
-                  <p className="text-gray-600 dark:text-gray-400 font-medium mb-1">Nenhuma categoria encontrada</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-500">
-                    Tente ajustar a busca ou{" "}
-                    <button onClick={() => setBusca("")} className="text-blue-600 dark:text-blue-400 hover:underline">
-                      limpar filtro
-                    </button>
-                  </p>
-                </div>
+          <TabsContent value={aba}>
+            {/* key no bloco interno, não no TabsContent: o Radix zera a duração da animação quando o TabsContent é montado */}
+            <div key={aba} className="space-y-4 motion-safe:animate-conteudo-in">
+              {categoriasFiltradas.length === 0 ? (
+                busca ? (
+                  <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                    <Search className="mx-auto mb-3 text-gray-300 dark:text-gray-600" size={48} />
+                    <p className="text-gray-600 dark:text-gray-400 font-medium mb-1">Nenhuma categoria encontrada</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-500">
+                      Tente ajustar a busca ou{" "}
+                      <button onClick={() => setBusca("")} className="text-blue-600 dark:text-blue-400 hover:underline">
+                        limpar filtro
+                      </button>
+                    </p>
+                  </div>
+                ) : (
+                  renderEmptyState({ tipo: aba })
+                )
               ) : (
-                renderEmptyState({ tipo: aba })
-              )
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-                {categoriasFiltradas.map((cat) => (
-                  <CategoriaCard
-                    key={cat.id}
-                    categoria={cat}
-                    hrefExtrato={hrefExtrato(cat)}
-                    onEditar={() => abrirEdicao(cat)}
-                    onExcluir={() => abrirExclusao(cat)}
-                  />
-                ))}
-              </div>
-            )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+                  {categoriasFiltradas.map((cat) => (
+                    <CategoriaCard
+                      key={cat.id}
+                      categoria={cat}
+                      hrefExtrato={hrefExtrato(cat)}
+                      onEditar={() => abrirEdicao(cat)}
+                      onExcluir={() => abrirExclusao(cat)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       )}

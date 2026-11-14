@@ -251,7 +251,7 @@ export default function NotificacoesPage() {
             </p>
           </Card>
         ) : (
-          <>
+          <div className="space-y-2 motion-safe:animate-conteudo-in">
             {visiveis.map((notif) => (
               <Fragment key={notif.id}>
                 {renderNotificacao(notif)}
@@ -279,7 +279,7 @@ export default function NotificacoesPage() {
                 Carregar mais ({restantes} {restantes === 1 ? "restante" : "restantes"})
               </Button>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>

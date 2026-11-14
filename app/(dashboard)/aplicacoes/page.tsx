@@ -35,7 +35,7 @@ export default function AplicacoesPage() {
       />
 
       {/* Resumo da aba selecionada (mesmo padrão de cards compactos das outras páginas) */}
-      {aba === "renda-fixa" ? <ResumoInvestimentos /> : <ResumoRendaVariavel />}
+      <div key={`resumo-${aba}`} className="motion-safe:animate-conteudo-in">{aba === "renda-fixa" ? <ResumoInvestimentos /> : <ResumoRendaVariavel />}</div>
 
       {/* Abas: renda fixa / renda variável (mesmo estilo da página Contas) */}
       <AbasSecao
@@ -48,11 +48,14 @@ export default function AplicacoesPage() {
         onChange={setAba}
       />
 
-      {aba === "renda-fixa" ? (
-        <AplicacoesTab contas={contas} />
-      ) : (
-        <RendaVariavel contas={contas} />
-      )}
+      {/* key: o conteúdo da aba é recriado na troca e entra com a mesma animação das outras abas */}
+      <div key={aba} className="motion-safe:animate-conteudo-in">
+        {aba === "renda-fixa" ? (
+          <AplicacoesTab contas={contas} />
+        ) : (
+          <RendaVariavel contas={contas} />
+        )}
+      </div>
     </div>
   );
 }

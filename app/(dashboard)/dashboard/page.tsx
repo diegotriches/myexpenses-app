@@ -163,12 +163,14 @@ export default function Dashboard() {
             {[...Array(4)].map((_, i) => <Fragment key={i}>{renderResumoSkeleton()}</Fragment>)}
           </div>
         ) : (
-          <CardResumo
-            resumo={dashboard?.resumo || { receitas: 0, despesas: 0, saldo: 0 }}
-            saldoContas={totais.totalContas}
-            quantidadeContas={totais.quantidadeContas}
-            despesasFuturas={despesasFuturas}
-          />
+          <div className="motion-safe:animate-conteudo-in">
+            <CardResumo
+              resumo={dashboard?.resumo || { receitas: 0, despesas: 0, saldo: 0 }}
+              saldoContas={totais.totalContas}
+              quantidadeContas={totais.quantidadeContas}
+              despesasFuturas={despesasFuturas}
+            />
+          </div>
         )}
       </section>
 
@@ -194,7 +196,7 @@ export default function Dashboard() {
         </div>
 
         {aba === 'mes' && (
-          <div className="space-y-4">
+          <div className="space-y-4 motion-safe:animate-conteudo-in">
             {/* Mês corrente e o que vem pela frente: a partir de hoje, não do mês selecionado no topo */}
             <RotuloSecao titulo="Mês atual" detalhe="a partir de hoje" />
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -210,7 +212,7 @@ export default function Dashboard() {
         )}
 
         {aba === 'ano' && (
-          <div className="space-y-4">
+          <div className="space-y-4 motion-safe:animate-conteudo-in">
             <RotuloSecao titulo="Patrimônio" detalhe="últimos meses" />
             <CardSaldoHistorico />
 
@@ -234,7 +236,7 @@ export default function Dashboard() {
         )}
 
         {aba === 'investimentos' && (
-          <div className="space-y-4">
+          <div className="space-y-4 motion-safe:animate-conteudo-in">
             <RotuloSecao titulo="Investimentos" detalhe="posição atual" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="[&>*]:h-full"><CardAlocacao /></div>
