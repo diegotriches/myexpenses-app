@@ -116,7 +116,7 @@ export default function EventoCorporativoDialog({ open, onOpenChange, operacoes 
           <div className="space-y-1">
             <Label className="text-xs">Evento</Label>
             <Select value={tipo} onValueChange={(v) => trocarTipo(v as TipoForm)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {(Object.keys(ROTULO) as TipoForm[]).map((t) => (
                   <SelectItem key={t} value={t}>{ROTULO[t]}</SelectItem>
@@ -128,7 +128,7 @@ export default function EventoCorporativoDialog({ open, onOpenChange, operacoes 
           <div className="space-y-1">
             <Label className="text-xs">{tipo === "troca" ? "Ticker antigo" : "Ativo"}</Label>
             <Select value={ticker} onValueChange={setTicker}>
-              <SelectTrigger><SelectValue placeholder="Escolha o ativo" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Escolha o ativo" /></SelectTrigger>
               <SelectContent>
                 {(tipo === "troca" ? tickers : abertos).map((t) => (
                   <SelectItem key={t} value={t}>{t}</SelectItem>

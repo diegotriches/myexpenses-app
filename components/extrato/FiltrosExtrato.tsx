@@ -148,7 +148,7 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
                 Tipo
               </label>
               <Select value={filtros.tipo} onValueChange={(v) => updateFiltro("tipo", v as TipoFiltro)}>
-                <SelectTrigger className="dark:bg-gray-900 dark:border-gray-600 dark:text-white">
+                <SelectTrigger className="w-full dark:bg-gray-900 dark:border-gray-600 dark:text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -163,7 +163,7 @@ export default function FiltrosExtrato({ filtros, onFiltrosChange, onAplicar }: 
                 Origem
               </label>
               <Select value={filtros.origem} onValueChange={(v) => updateFiltro("origem", v as OrigemFiltro)}>
-                <SelectTrigger className="dark:bg-gray-900 dark:border-gray-600 dark:text-white">
+                <SelectTrigger className="w-full dark:bg-gray-900 dark:border-gray-600 dark:text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

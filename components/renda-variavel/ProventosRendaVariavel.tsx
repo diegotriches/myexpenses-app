@@ -383,7 +383,7 @@ export default function ProventosRendaVariavel({ contas }: Props) {
                       updateForm("ticker", v === OUTRO_TICKER ? "" : v);
                     }}
                   >
-                    <SelectTrigger id="prov-ticker"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectTrigger id="prov-ticker" className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
                       {opcoesTicker.map((p) => (
                         <SelectItem key={p.ticker} value={p.ticker}>
@@ -408,7 +408,7 @@ export default function ProventosRendaVariavel({ contas }: Props) {
               <div className="space-y-1.5">
                 <Label>Tipo</Label>
                 <Select value={form.tipo} onValueChange={(v: TipoProvento) => updateForm("tipo", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {(Object.keys(TIPO_PROVENTO_LABEL) as TipoProvento[]).map((t) => (
                       <SelectItem key={t} value={t}>{TIPO_PROVENTO_LABEL[t]}</SelectItem>

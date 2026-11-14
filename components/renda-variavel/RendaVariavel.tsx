@@ -635,7 +635,7 @@ export default function RendaVariavel({ contas }: Props) {
                     onValueChange={(v) => updateForm("ticker", v)}
                     disabled={tickersParaVenda.length === 0}
                   >
-                    <SelectTrigger id="rv-ticker">
+                    <SelectTrigger id="rv-ticker" className="w-full">
                       <SelectValue placeholder={tickersParaVenda.length ? "Selecione" : "Sem posição nesta data"} />
                     </SelectTrigger>
                     <SelectContent>
@@ -662,7 +662,7 @@ export default function RendaVariavel({ contas }: Props) {
                   onValueChange={(v: TipoAtivo) => updateForm("tipoAtivo", v)}
                   disabled={!!posicaoDoTicker}
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {(Object.keys(TIPO_ATIVO_LABEL) as TipoAtivo[]).map((t) => (
                       <SelectItem key={t} value={t}>{TIPO_ATIVO_LABEL[t]}</SelectItem>

@@ -59,7 +59,7 @@ export function DiaPickerField({
           }}
         >
           <SelectTrigger
-            className={temErro ? "border-red-500 dark:border-red-500" : ""}
+            className={`w-full ${temErro ? "border-red-500 dark:border-red-500" : ""}`}
           >
             <SelectValue placeholder="Selecionar dia" />
           </SelectTrigger>
