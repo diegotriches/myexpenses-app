@@ -69,7 +69,7 @@ export default function ContaCard({
 }: Props) {
   const fmt = useMoeda();
 
-  const bancoImagem = conta.banco ? `/contas/${conta.banco.toLowerCase()}.png` : null;
+  const bancoImagem = conta.banco ? `/logos/contas/${conta.banco.toLowerCase()}.png` : null;
   const mostrarBanco = !!conta.banco && normalizar(conta.banco) !== normalizar(conta.nome);
 
   const corSaldo =
