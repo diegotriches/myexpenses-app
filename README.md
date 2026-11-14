@@ -5,7 +5,7 @@ Aplicativo web de finanças pessoais: contas, cartões de crédito, lançamentos
 ## Funcionalidades
 
 - **Contas e extrato:** saldo por conta, extrato com saldo após cada lançamento, ajustes de saldo e transferências entre contas.
-- **Lançamentos:** receitas e despesas à vista, parceladas ou recorrentes (geradas automaticamente todo mês), com categorias e estabelecimentos.
+- **Lançamentos:** receitas e despesas à vista, parceladas ou recorrentes (geradas automaticamente todo mês), com categorias e estabelecimentos, filtro rápido por receitas e despesas e detalhes ao clicar no lançamento.
 - **Cartões e faturas:** ciclo pelo dia de fechamento, limite disponível, pagamento e adiantamento de fatura, estorno de compras e antecipação de parcelas. Crédito de uma fatura fechada passa sozinho para a próxima.
 - **Aplicações (renda fixa):** CDB e similares atrelados ao CDI ou à Selic, com rendimento diário pelas taxas do Banco Central, IR regressivo por aporte e resgate automático no vencimento.
 - **Renda variável:** ações, FIIs, ETFs e BDRs, com preço médio, day trade, eventos corporativos, proventos e cotações automáticas. Importa as planilhas da Área do Investidor da B3.
@@ -13,14 +13,14 @@ Aplicativo web de finanças pessoais: contas, cartões de crédito, lançamentos
 - **Dashboard:** próximos vencimentos, saldo previsto para o fim do mês, gastos do mês comparados à média, evolução do patrimônio (contas e investimentos) e resumo dos investimentos.
 - **Resumo anual:** receitas, despesas e taxa de poupança comparadas ao ano anterior, categorias, formas de pagamento, investimentos no ano e dados para a declaração de IR, com exportação em PDF.
 - **Conta do usuário:** login com Google ou e-mail e senha, notificações, opção de ocultar valores, backup automático e importação/exportação de todos os dados.
-- **Interface:** tema claro e escuro (segue o sistema por padrão) e layout para celular, tablet e telas grandes (até QHD).
+- **Interface:** tema claro e escuro (segue o sistema por padrão), layout para celular, tablet e telas grandes (até QHD) e transições suaves entre páginas, abas e janelas, que respeitam a opção de reduzir movimento do sistema.
 
 ## Stack
 
 - [Next.js 16](https://nextjs.org) (App Router), React 19 e TypeScript
 - [Neon](https://neon.tech) (PostgreSQL serverless) com [Drizzle ORM](https://orm.drizzle.team)
 - [NextAuth v4](https://next-auth.js.org) com sessão JWT (Google e credenciais)
-- Tailwind CSS v4, shadcn/ui, lucide-react e Recharts
+- Tailwind CSS v4, shadcn/ui, tw-animate-css, lucide-react e Recharts
 - React Query v5 para os dados no navegador
 - Vercel (hospedagem, crons e Blob para a foto de perfil), Gmail via Nodemailer para e-mails e [brapi.dev](https://brapi.dev) para cotações
 - Vitest nos testes das regras de cálculo e GitHub Actions no CI
