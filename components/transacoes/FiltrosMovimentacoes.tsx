@@ -170,7 +170,7 @@ export default function FiltrosMovimentacoes({
                 value={filtros.categoria || "all"}
                 onValueChange={(v) => updateFiltro("categoria", v === "all" ? "" : v)}
               >
-                <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Todas" /></SelectTrigger>
                 <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                   <SelectItem value="all">Todas</SelectItem>
                   {categorias.map((cat) => (
@@ -187,7 +187,7 @@ export default function FiltrosMovimentacoes({
                 value={filtros.formaPagamento || "all"}
                 onValueChange={(v) => updateFiltro("formaPagamento", v === "all" ? "" : v)}
               >
-                <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Todas" /></SelectTrigger>
                 <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                   <SelectItem value="all">Todas</SelectItem>
                   {formasPagamento.map((forma) => (
@@ -207,7 +207,7 @@ export default function FiltrosMovimentacoes({
                   value={filtros.estabelecimentoId || "all"}
                   onValueChange={(v) => updateFiltro("estabelecimentoId", v === "all" ? "" : v)}
                 >
-                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                     <SelectItem value="all">Todos</SelectItem>
                     {estabelecimentos.map((e) => (
