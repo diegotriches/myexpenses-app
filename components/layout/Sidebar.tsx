@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, Fragment } from "react";
+import { useState, Fragment } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useProfile } from "@/hooks/useProfile";
@@ -64,9 +64,6 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
   const pathname = usePathname();
   const router   = useRouter();
 
-  const touchStartX = useRef<number>(0);
-  const touchEndX   = useRef<number>(0);
-  const sheetContentRef = useRef<HTMLDivElement>(null);
 
   const isExpanded = !isCollapsed || isHovered;
 
@@ -133,7 +130,10 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
         data-ativo={isActive(href) ? "true" : "false"}
         onClick={(e) => {
           // Só clique simples: com Ctrl/Cmd/Shift ou botão do meio abre em outra aba
-          if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && !isActive(href)) setDestino(href);
+          if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+          if (!isActive(href)) setDestino(href);
+          // No celular, o menu já começa a fechar (deslizando) enquanto a página nova carrega
+          if (isMobile) setMobileOpen(false);
         }}
       >
         <Icon size={18} className="flex-shrink-0" />
@@ -360,8 +360,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
             </Button>
           </SheetTrigger>
           <SheetContent
-            ref={sheetContentRef}
             side="left"
+            arrastarParaFechar
             className="
               w-64 p-4
               bg-slate-900 text-slate-300
@@ -372,18 +372,8 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
             <VisuallyHidden>
               <SheetTitle>Menu de Navegação</SheetTitle>
             </VisuallyHidden>
-            <div
-              className="flex flex-col h-full relative"
-              onTouchStart={(e) => {
-                touchStartX.current = e.touches[0].clientX;
-                touchEndX.current   = e.touches[0].clientX;
-              }}
-              onTouchMove={(e) => { touchEndX.current = e.touches[0].clientX; }}
-              onTouchEnd={() => {
-                const swipeDistance = touchStartX.current - touchEndX.current;
-                if (swipeDistance > 50) setMobileOpen(false);
-              }}
-            >
+            {/* Arrastar para a esquerda fecha o menu (arrastarParaFechar, no SheetContent) */}
+            <div className="flex flex-col h-full relative">
               {renderSidebarContent({ isMobile: true })}
             </div>
           </SheetContent>
