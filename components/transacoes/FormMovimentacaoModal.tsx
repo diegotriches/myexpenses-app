@@ -515,7 +515,7 @@ export default function FormMovimentacaoModal({
                 }}
                 disabled={bloqueiaCampos.parcelas || bloqueiaCampos.repeticoes || bloqueiaCampos.tipoPagamento}
               >
-                <SelectTrigger className="w-full h-12 dark:bg-gray-800 dark:border-gray-700">
+                <SelectTrigger size="lg" className="w-full dark:bg-gray-800 dark:border-gray-700">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="dark:bg-gray-800 dark:border-gray-700">

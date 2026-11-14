@@ -108,7 +108,7 @@ export default function MovCampoCategoria({ form, update, error }: Props) {
 
         <div className="flex-1 space-y-1">
           <Select value={form.categoria} onValueChange={(v) => update("categoria", v)}>
-            <SelectTrigger className={`dark:bg-gray-800 dark:border-gray-700 h-12 w-full ${triggerErrorClass}`}>
+            <SelectTrigger size="lg" className={`w-full dark:bg-gray-800 dark:border-gray-700 ${triggerErrorClass}`}>
               <SelectValue placeholder="Selecione a categoria">
                 {categoriaSelecionada && (
                   <div className="flex items-center gap-2">

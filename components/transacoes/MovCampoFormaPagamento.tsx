@@ -73,7 +73,7 @@ export default function MovCampoFormaPagamento({
           if (opcao) update("formaPagamento", opcao.value);
         }}
       >
-        <SelectTrigger className="w-full dark:bg-gray-800 dark:border-gray-700 h-12">
+        <SelectTrigger size="lg" className="w-full dark:bg-gray-800 dark:border-gray-700">
           <SelectValue placeholder="Selecione">
             {opcaoSelecionada && (
               <div className="flex items-center gap-2">

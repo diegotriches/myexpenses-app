@@ -145,7 +145,7 @@ export default function MovCampoConta({
       <div className="space-y-2">
         <Label className="text-gray-900 dark:text-white">Conta</Label>
         <Select value={form.contaId} onValueChange={(v) => update("contaId", v)}>
-          <SelectTrigger className={`w-full dark:bg-gray-800 dark:border-gray-700 ${triggerErrorClass}`}>
+          <SelectTrigger size="lg" className={`w-full dark:bg-gray-800 dark:border-gray-700 ${triggerErrorClass}`}>
             <SelectValue placeholder="Selecione a conta">
               {contaSelecionada && (
                 <div className="flex items-center gap-2">
