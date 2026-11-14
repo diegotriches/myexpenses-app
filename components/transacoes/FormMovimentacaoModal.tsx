@@ -16,7 +16,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 
 import {
@@ -447,11 +446,6 @@ export default function FormMovimentacaoModal({
             <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">
               {isEdit ? "Editar Movimentação" : "Nova Movimentação"}
             </DialogTitle>
-            {modoEdicao && (
-              <Badge variant="outline" className="text-xs">
-                {modoEdicao === "unica" ? "Única" : modoEdicao === "todas_parcelas" ? "Parcelas" : "Recorrência"}
-              </Badge>
-            )}
           </div>
         </DialogHeader>
 
