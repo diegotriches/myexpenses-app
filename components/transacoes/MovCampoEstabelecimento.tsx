@@ -161,7 +161,7 @@ export default function MovCampoEstabelecimento({ estabelecimentoId, onChange }:
             value={busca}
             onChange={(e) => { setBusca(e.target.value); setAberto(true); setCriandoNovo(false); }}
             onFocus={() => setAberto(true)}
-            className="pl-9 pr-9 h-10 dark:bg-gray-800 dark:border-gray-700"
+            className="pl-9 pr-9 h-12 dark:bg-gray-800 dark:border-gray-700"
             disabled={isLoading}
           />
           {busca && (

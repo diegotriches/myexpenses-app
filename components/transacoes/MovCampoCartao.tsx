@@ -163,7 +163,7 @@ export default function MovCampoCartao({
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-900 dark:text-white">Cartão</label>
         <Select value={form.cartaoId} onValueChange={(v) => update("cartaoId", v)} disabled={disabled}>
-          <SelectTrigger className={`w-full h-12 dark:bg-gray-800 dark:border-gray-700 ${triggerErrorClass}`}>
+          <SelectTrigger size="lg" className={`w-full dark:bg-gray-800 dark:border-gray-700 ${triggerErrorClass}`}>
             <SelectValue placeholder="Selecione o cartão">
               {cartaoSelecionado && (
                 <div className="flex items-center gap-2">
