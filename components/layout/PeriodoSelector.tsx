@@ -129,7 +129,7 @@ export default function PeriodoSelector() {
                 <div>
                   <label htmlFor="mes-select" className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Mês</label>
                   <Select value={mesSelecionado.toString()} onValueChange={(v) => navegarMes(parseInt(v))}>
-                    <SelectTrigger id="mes-select" className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="mes-select" className="w-full h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {meses.map((mes, index) => (
                         <SelectItem key={index} value={index.toString()}>{mes}</SelectItem>
@@ -140,7 +140,7 @@ export default function PeriodoSelector() {
                 <div>
                   <label htmlFor="ano-select" className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Ano</label>
                   <Select value={anoSelecionado.toString()} onValueChange={(v) => navegarAno(parseInt(v))}>
-                    <SelectTrigger id="ano-select" className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="ano-select" className="w-full h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {anosDisponiveis.map((ano) => (
                         <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>
@@ -210,7 +210,7 @@ export default function PeriodoSelector() {
                 <div>
                   <label htmlFor="mes-select-mobile" className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Mês</label>
                   <Select value={mesSelecionado.toString()} onValueChange={(v) => navegarMes(parseInt(v))}>
-                    <SelectTrigger id="mes-select-mobile" className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="mes-select-mobile" className="w-full h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {meses.map((mes, index) => (
                         <SelectItem key={index} value={index.toString()}>{mes}</SelectItem>
@@ -221,7 +221,7 @@ export default function PeriodoSelector() {
                 <div>
                   <label htmlFor="ano-select-mobile" className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Ano</label>
                   <Select value={anoSelecionado.toString()} onValueChange={(v) => navegarAno(parseInt(v))}>
-                    <SelectTrigger id="ano-select-mobile" className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="ano-select-mobile" className="w-full h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {anosDisponiveis.map((ano) => (
                         <SelectItem key={ano} value={ano.toString()}>{ano}</SelectItem>

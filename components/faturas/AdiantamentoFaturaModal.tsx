@@ -155,7 +155,7 @@ export default function AdiantamentoFaturaModal({
               Conta para débito <span className="text-red-500">*</span>
             </Label>
             <Select value={contaId} onValueChange={setContaId} disabled={loading}>
-              <SelectTrigger className={!contaId && erro ? "border-red-500" : ""}>
+              <SelectTrigger className={`w-full ${!contaId && erro ? "border-red-500" : ""}`}>
                 <SelectValue placeholder="Selecione uma conta" />
               </SelectTrigger>
               <SelectContent className="dark:bg-gray-800 dark:border-gray-700">

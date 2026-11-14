@@ -338,7 +338,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
             Conta Vinculada <span className="text-red-500">*</span>
           </label>
           <Select value={form.contaVinculadaId} onValueChange={(v) => handleChange("contaVinculadaId", v)}>
-            <SelectTrigger className={camposTocados.contaVinculadaId && erros.contaVinculadaId ? "border-red-500 dark:border-red-500" : ""}>
+            <SelectTrigger className={`w-full ${camposTocados.contaVinculadaId && erros.contaVinculadaId ? "border-red-500 dark:border-red-500" : ""}`}>
               <SelectValue placeholder="Selecione a conta vinculada" />
             </SelectTrigger>
             <SelectContent className="dark:bg-gray-800 dark:border-gray-700">

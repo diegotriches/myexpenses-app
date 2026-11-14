@@ -177,7 +177,7 @@ export default function PagarFaturaModal({
             <Select value={contaId} onValueChange={setContaId}>
               <SelectTrigger 
                 id="conta" 
-                className={erro && !contaId ? "border-red-500" : ""}
+                className={`w-full ${erro && !contaId ? "border-red-500" : ""}`}
                 disabled={loading}
               >
                 <SelectValue placeholder="Selecione uma conta" />

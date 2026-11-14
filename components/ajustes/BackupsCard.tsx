@@ -196,7 +196,7 @@ export default function BackupsCard() {
                     }
                     disabled={updatePrefs.isPending}
                   >
-                    <SelectTrigger className="text-sm">
+                    <SelectTrigger className="w-full text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -222,7 +222,7 @@ export default function BackupsCard() {
                       }
                       disabled={updatePrefs.isPending}
                     >
-                      <SelectTrigger className="text-sm">
+                      <SelectTrigger className="w-full text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -249,7 +249,7 @@ export default function BackupsCard() {
                       }
                       disabled={updatePrefs.isPending}
                     >
-                      <SelectTrigger className="text-sm">
+                      <SelectTrigger className="w-full text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="max-h-48">
@@ -311,7 +311,7 @@ export default function BackupsCard() {
                   }
                   disabled={updatePrefs.isPending}
                 >
-                  <SelectTrigger className="text-sm max-w-[200px]">
+                  <SelectTrigger className="w-full text-sm max-w-[200px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

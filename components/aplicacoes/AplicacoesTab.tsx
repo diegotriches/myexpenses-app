@@ -592,7 +592,7 @@ export default function AplicacoesTab({ contas }: Props) {
               <div className="space-y-1.5">
                 <Label>Indexador</Label>
                 <Select value={form.indexador} onValueChange={(v: "cdi" | "selic") => updateForm("indexador", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cdi">CDI</SelectItem>
                     <SelectItem value="selic">Selic</SelectItem>
@@ -616,7 +616,7 @@ export default function AplicacoesTab({ contas }: Props) {
             <div className="space-y-1.5">
               <Label>Tributação</Label>
               <Select value={form.tributacao} onValueChange={(v: "isento" | "tributavel") => updateForm("tributacao", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="tributavel">Tributável (CDB, Tesouro, Fundos...)</SelectItem>
                   <SelectItem value="isento">Isento de IR (LCI, LCA, Poupança...)</SelectItem>
