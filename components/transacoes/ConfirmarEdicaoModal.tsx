@@ -102,7 +102,7 @@ export default function ConfirmarEdicaoModal({
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button disabled={!transacao} onClick={() => onConfirmar(tipoEdicao)}>
+          <Button disabled={!transacao} onClick={() => onConfirmar(tipoEdicao)} className="bg-blue-700 text-white hover:bg-blue-800">
             Continuar
           </Button>
         </div>

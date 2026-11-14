@@ -258,7 +258,7 @@ export function TransferenciaModal({
           <div>
             <label className="text-sm font-medium mb-1.5 block text-gray-700 dark:text-gray-300">
               Descrição{" "}
-              <span className="text-gray-400 dark:text-gray-500 text-xs">(opcional)</span>
+              <span className="text-gray-500 dark:text-gray-400 text-xs">(opcional)</span>
             </label>
             <Input
               placeholder="Ex: Transferência para poupança"

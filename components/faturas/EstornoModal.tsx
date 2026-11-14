@@ -178,7 +178,7 @@ export default function EstornoModal({ compra, onClose }: Props) {
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>Voltar</Button>
-          <Button onClick={confirmar} disabled={!podeConfirmar || registrar.isPending}>
+          <Button onClick={confirmar} disabled={!podeConfirmar || registrar.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
             {registrar.isPending
               ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
               : modo === "cancelar" ? "Cancelar compra" : "Estornar"}

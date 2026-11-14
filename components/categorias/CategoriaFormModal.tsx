@@ -438,7 +438,7 @@ export default function CategoriaFormModal({
                 type="button"
                 onClick={salvar}
                 disabled={botaoDesabilitado}
-                className="flex-1 h-12 bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
+                className="bg-blue-700 text-white hover:bg-blue-800 flex-1 h-12 dark:bg-blue-700 dark:hover:bg-blue-800"
               >
                 {loading ? (
                   <>

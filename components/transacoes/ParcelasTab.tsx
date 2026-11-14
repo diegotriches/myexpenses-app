@@ -468,7 +468,7 @@ export default function ParcelasTab({ onEditar, onExcluir }: Props) {
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setParcelamentoAntecipar(null)}>Cancelar</Button>
-            <Button onClick={confirmarAntecipacao} disabled={antecipar.isPending}>
+            <Button onClick={confirmarAntecipacao} disabled={antecipar.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
               {antecipar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Antecipando...</> : "Confirmar"}
             </Button>
           </DialogFooter>

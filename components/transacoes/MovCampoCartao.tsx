@@ -76,7 +76,7 @@ export default function MovCampoCartao({
   if (isLoading && !hideSelect) {
     return (
       <div>
-        <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">Cartão</label>
+        <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">Cartão</label>
         <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse" />
       </div>
     );
@@ -161,7 +161,7 @@ export default function MovCampoCartao({
   return (
     <>
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-900 dark:text-white">Cartão</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cartão</label>
         <Select value={form.cartaoId} onValueChange={(v) => update("cartaoId", v)} disabled={disabled}>
           <SelectTrigger size="lg" className={`w-full dark:bg-gray-800 dark:border-gray-700 ${triggerErrorClass}`}>
             <SelectValue placeholder="Selecione o cartão">

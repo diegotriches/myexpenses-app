@@ -212,7 +212,7 @@ export default function AdiantamentoFaturaModal({
 
             {/* Input numérico */}
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-gray-400">
                 R$
               </span>
               <InputMoeda
@@ -237,7 +237,7 @@ export default function AdiantamentoFaturaModal({
                   }}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors
                     ${percentualSlider === pct
-                      ? "bg-amber-500 text-white"
+                      ? "bg-amber-700 text-white"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-300"
                     }`}
                 >
@@ -288,7 +288,7 @@ export default function AdiantamentoFaturaModal({
           <Button
             onClick={confirmar}
             disabled={!podeConfirmar}
-            className="bg-amber-500 hover:bg-amber-600 text-white"
+            className="bg-blue-700 text-white hover:bg-blue-800"
           >
             {loading ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</>

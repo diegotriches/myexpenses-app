@@ -401,7 +401,7 @@ export default function RecorrenciasTab({ contas, cartoes }: Props) {
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setRecorrenciaEditar(null)}>Cancelar</Button>
-            <Button onClick={handleSalvarEdicao} disabled={atualizar.isPending}>
+            <Button onClick={handleSalvarEdicao} disabled={atualizar.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
               {atualizar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : "Salvar"}
             </Button>
           </DialogFooter>

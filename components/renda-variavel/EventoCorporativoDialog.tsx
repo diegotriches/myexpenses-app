@@ -211,7 +211,7 @@ export default function EventoCorporativoDialog({ open, onOpenChange, operacoes 
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={confirmar} disabled={criar.isPending || bloqueado}>
+          <Button onClick={confirmar} disabled={criar.isPending || bloqueado} className="bg-blue-700 text-white hover:bg-blue-800">
             {criar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : "Registrar"}
           </Button>
         </DialogFooter>

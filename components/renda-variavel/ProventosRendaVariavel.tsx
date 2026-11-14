@@ -505,7 +505,7 @@ export default function ProventosRendaVariavel({ contas }: Props) {
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={confirmarProvento} disabled={criar.isPending}>
+            <Button onClick={confirmarProvento} disabled={criar.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
               {criar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : "Registrar"}
             </Button>
           </DialogFooter>
@@ -601,7 +601,7 @@ export default function ProventosRendaVariavel({ contas }: Props) {
             <Button variant="outline" onClick={() => setImportOpen(false)}>Cancelar</Button>
             <Button
               onClick={confirmarImportacao}
-              disabled={importar.isPending || !leitura || leitura.proventos.length === 0}
+              disabled={importar.isPending || !leitura || leitura.proventos.length === 0} className="bg-blue-700 text-white hover:bg-blue-800"
             >
               {importar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Importando...</> : "Importar"}
             </Button>

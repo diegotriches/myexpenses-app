@@ -665,7 +665,7 @@ export default function FormMovimentacaoModal({
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={loading} className="flex-1 h-12 font-medium">
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading} className="flex-1 h-12 font-semibold">
+            <Button type="submit" disabled={loading} className="bg-blue-700 text-white hover:bg-blue-800 flex-1 h-12 font-semibold">
               {loading ? (
                 <><FaSpinner className="animate-spin mr-2" size={14} />Salvando...</>
               ) : (

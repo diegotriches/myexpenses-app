@@ -384,7 +384,7 @@ export default function CartaoForm({ initialValues, onSubmit, onCancel }: Props)
       {/* ── BOTÕES ── */}
       <div className="pt-1 flex gap-3">
         <Button type="button" variant="outline" onClick={onCancel} className="flex-1">Cancelar</Button>
-        <Button type="button" onClick={handleSubmit} disabled={temErros} className="flex-1">
+        <Button type="button" onClick={handleSubmit} disabled={temErros} className="bg-blue-700 text-white hover:bg-blue-800 flex-1">
           {initialValues ? "Salvar Alterações" : "Adicionar Cartão"}
         </Button>
       </div>

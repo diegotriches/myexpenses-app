@@ -674,7 +674,7 @@ export default function AplicacoesTab({ contas }: Props) {
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setModalNovaOpen(false)}>Cancelar</Button>
-            <Button onClick={confirmarNovaAplicacao} disabled={criar.isPending}>
+            <Button onClick={confirmarNovaAplicacao} disabled={criar.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
               {criar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Aplicando...</> : "Aplicar"}
             </Button>
           </DialogFooter>
@@ -732,7 +732,7 @@ export default function AplicacoesTab({ contas }: Props) {
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setAporteAlvo(null)}>Cancelar</Button>
-            <Button onClick={confirmarAporte} disabled={aportar.isPending}>
+            <Button onClick={confirmarAporte} disabled={aportar.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
               {aportar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Registrando...</> : "Confirmar aporte"}
             </Button>
           </DialogFooter>
@@ -836,7 +836,7 @@ export default function AplicacoesTab({ contas }: Props) {
             <Button variant="outline" onClick={() => setResgateAlvo(null)}>Cancelar</Button>
             <Button
               onClick={confirmarResgate}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
+              className="bg-blue-700 text-white hover:bg-blue-800"
               disabled={resgatar.isPending}
             >
               {resgatar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Resgatando...</> : "Confirmar resgate"}

@@ -260,7 +260,7 @@ export default function EstabelecimentoFormModal({
             <Button
               type="submit"
               disabled={salvando}
-              className="flex-1 h-11 bg-blue-600 text-white hover:bg-blue-700"
+              className="bg-blue-700 text-white hover:bg-blue-800 flex-1 h-11"
             >
               {salvando ? (
                 <><Loader2 size={16} className="mr-2 animate-spin" />Salvando...</>

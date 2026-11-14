@@ -35,7 +35,7 @@ export default function FaturaFechadaModal({ open, onClose }: Props) {
         </div>
 
         <div className="flex justify-end pt-2">
-          <Button onClick={onClose} className="w-full sm:w-auto">
+          <Button onClick={onClose} className="bg-blue-700 text-white hover:bg-blue-800 w-full sm:w-auto">
             Entendido
           </Button>
         </div>

@@ -374,7 +374,7 @@ export default function ImpostoRendaRendaVariavel() {
             <Button variant="outline" onClick={() => setForm(Object.fromEntries(Object.entries(CONFIG_IR_PADRAO).map(([k, v]) => [k, String(v).replace(".", ",")])))}>
               Restaurar padrão
             </Button>
-            <Button onClick={salvar} disabled={salvarConfig.isPending}>
+            <Button onClick={salvar} disabled={salvarConfig.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
               {salvarConfig.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : "Salvar"}
             </Button>
           </DialogFooter>

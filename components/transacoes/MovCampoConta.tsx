@@ -70,7 +70,7 @@ export default function MovCampoConta({
   if (isLoading && !hideSelect) {
     return (
       <div>
-        <Label className="text-gray-900 dark:text-white">Conta</Label>
+        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Conta</Label>
         <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse" />
       </div>
     );
@@ -79,7 +79,7 @@ export default function MovCampoConta({
   if (queryError && !hideSelect) {
     return (
       <div>
-        <Label className="text-gray-900 dark:text-white">Conta</Label>
+        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Conta</Label>
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-2 flex items-start gap-2">
           <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
           <span className="text-xs text-red-800 dark:text-red-300">
@@ -143,7 +143,7 @@ export default function MovCampoConta({
   return (
     <>
       <div className="space-y-2">
-        <Label className="text-gray-900 dark:text-white">Conta</Label>
+        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Conta</Label>
         <Select value={form.contaId} onValueChange={(v) => update("contaId", v)}>
           <SelectTrigger size="lg" className={`w-full dark:bg-gray-800 dark:border-gray-700 ${triggerErrorClass}`}>
             <SelectValue placeholder="Selecione a conta">

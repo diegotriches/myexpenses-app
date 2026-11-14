@@ -799,7 +799,7 @@ export default function RendaVariavel({ contas }: Props) {
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={confirmarOperacao} disabled={criar.isPending}>
+            <Button onClick={confirmarOperacao} disabled={criar.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
               {criar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : "Registrar"}
             </Button>
           </DialogFooter>
@@ -831,7 +831,7 @@ export default function RendaVariavel({ contas }: Props) {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setCotacaoAlvo(null)}>Cancelar</Button>
-            <Button onClick={confirmarCotacao} disabled={salvarCotacao.isPending}>
+            <Button onClick={confirmarCotacao} disabled={salvarCotacao.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
               {salvarCotacao.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar"}
             </Button>
           </DialogFooter>

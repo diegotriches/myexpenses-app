@@ -473,7 +473,7 @@ export default function ImportarOperacoesDialog({ open, onOpenChange, existentes
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={confirmar} disabled={importar.isPending || !leitura || bloqueado}>
+          <Button onClick={confirmar} disabled={importar.isPending || !leitura || bloqueado} className="bg-blue-700 text-white hover:bg-blue-800">
             {importar.isPending
               ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Importando...</>
               : `Importar ${selecionadas.length || ""}`.trim()}
