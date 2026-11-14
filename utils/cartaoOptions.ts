@@ -56,7 +56,7 @@ export const empresaOptions = [
   { value: "Nubank", label: "Nubank", imgSrc: "/logos/contas/nubank.png" },
   { value: "Nubank PJ", label: "Nubank PJ", imgSrc: "/logos/contas/nubank.pj.png" },
   { value: "Nu-Invest", label: "Nu-Invest", imgSrc: "/logos/contas/nu-invest.png" },
-  { value: "Nu Ultravioleta", label: "Nu Ultravioleta", imgSrc: "/logos/contas/nu-ultravioleta.png" },
+  { value: "Nu Ultravioleta", label: "Nu Ultravioleta", imgSrc: "/logos/contas/nubank-ultravioleta.png" },
   { value: "Original", label: "Original", imgSrc: "/logos/contas/original.png" },
   { value: "Pan", label: "Pan", imgSrc: "/logos/contas/pan.png" },
   { value: "Porto Seguro", label: "Porto Seguro", imgSrc: "/logos/contas/portoseguro.png" },

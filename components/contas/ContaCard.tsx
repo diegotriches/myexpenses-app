@@ -23,6 +23,7 @@ import {
   Landmark,
 } from "lucide-react";
 import { useMoeda } from "@/hooks/useMoeda";
+import { empresaOptions } from "@/utils/cartaoOptions";
 
 interface Props {
   conta: Conta;
@@ -69,7 +70,9 @@ export default function ContaCard({
 }: Props) {
   const fmt = useMoeda();
 
-  const bancoImagem = conta.banco ? `/logos/contas/${conta.banco.toLowerCase()}.png` : null;
+  // Mesmo logo dos outros componentes: o nome do arquivo nem sempre é o nome do banco
+  // em minúsculas (ex.: "BTG Pactual" -> btgpactual.png)
+  const bancoImagem = empresaOptions.find((e) => e.value === conta.banco)?.imgSrc ?? null;
   const mostrarBanco = !!conta.banco && normalizar(conta.banco) !== normalizar(conta.nome);
 
   const corSaldo =
