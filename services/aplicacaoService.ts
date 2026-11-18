@@ -1,3 +1,5 @@
+import { comJson, requisicao } from "@/services/http";
+
 export interface AporteAplicacao {
   id: string;
   aplicacaoId: string;
@@ -115,6 +117,15 @@ export const aplicacaoService = {
         body: JSON.stringify(dados),
       }),
       "Erro ao resgatar aplicação"
+    );
+  },
+
+  /** Liga (debita a conta na data do aporte) ou desfaz o desconto de um aporte */
+  async alterarDescontoAporte(id: string, aporteId: string, descontado: boolean) {
+    return requisicao<{ ok: boolean; descontado: boolean }>(
+      `/api/aplicacoes/${id}/aportes/${aporteId}`,
+      comJson("PATCH", { descontado }),
+      descontado ? "Erro ao descontar o aporte da conta" : "Erro ao desfazer o desconto do aporte",
     );
   },
 

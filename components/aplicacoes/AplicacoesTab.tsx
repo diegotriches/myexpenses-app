@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -21,9 +21,9 @@ import {
 import { cn } from "@/lib/utils";
 import {
   useAplicacoes, useCriarAplicacao, useResgatarAplicacao,
-  useAportarAplicacao, useRecalcularAplicacao,
+  useAportarAplicacao, useRecalcularAplicacao, useDescontoAporte,
 } from "@/hooks/useAplicacoes";
-import type { Aplicacao } from "@/services/aplicacaoService";
+import type { Aplicacao, AporteAplicacao } from "@/services/aplicacaoService";
 import type { Conta } from "@/types/conta";
 import { calcularAliquotaIR } from "@/utils/aplicacaoUtils";
 import {
@@ -53,6 +53,9 @@ export default function AplicacoesTab({ contas }: Props) {
   const resgatar = useResgatarAplicacao();
   const aportar = useAportarAplicacao();
   const recalcular = useRecalcularAplicacao();
+  const descontoAporte = useDescontoAporte();
+  // Aporte cujo desconto na conta está sendo ligado ou desfeito (abre a confirmação)
+  const [descontoAlvo, setDescontoAlvo] = useState<{ aplicacao: Aplicacao; aporte: AporteAplicacao } | null>(null);
 
   const hojeIso = hojeBrt();
 
@@ -513,9 +516,21 @@ export default function AplicacoesTab({ contas }: Props) {
                                             const aliq = a.tributacao === "isento" ? 0 : calcularAliquotaIR(diasEntre(x.data, hojeIso));
                                             return (
                                               <div key={x.id} className="flex items-center justify-between text-xs gap-2 border-b border-gray-100 dark:border-gray-800 pb-1">
-                                                <span className="text-gray-700 dark:text-gray-300">
-                                                  {fmtIso(x.data)}
-                                                  {x.historico && <span className="ml-1 text-[10px] text-gray-400">(histórico)</span>}
+                                                <span className="flex flex-col items-start text-gray-700 dark:text-gray-300">
+                                                  <span>
+                                                    {fmtIso(x.data)}
+                                                    {x.historico && <span className="ml-1 text-[10px] text-gray-400">(histórico)</span>}
+                                                  </span>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => setDescontoAlvo({ aplicacao: a, aporte: x })}
+                                                    className={cn(
+                                                      "text-[11px] font-medium hover:underline",
+                                                      x.historico ? "text-blue-700 dark:text-blue-400" : "text-gray-500 dark:text-gray-400",
+                                                    )}
+                                                  >
+                                                    {x.historico ? "Descontar da conta" : "Desfazer desconto"}
+                                                  </button>
                                                 </span>
                                                 <span className="text-gray-500 dark:text-gray-400">
                                                   {mask(formatarMoeda(Number(x.valor)))} → <strong className="text-gray-900 dark:text-white">{mask(formatarMoeda(Number(x.valorAtual)))}</strong>
@@ -756,6 +771,58 @@ export default function AplicacoesTab({ contas }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Descontar aporte da conta / desfazer o desconto ──────────────── */}
+      {(() => {
+        const alvo = descontoAlvo;
+        const descontar = alvo?.aporte.historico ?? true;
+        const valorAporte = alvo ? mask(formatarMoeda(Number(alvo.aporte.valor))) : "";
+        const conta = alvo ? nomeConta(alvo.aporte.contaId ?? alvo.aplicacao.contaId) : "";
+        const ocupado = descontoAporte.isPending;
+        const fechar = () => { if (!ocupado) setDescontoAlvo(null); };
+        return (
+          <Dialog open={!!alvo} onOpenChange={(v) => { if (!v) fechar(); }}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>{descontar ? "Descontar aporte da conta" : "Desfazer desconto do aporte"}</DialogTitle>
+                <DialogDescription>
+                  {alvo && (
+                    <>
+                      {descontar
+                        ? <>Sai <strong>{valorAporte}</strong> da conta <strong>{conta}</strong>, com o lançamento no extrato em {fmtIso(alvo.aporte.data)}.</>
+                        : <>Volta <strong>{valorAporte}</strong> para a conta <strong>{conta}</strong>, e o lançamento de {fmtIso(alvo.aporte.data)} sai do extrato. O aporte fica como histórico.</>}
+                    </>
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {descontar
+                  ? "Use quando o aporte foi registrado sem tirar o dinheiro da conta. Em data antiga, o saldo mostrado no extrato daquela data em diante fica menor. O rendimento não muda."
+                  : "Use quando o aporte foi descontado por engano, porque o dinheiro já tinha saído da conta. O rendimento não muda."}
+              </p>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={fechar} disabled={ocupado}>Cancelar</Button>
+                <Button
+                  variant={descontar ? "default" : "destructive"}
+                  className={descontar ? "bg-blue-700 text-white hover:bg-blue-800" : undefined}
+                  disabled={ocupado}
+                  onClick={() => {
+                    if (!alvo) return;
+                    descontoAporte.mutate(
+                      { id: alvo.aplicacao.id, aporteId: alvo.aporte.id, descontado: descontar },
+                      { onSuccess: () => setDescontoAlvo(null) },
+                    );
+                  }}
+                >
+                  {ocupado
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{descontar ? "Descontando..." : "Desfazendo..."}</>
+                    : descontar ? "Descontar da conta" : "Desfazer desconto"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {/* ── Modal Aporte ────────────────────────────────────────────────── */}
       <Dialog open={!!aporteAlvo} onOpenChange={(open) => { if (!open) setAporteAlvo(null); }}>

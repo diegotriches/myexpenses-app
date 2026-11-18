@@ -89,6 +89,32 @@ export function useResgatarAplicacao() {
   });
 }
 
+export function useDescontoAporte() {
+  const invalidar = useInvalidarAplicacoes();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, aporteId, descontado }: { id: string; aporteId: string; descontado: boolean }) =>
+      aplicacaoService.alterarDescontoAporte(id, aporteId, descontado),
+    onSuccess: (_r, { descontado }) => {
+      invalidar();
+      toast({
+        title: descontado ? "Aporte descontado da conta" : "Desconto desfeito",
+        description: descontado
+          ? "O valor saiu da conta, com o lançamento no extrato na data do aporte."
+          : "O valor voltou para a conta e o lançamento saiu do extrato. O aporte ficou como histórico.",
+      });
+    },
+    onError: (error: Error, { descontado }) => {
+      toast({
+        title: descontado ? "Erro ao descontar da conta" : "Erro ao desfazer o desconto",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
 export function useRecalcularAplicacao() {
   const invalidar = useInvalidarAplicacoes();
   const { toast } = useToast();
