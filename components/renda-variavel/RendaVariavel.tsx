@@ -19,7 +19,9 @@ import {
 import {
   Plus, LineChart, Loader2, AlertCircle, Info, ChevronDown, ChevronUp,
   Pencil, Trash2, ShoppingCart, HandCoins, RefreshCw, Upload, Shuffle,
+  ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import {
   useRendaVariavel, useCriarOperacaoRv, useExcluirOperacaoRv, useSalvarCotacaoRv,
@@ -118,6 +120,9 @@ export default function RendaVariavel({ contas }: Props) {
   }, [data, carteira.ativos.length]);
 
   const [abertos, setAbertos] = useState<Set<string>>(new Set());
+  // Cards da carteira compactos: só o cabeçalho; clicar abre cotação, custos, proventos e ações.
+  // Separado de `abertos`, que controla a lista de operações dentro do card
+  const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
   const [verEncerrados, setVerEncerrados] = useState(false);
 
   const encerradosRecentes = useMemo(
@@ -299,6 +304,13 @@ export default function RendaVariavel({ contas }: Props) {
       return n;
     });
 
+  const alternarCard = (ticker: string) =>
+    setExpandidos((s) => {
+      const n = new Set(s);
+      if (n.has(ticker)) n.delete(ticker); else n.add(ticker);
+      return n;
+    });
+
   const cor = (v: number) =>
     v >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
   const sinal = (v: number) => (v >= 0 ? "+" : "");
@@ -352,99 +364,133 @@ export default function RendaVariavel({ contas }: Props) {
   // ── Card de ativo aberto ──────────────────────────────────────────────────
   const renderCartaoAtivo = ({ a }: { a: AtivoCarteira }) => {
     const aberto = abertos.has(a.ticker);
+    const expandido = expandidos.has(a.ticker);
     return (
-      <Card className="dark:bg-gray-900 dark:border-gray-800">
-        <CardContent className="pt-5 space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-base font-bold text-gray-900 dark:text-white">{a.ticker}</p>
-                <Badge className={`text-[10px] px-2 py-0.5 border-0 ${COR_TIPO[a.tipoAtivo]}`}>
-                  {TIPO_ATIVO_LABEL[a.tipoAtivo]}
-                </Badge>
+      <Card className="py-0 gap-0 dark:bg-gray-900 dark:border-gray-800">
+        <CardContent className="p-0">
+          {/* Cabeçalho: ticker, unidades, preço médio, valor atual e resultado. Clicar abre o resto */}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={expandido}
+            aria-label={`${a.ticker}: ${expandido ? "ocultar" : "ver"} detalhes`}
+            onClick={() => alternarCard(a.ticker)}
+            onKeyDown={(e) => {
+              if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+              e.preventDefault();
+              alternarCard(a.ticker);
+            }}
+            className="flex items-center gap-2 px-4 py-3.5 cursor-pointer rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-base font-bold text-gray-900 dark:text-white">{a.ticker}</p>
+                    <Badge className={`text-[10px] px-2 py-0.5 border-0 ${COR_TIPO[a.tipoAtivo]}`}>
+                      {TIPO_ATIVO_LABEL[a.tipoAtivo]}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {a.quantidade.toLocaleString("pt-BR")} {a.quantidade === 1 ? "unidade" : "unidades"} · PM {mask(formatarPreco(a.precoMedio))}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">{mask(formatarMoeda(a.valorMercado))}</p>
+                  {a.cotacao !== null ? (
+                    <p className={`text-xs font-medium ${cor(a.resultadoNaoRealizado)}`}>
+                      {mask(`${sinal(a.resultadoNaoRealizado)}${formatarMoeda(a.resultadoNaoRealizado)}`)} ({sinal(a.resultadoPct)}{a.resultadoPct.toFixed(2)}%)
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-700 dark:text-amber-400">sem cotação</p>
+                  )}
+                </div>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {a.quantidade.toLocaleString("pt-BR")} {a.quantidade === 1 ? "unidade" : "unidades"} · PM {mask(formatarPreco(a.precoMedio))}
-              </p>
             </div>
-            <div className="text-right">
-              <p className="text-lg font-bold text-gray-900 dark:text-white">{mask(formatarMoeda(a.valorMercado))}</p>
-              {a.cotacao !== null ? (
-                <p className={`text-xs font-medium ${cor(a.resultadoNaoRealizado)}`}>
-                  {mask(`${sinal(a.resultadoNaoRealizado)}${formatarMoeda(a.resultadoNaoRealizado)}`)} ({sinal(a.resultadoPct)}{a.resultadoPct.toFixed(2)}%)
-                </p>
-              ) : (
-                <p className="text-xs text-amber-700 dark:text-amber-400">sem cotação</p>
-              )}
-            </div>
+            <ChevronDown
+              aria-hidden="true"
+              className={cn("w-4 h-4 flex-shrink-0 text-gray-400 transition-transform duration-300", expandido && "rotate-180")}
+            />
           </div>
 
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2.5 space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Cotação</span>
-              <span className="font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
-                {a.cotacao !== null ? mask(formatarPreco(a.cotacao)) : "—"}
+          {/* Detalhes: a grade anima a altura de 0fr a 1fr; fechado, o conteúdo fica inerte (sem foco) */}
+          <div
+            className={cn(
+              "grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              expandido ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+            )}
+          >
+            <div className="overflow-hidden" inert={!expandido}>
+              <div className="px-4 pb-4 space-y-3">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2.5 space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Cotação</span>
+                    <span className="font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
+                      {a.cotacao !== null ? mask(formatarPreco(a.cotacao)) : "—"}
+                      <button
+                        type="button"
+                        aria-label="Atualizar cotação"
+                        onClick={() => abrirCotacao(a)}
+                        className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                    </span>
+                  </div>
+                  {a.variacaoDia !== null && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Variação no dia</span>
+                      <span className={`font-medium ${cor(a.variacaoDia)}`}>
+                        {sinal(a.variacaoDia)}{a.variacaoDia.toFixed(2)}%
+                      </span>
+                    </div>
+                  )}
+                  {a.cotacaoAtualizadaEm && (
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                      {a.cotacaoFonte === "manual" ? "Informada manualmente" : "Atualizada pela brapi"} em {fmtDataHora(a.cotacaoAtualizadaEm)}
+                    </p>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Custo total</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{mask(formatarMoeda(a.custoTotal))}</span>
+                  </div>
+                  {(provPorTicker.get(a.ticker) ?? 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Proventos recebidos</span>
+                      <span className="font-medium text-purple-600 dark:text-purple-400">
+                        {mask(formatarMoeda(provPorTicker.get(a.ticker) ?? 0))}
+                      </span>
+                    </div>
+                  )}
+                  {a.vendas.length > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Realizado nas vendas</span>
+                      <span className={`font-medium ${cor(a.resultadoRealizado)}`}>{mask(formatarMoeda(a.resultadoRealizado))}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => abrirModal("compra", a.ticker)}>
+                    <ShoppingCart className="w-3.5 h-3.5 mr-1.5" />Comprar
+                  </Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => abrirModal("venda", a.ticker)}>
+                    <HandCoins className="w-3.5 h-3.5 mr-1.5" />Vender
+                  </Button>
+                </div>
+
                 <button
                   type="button"
-                  aria-label="Atualizar cotação"
-                  onClick={() => abrirCotacao(a)}
-                  className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                  onClick={() => alternar(a.ticker)}
+                  className="w-full flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 >
-                  <Pencil className="w-3 h-3" />
+                  {aberto ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  {aberto ? "Ocultar operações" : "Ver operações"}
                 </button>
-              </span>
+                {aberto && renderListaOperacoes({ ticker: a.ticker })}
+              </div>
             </div>
-            {a.variacaoDia !== null && (
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Variação no dia</span>
-                <span className={`font-medium ${cor(a.variacaoDia)}`}>
-                  {sinal(a.variacaoDia)}{a.variacaoDia.toFixed(2)}%
-                </span>
-              </div>
-            )}
-            {a.cotacaoAtualizadaEm && (
-              <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                {a.cotacaoFonte === "manual" ? "Informada manualmente" : "Atualizada pela brapi"} em {fmtDataHora(a.cotacaoAtualizadaEm)}
-              </p>
-            )}
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Custo total</span>
-              <span className="font-medium text-gray-900 dark:text-white">{mask(formatarMoeda(a.custoTotal))}</span>
-            </div>
-            {(provPorTicker.get(a.ticker) ?? 0) > 0 && (
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Proventos recebidos</span>
-                <span className="font-medium text-purple-600 dark:text-purple-400">
-                  {mask(formatarMoeda(provPorTicker.get(a.ticker) ?? 0))}
-                </span>
-              </div>
-            )}
-            {a.vendas.length > 0 && (
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Realizado nas vendas</span>
-                <span className={`font-medium ${cor(a.resultadoRealizado)}`}>{mask(formatarMoeda(a.resultadoRealizado))}</span>
-              </div>
-            )}
           </div>
-
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" className="flex-1" onClick={() => abrirModal("compra", a.ticker)}>
-              <ShoppingCart className="w-3.5 h-3.5 mr-1.5" />Comprar
-            </Button>
-            <Button size="sm" variant="outline" className="flex-1" onClick={() => abrirModal("venda", a.ticker)}>
-              <HandCoins className="w-3.5 h-3.5 mr-1.5" />Vender
-            </Button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => alternar(a.ticker)}
-            className="w-full flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-          >
-            {aberto ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            {aberto ? "Ocultar operações" : "Ver operações"}
-          </button>
-          {aberto && renderListaOperacoes({ ticker: a.ticker })}
         </CardContent>
       </Card>
     );
@@ -543,8 +589,27 @@ export default function RendaVariavel({ contas }: Props) {
 
             <TabsContent value="carteira" className="space-y-4">
               {carteira.ativos.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
-                  {carteira.ativos.map((a) => <Fragment key={a.ticker}>{renderCartaoAtivo({ a })}</Fragment>)}
+                <div className="space-y-2">
+                  <div className="flex justify-end">
+                    {(() => {
+                      const todosExpandidos = carteira.ativos.every((a) => expandidos.has(a.ticker));
+                      return (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs text-gray-600 dark:text-gray-400"
+                          onClick={() => setExpandidos(todosExpandidos ? new Set() : new Set(carteira.ativos.map((a) => a.ticker)))}
+                        >
+                          {todosExpandidos
+                            ? <><ChevronsDownUp className="w-3.5 h-3.5 mr-1.5" />Recolher todos</>
+                            : <><ChevronsUpDown className="w-3.5 h-3.5 mr-1.5" />Expandir todos</>}
+                        </Button>
+                      );
+                    })()}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
+                    {carteira.ativos.map((a) => <Fragment key={a.ticker}>{renderCartaoAtivo({ a })}</Fragment>)}
+                  </div>
                 </div>
               )}
 
