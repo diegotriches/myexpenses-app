@@ -17,7 +17,7 @@ export async function POST(
     if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const { id } = await context.params;
-    const { valor, data, contaId } = await req.json();
+    const { valor, data, contaId, movimentarConta: movimentarSaldo } = await req.json();
 
     const [aplicacao] = await db.select().from(aplicacoes)
       .where(and(eq(aplicacoes.id, id), eq(aplicacoes.userId, userId))).limit(1);
@@ -37,9 +37,10 @@ export async function POST(
     if (aplicacao.dataVencimento && dataAporte >= new Date(aplicacao.dataVencimento).toISOString().split("T")[0])
       return NextResponse.json({ error: "A data do aporte deve ser anterior ao vencimento" }, { status: 400 });
 
-    // Data passada = registro histórico: entra no cálculo de rendimento e IR,
-    // mas não mexe no saldo da conta (o dinheiro já saiu naquela época)
-    const historico = dataAporte < hoje;
+    // Data passada entra no cálculo de rendimento e IR e, por padrão, desconta da
+    // conta com o extrato na data informada. Com movimentarConta: false é só
+    // registro histórico (o dinheiro já tinha saído e não mexe no saldo)
+    const historico = dataAporte < hoje && movimentarSaldo === false;
 
     const contaOrigemId: string = contaId || aplicacao.contaId;
     const [conta] = await db.select().from(contas)
@@ -54,7 +55,7 @@ export async function POST(
           contaId: conta.id,
           tipo: "saida",
           valor: valorNum,
-          data: hoje,
+          data: dataAporte,
           descricao: `Aporte — ${aplicacao.descricao || aplicacao.indexador.toUpperCase()}`,
           origem: "APLICACAO",
           referenciaId: aplicacao.id,

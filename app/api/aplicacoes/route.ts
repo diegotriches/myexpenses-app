@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       contaId, descricao, valor, indexador, percentualIndexador,
-      dataVencimento, tributacao, dataAplicacao, rendeNoDiaAporte,
+      dataVencimento, tributacao, dataAplicacao, rendeNoDiaAporte, movimentarConta: movimentarSaldo,
     } = body;
 
     if (!contaId) return NextResponse.json({ error: "contaId é obrigatório" }, { status: 400 });
@@ -81,14 +81,16 @@ export async function POST(req: NextRequest) {
 
     const hoje = hojeBrt();
 
-    // ✅ NOVO: data do primeiro aporte (padrão: hoje). Data passada = registro
-    // histórico: calcula o rendimento retroativo mas NÃO mexe no saldo da conta
+    // Data do primeiro aporte (padrão: hoje). Data passada calcula o rendimento
+    // retroativo e, por padrão, também desconta da conta, com o extrato na data
+    // informada. Só não mexe no saldo (registro histórico) com movimentarConta: false
     const dataAporte: string = dataAplicacao || hoje;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dataAporte) || isNaN(new Date(dataAporte).getTime()))
       return NextResponse.json({ error: "dataAplicacao inválida" }, { status: 400 });
     if (dataAporte > hoje)
       return NextResponse.json({ error: "A data da aplicação não pode ser futura" }, { status: 400 });
-    const historico = dataAporte < hoje;
+    const retroativa = dataAporte < hoje;
+    const historico = retroativa && movimentarSaldo === false;
 
     let dataVencimentoDate: Date | null = null;
     if (dataVencimento) {
@@ -135,7 +137,7 @@ export async function POST(req: NextRequest) {
           userId, contaId,
           tipo: "saida",
           valor: valorNum,
-          data: hoje,
+          data: dataAporte,
           descricao: `Aplicação — ${descricao || indexador.toUpperCase()}`,
           origem: "APLICACAO",
           referenciaId: criada.id,
@@ -147,7 +149,7 @@ export async function POST(req: NextRequest) {
     });
 
     // aplicação retroativa já nasce com o rendimento calculado até hoje
-    if (historico) {
+    if (retroativa) {
       try { await recalcularAplicacao(novaAplicacao.id); }
       catch (e) { console.error("[Aplicações] recálculo inicial falhou:", e); }
     }

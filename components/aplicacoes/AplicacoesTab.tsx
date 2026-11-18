@@ -76,6 +76,8 @@ export default function AplicacoesTab({ contas }: Props) {
     rendeNoDiaAporte: false,
     semVencimento: false,
     dataVencimento: "",
+    // Data passada: desconta da conta por padrão; desligado, é só registro histórico
+    movimentar: true,
   });
   const [erro, setErro] = useState<string | null>(null);
   const updateForm = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((f) => ({ ...f, [key]: value }));
@@ -83,7 +85,7 @@ export default function AplicacoesTab({ contas }: Props) {
   // ── Aporte ───────────────────────────────────────────────────────────────
   const [aporteAlvo, setAporteAlvo] = useState<Aplicacao | null>(null);
   const [aporteForm, setAporteForm] = useState({
-    contaId: "", tipo: "saida" as "entrada" | "saida", valor: "", data: hojeIso,
+    contaId: "", tipo: "saida" as "entrada" | "saida", valor: "", data: hojeIso, movimentar: true,
   });
   const [erroAporte, setErroAporte] = useState<string | null>(null);
   const updateAporte = <K extends keyof typeof aporteForm>(key: K, value: (typeof aporteForm)[K]) => setAporteForm((f) => ({ ...f, [key]: value }));
@@ -175,6 +177,7 @@ export default function AplicacoesTab({ contas }: Props) {
       contaId: contas[0]?.id ?? "", tipo: "saida", descricao: "", valor: "",
       dataAplicacao: hojeIso, indexador: "cdi", percentualIndexador: "100",
       tributacao: "tributavel", rendeNoDiaAporte: false, semVencimento: false, dataVencimento: "",
+      movimentar: true,
     });
     setErro(null);
     setModalNovaOpen(true);
@@ -201,6 +204,7 @@ export default function AplicacoesTab({ contas }: Props) {
         rendeNoDiaAporte: form.rendeNoDiaAporte,
         dataVencimento: form.semVencimento ? undefined : form.dataVencimento,
         dataAplicacao: form.dataAplicacao,
+        movimentarConta: form.dataAplicacao < hojeIso ? form.movimentar : true,
       });
       setModalNovaOpen(false);
     } catch (err) {
@@ -210,7 +214,7 @@ export default function AplicacoesTab({ contas }: Props) {
 
   // ── Aporte ───────────────────────────────────────────────────────────────
   function abrirAporte(a: Aplicacao) {
-    setAporteForm({ contaId: a.contaId, tipo: "saida", valor: "", data: hojeIso });
+    setAporteForm({ contaId: a.contaId, tipo: "saida", valor: "", data: hojeIso, movimentar: true });
     setErroAporte(null);
     setAporteAlvo(a);
   }
@@ -225,7 +229,12 @@ export default function AplicacoesTab({ contas }: Props) {
     try {
       await aportar.mutateAsync({
         id: aporteAlvo.id,
-        dados: { valor: valorNum, data: aporteForm.data, contaId: aporteForm.contaId || undefined },
+        dados: {
+          valor: valorNum,
+          data: aporteForm.data,
+          contaId: aporteForm.contaId || undefined,
+          movimentarConta: aporteForm.data < hojeIso ? aporteForm.movimentar : true,
+        },
       });
       setAporteAlvo(null);
     } catch (err) {
@@ -620,12 +629,30 @@ export default function AplicacoesTab({ contas }: Props) {
                 onChange={(e) => updateForm("dataAplicacao", e.target.value)}
               />
               {form.dataAplicacao && form.dataAplicacao < hojeIso && (
-                <p className="text-[11px] text-amber-700 dark:text-amber-400 flex items-start gap-1">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-start gap-1">
                   <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                  Data passada: o rendimento e o IR são calculados desde essa data, mas o saldo da conta NÃO é alterado.
+                  Data passada: o rendimento e o IR são calculados desde essa data.
                 </p>
               )}
             </div>
+
+            {form.dataAplicacao && form.dataAplicacao < hojeIso && (
+            <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+              <div>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Descontar do saldo da conta</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {form.movimentar
+                    ? "O valor sai da conta escolhida, com o lançamento no extrato na data informada."
+                    : "Só registro histórico: o rendimento e o IR contam desde essa data, mas o saldo da conta não muda (para quando o dinheiro já saiu da conta)."}
+                </p>
+              </div>
+              <Switch
+                checked={form.movimentar}
+                onCheckedChange={(checked) => updateForm("movimentar", checked)}
+                aria-label="Descontar do saldo da conta"
+              />
+            </div>
+            )}
 
             <div className="space-y-1.5">
               <Label htmlFor="aplicacao-descricao">Descrição (opcional)</Label>
@@ -761,9 +788,9 @@ export default function AplicacoesTab({ contas }: Props) {
                 onChange={(e) => updateAporte("data", e.target.value)}
               />
               {aporteForm.data && aporteForm.data < hojeIso ? (
-                <p className="text-[11px] text-amber-700 dark:text-amber-400 flex items-start gap-1">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-start gap-1">
                   <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                  Data passada: registrado como histórico — o rendimento e o IR contam desde essa data, mas o saldo da conta NÃO é alterado.
+                  Data passada: o rendimento e o IR contam desde essa data.
                 </p>
               ) : (
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
@@ -771,6 +798,24 @@ export default function AplicacoesTab({ contas }: Props) {
                 </p>
               )}
             </div>
+
+            {aporteForm.data && aporteForm.data < hojeIso && (
+            <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+              <div>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Descontar do saldo da conta</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {aporteForm.movimentar
+                    ? "O valor sai da conta escolhida, com o lançamento no extrato na data informada."
+                    : "Só registro histórico: o rendimento e o IR contam desde essa data, mas o saldo da conta não muda (para quando o dinheiro já saiu da conta)."}
+                </p>
+              </div>
+              <Switch
+                checked={aporteForm.movimentar}
+                onCheckedChange={(checked) => updateAporte("movimentar", checked)}
+                aria-label="Descontar do saldo da conta"
+              />
+            </div>
+            )}
 
             {erroAporte && (
               <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">

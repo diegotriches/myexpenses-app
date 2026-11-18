@@ -33,12 +33,14 @@ export function useCriarAplicacao() {
     mutationFn: (dados: CreateAplicacaoDTO) => aplicacaoService.criar(dados),
     onSuccess: (_d, vars) => {
       invalidar();
-      const historico = !!vars.dataAplicacao && vars.dataAplicacao < hojeBrt();
+      const retroativa = !!vars.dataAplicacao && vars.dataAplicacao < hojeBrt();
       toast({
         title: "Aplicação criada!",
-        description: historico
-          ? "Registrada como histórico: o rendimento desde a data informada foi calculado e o saldo da conta não foi alterado."
-          : "O valor foi debitado da conta e começa a render a partir do próximo dia útil.",
+        description: !retroativa
+          ? "O valor foi debitado da conta e começa a render a partir do próximo dia útil."
+          : vars.movimentarConta === false
+            ? "Registrada como histórico: o rendimento desde a data informada foi calculado e o saldo da conta não foi alterado."
+            : "O valor foi debitado da conta na data informada, e o rendimento desde então já foi calculado.",
       });
     },
     onError: (error: Error) => {
@@ -53,9 +55,14 @@ export function useAportarAplicacao() {
 
   return useMutation({
     mutationFn: ({ id, dados }: { id: string; dados: AportarDTO }) => aplicacaoService.aportar(id, dados),
-    onSuccess: () => {
+    onSuccess: (_d, { dados }) => {
       invalidar();
-      toast({ title: "Aporte registrado!", description: "O rendimento e o IR desse aporte passam a ser calculados separadamente." });
+      toast({
+        title: "Aporte registrado!",
+        description: dados.movimentarConta === false
+          ? "Registrado como histórico, sem alterar o saldo da conta. O rendimento e o IR desse aporte são calculados separadamente."
+          : "O valor foi debitado da conta. O rendimento e o IR desse aporte são calculados separadamente.",
+      });
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao registrar aporte", description: error.message, variant: "destructive" });

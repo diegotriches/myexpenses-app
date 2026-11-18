@@ -55,13 +55,15 @@ export interface CreateAplicacaoDTO {
   tributacao: "isento" | "tributavel";
   rendeNoDiaAporte?: boolean; // omitido = rende a partir do dia útil seguinte
   dataVencimento?: string; // YYYY-MM-DD — omitido = liquidez diária
-  dataAplicacao?: string;  // YYYY-MM-DD — omitido = hoje; passado = histórico
+  dataAplicacao?: string;  // YYYY-MM-DD — omitido = hoje
+  movimentarConta?: boolean; // false + data passada = só histórico, sem descontar da conta
 }
 
 export interface AportarDTO {
   valor: number;
   data?: string;
   contaId?: string;
+  movimentarConta?: boolean; // false + data passada = só histórico, sem descontar da conta
 }
 
 export interface ResgatarDTO {
