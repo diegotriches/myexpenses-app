@@ -24,7 +24,7 @@ import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { TIPO_ATIVO_LABEL } from "@/utils/rendaVariavelUtils";
 import { TIPO_PROVENTO_LABEL, type TipoProvento } from "@/utils/proventosUtils";
 import {
-  CONFIG_IR_PADRAO, apurarVendas, apurarMeses, resumirAnos, bensEDireitosEm,
+  CONFIG_IR_PADRAO, apurarVendas, apurarMeses, resumirAnos, bensEDireitosEm, darfsEmAberto,
   type ConfigIr, type MesIr, type OperacaoIr,
 } from "@/utils/irRendaVariavelUtils";
 import { formatarMoeda } from "@/utils/formatadores";
@@ -70,11 +70,7 @@ export default function ImpostoRendaRendaVariavel() {
   const meses = useMemo(() => apurarMeses(apurarVendas(operacoes), config), [operacoes, config]);
   const anos = useMemo(() => resumirAnos(meses), [meses]);
 
-  const darfs = useMemo(
-    () => meses.filter((m) => m.darf).map((m) => ({ competencia: m.competencia, ...m.darf! })),
-    [meses],
-  );
-  const darfsAbertos = darfs.filter((d) => !pagos.has(d.competencia));
+  const darfsAbertos = darfsEmAberto(meses, pagos).map((m) => ({ competencia: m.competencia, ...m.darf! }));
   const ultimoMes = meses[meses.length - 1];
   const prejuizo = ultimoMes?.prejuizoFinal ?? {
     comum: config.prejuizoInicialComum, fii: config.prejuizoInicialFii, day: config.prejuizoInicialDayTrade,

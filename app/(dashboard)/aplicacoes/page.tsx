@@ -1,30 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { TrendingUp } from "lucide-react";
 import { useContas } from "@/hooks/useContas";
 import AplicacoesTab from "@/components/aplicacoes/AplicacoesTab";
 import ResumoInvestimentos from "@/components/aplicacoes/ResumoInvestimentos";
 import ResumoRendaVariavel from "@/components/renda-variavel/ResumoRendaVariavel";
-import RendaVariavel from "@/components/renda-variavel/RendaVariavel";
+import RendaVariavel, { SECOES_RV, type SecaoRv } from "@/components/renda-variavel/RendaVariavel";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AbasSecao } from "@/components/common/AbasSecao";
 
 type AbaType = "renda-fixa" | "renda-variavel";
 
-export default function AplicacoesPage() {
-  const { data: contas = [], isLoading } = useContas();
-  const [aba, setAba] = useState<AbaType>("renda-fixa");
+const ehSecaoRv = (v: string | null): v is SecaoRv => !!v && (SECOES_RV as readonly string[]).includes(v);
 
-  if (isLoading) {
-    return (
-      <div className="page-container p-4 md:p-6">
-        <div className="flex items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700" />
-        </div>
+/**
+ * Aba e seção vêm do endereço: sem ?rv= abre a renda fixa; com ?rv=carteira|historico|proventos|ir,
+ * a renda variável na seção indicada. Atualizar a página ou voltar mantém o lugar.
+ * A troca usa history.replaceState (o Next sincroniza o useSearchParams), então não há navegação:
+ * a página não remonta nem repete a animação de entrada.
+ */
+function trocarEndereco(rv: SecaoRv | null) {
+  const params = new URLSearchParams(window.location.search);
+  if (rv) params.set("rv", rv); else params.delete("rv");
+  const busca = params.toString();
+  window.history.replaceState(null, "", `${window.location.pathname}${busca ? `?${busca}` : ""}`);
+}
+
+function CarregandoAplicacoes() {
+  return (
+    <div className="page-container p-4 md:p-6">
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700" />
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+/** useSearchParams() fica neste componente interno, envolvido por <Suspense> (sem isso o build falha). */
+function AplicacoesContent() {
+  const { data: contas = [], isLoading } = useContas();
+  const rvParam = useSearchParams().get("rv");
+  const secaoRv: SecaoRv | null = ehSecaoRv(rvParam) ? rvParam : null;
+  const aba: AbaType = secaoRv ? "renda-variavel" : "renda-fixa";
+
+  if (isLoading) return <CarregandoAplicacoes />;
 
   return (
     <div className="page-container p-4 md:p-6 space-y-6">
@@ -45,7 +66,7 @@ export default function AplicacoesPage() {
           { id: "renda-variavel", rotulo: "Renda variável" },
         ] as const}
         ativa={aba}
-        onChange={setAba}
+        onChange={(a) => trocarEndereco(a === "renda-variavel" ? "carteira" : null)}
       />
 
       {/* key: o conteúdo da aba é recriado na troca e entra com a mesma animação das outras abas */}
@@ -53,9 +74,17 @@ export default function AplicacoesPage() {
         {aba === "renda-fixa" ? (
           <AplicacoesTab contas={contas} />
         ) : (
-          <RendaVariavel contas={contas} />
+          <RendaVariavel contas={contas} secao={secaoRv ?? "carteira"} onSecaoChange={trocarEndereco} />
         )}
       </div>
     </div>
+  );
+}
+
+export default function AplicacoesPage() {
+  return (
+    <Suspense fallback={<CarregandoAplicacoes />}>
+      <AplicacoesContent />
+    </Suspense>
   );
 }

@@ -155,8 +155,9 @@ export function CardCarteira() {
           </div>
 
           {darfsAbertos.length > 0 && proximoDarf && (
+            // abre direto a seção de IR da renda variável
             <Link
-              href="/aplicacoes"
+              href="/aplicacoes?rv=ir"
               className="flex items-start gap-2 p-2.5 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/30 dark:hover:bg-amber-950/50 transition-colors"
             >
               <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />

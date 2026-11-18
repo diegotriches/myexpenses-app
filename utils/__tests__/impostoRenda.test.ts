@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { apurarMeses, CONFIG_IR_PADRAO, vencimentoDarf, type VendaIr } from "@/utils/irRendaVariavelUtils";
+import { apurarMeses, CONFIG_IR_PADRAO, darfsEmAberto, vencimentoDarf, type VendaIr } from "@/utils/irRendaVariavelUtils";
 
 const venda = (v: Partial<VendaIr> & Pick<VendaIr, "data" | "valorBruto" | "resultado">): VendaIr => ({
   ticker: "PETR4",
@@ -97,5 +97,22 @@ describe("apurarMeses", () => {
     );
     expect(mes.imposto.total).toBe(0);
     expect(mes.prejuizoFinal.comum).toBe(0);
+  });
+});
+
+describe("darfsEmAberto", () => {
+  const darf = { valor: 50, vencimento: "2026-03-31", codigo: "6015", acumuladoAnterior: 0 };
+  const meses = [
+    { competencia: "2026-01", darf },
+    { competencia: "2026-02", darf: null },
+    { competencia: "2026-03", darf },
+  ];
+
+  it("lista os meses com DARF que ainda não foram marcados como pagos", () => {
+    expect(darfsEmAberto(meses, ["2026-01"]).map((m) => m.competencia)).toEqual(["2026-03"]);
+  });
+
+  it("mês sem DARF nunca entra, e sem pagos entram todos os que têm DARF", () => {
+    expect(darfsEmAberto(meses, []).map((m) => m.competencia)).toEqual(["2026-01", "2026-03"]);
   });
 });

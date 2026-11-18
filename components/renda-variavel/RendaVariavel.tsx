@@ -25,8 +25,10 @@ import { cn } from "@/lib/utils";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import {
   useRendaVariavel, useCriarOperacaoRv, useExcluirOperacaoRv, useSalvarCotacaoRv,
-  useAtualizarCotacoesRv, useProventosRv,
+  useAtualizarCotacoesRv, useProventosRv, useIrRv,
 } from "@/hooks/useRendaVariavel";
+import { CONFIG_IR_PADRAO, apurarMeses, apurarVendas, darfsEmAberto } from "@/utils/irRendaVariavelUtils";
+import { SeletorSegmentado } from "@/components/common/SeletorSegmentado";
 import type { OperacaoRvApi } from "@/services/rendaVariavelService";
 import type { Conta } from "@/types/conta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
@@ -41,12 +43,17 @@ import ImpostoRendaRendaVariavel from "@/components/renda-variavel/ImpostoRendaR
 import EventoCorporativoDialog from "@/components/renda-variavel/EventoCorporativoDialog";
 import ImportarOperacoesDialog from "@/components/renda-variavel/ImportarOperacoesDialog";
 import { EVENTO_LABEL, calcularPosicoes, dataEncerramento, encerramentoRecente } from "@/utils/rendaVariavelUtils";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatarMoeda } from "@/utils/formatadores";
 import { textoDoErro } from "@/utils/erro";
 
+/** Seções da renda variável, no seletor do topo e no endereço (?rv=) */
+export const SECOES_RV = ["carteira", "historico", "proventos", "ir"] as const;
+export type SecaoRv = (typeof SECOES_RV)[number];
+
 interface Props {
   contas: Conta[];
+  secao: SecaoRv;
+  onSecaoChange: (secao: SecaoRv) => void;
 }
 
 const formatarPreco = (valor: number) =>
@@ -89,7 +96,7 @@ interface FormOperacao {
   movimentar: boolean;
 }
 
-export default function RendaVariavel({ contas }: Props) {
+export default function RendaVariavel({ contas, secao, onSecaoChange }: Props) {
   const { mask } = useHideValues();
   const { data, isLoading } = useRendaVariavel();
   const criar = useCriarOperacaoRv();
@@ -147,6 +154,16 @@ export default function RendaVariavel({ contas }: Props) {
       }));
   }, [carteira.encerrados, hojeIso]);
   const totalHistorico = historicoPorAno.reduce((s, g) => s + g.posicoes.length, 0);
+
+  // DARFs gerados e não marcados como pagos: sinal na aba "Imposto de renda", para não passar
+  // despercebido com o IR em outra aba. Mesma apuração da seção de IR
+  const { data: ir } = useIrRv();
+  const qtdDarfsAbertos = useMemo(
+    () => darfsEmAberto(apurarMeses(apurarVendas(operacoes), ir?.config ?? CONFIG_IR_PADRAO), ir?.darfsPagos ?? []).length,
+    [operacoes, ir],
+  );
+  // Sem posições antigas, a aba Histórico não aparece; quem chegar por ?rv=historico vê a carteira
+  const secaoAtiva: SecaoRv = secao === "historico" && totalHistorico === 0 ? "carteira" : secao;
 
   // Sugestão de preço: a cotação só faz sentido para uma operação de hoje
   function precoSugerido(ticker: string, data: string): string {
@@ -530,64 +547,92 @@ export default function RendaVariavel({ contas }: Props) {
   // ── Render ─────────────────────────────────────────────────────────────────
   const vazio = carteira.ativos.length === 0 && carteira.encerrados.length === 0;
 
+  // Opções do seletor: Carteira, Histórico (só com posições antigas), Proventos e IR
+  const contador = (n: number) => <span className="text-xs tabular-nums text-muted-foreground">{n}</span>;
+  const opcoesSecao = [
+    { valor: "carteira" as const, rotulo: "Carteira", extra: carteira.ativos.length > 0 ? contador(carteira.ativos.length) : undefined },
+    ...(totalHistorico > 0 ? [{ valor: "historico" as const, rotulo: "Histórico", extra: contador(totalHistorico) }] : []),
+    { valor: "proventos" as const, rotulo: "Proventos" },
+    {
+      valor: "ir" as const,
+      rotulo: "Imposto de renda",
+      rotuloCurto: "IR",
+      extra: qtdDarfsAbertos > 0 ? (
+        <span
+          title={`${qtdDarfsAbertos} DARF${qtdDarfsAbertos > 1 ? "s" : ""} em aberto`}
+          aria-label={`${qtdDarfsAbertos} DARF${qtdDarfsAbertos > 1 ? "s" : ""} em aberto`}
+          className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white"
+        >
+          {qtdDarfsAbertos}
+        </span>
+      ) : undefined,
+    },
+  ];
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xl">
-          Ações, FIIs, ETFs e BDRs. Preço médio por CPF, somando todas as corretoras. Cotações pela brapi, com cerca de 30 minutos de atraso.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {carteira.ativos.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => atualizarCotacoes.mutate({ forcar: true })}
-              disabled={atualizarCotacoes.isPending}
-            >
-              <RefreshCw className={`w-4 h-4 mr-1.5 ${atualizarCotacoes.isPending ? "animate-spin" : ""}`} />
-              Atualizar cotações
-            </Button>
-          )}
-          <Button variant="outline" onClick={() => setEventoOpen(true)}>
-            <Shuffle className="w-4 h-4 mr-1.5" />
-            Evento corporativo
-          </Button>
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <Upload className="w-4 h-4 mr-1.5" />
-            Importar B3
-          </Button>
-          <Button onClick={() => abrirModal("compra")} className="bg-blue-700 hover:bg-blue-900 text-white">
-            <Plus className="w-4 h-4 mr-1.5" />
-            Nova operação
-          </Button>
-        </div>
-      </div>
+      {/* Seções da renda variável: uma por vez, para a página não ficar extensa */}
+      <SeletorSegmentado
+        ariaLabel="Seção da renda variável"
+        opcoes={opcoesSecao}
+        valor={secaoAtiva}
+        onChange={onSecaoChange}
+        chave={`${carteira.ativos.length}|${totalHistorico}|${qtdDarfsAbertos}`}
+        classNameLista="w-full sm:w-fit"
+      />
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Skeleton className="h-56 w-full" />
-          <Skeleton className="h-56 w-full" />
-        </div>
-      ) : vazio ? (
-        <div className="text-center py-12 md:py-16 bg-gray-50 dark:bg-gray-900/40 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
-          <LineChart className="mx-auto mb-4 text-gray-300 dark:text-gray-700" size={48} />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Nenhum ativo na carteira
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto px-4">
-            Registre sua primeira compra para acompanhar posição, preço médio e resultado.
-          </p>
-        </div>
-      ) : (
-        <>
-          <Tabs defaultValue="carteira" className="space-y-4 motion-safe:animate-conteudo-in">
-            {totalHistorico > 0 && (
-              <TabsList>
-                <TabsTrigger value="carteira">Carteira</TabsTrigger>
-                <TabsTrigger value="historico">Histórico ({totalHistorico})</TabsTrigger>
-              </TabsList>
-            )}
+      {/* key: a seção nova entra com a mesma animação das outras trocas de aba */}
+      <div key={secaoAtiva} className="space-y-4 motion-safe:animate-conteudo-in">
+        {(secaoAtiva === "carteira" || secaoAtiva === "historico") && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xl">
+              Ações, FIIs, ETFs e BDRs. Preço médio por CPF, somando todas as corretoras. Cotações pela brapi, com cerca de 30 minutos de atraso.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {carteira.ativos.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => atualizarCotacoes.mutate({ forcar: true })}
+                  disabled={atualizarCotacoes.isPending}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-1.5 ${atualizarCotacoes.isPending ? "animate-spin" : ""}`} />
+                  Atualizar cotações
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setEventoOpen(true)}>
+                <Shuffle className="w-4 h-4 mr-1.5" />
+                Evento corporativo
+              </Button>
+              <Button variant="outline" onClick={() => setImportOpen(true)}>
+                <Upload className="w-4 h-4 mr-1.5" />
+                Importar B3
+              </Button>
+              <Button onClick={() => abrirModal("compra")} className="bg-blue-700 hover:bg-blue-900 text-white">
+                <Plus className="w-4 h-4 mr-1.5" />
+                Nova operação
+              </Button>
+            </div>
+          </div>
+        )}
 
-            <TabsContent value="carteira" className="space-y-4">
+        {secaoAtiva === "carteira" && (
+          isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Skeleton className="h-56 w-full" />
+              <Skeleton className="h-56 w-full" />
+            </div>
+          ) : vazio ? (
+            <div className="text-center py-12 md:py-16 bg-gray-50 dark:bg-gray-900/40 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+              <LineChart className="mx-auto mb-4 text-gray-300 dark:text-gray-700" size={48} />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Nenhum ativo na carteira
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto px-4">
+                Registre sua primeira compra para acompanhar posição, preço médio e resultado.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4 motion-safe:animate-conteudo-in">
               {carteira.ativos.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex justify-end">
@@ -630,31 +675,32 @@ export default function RendaVariavel({ contas }: Props) {
                   )}
                 </div>
               )}
-            </TabsContent>
+            </div>
+          )
+        )}
 
-            <TabsContent value="historico" className="space-y-6">
-              {historicoPorAno.map((g) => (
-                <div key={g.ano} className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{g.ano}</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Resultado realizado: <span className={`font-medium ${cor(g.resultado)}`}>{mask(formatarMoeda(g.resultado))}</span>
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3 items-start">
-                    {g.posicoes.map((p) => <Fragment key={p.ticker}>{renderCartaoEncerrado({ p })}</Fragment>)}
-                  </div>
+        {secaoAtiva === "historico" && (
+          <div className="space-y-6">
+            {historicoPorAno.map((g) => (
+              <div key={g.ano} className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{g.ano}</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Resultado realizado: <span className={`font-medium ${cor(g.resultado)}`}>{mask(formatarMoeda(g.resultado))}</span>
+                  </p>
                 </div>
-              ))}
-            </TabsContent>
-          </Tabs>
-        </>
-      )}
+                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3 items-start">
+                  {g.posicoes.map((p) => <Fragment key={p.ticker}>{renderCartaoEncerrado({ p })}</Fragment>)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-      {/* ── Proventos ───────────────────────────────────────────────────── */}
-      <ProventosRendaVariavel contas={contas} />
+        {secaoAtiva === "proventos" && <ProventosRendaVariavel contas={contas} />}
 
-      <ImpostoRendaRendaVariavel />
+        {secaoAtiva === "ir" && <ImpostoRendaRendaVariavel />}
+      </div>
 
       <ImportarOperacoesDialog open={importOpen} onOpenChange={setImportOpen} existentes={operacoes} />
 

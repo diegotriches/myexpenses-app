@@ -244,3 +244,12 @@ export function bensEDireitosEm(ops: OperacaoRv[], ate: string): BemDireito[] {
     .map((p) => ({ ticker: p.ticker, tipoAtivo: p.tipoAtivo, quantidade: p.quantidade, custoTotal: r2(p.custoTotal) }))
     .sort((a, b) => a.ticker.localeCompare(b.ticker));
 }
+
+/**
+ * Meses com DARF gerado e ainda não marcado como pago (marcar é só controle do usuário).
+ * Usado na seção de IR e no sinal da aba "Imposto de renda".
+ */
+export function darfsEmAberto<M extends Pick<MesIr, "competencia" | "darf">>(meses: M[], pagos: Iterable<string>): M[] {
+  const jaPagos = new Set(pagos);
+  return meses.filter((m) => m.darf && !jaPagos.has(m.competencia));
+}
