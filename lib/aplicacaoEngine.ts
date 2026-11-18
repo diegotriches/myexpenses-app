@@ -11,15 +11,21 @@ import {
 import { and, asc, eq, gte, lte, max, min, notInArray, sql } from "drizzle-orm";
 import {
   simularAplicacao, simularResgateFifo, hojeBrt, somarDias, arredondar2,
-  type ResultadoSimulacao,
+  type ResultadoSimulacao, type TaxaDia,
 } from "@/utils/aplicacaoSimulacao";
+import {
+  ehIndexadorTesouro, mesReferenciaIpca, nomeIndexador, somarMes, taxasDiariasTesouro,
+  type IndexadorTesouro,
+} from "@/utils/tesouroUtils";
 import type { Tributacao } from "@/utils/aplicacaoUtils";
 import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { formatarMoeda } from "@/utils/formatadores";
 
-// Séries SGS do Banco Central — já retornam a taxa diária em %
-const SERIES_BCB = { cdi: 12, selic: 11 } as const;
-type Indexador = keyof typeof SERIES_BCB;
+// Séries SGS do Banco Central: CDI e Selic já retornam a taxa diária em %;
+// o IPCA (433) é a variação mensal em %, com a data no dia 1º do mês
+const SERIES_BCB = { cdi: 12, selic: 11, ipca: 433 } as const;
+type SerieBcb = keyof typeof SERIES_BCB;
+type Indexador = "cdi" | "selic";
 
 const paraDataIso = (d: Date) => d.toISOString().split("T")[0];
 
@@ -29,7 +35,7 @@ function paraDataBcb(iso: string): string {
 }
 
 async function buscarTaxasBcb(
-  indexador: Indexador,
+  indexador: SerieBcb,
   inicioIso: string,
   fimIso: string
 ): Promise<Array<{ data: string; taxa: string }> | null> {
@@ -128,6 +134,77 @@ export async function garantirTaxas(indexador: Indexador, inicio: string, fim: s
 }
 
 /**
+ * Garante o IPCA mensal em cache (`taxas_diarias`, indexador "ipca", dia 1º
+ * do mês) dos meses que correm entre `inicio` e `fim`. O IPCA de um mês sai
+ * só no mês seguinte: enquanto não sai, a busca volta vazia e o cálculo repete
+ * o último publicado (ver utils/tesouroUtils.ts).
+ */
+export async function garantirIpca(inicio: string, fim: string): Promise<string> {
+  const primeiroMes = mesReferenciaIpca(inicio);
+  const ultimoMes = mesReferenciaIpca(fim);
+
+  const [r] = await db
+    .select({ minData: min(taxasDiarias.data), maxData: max(taxasDiarias.data) })
+    .from(taxasDiarias)
+    .where(eq(taxasDiarias.indexador, "ipca"));
+  const minMes = r?.minData?.slice(0, 7) ?? null;
+  const maxMes = r?.maxData?.slice(0, 7) ?? null;
+
+  const faixas: Array<[string, string]> = [];
+  if (!minMes || !maxMes) {
+    faixas.push([`${primeiroMes}-01`, fim]);
+  } else {
+    if (primeiroMes < minMes) faixas.push([`${primeiroMes}-01`, `${minMes}-01`]);
+    if (maxMes < ultimoMes) faixas.push([`${somarMes(maxMes, 1)}-01`, fim]);
+  }
+  if (faixas.length === 0) return "cache completo";
+
+  let falhou = false;
+  let total = 0;
+  for (const [ini, fi] of faixas) {
+    const taxas = await buscarTaxasBcb("ipca", ini, fi);
+    if (!taxas) { falhou = true; continue; }
+    if (taxas.length > 0) {
+      await db.insert(taxasDiarias)
+        .values(taxas.map((t) => ({ indexador: "ipca", data: t.data, taxaPercentual: t.taxa, fonte: "bcb" })))
+        .onConflictDoNothing();
+      total += taxas.length;
+    }
+  }
+  return falhou ? "BCB indisponível — usou o cache" : `ok (${total} mês(es) novos)`;
+}
+
+/**
+ * Taxas diárias de um título do Tesouro (Prefixado ou IPCA+) entre `inicio` e
+ * `fim`. Os dias úteis são as datas da série do CDI (o Banco Central só a
+ * publica em dia útil), então feriados ficam de fora sem calendário próprio.
+ */
+async function taxasTesouro(
+  indexador: IndexadorTesouro,
+  taxaAnual: number,
+  inicio: string,
+  fim: string,
+): Promise<{ taxas: TaxaDia[]; statusBcb: string }> {
+  const statusCdi = await garantirTaxas("cdi", inicio, fim);
+  const dias = await db.select({ data: taxasDiarias.data }).from(taxasDiarias)
+    .where(and(eq(taxasDiarias.indexador, "cdi"), gte(taxasDiarias.data, inicio), lte(taxasDiarias.data, fim)))
+    .orderBy(asc(taxasDiarias.data));
+
+  let ipcaMensal: Record<string, number> | undefined;
+  let statusBcb = `dias úteis (CDI): ${statusCdi}`;
+  if (indexador === "ipca") {
+    const statusIpca = await garantirIpca(inicio, fim);
+    const linhas = await db.select({ data: taxasDiarias.data, taxa: taxasDiarias.taxaPercentual })
+      .from(taxasDiarias).where(eq(taxasDiarias.indexador, "ipca"));
+    ipcaMensal = Object.fromEntries(linhas.map((l) => [l.data.slice(0, 7), Number(l.taxa)]));
+    statusBcb += `; IPCA: ${statusIpca}`;
+  }
+
+  const { taxas } = taxasDiariasTesouro({ indexador, taxaAnual, diasUteis: dias.map((d) => d.data), ipcaMensal });
+  return { taxas, statusBcb };
+}
+
+/**
  * Recalcula a aplicação do ZERO (todos os aportes e resgates, em ordem) e
  * grava o resultado: estado de cada lote, totais da aplicação e o
  * rendimento diário. É idempotente — rodar duas vezes dá o mesmo resultado.
@@ -152,24 +229,36 @@ export async function recalcularAplicacao(aplicacaoId: string): Promise<{
   const fim = vencIso && vencIso < hoje ? vencIso : hoje;
   const inicio = aportes[0].data;
 
-  const statusBcb = await garantirTaxas(ap.indexador as Indexador, inicio, fim);
-
-  const taxasRows = await db.select().from(taxasDiarias)
-    .where(and(
-      eq(taxasDiarias.indexador, ap.indexador),
-      gte(taxasDiarias.data, inicio),
-      lte(taxasDiarias.data, fim),
-    ))
-    .orderBy(asc(taxasDiarias.data));
+  // Tesouro: taxa diária gerada da taxa contratada (e do IPCA), a 100%.
+  // CDI/Selic: taxa publicada pelo BCB, ao percentual contratado
+  let statusBcb: string;
+  let taxas: TaxaDia[];
+  let percentual: number;
+  if (ehIndexadorTesouro(ap.indexador)) {
+    const t = await taxasTesouro(ap.indexador, Number(ap.taxaAnual ?? 0), inicio, fim);
+    ({ taxas, statusBcb } = t);
+    percentual = 100;
+  } else {
+    statusBcb = await garantirTaxas(ap.indexador as Indexador, inicio, fim);
+    const taxasRows = await db.select().from(taxasDiarias)
+      .where(and(
+        eq(taxasDiarias.indexador, ap.indexador),
+        gte(taxasDiarias.data, inicio),
+        lte(taxasDiarias.data, fim),
+      ))
+      .orderBy(asc(taxasDiarias.data));
+    taxas = taxasRows.map((t) => ({ data: t.data, taxa: Number(t.taxaPercentual) }));
+    percentual = Number(ap.percentualIndexador);
+  }
 
   const sim = simularAplicacao({
-    percentual: Number(ap.percentualIndexador),
+    percentual,
     tributacao: ap.tributacao as Tributacao,
     aportes: aportes.map((a) => ({ id: a.id, data: a.data, valor: Number(a.valor) })),
     resgates: resgates.map((r) => ({
       id: r.id, data: r.data, valorBruto: Number(r.valorBruto), total: r.tipo === "total",
     })),
-    taxas: taxasRows.map((t) => ({ data: t.data, taxa: Number(t.taxaPercentual) })),
+    taxas,
     ate: fim,
     rendeNoDiaAporte: ap.rendeNoDiaAporte,
   });
@@ -315,8 +404,8 @@ export async function executarResgate(params: {
       valor: valorLiquido,
       data: hoje,
       descricao: impostoRetido > 0
-        ? `${rotulo} — ${ap.descricao || "Aplicação"} (IR retido: ${formatarMoeda(impostoRetido)})`
-        : `${rotulo} — ${ap.descricao || "Aplicação"}`,
+        ? `${rotulo} — ${ap.descricao || nomeIndexador(ap.indexador)} (IR retido: ${formatarMoeda(impostoRetido)})`
+        : `${rotulo} — ${ap.descricao || nomeIndexador(ap.indexador)}`,
       origem: "RESGATE_APLICACAO",
       referenciaId: ap.id,
     });

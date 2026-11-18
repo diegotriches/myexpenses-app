@@ -7,6 +7,7 @@ import { movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { recalcularAplicacao } from "@/lib/aplicacaoEngine";
 import { respostaDeErro } from "@/lib/rota";
+import { nomeIndexador } from "@/utils/tesouroUtils";
 
 export async function POST(
   req: NextRequest,
@@ -56,7 +57,7 @@ export async function POST(
           tipo: "saida",
           valor: valorNum,
           data: dataAporte,
-          descricao: `Aporte — ${aplicacao.descricao || aplicacao.indexador.toUpperCase()}`,
+          descricao: `Aporte — ${aplicacao.descricao || nomeIndexador(aplicacao.indexador)}`,
           origem: "APLICACAO",
           referenciaId: aplicacao.id,
           mensagemSaldoInsuficiente: "Saldo insuficiente na conta para esse aporte",

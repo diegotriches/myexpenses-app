@@ -1,4 +1,5 @@
 import { comJson, requisicao } from "@/services/http";
+import type { Indexador } from "@/utils/tesouroUtils";
 
 export interface AporteAplicacao {
   id: string;
@@ -31,8 +32,9 @@ export interface Aplicacao {
   descricao: string | null;
   valorPrincipal: string; // principal ainda investido
   valorAtual: string;     // bruto, confirmado pelo BCB
-  indexador: "cdi" | "selic";
-  percentualIndexador: string;
+  indexador: Indexador;
+  percentualIndexador: string; // nos títulos do Tesouro é "100.00"
+  taxaAnual: string | null;    // Tesouro: taxa contratada em % a.a. (IPCA+: parte acima da inflação)
   tributacao: "isento" | "tributavel";
   rendeNoDiaAporte: boolean; // true = cada aporte já rende a taxa do próprio dia
   dataAplicacao: string;
@@ -45,15 +47,17 @@ export interface Aplicacao {
   updatedAt: string;
   aportes: AporteAplicacao[];
   resgates: ResgateAplicacao[];
-  ultimaTaxa: { data: string; taxa: number } | null; // última taxa publicada do indexador
+  ultimaTaxa: { data: string; taxa: number } | null; // última taxa publicada do indexador (Tesouro: do último dia calculado)
+  ultimoIpca?: { mes: string; taxa: number } | null;  // IPCA+: último IPCA mensal publicado (AAAA-MM)
 }
 
 export interface CreateAplicacaoDTO {
   contaId: string;
   descricao?: string;
   valor: number;
-  indexador: "cdi" | "selic";
+  indexador: Indexador;
   percentualIndexador: number;
+  taxaAnual?: number; // obrigatório em "prefixado" e "ipca"
   tributacao: "isento" | "tributavel";
   rendeNoDiaAporte?: boolean; // omitido = rende a partir do dia útil seguinte
   dataVencimento?: string; // YYYY-MM-DD — omitido = liquidez diária

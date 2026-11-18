@@ -5,6 +5,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { alterarSaldo, ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { respostaDeErro } from "@/lib/rota";
+import { nomeIndexador } from "@/utils/tesouroUtils";
 
 /**
  * Liga ou desliga o desconto de um aporte na conta, depois de criado.
@@ -42,7 +43,7 @@ export async function PATCH(
     if (!conta) return NextResponse.json({ error: "Conta do aporte não encontrada" }, { status: 404 });
 
     const valor = Number(aporte.valor);
-    const nome = aplicacao.descricao || aplicacao.indexador.toUpperCase();
+    const nome = aplicacao.descricao || nomeIndexador(aplicacao.indexador);
 
     if (descontado) {
       if (!aporte.historico)

@@ -27,6 +27,9 @@ import type { Aplicacao, AporteAplicacao } from "@/services/aplicacaoService";
 import type { Conta } from "@/types/conta";
 import { calcularAliquotaIR } from "@/utils/aplicacaoUtils";
 import {
+  descreverRentabilidade, ehIndexadorTesouro, nomeIndexador, type Indexador,
+} from "@/utils/tesouroUtils";
+import {
   hojeBrt, diasEntre, projetarLotes, estimarLiquidoTotal, simularResgateFifo,
   type LoteEstado,
 } from "@/utils/aplicacaoSimulacao";
@@ -41,7 +44,6 @@ interface Props {
   contas: Conta[];
 }
 
-const INDEXADOR_LABEL: Record<string, string> = { cdi: "CDI", selic: "Selic" };
 
 // Datas "YYYY-MM-DD" (ou timestamps ISO) -> dd/mm/aaaa SEM passar por fuso
 const fmtIso = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
@@ -73,8 +75,10 @@ export default function AplicacoesTab({ contas }: Props) {
     descricao: "",
     valor: "",
     dataAplicacao: hojeIso,
-    indexador: "cdi" as "cdi" | "selic",
+    indexador: "cdi" as Indexador,
     percentualIndexador: "100",
+    // Tesouro Prefixado/IPCA+: taxa contratada em % a.a.
+    taxaAnual: "",
     tributacao: "tributavel" as "isento" | "tributavel",
     rendeNoDiaAporte: false,
     semVencimento: false,
@@ -178,7 +182,7 @@ export default function AplicacoesTab({ contas }: Props) {
   function abrirNovaAplicacao() {
     setForm({
       contaId: contas[0]?.id ?? "", tipo: "saida", descricao: "", valor: "",
-      dataAplicacao: hojeIso, indexador: "cdi", percentualIndexador: "100",
+      dataAplicacao: hojeIso, indexador: "cdi", percentualIndexador: "100", taxaAnual: "",
       tributacao: "tributavel", rendeNoDiaAporte: false, semVencimento: false, dataVencimento: "",
       movimentar: true,
     });
@@ -191,10 +195,17 @@ export default function AplicacoesTab({ contas }: Props) {
     const valorNum = parseFloat(form.valor);
     if (!form.contaId) { setErro("Selecione uma conta"); return; }
     if (isNaN(valorNum) || valorNum <= 0) { setErro("Informe um valor válido"); return; }
-    const percentualNum = parseFloat(form.percentualIndexador);
+    const tesouro = ehIndexadorTesouro(form.indexador);
+    const percentualNum = tesouro ? 100 : parseFloat(form.percentualIndexador);
     if (isNaN(percentualNum) || percentualNum <= 0) { setErro("Informe um percentual válido"); return; }
+    const taxaAnualNum = parseFloat(form.taxaAnual.replace(",", "."));
+    if (tesouro && (isNaN(taxaAnualNum) || taxaAnualNum <= 0 || taxaAnualNum >= 100)) { setErro("Informe a taxa do título (% ao ano)"); return; }
     if (!form.dataAplicacao || form.dataAplicacao > hojeIso) { setErro("A data da aplicação não pode ser futura"); return; }
-    if (!form.semVencimento && !form.dataVencimento) { setErro("Selecione a data de vencimento, ou marque 'sem vencimento'"); return; }
+    const semVencimento = form.semVencimento && !tesouro; // título do Tesouro sempre vence
+    if (!semVencimento && !form.dataVencimento) {
+      setErro(tesouro ? "Selecione a data de vencimento do título" : "Selecione a data de vencimento, ou marque 'sem vencimento'");
+      return;
+    }
 
     try {
       await criar.mutateAsync({
@@ -203,9 +214,10 @@ export default function AplicacoesTab({ contas }: Props) {
         valor: valorNum,
         indexador: form.indexador,
         percentualIndexador: percentualNum,
+        taxaAnual: tesouro ? taxaAnualNum : undefined,
         tributacao: form.tributacao,
         rendeNoDiaAporte: form.rendeNoDiaAporte,
-        dataVencimento: form.semVencimento ? undefined : form.dataVencimento,
+        dataVencimento: semVencimento ? undefined : form.dataVencimento,
         dataAplicacao: form.dataAplicacao,
         movimentarConta: form.dataAplicacao < hojeIso ? form.movimentar : true,
       });
@@ -293,7 +305,8 @@ export default function AplicacoesTab({ contas }: Props) {
     );
   }
 
-  const nomeAplicacao = (a: Aplicacao) => a.descricao || `Aplicação em ${INDEXADOR_LABEL[a.indexador]}`;
+  const nomeAplicacao = (a: Aplicacao) =>
+    a.descricao || (ehIndexadorTesouro(a.indexador) ? nomeIndexador(a.indexador) : `Aplicação em ${nomeIndexador(a.indexador)}`);
 
   return (
     // Entra com animação quando os dados chegam (o carregamento retorna antes, com esqueleto)
@@ -410,7 +423,7 @@ export default function AplicacoesTab({ contas }: Props) {
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                               {/* em português: "120%" ou "102,5%" (o banco devolve "120.00") */}
-                              {Number(a.percentualIndexador).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% do {INDEXADOR_LABEL[a.indexador]} · {resumoPrazo}
+                              {descreverRentabilidade(a)} · {resumoPrazo}
                             </p>
                           </div>
                           <div className="text-right flex-shrink-0">
@@ -463,8 +476,24 @@ export default function AplicacoesTab({ contas }: Props) {
                               {visao && visao.diasProjetados > 0 && (
                                 <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
                                   <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                                  Inclui {visao.diasProjetados} dia(s) útil(eis) estimado(s): o BCB ainda não publicou a taxa.
+                                  Inclui {visao.diasProjetados} dia(s) útil(eis) estimado(s): o BCB ainda não publicou {ehIndexadorTesouro(a.indexador) ? "o calendário" : "a taxa"}.
                                   Confirmado até {a.ultimaTaxa ? fmtIso(a.ultimaTaxa.data) : "—"}: {mask(formatarMoeda(visao.oficialBruto))}.
+                                </p>
+                              )}
+
+                              {/* IPCA+: a inflação do mês só sai no mês seguinte; até lá repete a última */}
+                              {ativa && a.indexador === "ipca" && (
+                                <p className="flex items-start gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                  <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                  {a.ultimoIpca
+                                    ? <>Valor na curva (levando até o vencimento). IPCA publicado até {a.ultimoIpca.mes.split("-").reverse().join("/")} ({a.ultimoIpca.taxa.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%); os meses seguintes usam esse valor até sair o oficial.</>
+                                    : <>Valor na curva (levando até o vencimento). O IPCA ainda não foi carregado: clique em atualizar.</>}
+                                </p>
+                              )}
+                              {ativa && a.indexador === "prefixado" && (
+                                <p className="flex items-start gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                  <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                  Valor na curva (levando até o vencimento). Vendendo antes, o Tesouro paga o preço de mercado, que pode ser maior ou menor.
                                 </p>
                               )}
 
@@ -682,27 +711,51 @@ export default function AplicacoesTab({ contas }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Indexador</Label>
-                <Select value={form.indexador} onValueChange={(v: "cdi" | "selic") => updateForm("indexador", v)}>
+                <Select value={form.indexador} onValueChange={(v: Indexador) => updateForm("indexador", v)}>
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cdi">CDI</SelectItem>
                     <SelectItem value="selic">Selic</SelectItem>
+                    <SelectItem value="prefixado">Tesouro Prefixado</SelectItem>
+                    <SelectItem value="ipca">Tesouro IPCA+</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="aplicacao-percentual">% do indexador</Label>
-                <Input
-                  id="aplicacao-percentual"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.5"
-                  min="0"
-                  value={form.percentualIndexador}
-                  onChange={(e) => updateForm("percentualIndexador", e.target.value)}
-                />
-              </div>
+              {ehIndexadorTesouro(form.indexador) ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="aplicacao-taxa">{form.indexador === "ipca" ? "Taxa acima do IPCA (% a.a.)" : "Taxa (% a.a.)"}</Label>
+                  <Input
+                    id="aplicacao-taxa"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    placeholder={form.indexador === "ipca" ? "Ex: 6,5" : "Ex: 13,5"}
+                    value={form.taxaAnual}
+                    onChange={(e) => updateForm("taxaAnual", e.target.value)}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label htmlFor="aplicacao-percentual">% do indexador</Label>
+                  <Input
+                    id="aplicacao-percentual"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.5"
+                    min="0"
+                    value={form.percentualIndexador}
+                    onChange={(e) => updateForm("percentualIndexador", e.target.value)}
+                  />
+                </div>
+              )}
             </div>
+            {ehIndexadorTesouro(form.indexador) && (
+              <p className="-mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                Título sem cupom, calculado na curva: o valor que ele atinge se for levado até o vencimento.
+                {form.indexador === "ipca" && " A inflação vem do IPCA mensal do Banco Central."}
+              </p>
+            )}
 
             <div className="space-y-1.5">
               <Label>Tributação</Label>
@@ -733,18 +786,21 @@ export default function AplicacoesTab({ contas }: Props) {
               />
             </div>
 
-            <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
-              <div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Sem vencimento</span>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Liquidez diária — resgate quando quiser</p>
+            {/* Título do Tesouro sempre tem vencimento */}
+            {!ehIndexadorTesouro(form.indexador) && (
+              <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+                <div>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Sem vencimento</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Liquidez diária — resgate quando quiser</p>
+                </div>
+                <Switch
+                  checked={form.semVencimento}
+                  onCheckedChange={(checked) => updateForm("semVencimento", checked)}
+                />
               </div>
-              <Switch
-                checked={form.semVencimento}
-                onCheckedChange={(checked) => updateForm("semVencimento", checked)}
-              />
-            </div>
+            )}
 
-            {!form.semVencimento && (
+            {(!form.semVencimento || ehIndexadorTesouro(form.indexador)) && (
               <div className="space-y-1.5">
                 <Label htmlFor="aplicacao-vencimento">Vencimento</Label>
                 <Input

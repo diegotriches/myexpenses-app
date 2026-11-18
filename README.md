@@ -7,7 +7,7 @@ Aplicativo web de finanças pessoais: contas, cartões de crédito, lançamentos
 - **Contas e extrato:** saldo por conta, extrato com saldo após cada lançamento, ajustes de saldo e transferências entre contas.
 - **Lançamentos:** receitas e despesas à vista, parceladas ou recorrentes (geradas automaticamente todo mês), com categorias e estabelecimentos, filtro rápido por receitas e despesas e detalhes ao clicar no lançamento.
 - **Cartões e faturas:** ciclo pelo dia de fechamento, limite disponível, pagamento e adiantamento de fatura, estorno de compras e antecipação de parcelas. Crédito de uma fatura fechada passa sozinho para a próxima.
-- **Aplicações (renda fixa):** CDB e similares atrelados ao CDI ou à Selic, com rendimento diário pelas taxas do Banco Central, IR regressivo por aporte e resgate automático no vencimento.
+- **Aplicações (renda fixa):** CDB e similares atrelados ao CDI ou à Selic, e Tesouro Prefixado e IPCA+ sem cupom (valor na curva, com o IPCA mensal do Banco Central), com rendimento diário pelas taxas do Banco Central, IR regressivo por aporte e resgate automático no vencimento.
 - **Renda variável:** ações, FIIs, ETFs e BDRs, com preço médio, day trade, eventos corporativos, proventos e cotações automáticas. Importa as planilhas da Área do Investidor da B3.
 - **IR de renda variável:** apuração mensal, isenção de ações até R$ 20 mil, compensação de prejuízo, DARF com vencimento e bens e direitos para a declaração.
 - **Dashboard:** próximos vencimentos, saldo previsto para o fim do mês, gastos do mês comparados à média, evolução do patrimônio (contas e investimentos) e resumo dos investimentos.

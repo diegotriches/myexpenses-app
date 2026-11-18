@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import {
-  aplicacoes, aportesAplicacao, resgatesAplicacao, taxasDiarias, contas, 
+  aplicacoes, aportesAplicacao, resgatesAplicacao, taxasDiarias, contas, rendimentosAplicacao,
 } from "@/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
@@ -9,8 +9,7 @@ import { movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { recalcularAplicacao } from "@/lib/aplicacaoEngine";
 import { respostaDeErro } from "@/lib/rota";
-
-const INDEXADORES_VALIDOS = ["cdi", "selic"];
+import { ehIndexadorTesouro, INDEXADORES, nomeIndexador } from "@/utils/tesouroUtils";
 const TRIBUTACOES_VALIDAS = ["isento", "tributavel"];
 
 export async function GET(req: NextRequest) {
@@ -35,10 +34,32 @@ export async function GET(req: NextRequest) {
   // última taxa publicada de cada indexador (pra projeção estimada no app)
   const ultimaTaxaPorIndexador = new Map<string, { data: string; taxa: number } | null>();
   for (const indexador of Array.from(new Set(lista.map((a) => a.indexador)))) {
+    if (ehIndexadorTesouro(indexador)) continue;
     const [t] = await db.select().from(taxasDiarias)
       .where(eq(taxasDiarias.indexador, indexador))
       .orderBy(desc(taxasDiarias.data)).limit(1);
     ultimaTaxaPorIndexador.set(indexador, t ? { data: t.data, taxa: Number(t.taxaPercentual) } : null);
+  }
+
+  // Tesouro: a taxa diária é própria de cada título (taxa contratada e IPCA),
+  // então a projeção usa a do último dia calculado da própria aplicação
+  const ultimaTaxaPorAplicacao = new Map<string, { data: string; taxa: number }>();
+  for (const a of lista) {
+    if (!ehIndexadorTesouro(a.indexador)) continue;
+    const [r] = await db.select({ data: rendimentosAplicacao.data, taxa: rendimentosAplicacao.taxaAplicada })
+      .from(rendimentosAplicacao)
+      .where(eq(rendimentosAplicacao.aplicacaoId, a.id))
+      .orderBy(desc(rendimentosAplicacao.data)).limit(1);
+    if (r) ultimaTaxaPorAplicacao.set(a.id, { data: r.data, taxa: Number(r.taxa) });
+  }
+
+  // IPCA+: último IPCA publicado, para avisar que os meses seguintes são estimados
+  let ultimoIpca: { mes: string; taxa: number } | null = null;
+  if (lista.some((a) => a.indexador === "ipca")) {
+    const [t] = await db.select().from(taxasDiarias)
+      .where(eq(taxasDiarias.indexador, "ipca"))
+      .orderBy(desc(taxasDiarias.data)).limit(1);
+    if (t) ultimoIpca = { mes: t.data.slice(0, 7), taxa: Number(t.taxaPercentual) };
   }
 
   return NextResponse.json(
@@ -46,7 +67,10 @@ export async function GET(req: NextRequest) {
       ...a,
       aportes: aportes.filter((x) => x.aplicacaoId === a.id).sort((x, y) => (x.data < y.data ? -1 : 1)),
       resgates: resgates.filter((x) => x.aplicacaoId === a.id).sort((x, y) => (x.data < y.data ? -1 : 1)),
-      ultimaTaxa: ultimaTaxaPorIndexador.get(a.indexador) ?? null,
+      ultimaTaxa: ehIndexadorTesouro(a.indexador)
+        ? ultimaTaxaPorAplicacao.get(a.id) ?? null
+        : ultimaTaxaPorIndexador.get(a.indexador) ?? null,
+      ultimoIpca: a.indexador === "ipca" ? ultimoIpca : null,
     }))
   );
 }
@@ -60,6 +84,7 @@ export async function POST(req: NextRequest) {
     const {
       contaId, descricao, valor, indexador, percentualIndexador,
       dataVencimento, tributacao, dataAplicacao, rendeNoDiaAporte, movimentarConta: movimentarSaldo,
+      taxaAnual,
     } = body;
 
     if (!contaId) return NextResponse.json({ error: "contaId é obrigatório" }, { status: 400 });
@@ -68,12 +93,24 @@ export async function POST(req: NextRequest) {
     if (isNaN(valorNum) || valorNum <= 0)
       return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
 
-    if (!INDEXADORES_VALIDOS.includes(indexador))
-      return NextResponse.json({ error: "indexador deve ser 'cdi' ou 'selic'" }, { status: 400 });
+    if (!INDEXADORES.includes(indexador))
+      return NextResponse.json({ error: "indexador deve ser 'cdi', 'selic', 'prefixado' ou 'ipca'" }, { status: 400 });
 
-    const percentualNum = Number(percentualIndexador);
-    if (isNaN(percentualNum) || percentualNum <= 0)
-      return NextResponse.json({ error: "percentualIndexador inválido" }, { status: 400 });
+    // Tesouro (Prefixado, IPCA+): rende pela taxa contratada, a 100%, e sempre tem vencimento
+    const tesouro = ehIndexadorTesouro(indexador);
+    let percentualNum = 100;
+    let taxaAnualNum: number | null = null;
+    if (tesouro) {
+      taxaAnualNum = Number(taxaAnual);
+      if (isNaN(taxaAnualNum) || taxaAnualNum <= 0 || taxaAnualNum >= 100)
+        return NextResponse.json({ error: "Informe a taxa do título (% ao ano)" }, { status: 400 });
+      if (!dataVencimento)
+        return NextResponse.json({ error: "Título do Tesouro precisa da data de vencimento" }, { status: 400 });
+    } else {
+      percentualNum = Number(percentualIndexador);
+      if (isNaN(percentualNum) || percentualNum <= 0)
+        return NextResponse.json({ error: "percentualIndexador inválido" }, { status: 400 });
+    }
 
     const tributacaoFinal = tributacao || "tributavel";
     if (!TRIBUTACOES_VALIDAS.includes(tributacaoFinal))
@@ -114,6 +151,7 @@ export async function POST(req: NextRequest) {
         valorAtual: valorNum.toFixed(2),
         indexador,
         percentualIndexador: percentualNum.toFixed(2),
+        taxaAnual: taxaAnualNum === null ? null : taxaAnualNum.toFixed(4),
         tributacao: tributacaoFinal,
         // true = o aporte já rende a taxa do próprio dia (depende da corretora)
         rendeNoDiaAporte: rendeNoDiaAporte === true,
@@ -138,7 +176,7 @@ export async function POST(req: NextRequest) {
           tipo: "saida",
           valor: valorNum,
           data: dataAporte,
-          descricao: `Aplicação — ${descricao || indexador.toUpperCase()}`,
+          descricao: `Aplicação — ${descricao || nomeIndexador(indexador)}`,
           origem: "APLICACAO",
           referenciaId: criada.id,
           mensagemSaldoInsuficiente: "Saldo insuficiente na conta para aplicar esse valor",

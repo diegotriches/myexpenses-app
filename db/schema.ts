@@ -217,8 +217,11 @@ export const aplicacoes = pgTable(
     descricao: text("descricao"),
     valorPrincipal: numeric("valor_principal", { precision: 14, scale: 2 }).notNull(),
     valorAtual: numeric("valor_atual", { precision: 18, scale: 8 }).notNull(),
-    indexador: text("indexador").notNull(), // "cdi" | "selic"
+    indexador: text("indexador").notNull(), // "cdi" | "selic" | "prefixado" | "ipca" (Tesouro, sem cupom)
+    // % do CDI/Selic; nos títulos do Tesouro fica 100 (a taxa vai em taxaAnual)
     percentualIndexador: numeric("percentual_indexador", { precision: 6, scale: 2 }).notNull(),
+    // Tesouro: taxa contratada em % a.a. (no IPCA+, a parte real, acima da inflação). Nula em CDI/Selic
+    taxaAnual: numeric("taxa_anual", { precision: 7, scale: 4 }),
     tributacao: text("tributacao", { enum: ["isento", "tributavel"] }).notNull().default("tributavel"),
     // true = cada aporte já rende a taxa do próprio dia (depende da corretora);
     // false = começa a render no dia útil seguinte
