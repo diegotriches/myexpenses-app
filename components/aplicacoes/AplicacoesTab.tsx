@@ -15,8 +15,10 @@ import {
 } from "@/components/ui/select";
 import {
   TrendingUp, PiggyBank, Calendar, Undo2, Loader2, Plus, History, RefreshCw,
-  AlertCircle, Infinity as InfinityIcon, Receipt, ChevronDown, ChevronUp, Info,
+  AlertCircle, Receipt, ChevronDown, ChevronUp, Info,
+  ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   useAplicacoes, useCriarAplicacao, useResgatarAplicacao,
   useAportarAplicacao, useRecalcularAplicacao,
@@ -57,6 +59,9 @@ export default function AplicacoesTab({ contas }: Props) {
   const [verHistorico, setVerHistorico] = useState(false);
   const [modalNovaOpen, setModalNovaOpen] = useState(false);
   const [expandidas, setExpandidas] = useState<Set<string>>(new Set());
+  // Cards compactos: só nome, indexador, prazo, valor e rendimento; clicar abre o resto.
+  // Separado de `expandidas`, que controla a lista de aportes e resgates dentro do card
+  const [cardsAbertos, setCardsAbertos] = useState<Set<string>>(new Set());
 
   // ── Nova aplicação ───────────────────────────────────────────────────────
   const [form, setForm] = useState({
@@ -146,6 +151,14 @@ export default function AplicacoesTab({ contas }: Props) {
     if (!a.dataVencimento) return null;
     const diff = Math.ceil((new Date(a.dataVencimento).getTime() - hoje.getTime()) / 86_400_000);
     return Math.max(0, diff);
+  }
+
+  function alternarCard(id: string) {
+    setCardsAbertos((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
   }
 
   function alternarExpandida(id: string) {
@@ -316,6 +329,24 @@ export default function AplicacoesTab({ contas }: Props) {
         </div>
       ) : (
         <div className="space-y-6">
+          <div className="flex justify-end -mb-4">
+            {(() => {
+              const ids = gruposPorConta.flatMap((g) => g.aplicacoes.map((a) => a.id));
+              const todosAbertos = ids.every((id) => cardsAbertos.has(id));
+              return (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-gray-600 dark:text-gray-400"
+                  onClick={() => setCardsAbertos(todosAbertos ? new Set() : new Set(ids))}
+                >
+                  {todosAbertos
+                    ? <><ChevronsDownUp className="w-3.5 h-3.5 mr-1.5" />Recolher todos</>
+                    : <><ChevronsUpDown className="w-3.5 h-3.5 mr-1.5" />Expandir todos</>}
+                </Button>
+              );
+            })()}
+          </div>
           {gruposPorConta.map((grupo) => (
             <div key={grupo.contaId}>
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 px-1">
@@ -335,202 +366,219 @@ export default function AplicacoesTab({ contas }: Props) {
                   const aberta = expandidas.has(a.id);
                   const aportesComSaldo = (a.aportes ?? []).filter((x) => Number(x.valorAtual) > 0);
                   const recalculandoEste = recalcular.isPending && recalcular.variables === a.id;
+                  const cardAberto = cardsAbertos.has(a.id);
+                  // Prazo na linha do cabeçalho: é o que mais se consulta numa aplicação
+                  const resumoPrazo = ativa
+                    ? (liquidezDiaria ? "liquidez diária" : `vence ${fmtIso(a.dataVencimento!)}`)
+                    : (a.dataResgate ? `resgatada em ${fmtIso(new Date(a.dataResgate).toISOString())}` : "resgatada");
 
                   return (
-                    <Card key={a.id} className="dark:bg-gray-900 dark:border-gray-800">
-                      <CardContent className="pt-5 space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30 flex-shrink-0">
-                              <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                                {nomeAplicacao(a)}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {a.percentualIndexador}% do {INDEXADOR_LABEL[a.indexador]}
-                                {a.rendeNoDiaAporte && " · rende no dia do aporte"}
-                              </p>
-                            </div>
+                    <Card key={a.id} className="py-0 gap-0 dark:bg-gray-900 dark:border-gray-800">
+                      <CardContent className="p-0">
+                        {/* Cabeçalho: nome, indexador, prazo, valor atual e rendimento. Clicar abre o resto */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={cardAberto}
+                          aria-label={`${nomeAplicacao(a)}: ${cardAberto ? "ocultar" : "ver"} detalhes`}
+                          onClick={() => alternarCard(a.id)}
+                          onKeyDown={(e) => {
+                            if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+                            e.preventDefault();
+                            alternarCard(a.id);
+                          }}
+                          className="flex items-center gap-2.5 px-4 py-3.5 cursor-pointer rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        >
+                          <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30 flex-shrink-0">
+                            <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
                           </div>
-                          <div className="flex flex-col items-end gap-1">
-                            {a.resgatada ? (
-                              <Badge className="text-[10px] px-2 py-0.5 border-0 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                                Resgatada
-                              </Badge>
-                            ) : (
-                              <Badge className="text-[10px] px-2 py-0.5 border-0 bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
-                                Ativa
-                              </Badge>
-                            )}
-                            <Badge variant="outline" className="text-[10px] px-2 py-0.5">
-                              {a.tributacao === "isento" ? "Isento de IR" : "Tributável"}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-lg font-bold text-gray-900 dark:text-white">
-                            {mask(formatarMoeda(valorExibido))}
-                          </span>
-                          <span className="text-xs font-medium text-green-600 dark:text-green-400">
-                            +{mask(formatarMoeda(rendimento))}
-                          </span>
-                        </div>
-
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                          Principal investido: {mask(formatarMoeda(principalExibido))}
-                        </p>
-
-                        {/* IR e líquido estimados — comparáveis com a corretora */}
-                        {visao && a.tributacao === "tributavel" && (
-                          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2.5 space-y-1 text-xs">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">IR estimado (se resgatar hoje)</span>
-                              <span className="font-medium text-red-600 dark:text-red-400">-{mask(formatarMoeda(visao.est.impostoRetido))}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="font-medium text-gray-700 dark:text-gray-300">Líquido estimado</span>
-                              <span className="font-bold text-gray-900 dark:text-white">{mask(formatarMoeda(visao.est.valorLiquido))}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {visao && visao.diasProjetados > 0 && (
-                          <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
-                            <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                            Inclui {visao.diasProjetados} dia(s) útil(eis) estimado(s): o BCB ainda não publicou a taxa.
-                            Confirmado até {a.ultimaTaxa ? fmtIso(a.ultimaTaxa.data) : "—"}: {mask(formatarMoeda(visao.oficialBruto))}.
-                          </p>
-                        )}
-
-                        {ativa && (
-                          liquidezDiaria ? (
-                            <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 rounded-lg px-2.5 py-1.5">
-                              <InfinityIcon className="w-3.5 h-3.5" />
-                              Liquidez diária — sem data de vencimento
-                            </div>
-                          ) : (
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Vence em {fmtIso(a.dataVencimento!)}</span>
-                                <span>{dias}d restantes</span>
-                              </div>
-                              <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                <div className="h-full bg-gradient-to-r from-green-500 to-green-600 transition-all duration-300" style={{ width: `${progresso}%` }} />
-                              </div>
-                            </div>
-                          )
-                        )}
-
-                        {a.resgatada && a.dataResgate && (
-                          <div className="text-[11px] text-gray-500 dark:text-gray-400 space-y-0.5">
-                            <p className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              Resgatada em {fmtIso(new Date(a.dataResgate).toISOString())}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                              {nomeAplicacao(a)}
                             </p>
-                            {a.impostoRetido && Number(a.impostoRetido) > 0 && (
-                              <p className="flex items-center gap-1">
-                                <Receipt className="w-3 h-3" />
-                                IR retido: {mask(formatarMoeda(Number(a.impostoRetido)))}
-                              </p>
-                            )}
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {/* em português: "120%" ou "102,5%" (o banco devolve "120.00") */}
+                              {Number(a.percentualIndexador).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% do {INDEXADOR_LABEL[a.indexador]} · {resumoPrazo}
+                            </p>
                           </div>
-                        )}
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-base font-bold text-gray-900 dark:text-white">
+                              {mask(formatarMoeda(valorExibido))}
+                            </p>
+                            <p className="text-xs font-medium text-green-600 dark:text-green-400">
+                              +{mask(formatarMoeda(rendimento))}
+                            </p>
+                          </div>
+                          <ChevronDown
+                            aria-hidden="true"
+                            className={cn("w-4 h-4 flex-shrink-0 text-gray-400 transition-transform duration-300", cardAberto && "rotate-180")}
+                          />
+                        </div>
 
-                        {/* Detalhes: aportes (lotes) e resgates */}
-                        {((a.aportes?.length ?? 0) > 0 || (a.resgates?.length ?? 0) > 0) && (
-                          <div>
-                            <button
-                              onClick={() => alternarExpandida(a.id)}
-                              className="flex items-center gap-1 text-xs font-medium text-blue-700 dark:text-blue-400 hover:underline"
-                            >
-                              {aberta ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                              {aberta ? "Ocultar detalhes" : `Ver aportes (${aportesComSaldo.length}) e resgates (${a.resgates?.length ?? 0})`}
-                            </button>
-
-                            {aberta && (
-                              <div className="mt-2 space-y-3">
-                                {aportesComSaldo.length > 0 && (
-                                  <div className="space-y-1">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Aportes</p>
-                                    {aportesComSaldo.map((x) => {
-                                      const aliq = a.tributacao === "isento" ? 0 : calcularAliquotaIR(diasEntre(x.data, hojeIso));
-                                      return (
-                                        <div key={x.id} className="flex items-center justify-between text-xs gap-2 border-b border-gray-100 dark:border-gray-800 pb-1">
-                                          <span className="text-gray-700 dark:text-gray-300">
-                                            {fmtIso(x.data)}
-                                            {x.historico && <span className="ml-1 text-[10px] text-gray-400">(histórico)</span>}
-                                          </span>
-                                          <span className="text-gray-500 dark:text-gray-400">
-                                            {mask(formatarMoeda(Number(x.valor)))} → <strong className="text-gray-900 dark:text-white">{mask(formatarMoeda(Number(x.valorAtual)))}</strong>
-                                          </span>
-                                          <span className="text-[10px] text-gray-400 whitespace-nowrap">IR {aliq}%</span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                                {(a.resgates?.length ?? 0) > 0 && (
-                                  <div className="space-y-1">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Resgates</p>
-                                    {a.resgates.map((r) => (
-                                      <div key={r.id} className="flex items-center justify-between text-xs gap-2 border-b border-gray-100 dark:border-gray-800 pb-1">
-                                        <span className="text-gray-700 dark:text-gray-300">
-                                          {fmtIso(r.data)}
-                                          <span className="ml-1 text-[10px] text-gray-400">
-                                            ({r.tipo === "total" ? "total" : "parcial"}{r.historico ? ", histórico" : ""})
-                                          </span>
-                                        </span>
-                                        <span className="text-gray-500 dark:text-gray-400">
-                                          {mask(formatarMoeda(Number(r.valorBruto)))}
-                                          {r.impostoRetido && Number(r.impostoRetido) > 0 && (
-                                            <span className="text-red-600 dark:text-red-400"> (IR {mask(formatarMoeda(Number(r.impostoRetido)))})</span>
-                                          )}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                        {/* Detalhes: a grade anima a altura de 0fr a 1fr; fechado, o conteúdo fica inerte (sem foco) */}
+                        <div
+                          className={cn(
+                            "grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                            cardAberto ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                          )}
+                        >
+                          <div className="overflow-hidden" inert={!cardAberto}>
+                            <div className="px-4 pb-4 space-y-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                                  Principal investido: {mask(formatarMoeda(principalExibido))}
+                                  {a.rendeNoDiaAporte && " · rende no dia do aporte"}
+                                </p>
+                                <Badge variant="outline" className="text-[10px] px-2 py-0.5">
+                                  {a.tributacao === "isento" ? "Isento de IR" : "Tributável"}
+                                </Badge>
                               </div>
-                            )}
-                          </div>
-                        )}
 
-                        {ativa && (
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 h-8 text-xs text-green-700 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30"
-                              onClick={() => abrirAporte(a)}
-                            >
-                              <Plus className="w-3 h-3 mr-1" />
-                              Aportar
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 h-8 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
-                              onClick={() => abrirResgate(a)}
-                            >
-                              <Undo2 className="w-3 h-3 mr-1" />
-                              Resgatar
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 px-2.5"
-                              title="Atualizar rendimentos agora"
-                              aria-label="Atualizar rendimentos"
-                              disabled={recalculandoEste}
-                              onClick={() => recalcular.mutate(a.id)}
-                            >
-                              <RefreshCw className={`w-3.5 h-3.5 ${recalculandoEste ? "animate-spin" : ""}`} />
-                            </Button>
+                              {/* IR e líquido estimados — comparáveis com a corretora */}
+                              {visao && a.tributacao === "tributavel" && (
+                                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2.5 space-y-1 text-xs">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600 dark:text-gray-400">IR estimado (se resgatar hoje)</span>
+                                    <span className="font-medium text-red-600 dark:text-red-400">-{mask(formatarMoeda(visao.est.impostoRetido))}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">Líquido estimado</span>
+                                    <span className="font-bold text-gray-900 dark:text-white">{mask(formatarMoeda(visao.est.valorLiquido))}</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {visao && visao.diasProjetados > 0 && (
+                                <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+                                  <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                  Inclui {visao.diasProjetados} dia(s) útil(eis) estimado(s): o BCB ainda não publicou a taxa.
+                                  Confirmado até {a.ultimaTaxa ? fmtIso(a.ultimaTaxa.data) : "—"}: {mask(formatarMoeda(visao.oficialBruto))}.
+                                </p>
+                              )}
+
+                              {/* Liquidez diária já aparece no cabeçalho; aqui só a barra de prazo de quem vence */}
+                              {ativa && !liquidezDiaria && (
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Vence em {fmtIso(a.dataVencimento!)}</span>
+                                    <span>{dias}d restantes</span>
+                                  </div>
+                                  <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-green-500 to-green-600 transition-all duration-300" style={{ width: `${progresso}%` }} />
+                                  </div>
+                                </div>
+                              )}
+
+                              {a.resgatada && a.dataResgate && (
+                                <div className="text-[11px] text-gray-500 dark:text-gray-400 space-y-0.5">
+                                  <p className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    Resgatada em {fmtIso(new Date(a.dataResgate).toISOString())}
+                                  </p>
+                                  {a.impostoRetido && Number(a.impostoRetido) > 0 && (
+                                    <p className="flex items-center gap-1">
+                                      <Receipt className="w-3 h-3" />
+                                      IR retido: {mask(formatarMoeda(Number(a.impostoRetido)))}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Detalhes: aportes (lotes) e resgates */}
+                              {((a.aportes?.length ?? 0) > 0 || (a.resgates?.length ?? 0) > 0) && (
+                                <div>
+                                  <button
+                                    onClick={() => alternarExpandida(a.id)}
+                                    className="flex items-center gap-1 text-xs font-medium text-blue-700 dark:text-blue-400 hover:underline"
+                                  >
+                                    {aberta ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                    {aberta ? "Ocultar detalhes" : `Ver aportes (${aportesComSaldo.length}) e resgates (${a.resgates?.length ?? 0})`}
+                                  </button>
+
+                                  {aberta && (
+                                    <div className="mt-2 space-y-3">
+                                      {aportesComSaldo.length > 0 && (
+                                        <div className="space-y-1">
+                                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Aportes</p>
+                                          {aportesComSaldo.map((x) => {
+                                            const aliq = a.tributacao === "isento" ? 0 : calcularAliquotaIR(diasEntre(x.data, hojeIso));
+                                            return (
+                                              <div key={x.id} className="flex items-center justify-between text-xs gap-2 border-b border-gray-100 dark:border-gray-800 pb-1">
+                                                <span className="text-gray-700 dark:text-gray-300">
+                                                  {fmtIso(x.data)}
+                                                  {x.historico && <span className="ml-1 text-[10px] text-gray-400">(histórico)</span>}
+                                                </span>
+                                                <span className="text-gray-500 dark:text-gray-400">
+                                                  {mask(formatarMoeda(Number(x.valor)))} → <strong className="text-gray-900 dark:text-white">{mask(formatarMoeda(Number(x.valorAtual)))}</strong>
+                                                </span>
+                                                <span className="text-[10px] text-gray-400 whitespace-nowrap">IR {aliq}%</span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                      {(a.resgates?.length ?? 0) > 0 && (
+                                        <div className="space-y-1">
+                                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Resgates</p>
+                                          {a.resgates.map((r) => (
+                                            <div key={r.id} className="flex items-center justify-between text-xs gap-2 border-b border-gray-100 dark:border-gray-800 pb-1">
+                                              <span className="text-gray-700 dark:text-gray-300">
+                                                {fmtIso(r.data)}
+                                                <span className="ml-1 text-[10px] text-gray-400">
+                                                  ({r.tipo === "total" ? "total" : "parcial"}{r.historico ? ", histórico" : ""})
+                                                </span>
+                                              </span>
+                                              <span className="text-gray-500 dark:text-gray-400">
+                                                {mask(formatarMoeda(Number(r.valorBruto)))}
+                                                {r.impostoRetido && Number(r.impostoRetido) > 0 && (
+                                                  <span className="text-red-600 dark:text-red-400"> (IR {mask(formatarMoeda(Number(r.impostoRetido)))})</span>
+                                                )}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {ativa && (
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1 h-8 text-xs text-green-700 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30"
+                                    onClick={() => abrirAporte(a)}
+                                  >
+                                    <Plus className="w-3 h-3 mr-1" />
+                                    Aportar
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1 h-8 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                    onClick={() => abrirResgate(a)}
+                                  >
+                                    <Undo2 className="w-3 h-3 mr-1" />
+                                    Resgatar
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 px-2.5"
+                                    title="Atualizar rendimentos agora"
+                                    aria-label="Atualizar rendimentos"
+                                    disabled={recalculandoEste}
+                                    onClick={() => recalcular.mutate(a.id)}
+                                  >
+                                    <RefreshCw className={`w-3.5 h-3.5 ${recalculandoEste ? "animate-spin" : ""}`} />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        )}
+                        </div>
                       </CardContent>
                     </Card>
                   );
