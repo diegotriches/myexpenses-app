@@ -68,6 +68,18 @@ export interface CreateAplicacaoDTO {
   movimentarConta?: boolean; // false + data passada = só histórico, sem descontar da conta
 }
 
+/** Edição: só o que não mexe em dinheiro. dataVencimento null = liquidez diária */
+export interface EditarAplicacaoDTO {
+  descricao?: string | null;
+  tipo?: TipoAplicacao;
+  indexador?: Indexador;
+  percentualIndexador?: number;
+  taxaAnual?: number | null;
+  tributacao?: "isento" | "tributavel";
+  rendeNoDiaAporte?: boolean;
+  dataVencimento?: string | null;
+}
+
 export interface AportarDTO {
   valor: number;
   data?: string;
@@ -125,6 +137,11 @@ export const aplicacaoService = {
       }),
       "Erro ao resgatar aplicação"
     );
+  },
+
+  /** Edita os dados da aplicação; se algo do cálculo mudou, o rendimento é refeito (recalculada) */
+  async editar(id: string, dados: EditarAplicacaoDTO) {
+    return requisicao<Aplicacao & { recalculada: boolean }>(`/api/aplicacoes/${id}`, comJson("PATCH", dados), "Erro ao editar a aplicação");
   },
 
   /** Define o tipo do produto de uma aplicação (as antigas nasceram sem tipo) */

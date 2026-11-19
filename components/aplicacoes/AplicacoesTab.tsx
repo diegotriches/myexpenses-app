@@ -14,14 +14,14 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import {
-  TrendingUp, PiggyBank, Calendar, Undo2, Loader2, Plus, History, RefreshCw,
+  TrendingUp, PiggyBank, Calendar, Undo2, Loader2, Plus, History, RefreshCw, Pencil,
   AlertCircle, Receipt, ChevronDown, ChevronUp, Info,
   ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   useAplicacoes, useCriarAplicacao, useResgatarAplicacao,
-  useAportarAplicacao, useRecalcularAplicacao, useDescontoAporte, useDefinirTipoAplicacao,
+  useAportarAplicacao, useRecalcularAplicacao, useDescontoAporte, useDefinirTipoAplicacao, useEditarAplicacao,
 } from "@/hooks/useAplicacoes";
 import type { Aplicacao, AporteAplicacao } from "@/services/aplicacaoService";
 import type { Conta } from "@/types/conta";
@@ -61,6 +61,9 @@ export default function AplicacoesTab({ contas }: Props) {
   const recalcular = useRecalcularAplicacao();
   const descontoAporte = useDescontoAporte();
   const definirTipo = useDefinirTipoAplicacao();
+  const editarAplicacao = useEditarAplicacao();
+  // Modal de Nova Aplicação em modo edição: só o que não mexe em dinheiro
+  const [editando, setEditando] = useState<Aplicacao | null>(null);
   // Aplicação antiga, sem tipo: diálogo "Definir tipo"
   const [tipoAlvo, setTipoAlvo] = useState<Aplicacao | null>(null);
   const [tipoEscolhido, setTipoEscolhido] = useState<TipoAplicacao | "">("");
@@ -196,12 +199,31 @@ export default function AplicacoesTab({ contas }: Props) {
       tributacao: "tributavel", rendeNoDiaAporte: false, semVencimento: false, dataVencimento: "",
       movimentar: true,
     });
+    setEditando(null);
+    setErro(null);
+    setModalNovaOpen(true);
+  }
+
+  // Editar: o mesmo modal, preenchido, sem conta, valor e data
+  function abrirEdicao(a: Aplicacao) {
+    setForm({
+      contaId: a.contaId, tipo: "saida", descricao: a.descricao ?? "", valor: "", tipoProduto: a.tipo ?? "",
+      dataAplicacao: hojeIso, indexador: a.indexador,
+      percentualIndexador: String(Number(a.percentualIndexador)),
+      taxaAnual: a.taxaAnual ? String(Number(a.taxaAnual)) : "",
+      tributacao: a.tributacao, rendeNoDiaAporte: a.rendeNoDiaAporte,
+      semVencimento: !a.dataVencimento, dataVencimento: a.dataVencimento ? a.dataVencimento.slice(0, 10) : "",
+      movimentar: true,
+    });
+    setEditando(a);
     setErro(null);
     setModalNovaOpen(true);
   }
 
   // Escolher o tipo sugere a tributação e ajusta o indexador aos que o tipo aceita
   function escolherTipoProduto(t: TipoAplicacao) {
+    // Resgatada: só o tipo muda (as opções já são as que combinam com o indexador)
+    if (editando?.resgatada) { updateForm("tipoProduto", t); return; }
     setForm((f) => {
       const permitidos = indexadoresDoTipo(t);
       const indexador = permitidos.includes(f.indexador) ? f.indexador : permitidos[0];
@@ -215,26 +237,66 @@ export default function AplicacoesTab({ contas }: Props) {
     });
   }
 
+  // Rentabilidade e vencimento do formulário, com as mesmas regras na criação e na edição
+  function lerRentabilidade(tipoProduto: TipoAplicacao) {
+    const comTaxaAnual = usaTaxaAnual(form.indexador);
+    const percentualNum = comTaxaAnual ? 100 : parseFloat(form.percentualIndexador);
+    if (isNaN(percentualNum) || percentualNum <= 0) return { erro: "Informe um percentual válido" } as const;
+    const taxaAnualNum = parseFloat(form.taxaAnual.replace(",", "."));
+    if (comTaxaAnual && (isNaN(taxaAnualNum) || taxaAnualNum <= 0 || taxaAnualNum >= 100))
+      return { erro: "Informe a taxa do título (% ao ano)" } as const;
+    // Liquidez diária só em CDB/RDB/LC atrelados ao CDI; o resto sempre vence
+    const aceitaSemVencimento = podeSemVencimento(tipoProduto, form.indexador);
+    const semVencimento = form.semVencimento && aceitaSemVencimento;
+    if (!semVencimento && !form.dataVencimento)
+      return { erro: aceitaSemVencimento ? "Selecione a data de vencimento, ou marque 'sem vencimento'" : "Selecione a data de vencimento" } as const;
+    if (!semVencimento && form.dataVencimento <= hojeIso) return { erro: "O vencimento precisa ser uma data futura" } as const;
+    return { comTaxaAnual, percentualNum, taxaAnualNum, semVencimento } as const;
+  }
+
+  async function confirmarEdicao(a: Aplicacao) {
+    setErro(null);
+    const tipoProduto = form.tipoProduto;
+    if (!tipoProduto) { setErro("Escolha o tipo da aplicação"); return; }
+    const descricao = form.descricao.trim() || null;
+    try {
+      if (a.resgatada) {
+        await editarAplicacao.mutateAsync({ id: a.id, dados: { descricao, tipo: tipoProduto } });
+      } else {
+        const r = lerRentabilidade(tipoProduto);
+        if (r.erro !== undefined) { setErro(r.erro); return; }
+        await editarAplicacao.mutateAsync({
+          id: a.id,
+          dados: {
+            descricao,
+            tipo: tipoProduto,
+            indexador: form.indexador,
+            percentualIndexador: r.percentualNum,
+            taxaAnual: r.comTaxaAnual ? r.taxaAnualNum : null,
+            tributacao: form.tributacao,
+            rendeNoDiaAporte: form.rendeNoDiaAporte,
+            dataVencimento: r.semVencimento ? null : form.dataVencimento,
+          },
+        });
+      }
+      setModalNovaOpen(false);
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Erro ao editar a aplicação");
+    }
+  }
+
   async function confirmarNovaAplicacao() {
+    if (editando) return confirmarEdicao(editando);
     setErro(null);
     const valorNum = parseFloat(form.valor);
     if (!form.contaId) { setErro("Selecione uma conta"); return; }
     if (isNaN(valorNum) || valorNum <= 0) { setErro("Informe um valor válido"); return; }
     const tipoProduto = form.tipoProduto;
     if (!tipoProduto) { setErro("Escolha o tipo da aplicação"); return; }
-    const comTaxaAnual = usaTaxaAnual(form.indexador);
-    const percentualNum = comTaxaAnual ? 100 : parseFloat(form.percentualIndexador);
-    if (isNaN(percentualNum) || percentualNum <= 0) { setErro("Informe um percentual válido"); return; }
-    const taxaAnualNum = parseFloat(form.taxaAnual.replace(",", "."));
-    if (comTaxaAnual && (isNaN(taxaAnualNum) || taxaAnualNum <= 0 || taxaAnualNum >= 100)) { setErro("Informe a taxa do título (% ao ano)"); return; }
     if (!form.dataAplicacao || form.dataAplicacao > hojeIso) { setErro("A data da aplicação não pode ser futura"); return; }
-    // Liquidez diária só em CDB/RDB/LC atrelados ao CDI; o resto sempre vence
-    const aceitaSemVencimento = podeSemVencimento(tipoProduto, form.indexador);
-    const semVencimento = form.semVencimento && aceitaSemVencimento;
-    if (!semVencimento && !form.dataVencimento) {
-      setErro(aceitaSemVencimento ? "Selecione a data de vencimento, ou marque 'sem vencimento'" : "Selecione a data de vencimento");
-      return;
-    }
+    const r = lerRentabilidade(tipoProduto);
+    if (r.erro !== undefined) { setErro(r.erro); return; }
+    const { comTaxaAnual, percentualNum, taxaAnualNum, semVencimento } = r;
 
     try {
       await criar.mutateAsync({
@@ -486,6 +548,15 @@ export default function AplicacoesTab({ contas }: Props) {
                                   {a.rendeNoDiaAporte && " · rende no dia do aporte"}
                                 </p>
                                 <div className="flex flex-wrap items-center gap-1.5">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-[11px] text-gray-600 dark:text-gray-400"
+                                    onClick={() => abrirEdicao(a)}
+                                  >
+                                    <Pencil className="w-3 h-3 mr-1" />
+                                    Editar
+                                  </Button>
                                   <Badge variant="outline" className="text-[10px] px-2 py-0.5">
                                     {a.tributacao === "isento" ? "Isento de IR" : "Tributável"}
                                   </Badge>
@@ -693,10 +764,19 @@ export default function AplicacoesTab({ contas }: Props) {
       <Dialog open={modalNovaOpen} onOpenChange={setModalNovaOpen}>
         <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Nova Aplicação</DialogTitle>
+            <DialogTitle>{editando ? "Editar aplicação" : "Nova Aplicação"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {editando && (
+              <p className="flex items-start gap-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 p-2.5 text-[11px] text-gray-600 dark:text-gray-400">
+                <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                {editando.resgatada
+                  ? "Aplicação resgatada: só a descrição e o tipo podem mudar."
+                  : "Mudar a rentabilidade, a tributação ou o vencimento recalcula o rendimento desde o primeiro aporte. Valor, data e conta dos aportes não mudam aqui."}
+              </p>
+            )}
+            {!editando && (
             <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
               <MovCampoConta
                 form={{ contaId: form.contaId, tipo: form.tipo, valor: form.valor }}
@@ -709,9 +789,11 @@ export default function AplicacoesTab({ contas }: Props) {
                 campo="valor"
               />
             </div>
+            )}
 
-            {/* Data e tipo lado a lado; as dicas de cada um ficam abaixo, na largura toda */}
-            <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 items-start">
+            {/* Data e tipo lado a lado; as dicas de cada um ficam abaixo, na largura toda. Na edição, só o tipo */}
+            <div className={cn("grid grid-cols-1 gap-3 items-start", !editando && "min-[420px]:grid-cols-2")}>
+              {!editando && (
               <div className="space-y-1.5">
                 <Label htmlFor="aplicacao-data">Data da aplicação</Label>
                 <Input
@@ -722,19 +804,20 @@ export default function AplicacoesTab({ contas }: Props) {
                   onChange={(e) => updateForm("dataAplicacao", e.target.value)}
                 />
               </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="aplicacao-tipo">Tipo</Label>
                 <Select value={form.tipoProduto} onValueChange={(v: TipoAplicacao) => escolherTipoProduto(v)}>
                   <SelectTrigger id="aplicacao-tipo" className="w-full"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                   <SelectContent>
-                    {TIPOS_APLICACAO.map((t) => (
+                    {(editando?.resgatada ? tiposParaIndexador(editando.indexador) : TIPOS_APLICACAO).map((t) => (
                       <SelectItem key={t} value={t}>{TIPO_APLICACAO_LABEL[t]}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            {(form.tipoProduto || (form.dataAplicacao && form.dataAplicacao < hojeIso)) && (
+            {(form.tipoProduto || (!editando && form.dataAplicacao && form.dataAplicacao < hojeIso)) && (
               <div className="-mt-2 space-y-1">
                 {form.tipoProduto && (
                   <p className="text-[11px] text-gray-500 dark:text-gray-400">
@@ -743,7 +826,7 @@ export default function AplicacoesTab({ contas }: Props) {
                     {temFgc(form.tipoProduto) ? " · garantia do FGC" : " · sem FGC"}
                   </p>
                 )}
-                {form.dataAplicacao && form.dataAplicacao < hojeIso && (
+                {!editando && form.dataAplicacao && form.dataAplicacao < hojeIso && (
                   <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-start gap-1">
                     <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
                     Data passada: o rendimento e o IR são calculados desde essa data.
@@ -752,7 +835,7 @@ export default function AplicacoesTab({ contas }: Props) {
               </div>
             )}
 
-            {form.dataAplicacao && form.dataAplicacao < hojeIso && (
+            {!editando && form.dataAplicacao && form.dataAplicacao < hojeIso && (
             <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
               <div>
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Descontar do saldo da conta</span>
@@ -780,107 +863,112 @@ export default function AplicacoesTab({ contas }: Props) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Resgatada: a rentabilidade e o vencimento não mudam mais */}
+            {!editando?.resgatada && (
+              <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Indexador</Label>
+                  <Select value={form.indexador} onValueChange={(v: Indexador) => updateForm("indexador", v)}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(form.tipoProduto ? indexadoresDoTipo(form.tipoProduto) : INDEXADORES).map((i) => (
+                        <SelectItem key={i} value={i}>{INDEXADOR_LABEL[i]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {usaTaxaAnual(form.indexador) ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="aplicacao-taxa">{form.indexador === "ipca" ? "Taxa acima do IPCA (% a.a.)" : "Taxa (% a.a.)"}</Label>
+                    <Input
+                      id="aplicacao-taxa"
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      placeholder={form.indexador === "ipca" ? "Ex: 6,5" : "Ex: 13,5"}
+                      value={form.taxaAnual}
+                      onChange={(e) => updateForm("taxaAnual", e.target.value)}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="aplicacao-percentual">% do indexador</Label>
+                    <Input
+                      id="aplicacao-percentual"
+                      type="number"
+                      inputMode="decimal"
+                      step="0.5"
+                      min="0"
+                      value={form.percentualIndexador}
+                      onChange={(e) => updateForm("percentualIndexador", e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+              {usaTaxaAnual(form.indexador) && (
+                <p className="-mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                  Sem cupom (os juros vêm no vencimento), calculado na curva: o valor que o título atinge se for levado até o vencimento.
+                  {form.indexador === "ipca" && " A inflação vem do IPCA mensal do Banco Central."}
+                </p>
+              )}
+
               <div className="space-y-1.5">
-                <Label>Indexador</Label>
-                <Select value={form.indexador} onValueChange={(v: Indexador) => updateForm("indexador", v)}>
+                <Label>Tributação</Label>
+                <Select value={form.tributacao} onValueChange={(v: "isento" | "tributavel") => updateForm("tributacao", v)}>
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(form.tipoProduto ? indexadoresDoTipo(form.tipoProduto) : INDEXADORES).map((i) => (
-                      <SelectItem key={i} value={i}>{INDEXADOR_LABEL[i]}</SelectItem>
-                    ))}
+                    <SelectItem value="tributavel">Tributável (CDB, Tesouro, Fundos...)</SelectItem>
+                    <SelectItem value="isento">Isento de IR (LCI, LCA, Poupança...)</SelectItem>
                   </SelectContent>
                 </Select>
+                {form.tributacao === "tributavel" && (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                    O IR é calculado por aporte, pela tabela regressiva (22,5% a 15%, conforme o tempo de cada aporte).
+                  </p>
+                )}
               </div>
-              {usaTaxaAnual(form.indexador) ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="aplicacao-taxa">{form.indexador === "ipca" ? "Taxa acima do IPCA (% a.a.)" : "Taxa (% a.a.)"}</Label>
-                  <Input
-                    id="aplicacao-taxa"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    min="0"
-                    placeholder={form.indexador === "ipca" ? "Ex: 6,5" : "Ex: 13,5"}
-                    value={form.taxaAnual}
-                    onChange={(e) => updateForm("taxaAnual", e.target.value)}
-                  />
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <Label htmlFor="aplicacao-percentual">% do indexador</Label>
-                  <Input
-                    id="aplicacao-percentual"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.5"
-                    min="0"
-                    value={form.percentualIndexador}
-                    onChange={(e) => updateForm("percentualIndexador", e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-            {usaTaxaAnual(form.indexador) && (
-              <p className="-mt-2 text-[11px] text-gray-500 dark:text-gray-400">
-                Sem cupom (os juros vêm no vencimento), calculado na curva: o valor que o título atinge se for levado até o vencimento.
-                {form.indexador === "ipca" && " A inflação vem do IPCA mensal do Banco Central."}
-              </p>
-            )}
 
-            <div className="space-y-1.5">
-              <Label>Tributação</Label>
-              <Select value={form.tributacao} onValueChange={(v: "isento" | "tributavel") => updateForm("tributacao", v)}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tributavel">Tributável (CDB, Tesouro, Fundos...)</SelectItem>
-                  <SelectItem value="isento">Isento de IR (LCI, LCA, Poupança...)</SelectItem>
-                </SelectContent>
-              </Select>
-              {form.tributacao === "tributavel" && (
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                  O IR é calculado por aporte, pela tabela regressiva (22,5% a 15%, conforme o tempo de cada aporte).
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
-              <div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Rende a partir do dia do aporte</span>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Ligue se a sua corretora já conta o rendimento no próprio dia da aplicação. Desligado, o aporte começa a render no dia útil seguinte. Vale para esta aplicação e seus próximos aportes.
-                </p>
-              </div>
-              <Switch
-                checked={form.rendeNoDiaAporte}
-                onCheckedChange={(checked) => updateForm("rendeNoDiaAporte", checked)}
-              />
-            </div>
-
-            {/* Liquidez diária só em CDB/RDB/LC atrelados ao CDI */}
-            {form.tipoProduto && podeSemVencimento(form.tipoProduto, form.indexador) && (
               <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
                 <div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Sem vencimento</span>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Liquidez diária — resgate quando quiser</p>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Rende a partir do dia do aporte</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Ligue se a sua corretora já conta o rendimento no próprio dia da aplicação. Desligado, o aporte começa a render no dia útil seguinte. Vale para esta aplicação e seus próximos aportes.
+                  </p>
                 </div>
                 <Switch
-                  checked={form.semVencimento}
-                  onCheckedChange={(checked) => updateForm("semVencimento", checked)}
+                  checked={form.rendeNoDiaAporte}
+                  onCheckedChange={(checked) => updateForm("rendeNoDiaAporte", checked)}
                 />
               </div>
-            )}
 
-            {(!form.semVencimento || !form.tipoProduto || !podeSemVencimento(form.tipoProduto, form.indexador)) && (
-              <div className="space-y-1.5">
-                <Label htmlFor="aplicacao-vencimento">Vencimento</Label>
-                <Input
-                  id="aplicacao-vencimento"
-                  type="date"
-                  value={form.dataVencimento}
-                  onChange={(e) => updateForm("dataVencimento", e.target.value)}
-                />
-              </div>
+              {/* Liquidez diária só em CDB/RDB/LC atrelados ao CDI */}
+              {form.tipoProduto && podeSemVencimento(form.tipoProduto, form.indexador) && (
+                <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Sem vencimento</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Liquidez diária — resgate quando quiser</p>
+                  </div>
+                  <Switch
+                    checked={form.semVencimento}
+                    onCheckedChange={(checked) => updateForm("semVencimento", checked)}
+                  />
+                </div>
+              )}
+
+              {(!form.semVencimento || !form.tipoProduto || !podeSemVencimento(form.tipoProduto, form.indexador)) && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="aplicacao-vencimento">Vencimento</Label>
+                  <Input
+                    id="aplicacao-vencimento"
+                    type="date"
+                    value={form.dataVencimento}
+                    onChange={(e) => updateForm("dataVencimento", e.target.value)}
+                  />
+                </div>
+              )}
+              </>
             )}
 
             {erro && (
@@ -892,8 +980,14 @@ export default function AplicacoesTab({ contas }: Props) {
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setModalNovaOpen(false)}>Cancelar</Button>
-            <Button onClick={confirmarNovaAplicacao} disabled={criar.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
-              {criar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Aplicando...</> : "Aplicar"}
+            <Button
+              onClick={confirmarNovaAplicacao}
+              disabled={criar.isPending || editarAplicacao.isPending}
+              className="bg-blue-700 text-white hover:bg-blue-800"
+            >
+              {editando
+                ? (editarAplicacao.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : "Salvar")
+                : (criar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Aplicando...</> : "Aplicar")}
             </Button>
           </DialogFooter>
         </DialogContent>

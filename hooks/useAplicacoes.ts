@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  aplicacaoService, CreateAplicacaoDTO, AportarDTO, ResgatarDTO,
+  aplicacaoService, CreateAplicacaoDTO, AportarDTO, ResgatarDTO, EditarAplicacaoDTO,
 } from "@/services/aplicacaoService";
 import { useToast } from "@/hooks/use-toast";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
@@ -86,6 +86,25 @@ export function useResgatarAplicacao() {
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao resgatar", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useEditarAplicacao() {
+  const invalidar = useInvalidarAplicacoes();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, dados }: { id: string; dados: EditarAplicacaoDTO }) => aplicacaoService.editar(id, dados),
+    onSuccess: (r) => {
+      invalidar();
+      toast({
+        title: "Aplicação atualizada",
+        description: r.recalculada ? "O rendimento foi recalculado com os dados novos, desde o primeiro aporte." : "Os dados foram salvos.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao editar a aplicação", description: error.message, variant: "destructive" });
     },
   });
 }
