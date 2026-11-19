@@ -6,6 +6,7 @@ import {
 } from "@/services/aplicacaoService";
 import { useToast } from "@/hooks/use-toast";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
+import { TIPO_APLICACAO_LABEL, type TipoAplicacao } from "@/utils/tipoAplicacao";
 
 export function useAplicacoes(contaId?: string) {
   return useQuery({
@@ -85,6 +86,22 @@ export function useResgatarAplicacao() {
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao resgatar", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useDefinirTipoAplicacao() {
+  const invalidar = useInvalidarAplicacoes();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, tipo }: { id: string; tipo: TipoAplicacao }) => aplicacaoService.definirTipo(id, tipo),
+    onSuccess: (_r, { tipo }) => {
+      invalidar();
+      toast({ title: "Tipo definido", description: `A aplicação agora aparece como ${TIPO_APLICACAO_LABEL[tipo]}.` });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao definir o tipo", description: error.message, variant: "destructive" });
     },
   });
 }

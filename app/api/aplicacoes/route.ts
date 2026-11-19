@@ -9,7 +9,10 @@ import { movimentarConta } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { recalcularAplicacao } from "@/lib/aplicacaoEngine";
 import { respostaDeErro } from "@/lib/rota";
-import { ehIndexadorTesouro, INDEXADORES, nomeIndexador } from "@/utils/tesouroUtils";
+import { usaTaxaAnual, INDEXADORES, INDEXADOR_LABEL } from "@/utils/tesouroUtils";
+import {
+  ehTipoAplicacao, indexadoresDoTipo, nomePadraoAplicacao, podeSemVencimento, TIPO_APLICACAO_LABEL, tributacaoDoTipo,
+} from "@/utils/tipoAplicacao";
 const TRIBUTACOES_VALIDAS = ["isento", "tributavel"];
 
 export async function GET(req: NextRequest) {
@@ -34,18 +37,18 @@ export async function GET(req: NextRequest) {
   // última taxa publicada de cada indexador (pra projeção estimada no app)
   const ultimaTaxaPorIndexador = new Map<string, { data: string; taxa: number } | null>();
   for (const indexador of Array.from(new Set(lista.map((a) => a.indexador)))) {
-    if (ehIndexadorTesouro(indexador)) continue;
+    if (usaTaxaAnual(indexador)) continue;
     const [t] = await db.select().from(taxasDiarias)
       .where(eq(taxasDiarias.indexador, indexador))
       .orderBy(desc(taxasDiarias.data)).limit(1);
     ultimaTaxaPorIndexador.set(indexador, t ? { data: t.data, taxa: Number(t.taxaPercentual) } : null);
   }
 
-  // Tesouro: a taxa diária é própria de cada título (taxa contratada e IPCA),
+  // Prefixado/IPCA+: a taxa diária é própria de cada título (taxa contratada e IPCA),
   // então a projeção usa a do último dia calculado da própria aplicação
   const ultimaTaxaPorAplicacao = new Map<string, { data: string; taxa: number }>();
   for (const a of lista) {
-    if (!ehIndexadorTesouro(a.indexador)) continue;
+    if (!usaTaxaAnual(a.indexador)) continue;
     const [r] = await db.select({ data: rendimentosAplicacao.data, taxa: rendimentosAplicacao.taxaAplicada })
       .from(rendimentosAplicacao)
       .where(eq(rendimentosAplicacao.aplicacaoId, a.id))
@@ -67,7 +70,7 @@ export async function GET(req: NextRequest) {
       ...a,
       aportes: aportes.filter((x) => x.aplicacaoId === a.id).sort((x, y) => (x.data < y.data ? -1 : 1)),
       resgates: resgates.filter((x) => x.aplicacaoId === a.id).sort((x, y) => (x.data < y.data ? -1 : 1)),
-      ultimaTaxa: ehIndexadorTesouro(a.indexador)
+      ultimaTaxa: usaTaxaAnual(a.indexador)
         ? ultimaTaxaPorAplicacao.get(a.id) ?? null
         : ultimaTaxaPorIndexador.get(a.indexador) ?? null,
       ultimoIpca: a.indexador === "ipca" ? ultimoIpca : null,
@@ -84,7 +87,7 @@ export async function POST(req: NextRequest) {
     const {
       contaId, descricao, valor, indexador, percentualIndexador,
       dataVencimento, tributacao, dataAplicacao, rendeNoDiaAporte, movimentarConta: movimentarSaldo,
-      taxaAnual,
+      taxaAnual, tipo,
     } = body;
 
     if (!contaId) return NextResponse.json({ error: "contaId é obrigatório" }, { status: 400 });
@@ -96,23 +99,33 @@ export async function POST(req: NextRequest) {
     if (!INDEXADORES.includes(indexador))
       return NextResponse.json({ error: "indexador deve ser 'cdi', 'selic', 'prefixado' ou 'ipca'" }, { status: 400 });
 
-    // Tesouro (Prefixado, IPCA+): rende pela taxa contratada, a 100%, e sempre tem vencimento
-    const tesouro = ehIndexadorTesouro(indexador);
+    if (!ehTipoAplicacao(tipo))
+      return NextResponse.json({ error: "Escolha o tipo da aplicação (CDB, LCI, Tesouro Direto...)" }, { status: 400 });
+    if (!indexadoresDoTipo(tipo).includes(indexador))
+      return NextResponse.json(
+        { error: `${TIPO_APLICACAO_LABEL[tipo]} não aceita o indexador ${INDEXADOR_LABEL[indexador as keyof typeof INDEXADOR_LABEL]}` },
+        { status: 400 },
+      );
+    // Sem vencimento (liquidez diária) só em CDB/RDB/LC atrelados ao CDI
+    if (!dataVencimento && !podeSemVencimento(tipo, indexador))
+      return NextResponse.json({ error: "Informe a data de vencimento" }, { status: 400 });
+
+    // Prefixado e IPCA+: rendem pela taxa contratada, a 100%
+    const comTaxaAnual = usaTaxaAnual(indexador);
     let percentualNum = 100;
     let taxaAnualNum: number | null = null;
-    if (tesouro) {
+    if (comTaxaAnual) {
       taxaAnualNum = Number(taxaAnual);
       if (isNaN(taxaAnualNum) || taxaAnualNum <= 0 || taxaAnualNum >= 100)
         return NextResponse.json({ error: "Informe a taxa do título (% ao ano)" }, { status: 400 });
-      if (!dataVencimento)
-        return NextResponse.json({ error: "Título do Tesouro precisa da data de vencimento" }, { status: 400 });
     } else {
       percentualNum = Number(percentualIndexador);
       if (isNaN(percentualNum) || percentualNum <= 0)
         return NextResponse.json({ error: "percentualIndexador inválido" }, { status: 400 });
     }
 
-    const tributacaoFinal = tributacao || "tributavel";
+    // Sem tributação informada, vale a do tipo (LCI, LCA, CRI, CRA e debênture incentivada são isentas)
+    const tributacaoFinal = tributacao || tributacaoDoTipo(tipo);
     if (!TRIBUTACOES_VALIDAS.includes(tributacaoFinal))
       return NextResponse.json({ error: "tributacao deve ser 'isento' ou 'tributavel'" }, { status: 400 });
 
@@ -147,6 +160,7 @@ export async function POST(req: NextRequest) {
       const [criada] = await tx.insert(aplicacoes).values({
         userId, contaId,
         descricao: descricao || null,
+        tipo,
         valorPrincipal: valorNum.toFixed(2),
         valorAtual: valorNum.toFixed(2),
         indexador,
@@ -176,7 +190,7 @@ export async function POST(req: NextRequest) {
           tipo: "saida",
           valor: valorNum,
           data: dataAporte,
-          descricao: `Aplicação — ${descricao || nomeIndexador(indexador)}`,
+          descricao: `Aplicação — ${descricao || nomePadraoAplicacao({ tipo, indexador })}`,
           origem: "APLICACAO",
           referenciaId: criada.id,
           mensagemSaldoInsuficiente: "Saldo insuficiente na conta para aplicar esse valor",

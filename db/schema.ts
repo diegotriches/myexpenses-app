@@ -217,7 +217,10 @@ export const aplicacoes = pgTable(
     descricao: text("descricao"),
     valorPrincipal: numeric("valor_principal", { precision: 14, scale: 2 }).notNull(),
     valorAtual: numeric("valor_atual", { precision: 18, scale: 8 }).notNull(),
-    indexador: text("indexador").notNull(), // "cdi" | "selic" | "prefixado" | "ipca" (Tesouro, sem cupom)
+    // Tipo do produto (utils/tipoAplicacao.ts): cdb, rdb, lc, lci, lca, cri, cra, debenture,
+    // debenture_incentivada, tesouro. Nulo nas aplicações antigas até o usuário definir
+    tipo: text("tipo"),
+    indexador: text("indexador").notNull(), // "cdi" | "selic" | "prefixado" | "ipca" (os dois últimos sem cupom)
     // % do CDI/Selic; nos títulos do Tesouro fica 100 (a taxa vai em taxaAnual)
     percentualIndexador: numeric("percentual_indexador", { precision: 6, scale: 2 }).notNull(),
     // Tesouro: taxa contratada em % a.a. (no IPCA+, a parte real, acima da inflação). Nula em CDI/Selic

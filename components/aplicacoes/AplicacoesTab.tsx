@@ -21,14 +21,18 @@ import {
 import { cn } from "@/lib/utils";
 import {
   useAplicacoes, useCriarAplicacao, useResgatarAplicacao,
-  useAportarAplicacao, useRecalcularAplicacao, useDescontoAporte,
+  useAportarAplicacao, useRecalcularAplicacao, useDescontoAporte, useDefinirTipoAplicacao,
 } from "@/hooks/useAplicacoes";
 import type { Aplicacao, AporteAplicacao } from "@/services/aplicacaoService";
 import type { Conta } from "@/types/conta";
 import { calcularAliquotaIR } from "@/utils/aplicacaoUtils";
 import {
-  descreverRentabilidade, ehIndexadorTesouro, nomeIndexador, type Indexador,
+  descreverRentabilidade, usaTaxaAnual, INDEXADORES, INDEXADOR_LABEL, type Indexador,
 } from "@/utils/tesouroUtils";
+import {
+  indexadoresDoTipo, nomePadraoAplicacao, podeSemVencimento, temFgc, tiposParaIndexador, tributacaoDoTipo,
+  TIPOS_APLICACAO, TIPO_APLICACAO_DESCRICAO, TIPO_APLICACAO_LABEL, type TipoAplicacao,
+} from "@/utils/tipoAplicacao";
 import {
   hojeBrt, diasEntre, projetarLotes, estimarLiquidoTotal, simularResgateFifo,
   type LoteEstado,
@@ -56,6 +60,10 @@ export default function AplicacoesTab({ contas }: Props) {
   const aportar = useAportarAplicacao();
   const recalcular = useRecalcularAplicacao();
   const descontoAporte = useDescontoAporte();
+  const definirTipo = useDefinirTipoAplicacao();
+  // Aplicação antiga, sem tipo: diálogo "Definir tipo"
+  const [tipoAlvo, setTipoAlvo] = useState<Aplicacao | null>(null);
+  const [tipoEscolhido, setTipoEscolhido] = useState<TipoAplicacao | "">("");
   // Aporte cujo desconto na conta está sendo ligado ou desfeito (abre a confirmação)
   const [descontoAlvo, setDescontoAlvo] = useState<{ aplicacao: Aplicacao; aporte: AporteAplicacao } | null>(null);
 
@@ -75,9 +83,11 @@ export default function AplicacoesTab({ contas }: Props) {
     descricao: "",
     valor: "",
     dataAplicacao: hojeIso,
+    // Tipo do produto (CDB, LCI, Tesouro...); `tipo` acima é entrada/saída do campo de conta
+    tipoProduto: "" as TipoAplicacao | "",
     indexador: "cdi" as Indexador,
     percentualIndexador: "100",
-    // Tesouro Prefixado/IPCA+: taxa contratada em % a.a.
+    // Prefixado/IPCA+: taxa contratada em % a.a.
     taxaAnual: "",
     tributacao: "tributavel" as "isento" | "tributavel",
     rendeNoDiaAporte: false,
@@ -181,7 +191,7 @@ export default function AplicacoesTab({ contas }: Props) {
   // ── Nova aplicação ───────────────────────────────────────────────────────
   function abrirNovaAplicacao() {
     setForm({
-      contaId: contas[0]?.id ?? "", tipo: "saida", descricao: "", valor: "",
+      contaId: contas[0]?.id ?? "", tipo: "saida", descricao: "", valor: "", tipoProduto: "",
       dataAplicacao: hojeIso, indexador: "cdi", percentualIndexador: "100", taxaAnual: "",
       tributacao: "tributavel", rendeNoDiaAporte: false, semVencimento: false, dataVencimento: "",
       movimentar: true,
@@ -190,20 +200,39 @@ export default function AplicacoesTab({ contas }: Props) {
     setModalNovaOpen(true);
   }
 
+  // Escolher o tipo sugere a tributação e ajusta o indexador aos que o tipo aceita
+  function escolherTipoProduto(t: TipoAplicacao) {
+    setForm((f) => {
+      const permitidos = indexadoresDoTipo(t);
+      const indexador = permitidos.includes(f.indexador) ? f.indexador : permitidos[0];
+      return {
+        ...f,
+        tipoProduto: t,
+        indexador,
+        tributacao: tributacaoDoTipo(t),
+        semVencimento: f.semVencimento && podeSemVencimento(t, indexador),
+      };
+    });
+  }
+
   async function confirmarNovaAplicacao() {
     setErro(null);
     const valorNum = parseFloat(form.valor);
     if (!form.contaId) { setErro("Selecione uma conta"); return; }
     if (isNaN(valorNum) || valorNum <= 0) { setErro("Informe um valor válido"); return; }
-    const tesouro = ehIndexadorTesouro(form.indexador);
-    const percentualNum = tesouro ? 100 : parseFloat(form.percentualIndexador);
+    const tipoProduto = form.tipoProduto;
+    if (!tipoProduto) { setErro("Escolha o tipo da aplicação"); return; }
+    const comTaxaAnual = usaTaxaAnual(form.indexador);
+    const percentualNum = comTaxaAnual ? 100 : parseFloat(form.percentualIndexador);
     if (isNaN(percentualNum) || percentualNum <= 0) { setErro("Informe um percentual válido"); return; }
     const taxaAnualNum = parseFloat(form.taxaAnual.replace(",", "."));
-    if (tesouro && (isNaN(taxaAnualNum) || taxaAnualNum <= 0 || taxaAnualNum >= 100)) { setErro("Informe a taxa do título (% ao ano)"); return; }
+    if (comTaxaAnual && (isNaN(taxaAnualNum) || taxaAnualNum <= 0 || taxaAnualNum >= 100)) { setErro("Informe a taxa do título (% ao ano)"); return; }
     if (!form.dataAplicacao || form.dataAplicacao > hojeIso) { setErro("A data da aplicação não pode ser futura"); return; }
-    const semVencimento = form.semVencimento && !tesouro; // título do Tesouro sempre vence
+    // Liquidez diária só em CDB/RDB/LC atrelados ao CDI; o resto sempre vence
+    const aceitaSemVencimento = podeSemVencimento(tipoProduto, form.indexador);
+    const semVencimento = form.semVencimento && aceitaSemVencimento;
     if (!semVencimento && !form.dataVencimento) {
-      setErro(tesouro ? "Selecione a data de vencimento do título" : "Selecione a data de vencimento, ou marque 'sem vencimento'");
+      setErro(aceitaSemVencimento ? "Selecione a data de vencimento, ou marque 'sem vencimento'" : "Selecione a data de vencimento");
       return;
     }
 
@@ -211,10 +240,11 @@ export default function AplicacoesTab({ contas }: Props) {
       await criar.mutateAsync({
         contaId: form.contaId,
         descricao: form.descricao || undefined,
+        tipo: tipoProduto,
         valor: valorNum,
         indexador: form.indexador,
         percentualIndexador: percentualNum,
-        taxaAnual: tesouro ? taxaAnualNum : undefined,
+        taxaAnual: comTaxaAnual ? taxaAnualNum : undefined,
         tributacao: form.tributacao,
         rendeNoDiaAporte: form.rendeNoDiaAporte,
         dataVencimento: semVencimento ? undefined : form.dataVencimento,
@@ -305,8 +335,9 @@ export default function AplicacoesTab({ contas }: Props) {
     );
   }
 
+  // Sem descrição: "CDB", "LCI IPCA+", "Tesouro Selic"; aplicação antiga sem tipo: "Aplicação em CDI"
   const nomeAplicacao = (a: Aplicacao) =>
-    a.descricao || (ehIndexadorTesouro(a.indexador) ? nomeIndexador(a.indexador) : `Aplicação em ${nomeIndexador(a.indexador)}`);
+    a.descricao || (a.tipo ? nomePadraoAplicacao(a) : `Aplicação em ${nomePadraoAplicacao(a)}`);
 
   return (
     // Entra com animação quando os dados chegam (o carregamento retorna antes, com esqueleto)
@@ -423,7 +454,7 @@ export default function AplicacoesTab({ contas }: Props) {
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                               {/* em português: "120%" ou "102,5%" (o banco devolve "120.00") */}
-                              {descreverRentabilidade(a)} · {resumoPrazo}
+                              {a.tipo && a.descricao && `${TIPO_APLICACAO_LABEL[a.tipo]} · `}{descreverRentabilidade(a)} · {resumoPrazo}
                             </p>
                           </div>
                           <div className="text-right flex-shrink-0">
@@ -454,9 +485,25 @@ export default function AplicacoesTab({ contas }: Props) {
                                   Principal investido: {mask(formatarMoeda(principalExibido))}
                                   {a.rendeNoDiaAporte && " · rende no dia do aporte"}
                                 </p>
-                                <Badge variant="outline" className="text-[10px] px-2 py-0.5">
-                                  {a.tributacao === "isento" ? "Isento de IR" : "Tributável"}
-                                </Badge>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <Badge variant="outline" className="text-[10px] px-2 py-0.5">
+                                    {a.tributacao === "isento" ? "Isento de IR" : "Tributável"}
+                                  </Badge>
+                                  {a.tipo ? (
+                                    <Badge variant="outline" className="text-[10px] px-2 py-0.5" title={temFgc(a.tipo) ? "Coberto pelo Fundo Garantidor de Créditos" : "Não tem a garantia do Fundo Garantidor de Créditos"}>
+                                      {temFgc(a.tipo) ? "Garantia FGC" : "Sem FGC"}
+                                    </Badge>
+                                  ) : (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-6 px-2 text-[11px] text-blue-700 dark:text-blue-400"
+                                      onClick={() => { setTipoEscolhido(""); setTipoAlvo(a); }}
+                                    >
+                                      Definir tipo
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
 
                               {/* IR e líquido estimados — comparáveis com a corretora */}
@@ -476,7 +523,7 @@ export default function AplicacoesTab({ contas }: Props) {
                               {visao && visao.diasProjetados > 0 && (
                                 <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
                                   <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                                  Inclui {visao.diasProjetados} dia(s) útil(eis) estimado(s): o BCB ainda não publicou {ehIndexadorTesouro(a.indexador) ? "o calendário" : "a taxa"}.
+                                  Inclui {visao.diasProjetados} dia(s) útil(eis) estimado(s): o BCB ainda não publicou {usaTaxaAnual(a.indexador) ? "o calendário" : "a taxa"}.
                                   Confirmado até {a.ultimaTaxa ? fmtIso(a.ultimaTaxa.data) : "—"}: {mask(formatarMoeda(visao.oficialBruto))}.
                                 </p>
                               )}
@@ -493,7 +540,7 @@ export default function AplicacoesTab({ contas }: Props) {
                               {ativa && a.indexador === "prefixado" && (
                                 <p className="flex items-start gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
                                   <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                                  Valor na curva (levando até o vencimento). Vendendo antes, o Tesouro paga o preço de mercado, que pode ser maior ou menor.
+                                  Valor na curva (levando até o vencimento). Vendendo antes, vale o preço de mercado, que pode ser maior ou menor.
                                 </p>
                               )}
 
@@ -663,22 +710,47 @@ export default function AplicacoesTab({ contas }: Props) {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="aplicacao-data">Data da aplicação</Label>
-              <Input
-                id="aplicacao-data"
-                type="date"
-                max={hojeIso}
-                value={form.dataAplicacao}
-                onChange={(e) => updateForm("dataAplicacao", e.target.value)}
-              />
-              {form.dataAplicacao && form.dataAplicacao < hojeIso && (
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-start gap-1">
-                  <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                  Data passada: o rendimento e o IR são calculados desde essa data.
-                </p>
-              )}
+            {/* Data e tipo lado a lado; as dicas de cada um ficam abaixo, na largura toda */}
+            <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 items-start">
+              <div className="space-y-1.5">
+                <Label htmlFor="aplicacao-data">Data da aplicação</Label>
+                <Input
+                  id="aplicacao-data"
+                  type="date"
+                  max={hojeIso}
+                  value={form.dataAplicacao}
+                  onChange={(e) => updateForm("dataAplicacao", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="aplicacao-tipo">Tipo</Label>
+                <Select value={form.tipoProduto} onValueChange={(v: TipoAplicacao) => escolherTipoProduto(v)}>
+                  <SelectTrigger id="aplicacao-tipo" className="w-full"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_APLICACAO.map((t) => (
+                      <SelectItem key={t} value={t}>{TIPO_APLICACAO_LABEL[t]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            {(form.tipoProduto || (form.dataAplicacao && form.dataAplicacao < hojeIso)) && (
+              <div className="-mt-2 space-y-1">
+                {form.tipoProduto && (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                    {TIPO_APLICACAO_DESCRICAO[form.tipoProduto]}
+                    {tributacaoDoTipo(form.tipoProduto) === "isento" ? " · isento de IR" : " · tributável"}
+                    {temFgc(form.tipoProduto) ? " · garantia do FGC" : " · sem FGC"}
+                  </p>
+                )}
+                {form.dataAplicacao && form.dataAplicacao < hojeIso && (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-start gap-1">
+                    <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    Data passada: o rendimento e o IR são calculados desde essa data.
+                  </p>
+                )}
+              </div>
+            )}
 
             {form.dataAplicacao && form.dataAplicacao < hojeIso && (
             <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
@@ -714,14 +786,13 @@ export default function AplicacoesTab({ contas }: Props) {
                 <Select value={form.indexador} onValueChange={(v: Indexador) => updateForm("indexador", v)}>
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cdi">CDI</SelectItem>
-                    <SelectItem value="selic">Selic</SelectItem>
-                    <SelectItem value="prefixado">Tesouro Prefixado</SelectItem>
-                    <SelectItem value="ipca">Tesouro IPCA+</SelectItem>
+                    {(form.tipoProduto ? indexadoresDoTipo(form.tipoProduto) : INDEXADORES).map((i) => (
+                      <SelectItem key={i} value={i}>{INDEXADOR_LABEL[i]}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-              {ehIndexadorTesouro(form.indexador) ? (
+              {usaTaxaAnual(form.indexador) ? (
                 <div className="space-y-1.5">
                   <Label htmlFor="aplicacao-taxa">{form.indexador === "ipca" ? "Taxa acima do IPCA (% a.a.)" : "Taxa (% a.a.)"}</Label>
                   <Input
@@ -750,9 +821,9 @@ export default function AplicacoesTab({ contas }: Props) {
                 </div>
               )}
             </div>
-            {ehIndexadorTesouro(form.indexador) && (
+            {usaTaxaAnual(form.indexador) && (
               <p className="-mt-2 text-[11px] text-gray-500 dark:text-gray-400">
-                Título sem cupom, calculado na curva: o valor que ele atinge se for levado até o vencimento.
+                Sem cupom (os juros vêm no vencimento), calculado na curva: o valor que o título atinge se for levado até o vencimento.
                 {form.indexador === "ipca" && " A inflação vem do IPCA mensal do Banco Central."}
               </p>
             )}
@@ -786,8 +857,8 @@ export default function AplicacoesTab({ contas }: Props) {
               />
             </div>
 
-            {/* Título do Tesouro sempre tem vencimento */}
-            {!ehIndexadorTesouro(form.indexador) && (
+            {/* Liquidez diária só em CDB/RDB/LC atrelados ao CDI */}
+            {form.tipoProduto && podeSemVencimento(form.tipoProduto, form.indexador) && (
               <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
                 <div>
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Sem vencimento</span>
@@ -800,7 +871,7 @@ export default function AplicacoesTab({ contas }: Props) {
               </div>
             )}
 
-            {(!form.semVencimento || ehIndexadorTesouro(form.indexador)) && (
+            {(!form.semVencimento || !form.tipoProduto || !podeSemVencimento(form.tipoProduto, form.indexador)) && (
               <div className="space-y-1.5">
                 <Label htmlFor="aplicacao-vencimento">Vencimento</Label>
                 <Input
@@ -823,6 +894,54 @@ export default function AplicacoesTab({ contas }: Props) {
             <Button variant="outline" onClick={() => setModalNovaOpen(false)}>Cancelar</Button>
             <Button onClick={confirmarNovaAplicacao} disabled={criar.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
               {criar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Aplicando...</> : "Aplicar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Definir o tipo de uma aplicação antiga ─────────────────────────── */}
+      <Dialog open={!!tipoAlvo} onOpenChange={(v) => { if (!v && !definirTipo.isPending) setTipoAlvo(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Definir tipo</DialogTitle>
+            <DialogDescription>
+              {tipoAlvo && <>Qual é o tipo de <strong>{nomeAplicacao(tipoAlvo)}</strong> ({descreverRentabilidade(tipoAlvo)})?</>}
+            </DialogDescription>
+          </DialogHeader>
+          {tipoAlvo && (
+            <div className="space-y-2">
+              <Select value={tipoEscolhido} onValueChange={(v: TipoAplicacao) => setTipoEscolhido(v)}>
+                <SelectTrigger className="w-full" aria-label="Tipo"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                <SelectContent>
+                  {tiposParaIndexador(tipoAlvo.indexador).map((t) => (
+                    <SelectItem key={t} value={t}>{TIPO_APLICACAO_LABEL[t]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {tipoEscolhido && (
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  {TIPO_APLICACAO_DESCRICAO[tipoEscolhido]}{temFgc(tipoEscolhido) ? " · garantia do FGC" : " · sem FGC"}
+                </p>
+              )}
+              {tipoEscolhido && tributacaoDoTipo(tipoEscolhido) !== tipoAlvo.tributacao && (
+                <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+                  <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  {TIPO_APLICACAO_LABEL[tipoEscolhido]} costuma ser {tributacaoDoTipo(tipoEscolhido) === "isento" ? "isento de IR" : "tributável"}, mas esta aplicação está cadastrada como {tipoAlvo.tributacao === "isento" ? "isenta" : "tributável"}. O tipo não muda a tributação.
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setTipoAlvo(null)} disabled={definirTipo.isPending}>Cancelar</Button>
+            <Button
+              className="bg-blue-700 text-white hover:bg-blue-800"
+              disabled={!tipoEscolhido || definirTipo.isPending}
+              onClick={() => {
+                if (!tipoAlvo || !tipoEscolhido) return;
+                definirTipo.mutate({ id: tipoAlvo.id, tipo: tipoEscolhido }, { onSuccess: () => setTipoAlvo(null) });
+              }}
+            >
+              {definirTipo.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>

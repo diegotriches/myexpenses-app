@@ -1,5 +1,6 @@
 import { comJson, requisicao } from "@/services/http";
 import type { Indexador } from "@/utils/tesouroUtils";
+import type { TipoAplicacao } from "@/utils/tipoAplicacao";
 
 export interface AporteAplicacao {
   id: string;
@@ -30,6 +31,7 @@ export interface Aplicacao {
   userId: string;
   contaId: string;
   descricao: string | null;
+  tipo: TipoAplicacao | null; // CDB, LCI, Tesouro... (null nas antigas, até o usuário definir)
   valorPrincipal: string; // principal ainda investido
   valorAtual: string;     // bruto, confirmado pelo BCB
   indexador: Indexador;
@@ -54,6 +56,7 @@ export interface Aplicacao {
 export interface CreateAplicacaoDTO {
   contaId: string;
   descricao?: string;
+  tipo: TipoAplicacao;
   valor: number;
   indexador: Indexador;
   percentualIndexador: number;
@@ -122,6 +125,11 @@ export const aplicacaoService = {
       }),
       "Erro ao resgatar aplicação"
     );
+  },
+
+  /** Define o tipo do produto de uma aplicação (as antigas nasceram sem tipo) */
+  async definirTipo(id: string, tipo: TipoAplicacao) {
+    return requisicao<Aplicacao>(`/api/aplicacoes/${id}`, comJson("PATCH", { tipo }), "Erro ao definir o tipo da aplicação");
   },
 
   /** Liga (debita a conta na data do aporte) ou desfaz o desconto de um aporte */

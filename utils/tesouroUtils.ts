@@ -1,11 +1,11 @@
 //
-// Tesouro Prefixado (LTN) e Tesouro IPCA+ (NTN-B Principal), sem cupom,
-// marcados NA CURVA: o valor que o título atinge se for levado ao vencimento.
-// O preço de mercado (venda antecipada) não é calculado aqui.
+// Indexadores com taxa contratada ao ano: Prefixado e IPCA+, sem cupom, do
+// Tesouro (LTN, NTN-B Principal) ou de títulos privados (CDB, LCI...), marcados
+// NA CURVA: o valor que o título atinge se for levado ao vencimento. O preço de
+// mercado (venda antecipada) não é calculado aqui.
 //
 // O motor de renda fixa (utils/aplicacaoSimulacao.ts) aplica uma taxa diária
-// em cada dia útil. Aqui se gera essa taxa para os títulos do Tesouro, com
-// percentual 100%:
+// em cada dia útil. Aqui se gera essa taxa, com percentual 100%:
 //  - Prefixado: (1 + taxa anual)^(1/252) em cada dia útil.
 //  - IPCA+: parte real, (1 + taxa real)^(1/252), vezes a inflação. Como no
 //    Tesouro, a inflação do mês M corre do dia 15 de M até o dia 14 de M+1,
@@ -18,12 +18,13 @@
 
 import type { TaxaDia } from "./aplicacaoSimulacao";
 
-export type IndexadorTesouro = "prefixado" | "ipca";
-export type Indexador = "cdi" | "selic" | IndexadorTesouro;
+export type IndexadorTaxaAnual = "prefixado" | "ipca";
+export type Indexador = "cdi" | "selic" | IndexadorTaxaAnual;
 
 export const INDEXADORES: readonly Indexador[] = ["cdi", "selic", "prefixado", "ipca"];
 
-export function ehIndexadorTesouro(indexador: string): indexador is IndexadorTesouro {
+/** Prefixado e IPCA+: rendem pela taxa contratada (taxaAnual), não por % de um indexador */
+export function usaTaxaAnual(indexador: string): indexador is IndexadorTaxaAnual {
   return indexador === "prefixado" || indexador === "ipca";
 }
 
@@ -46,12 +47,6 @@ export function descreverRentabilidade(a: {
   if (a.indexador === "ipca") return `IPCA + ${pct(Number(a.taxaAnual ?? 0))}% a.a.`;
   const nome = INDEXADOR_LABEL[a.indexador as Indexador] ?? a.indexador.toUpperCase();
   return `${pct(Number(a.percentualIndexador))}% do ${nome}`;
-}
-
-/** Nome curto para quando a aplicação não tem descrição: "CDI", "Selic", "Tesouro IPCA+" */
-export function nomeIndexador(indexador: string): string {
-  const nome = INDEXADOR_LABEL[indexador as Indexador] ?? indexador.toUpperCase();
-  return ehIndexadorTesouro(indexador) ? `Tesouro ${nome}` : nome;
 }
 
 // ── datas (AAAA-MM-DD, em UTC) ───────────────────────────────────────────────
@@ -94,7 +89,7 @@ export interface TaxasTesouro {
  * @param ipcaMensal IPCA de cada mês em %, por "AAAA-MM" (só para IPCA+)
  */
 export function taxasDiariasTesouro(p: {
-  indexador: IndexadorTesouro;
+  indexador: IndexadorTaxaAnual;
   taxaAnual: number;
   diasUteis: string[];
   ipcaMensal?: Record<string, number>;

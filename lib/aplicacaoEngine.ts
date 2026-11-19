@@ -14,11 +14,12 @@ import {
   type ResultadoSimulacao, type TaxaDia,
 } from "@/utils/aplicacaoSimulacao";
 import {
-  ehIndexadorTesouro, mesReferenciaIpca, nomeIndexador, somarMes, taxasDiariasTesouro,
-  type IndexadorTesouro,
+  usaTaxaAnual, mesReferenciaIpca, somarMes, taxasDiariasTesouro,
+  type IndexadorTaxaAnual,
 } from "@/utils/tesouroUtils";
 import type { Tributacao } from "@/utils/aplicacaoUtils";
 import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
+import { nomePadraoAplicacao } from "@/utils/tipoAplicacao";
 import { formatarMoeda } from "@/utils/formatadores";
 
 // Séries SGS do Banco Central: CDI e Selic já retornam a taxa diária em %;
@@ -175,12 +176,12 @@ export async function garantirIpca(inicio: string, fim: string): Promise<string>
 }
 
 /**
- * Taxas diárias de um título do Tesouro (Prefixado ou IPCA+) entre `inicio` e
+ * Taxas diárias de um título Prefixado ou IPCA+ (Tesouro ou privado) entre `inicio` e
  * `fim`. Os dias úteis são as datas da série do CDI (o Banco Central só a
  * publica em dia útil), então feriados ficam de fora sem calendário próprio.
  */
 async function taxasTesouro(
-  indexador: IndexadorTesouro,
+  indexador: IndexadorTaxaAnual,
   taxaAnual: number,
   inicio: string,
   fim: string,
@@ -229,12 +230,12 @@ export async function recalcularAplicacao(aplicacaoId: string): Promise<{
   const fim = vencIso && vencIso < hoje ? vencIso : hoje;
   const inicio = aportes[0].data;
 
-  // Tesouro: taxa diária gerada da taxa contratada (e do IPCA), a 100%.
+  // Prefixado/IPCA+: taxa diária gerada da taxa contratada (e do IPCA), a 100%.
   // CDI/Selic: taxa publicada pelo BCB, ao percentual contratado
   let statusBcb: string;
   let taxas: TaxaDia[];
   let percentual: number;
-  if (ehIndexadorTesouro(ap.indexador)) {
+  if (usaTaxaAnual(ap.indexador)) {
     const t = await taxasTesouro(ap.indexador, Number(ap.taxaAnual ?? 0), inicio, fim);
     ({ taxas, statusBcb } = t);
     percentual = 100;
@@ -404,8 +405,8 @@ export async function executarResgate(params: {
       valor: valorLiquido,
       data: hoje,
       descricao: impostoRetido > 0
-        ? `${rotulo} — ${ap.descricao || nomeIndexador(ap.indexador)} (IR retido: ${formatarMoeda(impostoRetido)})`
-        : `${rotulo} — ${ap.descricao || nomeIndexador(ap.indexador)}`,
+        ? `${rotulo} — ${ap.descricao || nomePadraoAplicacao(ap)} (IR retido: ${formatarMoeda(impostoRetido)})`
+        : `${rotulo} — ${ap.descricao || nomePadraoAplicacao(ap)}`,
       origem: "RESGATE_APLICACAO",
       referenciaId: ap.id,
     });
