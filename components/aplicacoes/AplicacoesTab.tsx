@@ -14,14 +14,14 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import {
-  TrendingUp, PiggyBank, Calendar, Undo2, Loader2, Plus, History, RefreshCw, Pencil,
+  TrendingUp, PiggyBank, Calendar, Undo2, Loader2, Plus, History, RefreshCw, Pencil, Trash2,
   AlertCircle, Receipt, ChevronDown, ChevronUp, Info,
   ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   useAplicacoes, useCriarAplicacao, useResgatarAplicacao,
-  useAportarAplicacao, useRecalcularAplicacao, useDescontoAporte, useDefinirTipoAplicacao, useEditarAplicacao,
+  useAportarAplicacao, useRecalcularAplicacao, useDescontoAporte, useDefinirTipoAplicacao, useEditarAplicacao, useExcluirAplicacao, useEditarAporte, useExcluirAporte,
 } from "@/hooks/useAplicacoes";
 import type { Aplicacao, AporteAplicacao } from "@/services/aplicacaoService";
 import type { Conta } from "@/types/conta";
@@ -40,6 +40,7 @@ import {
 // Mesmos campos do modal de Nova Movimentação (conta com logo do banco e
 // valor em formato calculadora)
 import MovCampoConta from "@/components/transacoes/MovCampoConta";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import MovCamposBasicos from "@/components/transacoes/MovCamposBasicos";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarMoeda } from "@/utils/formatadores";
@@ -64,6 +65,14 @@ export default function AplicacoesTab({ contas }: Props) {
   const editarAplicacao = useEditarAplicacao();
   // Modal de Nova Aplicação em modo edição: só o que não mexe em dinheiro
   const [editando, setEditando] = useState<Aplicacao | null>(null);
+  const excluirAplicacao = useExcluirAplicacao();
+  const editarAporte = useEditarAporte();
+  const excluirAporte = useExcluirAporte();
+  // Confirmações de exclusão (aplicação criada por engano; aporte)
+  const [excluirAplicacaoAlvo, setExcluirAplicacaoAlvo] = useState<Aplicacao | null>(null);
+  const [excluirAporteAlvo, setExcluirAporteAlvo] = useState<{ aplicacao: Aplicacao; aporte: AporteAplicacao } | null>(null);
+  // Modal de aporte em modo edição (valor, data e conta de um aporte existente)
+  const [aporteEditando, setAporteEditando] = useState<AporteAplicacao | null>(null);
   // Aplicação antiga, sem tipo: diálogo "Definir tipo"
   const [tipoAlvo, setTipoAlvo] = useState<Aplicacao | null>(null);
   const [tipoEscolhido, setTipoEscolhido] = useState<TipoAplicacao | "">("");
@@ -320,7 +329,15 @@ export default function AplicacoesTab({ contas }: Props) {
   }
 
   // ── Aporte ───────────────────────────────────────────────────────────────
+  function abrirEdicaoAporte(a: Aplicacao, x: AporteAplicacao) {
+    setAporteForm({ contaId: x.contaId ?? a.contaId, tipo: "saida", valor: Number(x.valor).toFixed(2), data: x.data, movimentar: true });
+    setAporteEditando(x);
+    setErroAporte(null);
+    setAporteAlvo(a);
+  }
+
   function abrirAporte(a: Aplicacao) {
+    setAporteEditando(null);
     setAporteForm({ contaId: a.contaId, tipo: "saida", valor: "", data: hojeIso, movimentar: true });
     setErroAporte(null);
     setAporteAlvo(a);
@@ -332,6 +349,20 @@ export default function AplicacoesTab({ contas }: Props) {
     const valorNum = parseFloat(aporteForm.valor);
     if (isNaN(valorNum) || valorNum <= 0) { setErroAporte("Informe um valor válido"); return; }
     if (!aporteForm.data || aporteForm.data > hojeIso) { setErroAporte("A data do aporte não pode ser futura"); return; }
+
+    if (aporteEditando) {
+      try {
+        await editarAporte.mutateAsync({
+          id: aporteAlvo.id,
+          aporteId: aporteEditando.id,
+          dados: { valor: valorNum, data: aporteForm.data, contaId: aporteForm.contaId || undefined },
+        });
+        setAporteAlvo(null);
+      } catch (err) {
+        setErroAporte(err instanceof Error ? err.message : "Erro ao editar o aporte");
+      }
+      return;
+    }
 
     try {
       await aportar.mutateAsync({
@@ -668,16 +699,39 @@ export default function AplicacoesTab({ contas }: Props) {
                                                     {fmtIso(x.data)}
                                                     {x.historico && <span className="ml-1 text-[10px] text-gray-400">(histórico)</span>}
                                                   </span>
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => setDescontoAlvo({ aplicacao: a, aporte: x })}
-                                                    className={cn(
-                                                      "text-[11px] font-medium hover:underline",
-                                                      x.historico ? "text-blue-700 dark:text-blue-400" : "text-gray-500 dark:text-gray-400",
+                                                  <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => setDescontoAlvo({ aplicacao: a, aporte: x })}
+                                                      className={cn(
+                                                        "text-[11px] font-medium hover:underline",
+                                                        x.historico ? "text-blue-700 dark:text-blue-400" : "text-gray-500 dark:text-gray-400",
+                                                      )}
+                                                    >
+                                                      {x.historico ? "Descontar da conta" : "Desfazer desconto"}
+                                                    </button>
+                                                    {/* Resgate na data do aporte ou depois foi calculado com ele: o aporte não muda mais */}
+                                                    {ativa && !(a.resgates ?? []).some((r) => r.data >= x.data) && (
+                                                      <>
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => abrirEdicaoAporte(a, x)}
+                                                          className="text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:underline"
+                                                        >
+                                                          Editar
+                                                        </button>
+                                                        {(a.aportes?.length ?? 0) > 1 && (
+                                                          <button
+                                                            type="button"
+                                                            onClick={() => setExcluirAporteAlvo({ aplicacao: a, aporte: x })}
+                                                            className="text-[11px] font-medium text-red-600 dark:text-red-400 hover:underline"
+                                                          >
+                                                            Excluir
+                                                          </button>
+                                                        )}
+                                                      </>
                                                     )}
-                                                  >
-                                                    {x.historico ? "Descontar da conta" : "Desfazer desconto"}
-                                                  </button>
+                                                  </span>
                                                 </span>
                                                 <span className="text-gray-500 dark:text-gray-400">
                                                   {mask(formatarMoeda(Number(x.valor)))} → <strong className="text-gray-900 dark:text-white">{mask(formatarMoeda(Number(x.valorAtual)))}</strong>
@@ -979,6 +1033,16 @@ export default function AplicacoesTab({ contas }: Props) {
           </div>
 
           <DialogFooter className="gap-2">
+            {editando && !editando.resgatada && (editando.resgates?.length ?? 0) === 0 && (
+              <Button
+                variant="ghost"
+                className="sm:mr-auto text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                onClick={() => { setExcluirAplicacaoAlvo(editando); setModalNovaOpen(false); }}
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" />
+                Excluir aplicação
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setModalNovaOpen(false)}>Cancelar</Button>
             <Button
               onClick={confirmarNovaAplicacao}
@@ -992,6 +1056,76 @@ export default function AplicacoesTab({ contas }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Excluir aplicação criada por engano ─────────────────────────────── */}
+      {(() => {
+        const alvo = excluirAplicacaoAlvo;
+        // O que volta para cada conta: os aportes que saíram da conta (não históricos)
+        const devolver = new Map<string, number>();
+        for (const x of alvo?.aportes ?? []) {
+          if (x.historico) continue;
+          const contaId = x.contaId ?? alvo!.contaId;
+          devolver.set(contaId, (devolver.get(contaId) ?? 0) + Number(x.valor));
+        }
+        return (
+          <ConfirmDialog
+            aberto={!!alvo}
+            onFechar={() => setExcluirAplicacaoAlvo(null)}
+            titulo="Excluir aplicação"
+            descricao={alvo ? <>Excluir <strong>{nomeAplicacao(alvo)}</strong> como se nunca tivesse existido?</> : null}
+            carregando={excluirAplicacao.isPending}
+            onConfirmar={() => {
+              if (!alvo) return;
+              excluirAplicacao.mutate(alvo.id, {
+                onSuccess: () => setExcluirAplicacaoAlvo(null),
+              });
+            }}
+          >
+            <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+              {devolver.size > 0 ? (
+                <p>
+                  Volta para a conta:{" "}
+                  {[...devolver].map(([contaId, v], i) => (
+                    <span key={contaId}>{i > 0 && ", "}<strong>{mask(formatarMoeda(v))}</strong> em {nomeConta(contaId)}</span>
+                  ))}
+                  . Os lançamentos da aplicação e dos aportes saem do extrato.
+                </p>
+              ) : (
+                <p>Os aportes são históricos (não saíram da conta), então nada volta para a conta.</p>
+              )}
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                A aplicação, os aportes e o rendimento são apagados. Diferente do resgate, não entra rendimento nem é retido IR: use para desfazer um cadastro errado.
+              </p>
+            </div>
+          </ConfirmDialog>
+        );
+      })()}
+
+      {/* ── Excluir um aporte ───────────────────────────────────────────────── */}
+      <ConfirmDialog
+        aberto={!!excluirAporteAlvo}
+        onFechar={() => setExcluirAporteAlvo(null)}
+        titulo="Excluir aporte"
+        descricao={excluirAporteAlvo ? (
+          <>Excluir o aporte de <strong>{mask(formatarMoeda(Number(excluirAporteAlvo.aporte.valor)))}</strong> de {fmtIso(excluirAporteAlvo.aporte.data)}?</>
+        ) : null}
+        carregando={excluirAporte.isPending}
+        onConfirmar={() => {
+          if (!excluirAporteAlvo) return;
+          excluirAporte.mutate(
+            { id: excluirAporteAlvo.aplicacao.id, aporteId: excluirAporteAlvo.aporte.id },
+            { onSuccess: () => setExcluirAporteAlvo(null) },
+          );
+        }}
+      >
+        {excluirAporteAlvo && (
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            {excluirAporteAlvo.aporte.historico
+              ? "O aporte é histórico (não saiu da conta), então nada volta para a conta. O rendimento é recalculado."
+              : <>O valor volta para a conta <strong>{nomeConta(excluirAporteAlvo.aporte.contaId ?? excluirAporteAlvo.aplicacao.contaId)}</strong> e o lançamento sai do extrato. O rendimento é recalculado.</>}
+          </p>
+        )}
+      </ConfirmDialog>
 
       {/* ── Definir o tipo de uma aplicação antiga ─────────────────────────── */}
       <Dialog open={!!tipoAlvo} onOpenChange={(v) => { if (!v && !definirTipo.isPending) setTipoAlvo(null); }}>
@@ -1097,7 +1231,9 @@ export default function AplicacoesTab({ contas }: Props) {
       <Dialog open={!!aporteAlvo} onOpenChange={(open) => { if (!open) setAporteAlvo(null); }}>
         <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Aportar em {aporteAlvo ? nomeAplicacao(aporteAlvo) : ""}</DialogTitle>
+            <DialogTitle>
+              {aporteEditando ? "Editar aporte de " : "Aportar em "}{aporteAlvo ? nomeAplicacao(aporteAlvo) : ""}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -1123,7 +1259,14 @@ export default function AplicacoesTab({ contas }: Props) {
                 value={aporteForm.data}
                 onChange={(e) => updateAporte("data", e.target.value)}
               />
-              {aporteForm.data && aporteForm.data < hojeIso ? (
+              {aporteEditando ? (
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-start gap-1">
+                  <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  {aporteEditando.historico
+                    ? "Aporte histórico: continua sem mexer no saldo da conta. O rendimento é recalculado."
+                    : "O lançamento no extrato é refeito com o valor, a data e a conta novos, e o rendimento é recalculado."}
+                </p>
+              ) : aporteForm.data && aporteForm.data < hojeIso ? (
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-start gap-1">
                   <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
                   Data passada: o rendimento e o IR contam desde essa data.
@@ -1135,7 +1278,7 @@ export default function AplicacoesTab({ contas }: Props) {
               )}
             </div>
 
-            {aporteForm.data && aporteForm.data < hojeIso && (
+            {!aporteEditando && aporteForm.data && aporteForm.data < hojeIso && (
             <div className="flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
               <div>
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Descontar do saldo da conta</span>
@@ -1162,8 +1305,10 @@ export default function AplicacoesTab({ contas }: Props) {
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setAporteAlvo(null)}>Cancelar</Button>
-            <Button onClick={confirmarAporte} disabled={aportar.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
-              {aportar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Registrando...</> : "Confirmar aporte"}
+            <Button onClick={confirmarAporte} disabled={aportar.isPending || editarAporte.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
+              {aporteEditando
+                ? (editarAporte.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : "Salvar")
+                : (aportar.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Registrando...</> : "Confirmar aporte")}
             </Button>
           </DialogFooter>
         </DialogContent>

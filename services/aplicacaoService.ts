@@ -80,6 +80,12 @@ export interface EditarAplicacaoDTO {
   dataVencimento?: string | null;
 }
 
+export interface EditarAporteDTO {
+  valor: number;
+  data: string; // AAAA-MM-DD
+  contaId?: string;
+}
+
 export interface AportarDTO {
   valor: number;
   data?: string;
@@ -142,6 +148,27 @@ export const aplicacaoService = {
   /** Edita os dados da aplicação; se algo do cálculo mudou, o rendimento é refeito (recalculada) */
   async editar(id: string, dados: EditarAplicacaoDTO) {
     return requisicao<Aplicacao & { recalculada: boolean }>(`/api/aplicacoes/${id}`, comJson("PATCH", dados), "Erro ao editar a aplicação");
+  },
+
+  /** Exclui a aplicação criada por engano: o que saiu das contas volta (devolvido, por conta) */
+  async excluir(id: string) {
+    return requisicao<{ ok: boolean; devolvido: { conta: string; valor: number }[] }>(
+      `/api/aplicacoes/${id}`, { method: "DELETE" }, "Erro ao excluir a aplicação",
+    );
+  },
+
+  /** Edita valor, data e conta de um aporte; se ele saiu da conta, o lançamento é refeito */
+  async editarAporte(id: string, aporteId: string, dados: EditarAporteDTO) {
+    return requisicao<{ ok: boolean; descontado: boolean }>(
+      `/api/aplicacoes/${id}/aportes/${aporteId}`, comJson("PUT", dados), "Erro ao editar o aporte",
+    );
+  },
+
+  /** Exclui um aporte; o que saiu da conta volta (devolvido) */
+  async excluirAporte(id: string, aporteId: string) {
+    return requisicao<{ ok: boolean; devolvido: number }>(
+      `/api/aplicacoes/${id}/aportes/${aporteId}`, { method: "DELETE" }, "Erro ao excluir o aporte",
+    );
   },
 
   /** Define o tipo do produto de uma aplicação (as antigas nasceram sem tipo) */

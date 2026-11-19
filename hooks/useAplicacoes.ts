@@ -2,8 +2,9 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  aplicacaoService, CreateAplicacaoDTO, AportarDTO, ResgatarDTO, EditarAplicacaoDTO,
+  aplicacaoService, CreateAplicacaoDTO, AportarDTO, ResgatarDTO, EditarAplicacaoDTO, EditarAporteDTO,
 } from "@/services/aplicacaoService";
+import { formatarMoeda } from "@/utils/formatadores";
 import { useToast } from "@/hooks/use-toast";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { TIPO_APLICACAO_LABEL, type TipoAplicacao } from "@/utils/tipoAplicacao";
@@ -105,6 +106,70 @@ export function useEditarAplicacao() {
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao editar a aplicação", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useExcluirAplicacao() {
+  const invalidar = useInvalidarAplicacoes();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => aplicacaoService.excluir(id),
+    onSuccess: (r) => {
+      invalidar();
+      toast({
+        title: "Aplicação excluída",
+        description: r.devolvido.length
+          ? `Voltou para a conta: ${r.devolvido.map((d) => `${formatarMoeda(d.valor)} em ${d.conta}`).join(", ")}.`
+          : "Nada saiu de conta nenhuma (os aportes eram históricos), então nada foi devolvido.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao excluir a aplicação", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useEditarAporte() {
+  const invalidar = useInvalidarAplicacoes();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, aporteId, dados }: { id: string; aporteId: string; dados: EditarAporteDTO }) =>
+      aplicacaoService.editarAporte(id, aporteId, dados),
+    onSuccess: (r) => {
+      invalidar();
+      toast({
+        title: "Aporte atualizado",
+        description: r.descontado
+          ? "O lançamento no extrato foi refeito com os dados novos, e o rendimento, recalculado."
+          : "O rendimento foi recalculado. O aporte continua histórico, sem mexer no saldo.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao editar o aporte", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useExcluirAporte() {
+  const invalidar = useInvalidarAplicacoes();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, aporteId }: { id: string; aporteId: string }) => aplicacaoService.excluirAporte(id, aporteId),
+    onSuccess: (r) => {
+      invalidar();
+      toast({
+        title: "Aporte excluído",
+        description: r.devolvido > 0
+          ? `${formatarMoeda(r.devolvido)} voltaram para a conta, e o rendimento foi recalculado.`
+          : "O rendimento foi recalculado. O aporte era histórico, então nada voltou para a conta.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao excluir o aporte", description: error.message, variant: "destructive" });
     },
   });
 }

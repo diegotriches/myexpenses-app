@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { aplicacoes, aportesAplicacao } from "@/db/schema";
+import { aplicacoes, aportesAplicacao, contas, resgatesAplicacao } from "@/db/schema";
 import { and, eq, max } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { respostaDeErro } from "@/lib/rota";
 import { recalcularAplicacao } from "@/lib/aplicacaoEngine";
+import { desfazerLancamentoAporte } from "@/lib/aporteExtrato";
+import { ErroFinanceiro } from "@/lib/movimentacaoConta";
 import { hojeBrt } from "@/utils/aplicacaoSimulacao";
 import { ehTipoAplicacao, indexadoresDoTipo, podeSemVencimento, TIPO_APLICACAO_LABEL } from "@/utils/tipoAplicacao";
 import { INDEXADORES, INDEXADOR_LABEL, usaTaxaAnual, type Indexador } from "@/utils/tesouroUtils";
@@ -135,5 +137,59 @@ export async function PATCH(
     return NextResponse.json({ ...atualizada, recalculada });
   } catch (error) {
     return respostaDeErro(error, "Erro ao editar a aplicação");
+  }
+}
+
+/**
+ * Exclui uma aplicação criada por engano, como se nunca tivesse existido: o que
+ * saiu da conta (aportes não históricos) volta, os lançamentos saem do extrato
+ * e a aplicação, os aportes e o rendimento são apagados. Diferente do resgate,
+ * não credita rendimento nem retém IR. Só sem nenhum resgate.
+ */
+export async function DELETE(
+  _req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const userId = await getUserId();
+    if (!userId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+    const { id } = await context.params;
+    const [aplicacao] = await db.select().from(aplicacoes)
+      .where(and(eq(aplicacoes.id, id), eq(aplicacoes.userId, userId))).limit(1);
+    if (!aplicacao) return erro("Aplicação não encontrada", 404);
+
+    const devolvido = await db.transaction(async (tx) => {
+      // Trava a aplicação: um resgate ao mesmo tempo espera a exclusão terminar
+      await tx.select({ id: aplicacoes.id }).from(aplicacoes).where(eq(aplicacoes.id, aplicacao.id)).for("update");
+      const resgates = await tx.$count(resgatesAplicacao, eq(resgatesAplicacao.aplicacaoId, aplicacao.id));
+      if (resgates > 0 || aplicacao.resgatada)
+        throw new ErroFinanceiro("Esta aplicação já teve resgate e não pode ser excluída");
+
+      const aportes = await tx.select().from(aportesAplicacao).where(eq(aportesAplicacao.aplicacaoId, aplicacao.id));
+      const porConta = new Map<string, number>();
+      for (const a of aportes) {
+        if (a.historico) continue;
+        const contaId = a.contaId ?? aplicacao.contaId;
+        const valor = Number(a.valor);
+        const desfeito = await desfazerLancamentoAporte(tx, { userId, aplicacaoId: aplicacao.id, contaId, data: a.data, valor });
+        if (desfeito !== null) porConta.set(contaId, (porConta.get(contaId) ?? 0) + valor);
+      }
+
+      // aportes, resgates e rendimentos saem em cascata
+      await tx.delete(aplicacoes).where(eq(aplicacoes.id, aplicacao.id));
+
+      const nomes = porConta.size
+        ? await tx.select({ id: contas.id, nome: contas.nome }).from(contas).where(eq(contas.userId, userId))
+        : [];
+      return [...porConta].map(([contaId, valor]) => ({
+        conta: nomes.find((c) => c.id === contaId)?.nome ?? "Conta",
+        valor: Math.round(valor * 100) / 100,
+      }));
+    });
+
+    return NextResponse.json({ ok: true, devolvido });
+  } catch (error) {
+    return respostaDeErro(error, "Erro ao excluir a aplicação");
   }
 }
