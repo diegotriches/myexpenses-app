@@ -45,6 +45,11 @@ import ImportarOperacoesDialog from "@/components/renda-variavel/ImportarOperaco
 import { EVENTO_LABEL, calcularPosicoes, dataEncerramento, encerramentoRecente } from "@/utils/rendaVariavelUtils";
 import { formatarMoeda } from "@/utils/formatadores";
 import { textoDoErro } from "@/utils/erro";
+import BarraFiltros, { OpcoesFiltro } from "@/components/common/BarraFiltros";
+import {
+  contarPorTipo, filtrarRendaVariavel, filtrosAtivosRendaVariavel, FILTRO_RENDA_VARIAVEL_PADRAO,
+  type FiltroRendaVariavel, type OrdemRendaVariavel, type ResultadoFiltro,
+} from "@/utils/filtroInvestimentos";
 
 /** Seções da renda variável, no seletor do topo e no endereço (?rv=) */
 export const SECOES_RV = ["carteira", "historico", "proventos", "ir"] as const;
@@ -154,6 +159,25 @@ export default function RendaVariavel({ contas, secao, onSecaoChange }: Props) {
       }));
   }, [carteira.encerrados, hojeIso]);
   const totalHistorico = historicoPorAno.reduce((s, g) => s + g.posicoes.length, 0);
+
+  // ── Filtros da Carteira e do Histórico (só enquanto a página está aberta) ──
+  const [filtroRv, setFiltroRv] = useState<FiltroRendaVariavel>(FILTRO_RENDA_VARIAVEL_PADRAO);
+  const mudarFiltroRv = <K extends keyof FiltroRendaVariavel>(k: K, v: FiltroRendaVariavel[K]) => setFiltroRv((f) => ({ ...f, [k]: v }));
+  const limparFiltroRv = () => setFiltroRv((f) => ({ ...FILTRO_RENDA_VARIAVEL_PADRAO, ordem: f.ordem }));
+  // Abertas: valor de mercado e resultado não realizado; encerradas: total vendido e resultado realizado
+  const ativosVisiveis = filtrarRendaVariavel(
+    carteira.ativos.map((a) => ({ ticker: a.ticker, tipo: a.tipoAtivo, valor: a.valorMercado, resultado: a.resultadoNaoRealizado, ativo: a })),
+    filtroRv,
+  ).map((i) => i.ativo);
+  const paraItemEncerrado = (p: PosicaoAtivo) => ({ ticker: p.ticker, tipo: p.tipoAtivo, valor: p.totalVendido, resultado: p.resultadoRealizado, posicao: p });
+  const encerradosRecentesVisiveis = filtrarRendaVariavel(encerradosRecentes.map(paraItemEncerrado), filtroRv).map((i) => i.posicao);
+  const historicoVisivel = historicoPorAno
+    .map((g) => {
+      const posicoes = filtrarRendaVariavel(g.posicoes.map(paraItemEncerrado), filtroRv).map((i) => i.posicao);
+      return { ...g, posicoes, resultado: posicoes.reduce((s, p) => s + p.resultadoRealizado, 0) };
+    })
+    .filter((g) => g.posicoes.length > 0);
+  const qtdFiltrosRv = filtrosAtivosRendaVariavel(filtroRv);
 
   // DARFs gerados e não marcados como pagos: sinal na aba "Imposto de renda", para não passar
   // despercebido com o IR em outra aba. Mesma apuração da seção de IR
@@ -615,6 +639,49 @@ export default function RendaVariavel({ contas, secao, onSecaoChange }: Props) {
           </div>
         )}
 
+        {(secaoAtiva === "carteira" ? carteira.ativos.length + encerradosRecentes.length > 0 : secaoAtiva === "historico" && totalHistorico > 0) && (() => {
+          const naCarteira = secaoAtiva === "carteira";
+          const tiposDaSecao = naCarteira
+            ? [...carteira.ativos.map((a) => ({ tipo: a.tipoAtivo as string })), ...encerradosRecentes.map((p) => ({ tipo: p.tipoAtivo as string }))]
+            : historicoPorAno.flatMap((g) => g.posicoes.map((p) => ({ tipo: p.tipoAtivo as string })));
+          const total = naCarteira ? carteira.ativos.length : totalHistorico;
+          const visiveis = naCarteira ? ativosVisiveis.length : historicoVisivel.reduce((s, g) => s + g.posicoes.length, 0);
+          return (
+            <BarraFiltros
+              busca={filtroRv.busca}
+              onBusca={(v) => mudarFiltroRv("busca", v)}
+              placeholderBusca="Buscar ticker"
+              etiquetas={Array.from(contarPorTipo(tiposDaSecao)).map(([tipo, qtd]) => ({
+                valor: tipo, rotulo: TIPO_ATIVO_LABEL[tipo as TipoAtivo], qtd, cor: COR_TIPO[tipo as TipoAtivo],
+              }))}
+              marcadas={filtroRv.tipos}
+              onAlternarEtiqueta={(v) => setFiltroRv((f) => ({ ...f, tipos: f.tipos.includes(v) ? f.tipos.filter((x) => x !== v) : [...f.tipos, v] }))}
+              qtdMaisFiltros={filtroRv.resultado !== "todos" ? 1 : 0}
+              maisFiltros={(modo) => (
+                <OpcoesFiltro
+                  emLinha={modo === "linha"}
+                  titulo={modo === "linha" ? "Resultado" : naCarteira ? "Resultado (não realizado)" : "Resultado realizado"}
+                  opcoes={[{ valor: "todos", rotulo: "Todos" }, { valor: "lucro", rotulo: "Com lucro" }, { valor: "prejuizo", rotulo: "Com prejuízo" }]}
+                  marcadas={[filtroRv.resultado]}
+                  onAlternar={(v) => mudarFiltroRv("resultado", v as ResultadoFiltro)}
+                />
+              )}
+              ordem={filtroRv.ordem}
+              opcoesOrdem={[
+                { valor: "valor", rotulo: naCarteira ? "Valor de mercado" : "Total vendido" },
+                { valor: "resultado", rotulo: "Resultado" },
+                { valor: "ticker", rotulo: "Ticker" },
+              ]}
+              onOrdem={(v) => mudarFiltroRv("ordem", v as OrdemRendaVariavel)}
+              filtrando={qtdFiltrosRv > 0}
+              resumo={naCarteira
+                ? <>{visiveis} de {total} {total === 1 ? "ativo" : "ativos"} · {mask(formatarMoeda(ativosVisiveis.reduce((s, a) => s + a.valorMercado, 0)))}</>
+                : <>{visiveis} de {total} {total === 1 ? "posição" : "posições"} · resultado {mask(formatarMoeda(historicoVisivel.reduce((s, g) => s + g.resultado, 0)))}</>}
+              onLimpar={limparFiltroRv}
+            />
+          );
+        })()}
+
         {secaoAtiva === "carteira" && (
           isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -633,17 +700,25 @@ export default function RendaVariavel({ contas, secao, onSecaoChange }: Props) {
             </div>
           ) : (
             <div className="space-y-4 motion-safe:animate-conteudo-in">
-              {carteira.ativos.length > 0 && (
+              {qtdFiltrosRv > 0 && ativosVisiveis.length === 0 && encerradosRecentesVisiveis.length === 0 && (
+                <div className="text-center py-10 bg-gray-50 dark:bg-gray-900/40 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">Nenhum ativo com esses filtros</p>
+                  <button type="button" onClick={limparFiltroRv} className="mt-2 text-sm font-medium text-blue-700 hover:underline dark:text-blue-400">
+                    Limpar filtros
+                  </button>
+                </div>
+              )}
+              {ativosVisiveis.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex justify-end">
                     {(() => {
-                      const todosExpandidos = carteira.ativos.every((a) => expandidos.has(a.ticker));
+                      const todosExpandidos = ativosVisiveis.every((a) => expandidos.has(a.ticker));
                       return (
                         <Button
                           variant="ghost"
                           size="sm"
                           className="h-8 text-xs text-gray-600 dark:text-gray-400"
-                          onClick={() => setExpandidos(todosExpandidos ? new Set() : new Set(carteira.ativos.map((a) => a.ticker)))}
+                          onClick={() => setExpandidos(todosExpandidos ? new Set() : new Set(ativosVisiveis.map((a) => a.ticker)))}
                         >
                           {todosExpandidos
                             ? <><ChevronsDownUp className="w-3.5 h-3.5 mr-1.5" />Recolher todos</>
@@ -653,12 +728,12 @@ export default function RendaVariavel({ contas, secao, onSecaoChange }: Props) {
                     })()}
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
-                    {carteira.ativos.map((a) => <Fragment key={a.ticker}>{renderCartaoAtivo({ a })}</Fragment>)}
+                    {ativosVisiveis.map((a) => <Fragment key={a.ticker}>{renderCartaoAtivo({ a })}</Fragment>)}
                   </div>
                 </div>
               )}
 
-              {encerradosRecentes.length > 0 && (
+              {encerradosRecentesVisiveis.length > 0 && (
                 <div className="space-y-3">
                   <button
                     type="button"
@@ -666,11 +741,11 @@ export default function RendaVariavel({ contas, secao, onSecaoChange }: Props) {
                     className="flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                   >
                     {verEncerrados ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    Encerradas nos últimos 6 meses ({encerradosRecentes.length})
+                    Encerradas nos últimos 6 meses ({encerradosRecentesVisiveis.length})
                   </button>
                   {verEncerrados && (
                     <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3 items-start">
-                      {encerradosRecentes.map((p) => <Fragment key={p.ticker}>{renderCartaoEncerrado({ p })}</Fragment>)}
+                      {encerradosRecentesVisiveis.map((p) => <Fragment key={p.ticker}>{renderCartaoEncerrado({ p })}</Fragment>)}
                     </div>
                   )}
                 </div>
@@ -681,7 +756,15 @@ export default function RendaVariavel({ contas, secao, onSecaoChange }: Props) {
 
         {secaoAtiva === "historico" && (
           <div className="space-y-6">
-            {historicoPorAno.map((g) => (
+            {qtdFiltrosRv > 0 && historicoVisivel.length === 0 && (
+              <div className="text-center py-10 bg-gray-50 dark:bg-gray-900/40 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">Nenhuma posição com esses filtros</p>
+                <button type="button" onClick={limparFiltroRv} className="mt-2 text-sm font-medium text-blue-700 hover:underline dark:text-blue-400">
+                  Limpar filtros
+                </button>
+              </div>
+            )}
+            {historicoVisivel.map((g) => (
               <div key={g.ano} className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{g.ano}</h3>

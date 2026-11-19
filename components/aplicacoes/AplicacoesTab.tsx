@@ -30,7 +30,8 @@ import {
   descreverRentabilidade, usaTaxaAnual, INDEXADORES, INDEXADOR_LABEL, type Indexador,
 } from "@/utils/tesouroUtils";
 import {
-  indexadoresDoTipo, nomePadraoAplicacao, podeSemVencimento, temFgc, tiposParaIndexador, tributacaoDoTipo,
+  indexadoresDoTipo, nomeCompletoAplicacao, podeSemVencimento, temFgc, tiposParaIndexador, tributacaoDoTipo,
+  familiaDoTipo, TIPO_APLICACAO_CURTO, type FamiliaAplicacao,
   TIPOS_APLICACAO, TIPO_APLICACAO_DESCRICAO, TIPO_APLICACAO_LABEL, type TipoAplicacao,
 } from "@/utils/tipoAplicacao";
 import {
@@ -41,6 +42,11 @@ import {
 // valor em formato calculadora)
 import MovCampoConta from "@/components/transacoes/MovCampoConta";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
+import BarraFiltros, { OpcoesFiltro, SelectFiltro } from "@/components/common/BarraFiltros";
+import {
+  contarPorTipo, filtrarRendaFixa, filtrosAtivosRendaFixa, FILTRO_RENDA_FIXA_PADRAO,
+  type FiltroRendaFixa, type ItemRendaFixa, type OrdemRendaFixa, type VencimentoFiltro,
+} from "@/utils/filtroInvestimentos";
 import MovCamposBasicos from "@/components/transacoes/MovCamposBasicos";
 import { useHideValues } from "@/contexts/HideValuesContext";
 import { formatarMoeda } from "@/utils/formatadores";
@@ -49,6 +55,32 @@ interface Props {
   contas: Conta[];
 }
 
+
+// Cor da etiqueta do tipo, por família: bancários azul, LCI/LCA verde (isentas, com FGC),
+// crédito privado âmbar (CRI, CRA, debêntures), Tesouro roxo; sem tipo, cinza
+const COR_FAMILIA: Record<FamiliaAplicacao, string> = {
+  bancario: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  isento_fgc: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  credito_privado: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  tesouro: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+};
+const COR_SEM_TIPO = "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+const corDoTipo = (tipo: string | null) => (tipo && tipo !== "sem_tipo" ? COR_FAMILIA[familiaDoTipo(tipo as TipoAplicacao)] : COR_SEM_TIPO);
+const rotuloDoTipo = (tipo: string | null) => (tipo && tipo !== "sem_tipo" ? TIPO_APLICACAO_CURTO[tipo as TipoAplicacao] : "Sem tipo");
+
+const OPCOES_ORDEM_RF: { valor: OrdemRendaFixa; rotulo: string }[] = [
+  { valor: "valor", rotulo: "Valor atual" },
+  { valor: "rendimento", rotulo: "Rendimento" },
+  { valor: "vencimento", rotulo: "Vencimento" },
+  { valor: "nome", rotulo: "Nome" },
+];
+const OPCOES_VENCIMENTO: { valor: VencimentoFiltro; rotulo: string }[] = [
+  { valor: "todos", rotulo: "Qualquer" },
+  { valor: "liquidez", rotulo: "Liquidez diária" },
+  { valor: "ate90", rotulo: "Vence em até 90 dias" },
+  { valor: "ate365", rotulo: "Vence em até 1 ano" },
+  { valor: "mais365", rotulo: "Vence em mais de 1 ano" },
+];
 
 // Datas "YYYY-MM-DD" (ou timestamps ISO) -> dd/mm/aaaa SEM passar por fuso
 const fmtIso = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
@@ -130,23 +162,11 @@ export default function AplicacoesTab({ contas }: Props) {
 
   const hoje = useMemo(() => new Date(), []);
 
-  const aplicacoesFiltradas = useMemo(
-    () => todasAplicacoes.filter((a) => a.resgatada === verHistorico),
-    [todasAplicacoes, verHistorico]
-  );
-
-  const gruposPorConta = useMemo(() => {
-    const grupos = new Map<string, Aplicacao[]>();
-    aplicacoesFiltradas.forEach((a) => {
-      if (!grupos.has(a.contaId)) grupos.set(a.contaId, []);
-      grupos.get(a.contaId)!.push(a);
-    });
-    return Array.from(grupos.entries()).map(([contaId, lista]) => ({
-      contaId,
-      nomeConta: nomeConta(contaId),
-      aplicacoes: lista,
-    }));
-  }, [aplicacoesFiltradas, nomeConta]);
+  // Filtros da lista (só enquanto a página está aberta); valem para Ativas e Histórico
+  const [filtroRf, setFiltroRf] = useState<FiltroRendaFixa>(FILTRO_RENDA_FIXA_PADRAO);
+  const mudarFiltroRf = <K extends keyof FiltroRendaFixa>(k: K, v: FiltroRendaFixa[K]) => setFiltroRf((f) => ({ ...f, [k]: v }));
+  const alternarNoFiltroRf = (k: "tipos" | "indexadores", v: string) =>
+    setFiltroRf((f) => ({ ...f, [k]: f[k].includes(v) ? f[k].filter((x) => x !== v) : [...f[k], v] }));
 
   // Lotes (aportes) no formato das funções puras
   const lotesDe = (a: Aplicacao): LoteEstado[] =>
@@ -420,6 +440,44 @@ export default function AplicacoesTab({ contas }: Props) {
     }
   }
 
+  // ── Lista: aplicações da aba (Ativas/Histórico), filtradas e ordenadas, agrupadas por conta ──
+  const daAba = todasAplicacoes.filter((a) => a.resgatada === verHistorico);
+  const itensRf: (ItemRendaFixa & { aplicacao: Aplicacao })[] = daAba.map((a) => {
+    const visao = a.resgatada ? null : visaoAtiva(a);
+    const valor = visao ? visao.est.valorBruto : Number(a.valorAtual);
+    const principal = visao ? visao.est.principal : Number(a.valorPrincipal);
+    return {
+      aplicacao: a,
+      id: a.id,
+      nome: a.descricao || descreverRentabilidade(a),
+      textosBusca: [
+        descreverRentabilidade(a), rotuloDoTipo(a.tipo), a.tipo ? TIPO_APLICACAO_DESCRICAO[a.tipo] : null,
+        INDEXADOR_LABEL[a.indexador], nomeConta(a.contaId),
+      ],
+      tipo: a.tipo ?? "sem_tipo",
+      indexador: a.indexador,
+      contaId: a.contaId,
+      vencimento: a.dataVencimento ? a.dataVencimento.slice(0, 10) : null,
+      valor,
+      rendimento: valor - principal,
+    };
+  });
+  const visiveisRf = filtrarRendaFixa(itensRf, filtroRf, hojeIso);
+  // Grupos na ordem em que a primeira aplicação de cada conta aparece na lista ordenada
+  const gruposPorConta: { contaId: string; nomeConta: string; aplicacoes: Aplicacao[] }[] = [];
+  for (const item of visiveisRf) {
+    let grupo = gruposPorConta.find((g) => g.contaId === item.contaId);
+    if (!grupo) {
+      grupo = { contaId: item.contaId, nomeConta: nomeConta(item.contaId), aplicacoes: [] };
+      gruposPorConta.push(grupo);
+    }
+    grupo.aplicacoes.push(item.aplicacao);
+  }
+  const qtdFiltrosRf = filtrosAtivosRendaFixa(filtroRf);
+  const qtdMaisFiltrosRf = (filtroRf.indexadores.length ? 1 : 0) + (filtroRf.contaId ? 1 : 0) + (filtroRf.vencimento !== "todos" ? 1 : 0);
+  const contasDaAba = Array.from(new Set(daAba.map((a) => a.contaId)));
+  const indexadoresDaAba = INDEXADORES.filter((i) => daAba.some((a) => a.indexador === i));
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -428,9 +486,9 @@ export default function AplicacoesTab({ contas }: Props) {
     );
   }
 
-  // Sem descrição: "CDB", "LCI IPCA+", "Tesouro Selic"; aplicação antiga sem tipo: "Aplicação em CDI"
-  const nomeAplicacao = (a: Aplicacao) =>
-    a.descricao || (a.tipo ? nomePadraoAplicacao(a) : `Aplicação em ${nomePadraoAplicacao(a)}`);
+  // Diálogos e mensagens: descrição ou tipo com a rentabilidade ("CDB 110% do CDI").
+  // No card, sem descrição, o título é a rentabilidade e o tipo vai na etiqueta
+  const nomeAplicacao = (a: Aplicacao) => nomeCompletoAplicacao(a);
 
   return (
     // Entra com animação quando os dados chegam (o carregamento retorna antes, com esqueleto)
@@ -464,7 +522,80 @@ export default function AplicacoesTab({ contas }: Props) {
         )}
       </div>
 
-      {gruposPorConta.length === 0 ? (
+      {daAba.length > 0 && (
+        <div className="mb-5">
+          <BarraFiltros
+            busca={filtroRf.busca}
+            onBusca={(v) => mudarFiltroRf("busca", v)}
+            placeholderBusca="Buscar aplicação"
+            etiquetas={Array.from(contarPorTipo(itensRf))
+              .sort(([a], [b]) => (a === "sem_tipo" ? 1 : b === "sem_tipo" ? -1 : rotuloDoTipo(a).localeCompare(rotuloDoTipo(b), "pt-BR")))
+              .map(([tipo, qtd]) => ({ valor: tipo, rotulo: rotuloDoTipo(tipo), qtd, cor: corDoTipo(tipo) }))}
+            marcadas={filtroRf.tipos}
+            onAlternarEtiqueta={(v) => alternarNoFiltroRf("tipos", v)}
+            qtdMaisFiltros={qtdMaisFiltrosRf}
+            maisFiltros={(modo) => (
+              <>
+                {modo === "painel" && indexadoresDaAba.length > 1 && (
+                  <OpcoesFiltro
+                    titulo="Indexador"
+                    opcoes={indexadoresDaAba.map((i) => ({ valor: i, rotulo: INDEXADOR_LABEL[i] }))}
+                    marcadas={filtroRf.indexadores}
+                    onAlternar={(v) => alternarNoFiltroRf("indexadores", v)}
+                  />
+                )}
+                <SelectFiltro
+                  modo={modo}
+                  titulo="Vencimento"
+                  valor={filtroRf.vencimento}
+                  opcoes={OPCOES_VENCIMENTO}
+                  onMudar={(v) => mudarFiltroRf("vencimento", v as VencimentoFiltro)}
+                />
+                {contasDaAba.length > 1 && (
+                  <SelectFiltro
+                    modo={modo}
+                    titulo="Conta"
+                    valor={filtroRf.contaId || "todas"}
+                    opcoes={[{ valor: "todas", rotulo: "Todas" }, ...contasDaAba.map((id) => ({ valor: id, rotulo: nomeConta(id) }))]}
+                    onMudar={(v) => mudarFiltroRf("contaId", v === "todas" ? "" : v)}
+                  />
+                )}
+              </>
+            )}
+            extrasEtiquetas={indexadoresDaAba.length > 1 ? (
+              <OpcoesFiltro
+                emLinha
+                titulo="Indexador"
+                opcoes={indexadoresDaAba.map((i) => ({ valor: i, rotulo: INDEXADOR_LABEL[i] }))}
+                marcadas={filtroRf.indexadores}
+                onAlternar={(v) => alternarNoFiltroRf("indexadores", v)}
+              />
+            ) : undefined}
+            ordem={filtroRf.ordem}
+            opcoesOrdem={OPCOES_ORDEM_RF}
+            onOrdem={(v) => mudarFiltroRf("ordem", v as OrdemRendaFixa)}
+            filtrando={qtdFiltrosRf > 0}
+            resumo={<>
+              {visiveisRf.length} de {daAba.length} {daAba.length === 1 ? "aplicação" : "aplicações"} ·{" "}
+              {mask(formatarMoeda(visiveisRf.reduce((s, i) => s + i.valor, 0)))}
+            </>}
+            onLimpar={() => setFiltroRf((f) => ({ ...FILTRO_RENDA_FIXA_PADRAO, ordem: f.ordem }))}
+          />
+        </div>
+      )}
+
+      {daAba.length > 0 && gruposPorConta.length === 0 ? (
+        <div className="text-center py-10 bg-gray-50 dark:bg-gray-900/40 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">Nenhuma aplicação com esses filtros</p>
+          <button
+            type="button"
+            onClick={() => setFiltroRf((f) => ({ ...FILTRO_RENDA_FIXA_PADRAO, ordem: f.ordem }))}
+            className="mt-2 text-sm font-medium text-blue-700 hover:underline dark:text-blue-400"
+          >
+            Limpar filtros
+          </button>
+        </div>
+      ) : gruposPorConta.length === 0 ? (
         <div className="text-center py-12 md:py-16 bg-gray-50 dark:bg-gray-900/40 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
           <PiggyBank className="mx-auto mb-4 text-gray-300 dark:text-gray-700" size={48} />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -472,7 +603,7 @@ export default function AplicacoesTab({ contas }: Props) {
           </h3>
           {!verHistorico && (
             <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto px-4">
-              Aplique um valor da sua conta em CDI ou Selic e acompanhe o rendimento diário aqui.
+              Aplique um valor da sua conta (CDB, LCI, Tesouro Direto...) e acompanhe o rendimento diário aqui.
             </p>
           )}
         </div>
@@ -542,12 +673,18 @@ export default function AplicacoesTab({ contas }: Props) {
                             <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                              {nomeAplicacao(a)}
-                            </p>
+                            {/* Título: a descrição ou, sem ela, a rentabilidade; o tipo vai na etiqueta */}
+                            <div className="flex items-center gap-2 min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                {a.descricao || descreverRentabilidade(a)}
+                              </p>
+                              <Badge className={cn("text-[10px] px-2 py-0.5 border-0 flex-shrink-0", corDoTipo(a.tipo))}>
+                                {rotuloDoTipo(a.tipo)}
+                              </Badge>
+                            </div>
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                               {/* em português: "120%" ou "102,5%" (o banco devolve "120.00") */}
-                              {a.tipo && a.descricao && `${TIPO_APLICACAO_LABEL[a.tipo]} · `}{descreverRentabilidade(a)} · {resumoPrazo}
+                              {a.descricao ? `${descreverRentabilidade(a)} · ${resumoPrazo}` : resumoPrazo}
                             </p>
                           </div>
                           <div className="text-right flex-shrink-0">

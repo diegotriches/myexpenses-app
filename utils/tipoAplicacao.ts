@@ -5,7 +5,7 @@
 // aplicação não tem descrição. Aplicações criadas antes de 19/11/2026 podem
 // estar sem tipo (null) até o usuário definir.
 
-import { INDEXADOR_LABEL, type Indexador } from "./tesouroUtils";
+import { descreverRentabilidade, INDEXADOR_LABEL, type Indexador } from "./tesouroUtils";
 import type { Tributacao } from "./aplicacaoUtils";
 
 export const TIPOS_APLICACAO = [
@@ -29,6 +29,23 @@ export const TIPO_APLICACAO_LABEL: Record<TipoAplicacao, string> = {
   debenture_incentivada: "Debênture incentivada",
   tesouro: "Tesouro Direto",
 };
+
+/** Rótulo curto, para a etiqueta do card */
+export const TIPO_APLICACAO_CURTO: Record<TipoAplicacao, string> = {
+  ...TIPO_APLICACAO_LABEL,
+  debenture_incentivada: "Deb. incentivada",
+  tesouro: "Tesouro",
+};
+
+/** Família do produto, para a cor da etiqueta */
+export type FamiliaAplicacao = "bancario" | "isento_fgc" | "credito_privado" | "tesouro";
+
+export function familiaDoTipo(tipo: TipoAplicacao): FamiliaAplicacao {
+  if (tipo === "tesouro") return "tesouro";
+  if (tipo === "lci" || tipo === "lca") return "isento_fgc";
+  if (tipo === "cdb" || tipo === "rdb" || tipo === "lc") return "bancario";
+  return "credito_privado"; // CRI, CRA, debêntures
+}
 
 /** Nome por extenso, para a lista de escolha */
 export const TIPO_APLICACAO_DESCRICAO: Record<TipoAplicacao, string> = {
@@ -87,4 +104,21 @@ export function nomePadraoAplicacao(a: { tipo?: string | null; indexador: string
     return a.indexador === "cdi" ? tipo : `${tipo} ${indexador}`;
   }
   return indexador;
+}
+
+/**
+ * Nome completo, para títulos de diálogo e mensagens: a descrição ou, sem ela,
+ * o tipo com a rentabilidade ("CDB 110% do CDI", "Tesouro IPCA + 6,2% a.a.").
+ * No card, sem descrição, o título é só a rentabilidade, e o tipo vai na etiqueta.
+ */
+export function nomeCompletoAplicacao(a: {
+  descricao?: string | null;
+  tipo?: string | null;
+  indexador: string;
+  percentualIndexador: string | number;
+  taxaAnual?: string | number | null;
+}): string {
+  if (a.descricao) return a.descricao;
+  const rentabilidade = descreverRentabilidade(a);
+  return ehTipoAplicacao(a.tipo) ? `${TIPO_APLICACAO_CURTO[a.tipo]} ${rentabilidade}` : rentabilidade;
 }
