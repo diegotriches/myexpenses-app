@@ -27,6 +27,10 @@ export interface TransacaoBase {
   parcelamentoId?: string | null;
   parcelas?: number | null;
   parcelaAtual?: number | null;
+  /** Valor original da compra parcelada (soma das parcelas, com as antecipadas), calculado pela listagem */
+  totalParcelamento?: number | null;
+  /** Parcelas antecipadas desse parcelamento (o total de parcelas da linha já vem reduzido) */
+  parcelasAntecipadas?: number;
 
   // Recorrência
   recorrente?: boolean;

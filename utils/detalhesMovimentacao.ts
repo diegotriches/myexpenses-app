@@ -1,5 +1,6 @@
-// Informações extras do painel de detalhes da movimentação, calculadas só com
-// o que a listagem do mês já traz (a própria linha e as outras do mês)
+// Informações extras do painel de detalhes da movimentação, calculadas com o
+// que a listagem do mês já traz (a própria linha, as outras do mês e o total do
+// parcelamento, que a API calcula com `totalOriginalParcelamento`)
 import type { Transacao } from "@/types/transacao";
 import type { Cartao } from "@/types/cartao";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
@@ -26,6 +27,33 @@ export function resumoParcelamento(
     restantes: total - atual,
     ultimaParcela: adicionarMeses(new Date(mov.data), total - atual),
   };
+}
+
+export interface AntecipacaoDoParcelamento {
+  valorFaceAntecipado: number;
+  valorComDesconto: number;
+  /** O valor antecipado foi somado a uma parcela do próprio parcelamento (senão, virou transação à parte) */
+  mesclada: boolean;
+  quantidade: number;
+}
+
+/**
+ * Valor original da compra parcelada: a soma das parcelas que existem hoje, mais
+ * o valor de face das parcelas antecipadas (apagadas na antecipação), menos o que
+ * a antecipação somou a uma parcela do grupo. O desconto da antecipação não muda
+ * o preço da compra.
+ */
+export function totalOriginalParcelamento(
+  somaParcelas: number,
+  antecipacoes: AntecipacaoDoParcelamento[],
+): { total: number; parcelasAntecipadas: number } {
+  let total = somaParcelas;
+  let parcelasAntecipadas = 0;
+  for (const a of antecipacoes) {
+    total += a.valorFaceAntecipado - (a.mesclada ? a.valorComDesconto : 0);
+    parcelasAntecipadas += a.quantidade;
+  }
+  return { total: Math.round(total * 100) / 100, parcelasAntecipadas };
 }
 
 /** Fatura em que a compra no crédito caiu, pelo mesmo cálculo da API (`calcularFaturaDaTransacao`). */

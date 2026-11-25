@@ -6,6 +6,7 @@ import {
   foiAlterada,
   formatarDataHoraBrt,
   resumoParcelamento,
+  totalOriginalParcelamento,
 } from "@/utils/detalhesMovimentacao";
 import type { Transacao } from "@/types/transacao";
 
@@ -87,5 +88,33 @@ describe("foiAlterada", () => {
 describe("formatarDataHoraBrt", () => {
   it("converte para o horário de Brasília", () => {
     expect(formatarDataHoraBrt("2026-11-10T02:30:00.000Z")).toBe("09/11/2026 às 23:30");
+  });
+});
+
+describe("totalOriginalParcelamento", () => {
+  it("sem antecipação, é a soma das parcelas (com os centavos distribuídos)", () => {
+    // R$ 100 em 3x: 33,34 + 33,33 + 33,33
+    expect(totalOriginalParcelamento(100, [])).toEqual({ total: 100, parcelasAntecipadas: 0 });
+  });
+
+  it("antecipação em transação à parte: soma de volta o valor de face das parcelas apagadas", () => {
+    // 10x de R$ 100; 4 antecipadas com R$ 20 de desconto viraram uma transação de R$ 380 fora do grupo
+    const r = totalOriginalParcelamento(600, [{ valorFaceAntecipado: 400, valorComDesconto: 380, mesclada: false, quantidade: 4 }]);
+    expect(r).toEqual({ total: 1000, parcelasAntecipadas: 4 });
+  });
+
+  it("antecipação mesclada numa parcela do grupo: desconta o que foi somado a ela", () => {
+    // 10x de R$ 100; 4 antecipadas (R$ 380 com desconto) somadas à parcela da fatura atual,
+    // que passou a valer R$ 480: as 6 linhas somam 980
+    const r = totalOriginalParcelamento(980, [{ valorFaceAntecipado: 400, valorComDesconto: 380, mesclada: true, quantidade: 4 }]);
+    expect(r).toEqual({ total: 1000, parcelasAntecipadas: 4 });
+  });
+
+  it("várias antecipações e centavos", () => {
+    const r = totalOriginalParcelamento(333.34, [
+      { valorFaceAntecipado: 333.33, valorComDesconto: 330, mesclada: false, quantidade: 1 },
+      { valorFaceAntecipado: 333.33, valorComDesconto: 333.33, mesclada: false, quantidade: 1 },
+    ]);
+    expect(r).toEqual({ total: 1000, parcelasAntecipadas: 2 });
   });
 });

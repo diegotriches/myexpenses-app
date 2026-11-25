@@ -81,7 +81,17 @@ export default function MovimentacaoDetalhes({
       <dl className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-3">
         <Item rotulo="Descrição" largo>{mov.descricao || "(Sem descrição)"}</Item>
         <Item rotulo="Data">{formatarDataParaExibicao(mov.data)}</Item>
-        <Item rotulo="Valor">{fmt(mov.valor)}</Item>
+        <Item rotulo={parcelas ? "Valor da parcela" : "Valor"}>{fmt(mov.valor)}</Item>
+        {parcelas && mov.totalParcelamento != null && (
+          <Item rotulo="Total da compra">
+            {fmt(mov.totalParcelamento)}
+            {(mov.parcelasAntecipadas ?? 0) > 0 && (
+              <span className="text-gray-500 dark:text-gray-400">
+                {" "}· inclui {mov.parcelasAntecipadas === 1 ? "1 parcela antecipada" : `${mov.parcelasAntecipadas} parcelas antecipadas`}
+              </span>
+            )}
+          </Item>
+        )}
 
         {mov.categoria && <Item rotulo="Categoria">{mov.categoria}</Item>}
         {estabelecimento && <Item rotulo="Estabelecimento">{estabelecimento.nome}</Item>}

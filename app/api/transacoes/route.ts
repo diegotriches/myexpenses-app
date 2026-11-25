@@ -3,14 +3,15 @@ import { comprasTotalmenteEstornadas } from "@/lib/estornoTransacao";
 import { calcularLimiteDisponivel } from "@/lib/limiteCartao";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { transacoes, contas, cartoes, faturas } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { transacoes, contas, cartoes, faturas, antecipacoesParcela } from "@/db/schema";
+import { eq, and, sql, inArray, sum } from "drizzle-orm";
 import { getUserId } from "@/lib/auth";
 import { ErroFinanceiro, movimentarConta } from "@/lib/movimentacaoConta";
 import { garantirDono } from "@/lib/garantirDono";
 import { calcularFaturaDaTransacao } from "@/utils/faturaUtils";
 import { calcularIntervaloAno, lerAnoDaRequisicao } from "@/utils/periodoAno";
 import { respostaDeErro } from "@/lib/rota";
+import { totalOriginalParcelamento, type AntecipacaoDoParcelamento } from "@/utils/detalhesMovimentacao";
 
 export async function GET(req: NextRequest) {
   try {
@@ -72,11 +73,45 @@ export async function GET(req: NextRequest) {
       return pagas.has(`${t.cartaoId}-${mes}-${ano}`);
     };
 
-    return NextResponse.json(result.map((t) => ({
-      ...t,
-      totalmenteEstornada: estornadas.has(t.id),
-      emFaturaPaga: emFaturaPaga(t),
-    })));
+    // Total original de cada compra parcelada do período (as outras parcelas podem
+    // estar em outros meses): soma do grupo inteiro, com as parcelas antecipadas
+    const idsParcelamento = Array.from(new Set(result.map((t) => t.parcelamentoId).filter((id): id is string => !!id)));
+    const totalPorParcelamento = new Map<string, { total: number; parcelasAntecipadas: number }>();
+    if (idsParcelamento.length > 0) {
+      const [somas, antecipacoes] = await Promise.all([
+        db.select({ parcelamentoId: transacoes.parcelamentoId, soma: sum(transacoes.valor) }).from(transacoes)
+          .where(and(eq(transacoes.userId, userId), inArray(transacoes.parcelamentoId, idsParcelamento)))
+          .groupBy(transacoes.parcelamentoId),
+        db.select().from(antecipacoesParcela)
+          .where(and(eq(antecipacoesParcela.userId, userId), inArray(antecipacoesParcela.parcelamentoId, idsParcelamento))),
+      ]);
+      const antecipacoesPor = new Map<string, AntecipacaoDoParcelamento[]>();
+      for (const a of antecipacoes) {
+        const lista = antecipacoesPor.get(a.parcelamentoId) ?? [];
+        lista.push({
+          valorFaceAntecipado: Number(a.valorFaceAntecipado),
+          valorComDesconto: Number(a.valorComDesconto),
+          mesclada: a.valorOriginalTransacaoMesclada !== null,
+          quantidade: a.quantidadeAntecipada,
+        });
+        antecipacoesPor.set(a.parcelamentoId, lista);
+      }
+      for (const s of somas) {
+        if (!s.parcelamentoId) continue;
+        totalPorParcelamento.set(s.parcelamentoId, totalOriginalParcelamento(Number(s.soma ?? 0), antecipacoesPor.get(s.parcelamentoId) ?? []));
+      }
+    }
+
+    return NextResponse.json(result.map((t) => {
+      const parcelamento = t.parcelamentoId ? totalPorParcelamento.get(t.parcelamentoId) : undefined;
+      return {
+        ...t,
+        totalmenteEstornada: estornadas.has(t.id),
+        emFaturaPaga: emFaturaPaga(t),
+        totalParcelamento: parcelamento?.total ?? null,
+        parcelasAntecipadas: parcelamento?.parcelasAntecipadas ?? 0,
+      };
+    }));
   } catch (err) {
     return respostaDeErro(err);
   }
